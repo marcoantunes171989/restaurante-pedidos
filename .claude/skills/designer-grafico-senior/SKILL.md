@@ -17,10 +17,10 @@ Toda entrega visual deve comunicar **confiança, praticidade e eficiência**, un
 correta (confiança), acentos de apetite/frescor nos pontos certos (alimentação).
 
 ## Onde cada cor entra (resumo — detalhe na skill `identidade-visual`)
-- 🟧 **Laranja `#E67E22`** — ações principais (botões, CTAs, item ativo).
-- 🔵 **Azul petróleo `#0F4C5C`** — barras, menus e navegação (header, sidebar, abas, rodapé).
+- 🟧 **Laranja `#F38525`** — ações principais (botões, CTAs, item ativo).
+- 🔵 **Azul petróleo `#012E46`** — barras, menus e navegação (header, sidebar, abas, rodapé).
 - 🟩 **Verde `#5E8C31`** — confirmações, status positivos e destaques.
-- ⬜ **Off-white `#F8F6F2`** / branco — fundos e superfícies neutras.
+- ⬜ **Off-white `#FFFFFF`** / branco — fundos e superfícies neutras.
 - ▫️ **Cinza claro `#E6E6E6`** — bordas e divisórias.
 - ⬛ **Grafite `#2D3436`** — textos e ícones.
 

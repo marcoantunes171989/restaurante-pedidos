@@ -121,7 +121,7 @@ const TEMPOS_PREPARO = ["5-10 min", "10-15 min", "15-20 min", "20-30 min", "25-3
 
 // Classes OFICIAIS de campo do admin (branco + foco petróleo) — padrão
 // SetorImpressorasAdmin. Reusadas no modal de produto e nos primitivos.
-const PP_INP = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+const PP_INP = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]";
 // min-h + leading-tight: rótulos de 1 e 2 linhas ocupam a MESMA altura, então os
 // inputs logo abaixo ficam alinhados em toda linha de grid (padrão entre abas).
 const PP_LBL = "mb-1 block min-h-[30px] text-[11px] font-semibold uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]";
@@ -315,8 +315,8 @@ const initialUsers = [
 // warning/success/danger) — únicos consumidores oficiais dessas 4 cores;
 // "delivered" fica neutro (cinza), sem cor semântica própria.
 export const statusMap = {
-  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-[var(--pp-info)]",  chip: "bg-[var(--pp-info-soft)] text-[var(--pp-info)] border-[#0F4C5C]/15" },
-  preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-[#F59E0B]",  chip: "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)] border-[#F59E0B]/25" },
+  received:  { label: "Recebido",     title: "Pedido recebido",    order: 1, progress: 25,  dot: "bg-[var(--pp-info)]",  chip: "bg-[var(--pp-info-soft)] text-[var(--pp-info)] border-[#012E46]/15" },
+  preparing: { label: "Em preparação",title: "Em preparação",      order: 2, progress: 65,  dot: "bg-[#F38525]",  chip: "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)] border-[#F38525]/25" },
   ready:     { label: "Finalizado",   title: "Pedido finalizado",  order: 3, progress: 100, dot: "bg-[#16A34A]",  chip: "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)] border-[#16A34A]/20" },
   delivered: { label: "Entregue",     title: "Pedido entregue",    order: 4, progress: 100, dot: "bg-slate-500",  chip: "bg-slate-100 text-slate-600 border-slate-200" },
   cancelled: { label: "Cancelado",    title: "Pedido cancelado",   order: 5, progress: 0,   dot: "bg-[#DC2626]",  chip: "bg-[var(--pp-danger-soft)] text-[#DC2626] border-[#DC2626]/20" },
@@ -3353,26 +3353,26 @@ export default function RestaurantePedidoApp() {
           paddingTop: "env(safe-area-inset-top)",
           paddingBottom: "env(safe-area-inset-bottom)",
           backgroundImage:
-            "radial-gradient(34rem 34rem at -8rem -8rem, rgba(15,76,92,0.06), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 8rem) calc(100% + 8rem), rgba(230,126,34,0.05), transparent 70%)",
+            "radial-gradient(34rem 34rem at -8rem -8rem, rgba(1, 46, 70,0.06), transparent 70%), radial-gradient(30rem 30rem at calc(100% + 8rem) calc(100% + 8rem), rgba(243, 133, 37,0.05), transparent 70%)",
         }}>
         {/* Textura de pontos bem discreta (papel gourmet) */}
         <div className="pointer-events-none absolute inset-0 opacity-[0.035]"
-          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #0F4C5C 1px, transparent 0)", backgroundSize: "34px 34px" }} />
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #012E46 1px, transparent 0)", backgroundSize: "34px 34px" }} />
 
         <div className="relative flex flex-col items-center gap-6 text-center">
           {/* Logo com anel fino girando (petróleo→laranja) */}
           <div className="relative flex h-24 w-24 items-center justify-center">
-            <span className="pp-load-ring absolute inset-0 rounded-full border-2 border-[#0F4C5C]/12 border-t-[#0F4C5C]" aria-hidden="true" />
+            <span className="pp-load-ring absolute inset-0 rounded-full border-2 border-[#012E46]/12 border-t-[#012E46]" aria-hidden="true" />
             <LogoPP size={68} />
           </div>
 
           <div>
-            <h1 className="text-2xl font-black tracking-tight"><span className="text-[#0F4C5C]">Pedido</span> <span className="text-[#E67E22]">Prime</span></h1>
+            <h1 className="text-2xl font-black tracking-tight"><span className="text-[#012E46]">Pedido</span> <span className="text-[#F38525]">Prime</span></h1>
             <p className="mt-1.5 text-sm text-[var(--pp-text-muted)]">Preparando o ambiente do seu restaurante…</p>
           </div>
 
           {/* Ícones de restaurante em sequência (staggered) — talheres, chapéu, chama, comanda */}
-          <div className="flex items-end gap-3.5 text-[#0F4C5C]" role="img" aria-label="Preparando o restaurante">
+          <div className="flex items-end gap-3.5 text-[#012E46]" role="img" aria-label="Preparando o restaurante">
             {[
               // Talheres (garfo + faca)
               <svg key="cut" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2v7a2 2 0 0 0 2 2h0V2M7 5v0M11 2v9M9 11v11M17 2c-1.5 1-2.5 3-2.5 6 0 1.5 1 2 2.5 2v11" /></svg>,
@@ -3388,10 +3388,10 @@ export default function RestaurantePedidoApp() {
           </div>
 
           {/* Barra de progresso indeterminada (petróleo→laranja) */}
-          <div className="relative h-1.5 w-56 max-w-[70vw] overflow-hidden rounded-full bg-[#0F4C5C]/[0.08]">
-            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #17667A, #0F4C5C)" }} />
+          <div className="relative h-1.5 w-56 max-w-[70vw] overflow-hidden rounded-full bg-[#012E46]/[0.08]">
+            <div className="pp-load-bar absolute inset-y-0 left-0 w-1/3 rounded-full" style={{ background: "linear-gradient(90deg, #012E46, #012E46)" }} />
           </div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-[#0F4C5C]">Inicializando sistema…</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[#012E46]">Inicializando sistema…</p>
         </div>
       </div>
       </div>
@@ -3499,13 +3499,13 @@ export default function RestaurantePedidoApp() {
                 if (fn) fn.call(document).catch(() => {});
               }
               openTab(tab.id);
-            }} className={`rounded-3xl border p-4 text-left transition ${activeTab === tab.id ? "border-[#E67E22] bg-[#E67E22] text-white shadow-xl shadow-black/30" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
+            }} className={`rounded-3xl border p-4 text-left transition ${activeTab === tab.id ? "border-[#F38525] bg-[#F38525] text-[#012E46] shadow-xl shadow-black/30" : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
               <p className="text-sm font-black">{tab.label}</p>
               <p className="mt-1 text-xs opacity-75">{tab.desc}</p>
             </button>
           ))}
           {["pedidos", "cozinha", "bar", "caixa"].some((k) => acessosOperacionais(currentUser)[k]) && (
-            <button onClick={() => { setActiveTab("opmobile"); clearMessage(); }} className={`rounded-3xl border p-4 text-left transition ${activeTab === "opmobile" ? "border-[#E67E22] bg-[#E67E22] text-white shadow-xl shadow-black/30" : "border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] hover:bg-[#E67E22]/20"}`}>
+            <button onClick={() => { setActiveTab("opmobile"); clearMessage(); }} className={`rounded-3xl border p-4 text-left transition ${activeTab === "opmobile" ? "border-[#F38525] bg-[#F38525] text-[#012E46] shadow-xl shadow-black/30" : "border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] hover:bg-[#F38525]/20"}`}>
               <p className="text-sm font-black">📱 Operação Mobile</p>
               <p className="mt-1 text-xs opacity-75">Central de pedidos, cozinha, bar e caixa no celular</p>
             </button>
@@ -4182,7 +4182,7 @@ function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, i
         disabled
           ? "cursor-not-allowed border-[var(--client-disabled-border)] bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]"
           : selecionado
-            ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-text-primary)] shadow-[0_1px_2px_rgba(230,126,34,.15)]"
+            ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-text-primary)] shadow-[0_1px_2px_rgba(243, 133, 37,.15)]"
             : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)] hover:bg-[var(--client-surface-secondary)]"
       }`}>
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
@@ -4505,7 +4505,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
                 className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
                   statusEnvio === "erro" ? "bg-[var(--client-error)]" : "btn-laranja bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
-                } disabled:opacity-50 shadow-lg shadow-[#E67E22]/20`}>
+                } disabled:opacity-50 shadow-lg shadow-[#F38525]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
                   {statusEnvio === "enviando" && <PmIconSpinner />}
                   {statusEnvio === "sucesso" && <PmIconCheck width={16} height={16} />}
@@ -4529,8 +4529,8 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 }
 
 const kitchenCols = [
-  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[#0F4C5C]", text: "text-[#0B3A46]", header: "border-[#B0C9D0] bg-[#E6EEF1]", card: "border-[#E5E7EB]" },
-  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-[#D9A441]", text: "text-[#9A6A00]", header: "border-[#F4D27A] bg-[#FFF7E0]", card: "border-[#E5E7EB]" },
+  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[#012E46]", text: "text-[#012E46]", header: "border-[#9BB4C0] bg-[#E8EDF0]", card: "border-[#E5E7EB]" },
+  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-[#F38525]", text: "text-[#9A6A00]", header: "border-[#F4D27A] bg-[#FFF7E0]", card: "border-[#E5E7EB]" },
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
 ];
 
@@ -4608,9 +4608,9 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
       {setoresAtivos.length > 0 && (
         <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white px-6 py-2">
           <span className="shrink-0 text-[11px] font-bold uppercase tracking-widest text-[#667085]">Setor:</span>
-          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro == null ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>Todos</button>
+          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro == null ? "border-[#F38525] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>Todos</button>
           {setoresAtivos.map((s) => (
-            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro === s.id ? "border-[#D9A441] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>{s.nome}</button>
+            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro === s.id ? "border-[#F38525] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>{s.nome}</button>
           ))}
         </div>
       )}
@@ -4667,7 +4667,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-[#E5E7EB] bg-white px-2.5 py-0.5 text-[11px] font-black text-[#475467]">{pedidos.length} pedido(s)</span>
-                        <span className="rounded-full border border-[#B0C9D0] bg-[#E6EEF1] px-2.5 py-0.5 text-[11px] font-black text-[#0B3A46]">{totalItensMesa} item(ns)</span>
+                        <span className="rounded-full border border-[#9BB4C0] bg-[#E8EDF0] px-2.5 py-0.5 text-[11px] font-black text-[#012E46]">{totalItensMesa} item(ns)</span>
                       </div>
                     </div>
 
@@ -4684,7 +4684,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E7EB] px-4 py-2.5">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{order.id} • {order.createdAt}</p>
-                        <p className="mt-0.5 font-mono text-sm font-black text-[#0B3A46]">{order.command}</p>
+                        <p className="mt-0.5 font-mono text-sm font-black text-[#012E46]">{order.command}</p>
                         {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}{order.pagamentoTrocoPara > 0 ? ` · Troco p/ ${formatCurrency(order.pagamentoTrocoPara)}` : ""}</p>}
                         {pedidoAguardandoPagamento(order) && (
                           <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#FDA4AF] bg-[#FFF1F2] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#B42318]">
@@ -4750,8 +4750,8 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                             ${entregandoId === order.id
                               ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
                               : pedidoAguardandoPagamento(order)
-                              ? "border-[#FDE1B0] bg-[#FFF4E5] text-[#B45309] hover:bg-[#FDE1B0]"
-                              : "border-[#D9A441] bg-[#D9A441] text-[#182230] hover:bg-[#C7922F]"}`}>
+                              ? "border-[#FDE1B0] bg-[#FFF4E5] text-[#012E46] hover:bg-[#FDE1B0]"
+                              : "border-[#F38525] bg-[#F38525] text-[#182230] hover:bg-[#F38525]"}`}>
                           {entregandoId === order.id ? "Enviando…" : "🛎️ Marcar como Entregue"}
                         </button>
                       )}
@@ -4864,7 +4864,7 @@ function AvisoPagamentoPendenteModal({ pedido, onFechar }) {
             Por regra do estabelecimento, o produto só pode ser liberado depois que o pagamento for confirmado no <strong className="text-[#182230]">Caixa</strong>.
           </p>
           <div className="mt-3 rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] p-3.5">
-            <p className="text-xs font-black uppercase tracking-widest text-[#B45309]">O que fazer agora</p>
+            <p className="text-xs font-black uppercase tracking-widest text-[#012E46]">O que fazer agora</p>
             <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs leading-5 text-[#7A4A00]">
               <li>Encaminhe o cliente (ou o pedido) para o Caixa.</li>
               <li>No Caixa, confirme o recebimento do pagamento.</li>
@@ -4883,8 +4883,8 @@ function AvisoPagamentoPendenteModal({ pedido, onFechar }) {
 }
 
 const panelStatusConfig = {
-  received:  { col: "border-[#B0C9D0] bg-[#E6EEF1]", text: "text-[#0B3A46]", num: "bg-[#0F4C5C]", bar: "bg-[#0F4C5C]", icon: "⏳",   progress: 25  },
-  preparing: { col: "border-[#F4D27A] bg-[#FFF7E0]", text: "text-[#9A6A00]", num: "bg-[#D9A441]", bar: "bg-[#D9A441]", icon: "👨‍🍳", progress: 65  },
+  received:  { col: "border-[#9BB4C0] bg-[#E8EDF0]", text: "text-[#012E46]", num: "bg-[#012E46]", bar: "bg-[#012E46]", icon: "⏳",   progress: 25  },
+  preparing: { col: "border-[#F4D27A] bg-[#FFF7E0]", text: "text-[#9A6A00]", num: "bg-[#F38525]", bar: "bg-[#F38525]", icon: "👨‍🍳", progress: 65  },
   ready:     { col: "border-[#86EFAC] bg-[#ECFDF3]", text: "text-[#047857]", num: "bg-[#16A34A]", bar: "bg-[#16A34A]", icon: "✅",   progress: 100 },
 };
 
@@ -4992,7 +4992,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
             <LogoPP size={60} className="h-full w-full" />
           </div>
           <div>
-            <p className="font-black uppercase tracking-[0.25em] text-[#D9A441] leading-none" style={{ fontSize: "clamp(8px,0.85vw,13px)" }}>
+            <p className="font-black uppercase tracking-[0.25em] text-[#F38525] leading-none" style={{ fontSize: "clamp(8px,0.85vw,13px)" }}>
               Painel de Pedidos
             </p>
             <h1 className="font-black tracking-tight text-[#182230] leading-tight"
@@ -5102,7 +5102,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                             {order.table.replace("Mesa ", "")}
                           </p>
                           {order.customer && (
-                            <p className="mt-[0.3vh] font-bold text-[#0F4C5C] truncate"
+                            <p className="mt-[0.3vh] font-bold text-[#012E46] truncate"
                               style={{ fontSize: "clamp(9px,1vw,15px)" }}>👤 {order.customer}</p>
                           )}
                         </div>
@@ -5144,9 +5144,9 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
                         }
                         if (key === "received") {
                           return (
-                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-[#B0C9D0] bg-[#E6EEF1] px-[1vw] py-[0.5vh]">
-                              <span className="font-bold uppercase tracking-widest text-[#0B3A46]" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
-                              {estMin > 0 && <span className="font-black text-[#0B3A46]" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
+                            <div className="mb-[0.8vh] flex items-center justify-between rounded-[0.8vw] border border-[#9BB4C0] bg-[#E8EDF0] px-[1vw] py-[0.5vh]">
+                              <span className="font-bold uppercase tracking-widest text-[#012E46]" style={{ fontSize: "clamp(6px,0.6vw,9px)" }}>⏳ Na fila</span>
+                              {estMin > 0 && <span className="font-black text-[#012E46]" style={{ fontSize: "clamp(9px,1vw,14px)" }}>~{estMin}min preparo</span>}
                             </div>
                           );
                         }
@@ -5205,8 +5205,8 @@ function numeroParaMoeda(num) {
 // CompanySelector — seletor de "Empresa em foco" (super admin). Fica sobre o
 // menu AZUL PETRÓLEO profundo (--pp-nav) e segue o mesmo esquema monocromático:
 // seleção/hover/foco/borda/✓ no petróleo CLARO (--pp-nav-accent), tom sobre
-// tom, com tints rgba(88,183,205,*) nos fundos, rótulos em branco e o painel
-// do dropdown numa superfície de petróleo elevada (#0F4A5A).
+// tom, com tints rgba(243, 133, 37,*) nos fundos, rótulos em branco e o painel
+// do dropdown numa superfície de petróleo elevada (#012E46).
 function CompanySelector({ lojas = [], valor, onChange }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca]   = useState("");
@@ -5214,14 +5214,14 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[12px] transition duration-150 ${sel ? "border-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.14)] text-white" : "border-transparent text-white/85 hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(88,183,205,0.10)]"}`;
-  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[rgba(88,183,205,0.5)] bg-[rgba(88,183,205,0.16)] text-[var(--pp-nav-accent)]" : "border-white/10 bg-white/[0.05] text-white/70 group-hover:text-[var(--pp-nav-accent)]"}`;
+  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[12px] transition duration-150 ${sel ? "border-[var(--pp-nav-accent)] bg-[rgba(243, 133, 37,0.14)] text-white" : "border-transparent text-white/85 hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(243, 133, 37,0.10)]"}`;
+  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[rgba(243, 133, 37,0.5)] bg-[rgba(243, 133, 37,0.16)] text-[var(--pp-nav-accent)]" : "border-white/10 bg-white/[0.05] text-white/70 group-hover:text-[var(--pp-nav-accent)]"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`group flex min-h-[38px] w-full items-center gap-2 rounded-[14px] border px-2.5 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] ${aberto ? "border-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(88,183,205,0.10)]"}`}>
+        className={`group flex min-h-[38px] w-full items-center gap-2 rounded-[14px] border px-2.5 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] ${aberto ? "border-[var(--pp-nav-accent)] bg-[rgba(243, 133, 37,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(243, 133, 37,0.10)]"}`}>
         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`}>
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
@@ -5235,10 +5235,10 @@ function CompanySelector({ lojas = [], valor, onChange }) {
       {aberto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
-          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#0F4A5A] shadow-2xl">
+          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#012E46] shadow-2xl">
             {lojas.length > 6 && (
               <div className="border-b border-white/[0.08] p-2">
-                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 transition duration-150 focus-within:border-[var(--pp-nav-accent)] focus-within:ring-2 focus-within:ring-[rgba(88,183,205,0.25)]">
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 transition duration-150 focus-within:border-[var(--pp-nav-accent)] focus-within:ring-2 focus-within:ring-[rgba(243, 133, 37,0.25)]">
                   <span className="shrink-0 text-white/60"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
                     className="w-full bg-transparent text-xs text-white outline-none placeholder:text-white/40" />
@@ -5282,21 +5282,21 @@ function SelectEmpresaFoco({ lojas = [], valor, onChange }) {
   return (
     <div className="relative mt-4">
       <button type="button" onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`flex w-full items-center gap-2.5 rounded-2xl border bg-white px-4 py-3 text-left shadow-[0_1px_2px_rgba(15,76,92,0.05)] outline-none transition ${aberto ? "border-[#0F4C5C] ring-2 ring-[rgba(15,76,92,0.2)]" : "border-[rgba(15,76,92,0.45)] hover:border-[#0F4C5C]"}`}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.1)] text-[#0F4C5C]"><IconEmpresa /></span>
+        className={`flex w-full items-center gap-2.5 rounded-2xl border bg-white px-4 py-3 text-left shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] outline-none transition ${aberto ? "border-[#012E46] ring-2 ring-[rgba(1, 46, 70,0.2)]" : "border-[rgba(1, 46, 70,0.45)] hover:border-[#012E46]"}`}>
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.1)] text-[#012E46]"><IconEmpresa /></span>
         <span className={`min-w-0 flex-1 truncate text-sm ${atual ? "font-semibold text-[var(--pp-text)]" : "text-[var(--pp-text-muted)]"}`}>{atual ? `${atual.nome} (${atual.prefixo})` : "Selecione a empresa…"}</span>
-        <svg className={`h-4 w-4 shrink-0 text-[#0F4C5C] transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className={`h-4 w-4 shrink-0 text-[#012E46] transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
       {aberto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
-          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[rgba(15,76,92,0.2)] bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(15,76,92,0.35)]">
+          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[rgba(1, 46, 70,0.2)] bg-white p-1.5 shadow-[0_18px_40px_-16px_rgba(1, 46, 70,0.35)]">
             {lojas.map((l) => {
               const sel = String(l.id) === String(valor);
               return (
                 <button key={l.id} type="button" role="option" aria-selected={sel}
                   onClick={() => { onChange(l.id); setAberto(false); }}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition ${sel ? "bg-[#0F4C5C] text-white" : "text-[var(--pp-text)] hover:bg-[rgba(15,76,92,0.08)] hover:text-[#0F4C5C]"}`}>
+                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition ${sel ? "bg-[#012E46] text-white" : "text-[var(--pp-text)] hover:bg-[rgba(1, 46, 70,0.08)] hover:text-[#012E46]"}`}>
                   <span className="min-w-0 flex-1 truncate">{l.nome} <span className={sel ? "text-white/70" : "text-[var(--pp-text-muted)]"}>({l.prefixo})</span></span>
                   {sel && <span className="shrink-0" aria-hidden="true">✓</span>}
                 </button>
@@ -5696,9 +5696,9 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
     else if (e.key === "Escape") { e.preventDefault(); onClose(); }
   };
   return (
-    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#0C3D4A]/55 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#012E46]/55 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[var(--pp-border)] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#0F4C5C]">
+        <div className="flex items-center gap-3 border-b border-[var(--pp-border)] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#012E46]">
           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--pp-text-muted)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
             placeholder="Buscar telas e ações…  (ex.: produtos, caixa, clientes)"
@@ -5712,23 +5712,23 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
             const on = i === idx;
             return (
               <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
-                className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F4C5C] ${on ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.10)]" : "border-transparent hover:border-[rgba(15,76,92,0.35)] hover:bg-[rgba(15,76,92,0.05)]"}`}>
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#0F4C5C]/40 bg-[rgba(15,76,92,0.10)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>
+                className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46] ${on ? "border-[#012E46] bg-[rgba(1, 46, 70,0.10)]" : "border-transparent hover:border-[rgba(1, 46, 70,0.35)] hover:bg-[rgba(1, 46, 70,0.05)]"}`}>
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#012E46]/40 bg-[rgba(1, 46, 70,0.10)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>
                   {it.sair
                     ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
                     : <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18" /></svg>}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className={`block truncate text-[13px] font-semibold ${on ? "text-[#0F4C5C]" : "text-[var(--pp-text)]"}`}>{it.label}</span>
+                  <span className={`block truncate text-[13px] font-semibold ${on ? "text-[#012E46]" : "text-[var(--pp-text)]"}`}>{it.label}</span>
                   {it.grupo && <span className="block text-[11px] text-[var(--pp-text-muted)]">{it.grupo}</span>}
                 </span>
-                {on && <span className="shrink-0 text-[11px] font-bold text-[#0F4C5C]">Abrir ↵</span>}
+                {on && <span className="shrink-0 text-[11px] font-bold text-[#012E46]">Abrir ↵</span>}
               </button>
             );
           })}
         </div>
         <div className="flex items-center justify-between border-t border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-[11px] text-[var(--pp-text-muted)]">
-          <span className="font-semibold">Pedido <span className="text-[#0F4C5C]">Prime</span> · navegação rápida</span>
+          <span className="font-semibold">Pedido <span className="text-[#012E46]">Prime</span> · navegação rápida</span>
           <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
         </div>
       </div>
@@ -5742,10 +5742,10 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
 // Selos de situação — tema CLARO do painel, paleta oficial (laranja de ação,
 // azul petróleo institucional, verde de sucesso, âmbar semântico, vermelho erro).
 const SIT_COMANDA = {
-  aberta:               { label: "Aberta",            cls: "border-[#E67E22]/40 bg-[#E67E22]/12 text-[#C2410C]" },
-  em_preparo:           { label: "Em preparo",        cls: "border-[#0F4C5C]/35 bg-[#0F4C5C]/10 text-[#0F4C5C]" },
+  aberta:               { label: "Aberta",            cls: "border-[#F38525]/40 bg-[#F38525]/12 text-[#F38525]" },
+  em_preparo:           { label: "Em preparo",        cls: "border-[#012E46]/35 bg-[#012E46]/10 text-[#012E46]" },
   pronta:               { label: "Pronta",            cls: "border-[#047857]/35 bg-[#059669]/10 text-[#047857]" },
-  aguardando_pagamento: { label: "Aguard. pagamento", cls: "border-[#D97706]/40 bg-[#D97706]/12 text-[#B45309]" },
+  aguardando_pagamento: { label: "Aguard. pagamento", cls: "border-[#F38525]/40 bg-[#F38525]/12 text-[#012E46]" },
   finalizada:           { label: "Finalizada",        cls: "border-[#047857]/30 bg-[#059669]/10 text-[#047857]" },
   cancelada:            { label: "Cancelada",         cls: "border-[#DC2626]/35 bg-[#DC2626]/10 text-[#B91C1C]" },
 };
@@ -5857,7 +5857,7 @@ async function abrirPDFComanda(g, opts = {}) {
     if (g.comanda && pref && base) {
       const url = `${base}/cardapio?e=${encodeURIComponent(pref)}&c=${encodeURIComponent(g.comanda)}&consulta=1`;
       const QRCode = (await import("qrcode")).default;
-      const qrData = await QRCode.toDataURL(url, { width: 320, margin: 1, color: { dark: "#0F4C5C", light: "#ffffff" }, errorCorrectionLevel: "H" });
+      const qrData = await QRCode.toDataURL(url, { width: 320, margin: 1, color: { dark: "#012E46", light: "#ffffff" }, errorCorrectionLevel: "H" });
       qrHTML = `<div class="qr"><img src="${qrData}" alt="QR de consulta da comanda ${esc(g.comanda)}"/><span>Consultar comanda</span></div>`;
     }
   } catch { /* sem QR se a geração falhar — o documento continua válido */ }
@@ -5872,11 +5872,11 @@ async function abrirPDFComanda(g, opts = {}) {
     @page { size: A4; margin: 14mm; }
     * { box-sizing: border-box; }
     body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:#2B2320; margin:0; }
-    .top { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #E67E22; padding-bottom:12px; }
-    .brand { font-size:20px; font-weight:800; } .brand b{ color:#E67E22; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #F38525; padding-bottom:12px; }
+    .brand { font-size:20px; font-weight:800; } .brand b{ color:#F38525; }
     .brand .sub{ display:block; font-size:11px; font-weight:600; color:#8A7D73; margin-top:2px; }
     .cod { text-align:right; } .cod .c{ font-family:'Inter', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; font-size:16px; font-weight:800; }
-    .badge{ display:inline-block; margin-top:4px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid #0F4C5C; color:#0F4C5C; }
+    .badge{ display:inline-block; margin-top:4px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:800; border:1px solid #012E46; color:#012E46; }
     .meta{ margin:10px 0 16px; font-size:12px; color:#8A7D73; }
     .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
     .kpi{ border:1px solid #EAE0D6; border-radius:10px; padding:8px 10px; }
@@ -5891,17 +5891,17 @@ async function abrirPDFComanda(g, opts = {}) {
     .rbl{ font-weight:700; color:#2B2320; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .rbv{ color:#8A7D73; white-space:nowrap; font-weight:700; }
     .rbt{ height:7px; border-radius:999px; background:#F1E9E0; overflow:hidden; }
-    .rbf{ height:100%; border-radius:999px; } .rbf-o{ background:#E67E22; } .rbf-p{ background:#0F4C5C; }
+    .rbf{ height:100%; border-radius:999px; } .rbf-o{ background:#F38525; } .rbf-p{ background:#012E46; }
     .qr{ margin-top:10px; display:flex; flex-direction:column; align-items:flex-end; }
     .qr img{ width:88px; height:88px; border:1px solid #EAE0D6; border-radius:8px; padding:3px; background:#fff; }
     .qr span{ font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; margin-top:3px; }
     .etapas{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-    .et{ border:1px solid #EAE0D6; border-left:3px solid #0F4C5C; border-radius:8px; padding:6px 10px; }
-    .el{ font-size:11px; font-weight:700; color:#2B2320; } .ev{ display:block; font-size:14px; font-weight:800; color:#0F4C5C; }
+    .et{ border:1px solid #EAE0D6; border-left:3px solid #012E46; border-radius:8px; padding:6px 10px; }
+    .el{ font-size:11px; font-weight:700; color:#2B2320; } .ev{ display:block; font-size:14px; font-weight:800; color:#012E46; }
     .tl-wrap{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
     .ts{ display:flex; align-items:center; gap:6px; border:1px solid #EAE0D6; border-radius:8px; padding:5px 10px; font-size:12px; }
-    .td{ width:8px; height:8px; border-radius:50%; background:#E67E22; display:inline-block; } .tv{ color:#8A7D73; }
-    .fin{ display:flex; justify-content:space-between; align-items:center; border:1px solid #EAE0D6; background:#FBF7F2; border-radius:10px; padding:10px 12px; margin-bottom:16px; }
+    .td{ width:8px; height:8px; border-radius:50%; background:#F38525; display:inline-block; } .tv{ color:#8A7D73; }
+    .fin{ display:flex; justify-content:space-between; align-items:center; border:1px solid #EAE0D6; background:#FFFFFF; border-radius:10px; padding:10px 12px; margin-bottom:16px; }
     .fin .fl{ font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:#8A7D73; } .fin .fs{ font-weight:700; } .fin .ft{ font-size:20px; font-weight:800; }
     .ped{ border:1px solid #EAE0D6; border-radius:10px; padding:10px; margin-bottom:8px; }
     .ph{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; color:#2B2320; } .ph span{ color:#8A7D73; }
@@ -6099,12 +6099,12 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
     { id: "finalizada", label: "Finalizadas" }, { id: "cancelada", label: "Canceladas" },
   ];
   const KPIS = [
-    { rot: "Pedidos abertos", val: kAbertas, cor: "#E67E22", Icone: IconComanda },
-    { rot: "Em preparo", val: kPreparo, cor: "#0F4C5C", Icone: IconRecibo },
+    { rot: "Pedidos abertos", val: kAbertas, cor: "#F38525", Icone: IconComanda },
+    { rot: "Em preparo", val: kPreparo, cor: "#012E46", Icone: IconRecibo },
     { rot: "Prontos", val: kPronta, cor: "#047857", Icone: IconCheck },
-    { rot: "Aguardando pagamento", val: kPagto, cor: "#D97706", Icone: IconPagamento },
+    { rot: "Aguardando pagamento", val: kPagto, cor: "#F38525", Icone: IconPagamento },
     { rot: "Valor em aberto", val: formatCurrency(kValor), cor: "#059669", Icone: IconCarteira },
-    { rot: "Tempo médio em aberto", val: kTempo ? fmtDuracaoComanda(kTempo) : "—", cor: "#0F4C5C", Icone: IconRelogio },
+    { rot: "Tempo médio em aberto", val: kTempo ? fmtDuracaoComanda(kTempo) : "—", cor: "#012E46", Icone: IconRelogio },
   ];
   const horaAtualizacao = `${String(new Date(atualizadoEm).getHours()).padStart(2, "0")}:${String(new Date(atualizadoEm).getMinutes()).padStart(2, "0")}`;
   const selBox = "flex min-w-0 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5";
@@ -6115,7 +6115,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IconComanda /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-5 [&>svg]:w-5"><IconComanda /></span>
             Controle de Comandas
           </h2>
           <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Pedidos separados por dia, com status, taxa de serviço e valores em tempo real.</p>
@@ -6145,8 +6145,8 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
       <div className="flex flex-wrap gap-2">
         {CHIPS.map((c) => (
           <button key={c.id} onClick={() => comReset(setFiltro)(c.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-bold transition ${filtro === c.id ? "border-[#E67E22] bg-[#E67E22] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#E67E22]/50 hover:text-[#C2410C]"}`}>
-            {c.label}{c.dot && <span className={`h-1.5 w-1.5 rounded-full ${filtro === c.id ? "bg-white" : "bg-[#E67E22]"}`} />}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-bold transition ${filtro === c.id ? "border-[#F38525] bg-[#F38525] text-[#012E46] shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#F38525]/50 hover:text-[#F38525]"}`}>
+            {c.label}{c.dot && <span className={`h-1.5 w-1.5 rounded-full ${filtro === c.id ? "bg-white" : "bg-[#F38525]"}`} />}
           </button>
         ))}
       </div>
@@ -6192,7 +6192,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
               </label>
             </>
           )}
-          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(15,76,92,0.35)] bg-[rgba(15,76,92,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.12)]">Limpar filtros</button>
+          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(1, 46, 70,0.35)] bg-[rgba(1, 46, 70,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.12)]">Limpar filtros</button>
         </div>
       </div>
 
@@ -6232,7 +6232,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                           <td colSpan={10} className="border-y border-[var(--pp-border)] px-4 py-2.5">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="flex items-center gap-2 text-[13px] font-black text-dash-navy">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#E67E22]/12 text-[#E67E22] [&>svg]:h-3.5 [&>svg]:w-3.5"><IconRelogio /></span>
+                                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#F38525]/12 text-[#F38525] [&>svg]:h-3.5 [&>svg]:w-3.5"><IconRelogio /></span>
                                 {fmtDiaComanda(g.iso)}
                                 <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--pp-text-muted)]">{td.count} {td.count === 1 ? "pedido" : "pedidos"}</span>
                               </span>
@@ -6247,7 +6247,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                     }
                     const sit = SIT_COMANDA[g.sit] || SIT_COMANDA.aberta;
                     const acimaMedia = ABERTAS_KEYS.includes(g.sit) && mediaMin > 0 && g.mins > mediaMin;
-                    const corTempo = g.sit === "em_preparo" ? "#0F4C5C" : g.sit === "pronta" ? "#047857" : g.sit === "aguardando_pagamento" ? "#B45309" : acimaMedia ? "#C2410C" : "#E67E22";
+                    const corTempo = g.sit === "em_preparo" ? "#012E46" : g.sit === "pronta" ? "#047857" : g.sit === "aguardando_pagamento" ? "#012E46" : acimaMedia ? "#F38525" : "#F38525";
                     const itensPed = g.pedidos[0]?.items || [];
                     const preview = itensPed.map((it) => `${it.quantity}× ${it.name}`);
                     const previewTxt = preview.slice(0, 2).join(", ") + (preview.length > 2 ? ` +${preview.length - 2}` : "");
@@ -6273,7 +6273,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                         <td className="py-3 pr-3">
                           <p className="font-medium text-dash-navy">{formatCurrency(g.totalComTaxa)}</p>
                           {g.taxa > 0 && <p className="text-[11px] text-[var(--pp-text-muted)]">{formatCurrency(g.total)} + taxa {formatCurrency(g.taxa)}</p>}
-                          <p className={`text-xs font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#B45309]" : "text-[var(--pp-text-muted)]"}`}>
+                          <p className={`text-xs font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#012E46]" : "text-[var(--pp-text-muted)]"}`}>
                             {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
                           </p>
                         </td>
@@ -6284,7 +6284,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                         </td>
                         <td className="py-3 pr-4 text-right">
                           <button onClick={(e) => abrirMenu(e, g.chave)} aria-label="Ações do pedido" aria-haspopup="menu" aria-expanded={menu?.chave === g.chave}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-[15px] leading-none transition ${menu?.chave === g.chave ? "border-[#E67E22] bg-[#E67E22]/10 text-[#C2410C]" : "border-transparent text-[var(--pp-text-muted)] hover:border-[var(--pp-border)] hover:bg-[var(--pp-bg)] hover:text-dash-navy"}`}>⋮</button>
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border text-[15px] leading-none transition ${menu?.chave === g.chave ? "border-[#F38525] bg-[#F38525]/10 text-[#F38525]" : "border-transparent text-[var(--pp-text-muted)] hover:border-[var(--pp-border)] hover:bg-[var(--pp-bg)] hover:text-dash-navy"}`}>⋮</button>
                         </td>
                       </tr>
                     );
@@ -6309,7 +6309,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
               {paginasVisiveis().map((p, i) => p === "…" ? (
                 <span key={`e${i}`} className="px-1.5 text-sm text-[var(--pp-text-muted)]">…</span>
               ) : (
-                <button key={p} onClick={() => setPagina(p)} className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${p === pgAtual ? "border-[#E67E22] bg-[#E67E22] text-white" : "border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>{p}</button>
+                <button key={p} onClick={() => setPagina(p)} className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${p === pgAtual ? "border-[#F38525] bg-[#F38525] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>{p}</button>
               ))}
               <button onClick={() => setPagina(Math.min(totalPaginas, pgAtual + 1))} disabled={pgAtual >= totalPaginas} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">›</button>
             </div>
@@ -6376,9 +6376,9 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                     <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Tempo de preparo por etapa</p>
                     <div className="flex flex-wrap gap-2">
                       {etapas.map(([l, v]) => (
-                        <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--pp-border)] border-l-[3px] border-l-[#0F4C5C] bg-white px-3 py-1.5">
+                        <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--pp-border)] border-l-[3px] border-l-[#012E46] bg-white px-3 py-1.5">
                           <span className="text-xs font-semibold text-dash-navy">{l}</span>
-                          <span className="text-sm font-black text-[#0F4C5C]">{v} min</span>
+                          <span className="text-sm font-black text-[#012E46]">{v} min</span>
                         </div>
                       ))}
                     </div>
@@ -6389,7 +6389,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                   <div className="flex flex-wrap gap-2">
                     {passos.map(([l, v]) => (
                       <div key={l} className="flex items-center gap-2 rounded-lg border border-[var(--pp-border)] bg-white px-3 py-1.5">
-                        <span className="h-2 w-2 rounded-full bg-[#E67E22]" />
+                        <span className="h-2 w-2 rounded-full bg-[#F38525]" />
                         <span className="text-xs font-semibold text-dash-navy">{l}</span>
                         <span className="text-xs text-[var(--pp-text-muted)]">{fmtHoraComanda(v)}</span>
                       </div>
@@ -6399,7 +6399,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Financeiro</p>
-                    <p className={`text-sm font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#B45309]" : "text-[var(--pp-text-muted)]"}`}>
+                    <p className={`text-sm font-semibold ${g.sit === "finalizada" ? "text-[#047857]" : g.sit === "aguardando_pagamento" ? "text-[#012E46]" : "text-[var(--pp-text-muted)]"}`}>
                       {g.sit === "finalizada" ? `Pago${g.forma ? ` · ${g.forma}` : ""}` : g.sit === "aguardando_pagamento" ? "Pagamento pendente" : g.sit === "cancelada" ? "Cancelada" : "Em aberto"}
                     </p>
                   </div>
@@ -6417,7 +6417,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
                         <ul className="space-y-1">
                           {o.items.map((it, i) => (
                             <li key={i} className="flex items-start justify-between gap-3 text-sm">
-                              <span className="text-dash-navy"><b className="text-[#0F4C5C]">{it.quantity}×</b> {it.name}{it.observation ? <em className="text-[var(--pp-text-muted)]"> — {it.observation}</em> : ""}</span>
+                              <span className="text-dash-navy"><b className="text-[#012E46]">{it.quantity}×</b> {it.name}{it.observation ? <em className="text-[var(--pp-text-muted)]"> — {it.observation}</em> : ""}</span>
                               <span className="shrink-0 font-semibold text-dash-navy">{formatCurrency((it.price || 0) * (it.quantity || 0))}</span>
                             </li>
                           ))}
@@ -6437,7 +6437,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
         );
       })()}
 
-      {copiado && <div className="fixed bottom-6 left-1/2 z-[140] -translate-x-1/2 rounded-full bg-[#0F4C5C] px-4 py-2 text-sm font-bold text-white shadow-lg">Código copiado</div>}
+      {copiado && <div className="fixed bottom-6 left-1/2 z-[140] -translate-x-1/2 rounded-full bg-[#012E46] px-4 py-2 text-sm font-bold text-white shadow-lg">Código copiado</div>}
     </main>
   );
 }
@@ -6476,8 +6476,8 @@ function SidebarHeader({ subtitulo, onClose }) {
 // Menu monocromático em AZUL PETRÓLEO: sobre o fundo profundo (--pp-nav), o
 // estado ativo "acende" no petróleo CLARO (--pp-nav-accent), tom sobre tom.
 // Estados: normal (transparente, texto/ícone branco/75), hover (fundo petróleo
-// claro suave rgba(88,183,205,.10) + rótulo branco), selecionado (fundo
-// rgba(88,183,205,.16) + borda esquerda 3px petróleo claro + ícone e rótulo em
+// claro suave rgba(243, 133, 37,.10) + rótulo branco), selecionado (fundo
+// rgba(243, 133, 37,.16) + borda esquerda 3px petróleo claro + ícone e rótulo em
 // petróleo claro, peso 700). O petróleo claro passa AA (~5:1) no fundo profundo.
 const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick }) {
   return (
@@ -6486,8 +6486,8 @@ const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blo
         "group relative flex min-h-[38px] w-full items-center gap-2.5 rounded-xl border-l-[3px] px-3 py-2 text-[12.5px] tracking-[0.01em] transition-all duration-200 ease-out",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]",
         selected
-          ? "border-l-[var(--pp-nav-accent)] bg-[rgba(88,183,205,0.16)] font-bold text-[var(--pp-nav-accent)]"
-          : "border-l-transparent font-medium text-white/75 hover:bg-[rgba(88,183,205,0.10)] hover:text-white"
+          ? "border-l-[var(--pp-nav-accent)] bg-[rgba(243, 133, 37,0.16)] font-bold text-[var(--pp-nav-accent)]"
+          : "border-l-transparent font-medium text-white/75 hover:bg-[rgba(243, 133, 37,0.10)] hover:text-white"
       )}>
       <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[var(--pp-nav-accent)]" : "text-white/75 group-hover:text-[var(--pp-nav-accent)]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
@@ -6527,7 +6527,7 @@ function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, o
             <p className="truncate text-[9.5px] text-white/55 leading-tight">{currentUser.role || "Usuário"}</p>
           </div>
           {isSuperAdmin ? (
-            <span className="shrink-0 rounded-full bg-[rgba(88,183,205,0.15)] px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wide text-[var(--pp-nav-accent)]">Admin</span>
+            <span className="shrink-0 rounded-full bg-[rgba(243, 133, 37,0.15)] px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wide text-[var(--pp-nav-accent)]">Admin</span>
           ) : lojaInfo ? (
             <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-black text-white/55">{lojaInfo.prefixo}</span>
           ) : null}
@@ -6687,11 +6687,11 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   const precisaEmpresa = isSuperAdmin && !lojaInfo;
   const avisoEmpresa = (
     <main className="mx-auto max-w-lg">
-      <section className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05),0_18px_40px_-24px_rgba(15,76,92,0.25)]">
+      <section className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(1, 46, 70,0.05),0_18px_40px_-24px_rgba(1, 46, 70,0.25)]">
         <div className="text-center">
-          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#0F4C5C]/10 text-3xl">🏪</span>
+          <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#012E46]/10 text-3xl">🏪</span>
           <h3 className="text-lg font-semibold text-[var(--pp-text)]">Selecione uma empresa</h3>
-          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">Como administrador geral, escolha a <b className="font-semibold text-[#E67E22]">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
+          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">Como administrador geral, escolha a <b className="font-semibold text-[#F38525]">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
           <SelectEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={(id) => setLojaContexto(id != null ? Number(id) : null)} />
         </div>
       </section>
@@ -6935,8 +6935,8 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
   return (
     <div ref={ref} className="relative">
       <button type="button" onClick={() => setAberto((a) => !a)}
-        className={`flex h-[30px] items-center gap-2 rounded-full border bg-white px-3 text-xs font-bold outline-none transition ${aberto ? "border-[#B0C9D0] text-[#0B3A46]" : "border-[#E5E7EB] text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
-        <span className={aberto ? "text-[#0F4C5C]" : "text-[#0F4C5C]/70"}><IconCalendario /></span>
+        className={`flex h-[30px] items-center gap-2 rounded-full border bg-white px-3 text-xs font-bold outline-none transition ${aberto ? "border-[#9BB4C0] text-[#012E46]" : "border-[#E5E7EB] text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
+        <span className={aberto ? "text-[#012E46]" : "text-[#012E46]/70"}><IconCalendario /></span>
         <span className={valor ? "" : "text-[#98A2B3]"}>{valor ? formatarDataBR(valor) : placeholder}</span>
       </button>
 
@@ -6966,7 +6966,7 @@ function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selec
               return (
                 <button key={dia} type="button" disabled={off} onClick={() => selecionar(dia)}
                   className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold transition ${
-                    sel ? "border border-[#B0C9D0] bg-[#E6EEF1] text-[#0B3A46]"
+                    sel ? "border border-[#9BB4C0] bg-[#E8EDF0] text-[#012E46]"
                     : off ? "text-[#D0D5DD] cursor-not-allowed"
                     : "text-[#475467] hover:bg-[#F3F4F6]"}`}>
                   {dia}
@@ -7071,8 +7071,8 @@ const CARD_METRICA_TONES = {
   dashInfo:    "bg-violet-500/10 text-violet-500",
   dashDanger:  "bg-red-500/10 text-red-500",
   // Paleta OFICIAL Pedido Prime (laranja=ação, petróleo=institucional, verde=sucesso)
-  marcaPetroleo: "bg-[#0F4C5C]/10 text-[#0F4C5C]",
-  marcaLaranja:  "bg-[#E67E22]/12 text-[#E67E22]",
+  marcaPetroleo: "bg-[#012E46]/10 text-[#012E46]",
+  marcaLaranja:  "bg-[#F38525]/12 text-[#F38525]",
   marcaVerde:    "bg-[#5E8C31]/12 text-[#5E8C31]",
 };
 // `compact` (aditivo, default false) — versão mais enxuta e elegante do card,
@@ -7106,7 +7106,7 @@ function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variaca
 // categoria" — varredura confirmou não existir nenhum outro donut no projeto).
 // Paleta padrão dentro da lista oficial; vermelho fica reservado para
 // erro/cancelado/crítico e não entra no ciclo automático.
-const CORES_GRAF = ["#0F4C5C", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+const CORES_GRAF = ["#012E46", "#10B981", "#F38525", "#8B5CF6", "#012E46", "#64748B"];
 // corCentral/legendaColorida/interativo têm o padrão de referência (usado por
 // todos os donuts); ainda são sobrescrevíveis caso uma tela futura precise de
 // um comportamento diferente, sem duplicar a configuração em cada chamada.
@@ -7199,10 +7199,10 @@ function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {} 
         descricao="Libere Pedidos, Cozinha, Bar e Caixa para cada usuário. Acesso total libera todos os módulos. Use individual para operadores de um único setor."
         indicadores={[{ valor: elegiveis.length, rotulo: elegiveis.length === 1 ? "usuário" : "usuários" }]}
       />
-      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..." className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]" />
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário..." className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]" />
         </div>
         {lista.length === 0 && <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum usuário encontrado.</p>}
         <div className="space-y-2">
@@ -7210,24 +7210,24 @@ function AcessosOperacionaisAdmin({ users = [], definirAcessos = async () => {} 
             const eff = acessosOperacionais(u);
             const admin = !!u.superAdmin || (u.accessIds || []).includes("admin");
             return (
-              <div key={u.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+              <div key={u.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.08)] text-base font-semibold uppercase text-[#0F4C5C]">{(u.name || "?").charAt(0)}</span>
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.08)] text-base font-semibold uppercase text-[#012E46]">{(u.name || "?").charAt(0)}</span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2"><p className="truncate text-sm font-semibold text-[var(--pp-text)]">{u.name}</p>{!u.active && <span className="rounded-full border border-[var(--pp-border)] bg-[rgba(15,76,92,0.06)] px-2 py-0.5 text-[9px] font-semibold text-[var(--pp-text-muted)]">Inativo</span>}</div>
+                      <div className="flex items-center gap-2"><p className="truncate text-sm font-semibold text-[var(--pp-text)]">{u.name}</p>{!u.active && <span className="rounded-full border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.06)] px-2 py-0.5 text-[9px] font-semibold text-[var(--pp-text-muted)]">Inativo</span>}</div>
                       <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{u.role || "Operador"}{u.email ? ` · ${u.email}` : ""}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {admin ? (
-                      <span className="rounded-full border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] px-3 py-1.5 text-xs font-semibold text-[#B4611A]">⭐ Acesso total (admin)</span>
+                      <span className="rounded-full border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.1)] px-3 py-1.5 text-xs font-semibold text-[#F38525]">⭐ Acesso total (admin)</span>
                     ) : (<>
                       <FilterChip size="sm" selected={eff.total} label="Acesso total" onClick={() => setTotal(u, !eff.total)} />
                       {OP_MODULOS.map((m) => (
                         <FilterChip key={m.id} size="sm" selected={eff[m.id]} icon={m.ic} label={m.label} onClick={() => setModulo(u, m.id, !eff[m.id])} />
                       ))}
-                      <button onClick={() => restaurarPadrao(u)} title="Restaurar acesso padrão (legado)" className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">↺ Padrão</button>
+                      <button onClick={() => restaurarPadrao(u)} title="Restaurar acesso padrão (legado)" className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">↺ Padrão</button>
                     </>)}
                   </div>
                 </div>
@@ -7419,11 +7419,11 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
   const ehExterno = (o) => o.table === "Externo" || /^EXT-/.test(o.command || "");
   const bloqueadoPorPagamento = (o) => ehExterno(o) && o.paymentStatus !== "paid";
   const acaoPrincipal = (o) =>
-    o.status === "received" ? { l: "Aceitar", fn: () => updateOrderStatus(o.id, "preparing"), c: "bg-[#D9A441] text-[#182230]" }
+    o.status === "received" ? { l: "Aceitar", fn: () => updateOrderStatus(o.id, "preparing"), c: "bg-[#F38525] text-[#182230]" }
     : o.status === "preparing" ? { l: "Marcar pronto", fn: () => updateOrderStatus(o.id, "ready"), c: "bg-[#16A34A] text-white" }
     : o.status === "ready" ? (bloqueadoPorPagamento(o)
         ? { l: "🔒 Aguardando pagamento", fn: null, c: "bg-[#F3F4F6] text-[#98A2B3]", disabled: true }
-        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#0F4C5C] text-white" })
+        : { l: "Entregue", fn: () => marcarEntregue(o.id), c: "bg-[#012E46] text-white" })
     : null;
   // Comanda operacional (Pedidos/Cozinha/Bar): cupom térmico de produção
   // (modelo 3 do PDV), um ticket por setor quando há vários setores no pedido.
@@ -7476,7 +7476,7 @@ function OperacaoMobileView({ orders = [], updateOrderStatus, marcarEntregue, co
     const totalReceberCentral = contasAbertas.reduce((s, o) => s + totalCom(o), 0);
     const qtdPorTipoSetor = (bar) => ativos.reduce((acc, o) => acc + (o.items || []).filter((it) => barLike(setorDoItem(it)) === bar).reduce((s, it) => s + it.quantity, 0), 0);
     const ICONE_MODULO = { pedidos: ClipboardList, cozinha: ChefHat, bar: Wine, caixa: CreditCard };
-    const TINT_MODULO = { pedidos: "#E67E22", cozinha: "#d4a017", bar: "#0F4C5C", caixa: "#16a34a" };
+    const TINT_MODULO = { pedidos: "#F38525", cozinha: "#f38525", bar: "#012E46", caixa: "#16a34a" };
     const CONTAGEM_MODULO = { pedidos: ativos.length, cozinha: qtdPorTipoSetor(false), bar: qtdPorTipoSetor(true), caixa: contasAbertas.length };
     const modulosReais = liberados.map((m) => ({ id: m.id, label: m.label, desc: m.desc, icon: ICONE_MODULO[m.id], tint: TINT_MODULO[m.id], count: CONTAGEM_MODULO[m.id] }));
     // Variantes semânticas (ver OperationalMetricCard): info/warning/success
@@ -7699,7 +7699,7 @@ function GraficoTooltip({ children, className = "" }) {
 // LinhaFaturamento (pp-chart-container, pp-chart-focus, GraficoTooltip):
 // sem outline preto, sem alterar layout no hover, overlay absoluto.
 // dados: [{ rotulo, valor, qtd, variacao }]; ordena do maior para o menor;
-// o maior valor fica em #F59E0B, os demais em #0F4C5C; linha vertical
+// o maior valor fica em #F38525, os demais em #012E46; linha vertical
 // cinza (#64748B) marca a média do conjunto.
 function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
   const [ativo, setAtivo] = useState(null);
@@ -7712,7 +7712,7 @@ function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
     <div className="pp-chart-container space-y-3">
       {ordenados.map((d, i) => {
         const pct = (d.valor / maxValor) * 100;
-        const cor = i === 0 ? "#F59E0B" : "#0F4C5C";
+        const cor = i === 0 ? "#F38525" : "#012E46";
         return (
           <div key={d.rotulo} className="relative">
             <div className="mb-1 flex items-center justify-between gap-2 text-xs">
@@ -7732,7 +7732,7 @@ function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
                   <p className="mt-0.5 font-black" style={{ color: cor }}>{formatarValor(d.valor)}{sufixo}</p>
                   {d.qtd != null && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} comanda(s)</p>}
                   {d.variacao != null && (
-                    <p className="mt-0.5 font-semibold" style={{ color: d.variacao >= 0 ? "#F59E0B" : "#10B981" }}>{d.variacao >= 0 ? "▲" : "▼"} {Math.abs(d.variacao).toFixed(0)}% vs. média</p>
+                    <p className="mt-0.5 font-semibold" style={{ color: d.variacao >= 0 ? "#F38525" : "#10B981" }}>{d.variacao >= 0 ? "▲" : "▼"} {Math.abs(d.variacao).toFixed(0)}% vs. média</p>
                   )}
                 </GraficoTooltip>
               )}
@@ -7752,7 +7752,7 @@ function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
 const ALTURA_TRACK_HORA = 150;
 // paleta: opcional — sobrescreve as cores padrão sem afetar quem não a passa
 // (ex.: Relatórios). O Dashboard Gerencial injeta a paleta oficial da tela.
-const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#315A7D", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467" };
+const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#012E46", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467" };
 function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
   const [ativo, setAtivo] = useState(null);
   const p = { ...PALETA_BARRAS_HORA_PADRAO, ...paleta };
@@ -7805,7 +7805,7 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
                 {aberto && (
                   <GraficoTooltip className="pp-chart-tooltip-overlay bottom-[calc(100%+8px)] left-1/2 w-max max-w-[180px] -translate-x-1/2">
                     <p className="font-bold" style={{ color: "#0D1B2A" }}>{d.label}</p>
-                    <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#0F4C5C" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
+                    <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#012E46" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
                     {d.qtd > 0 && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
                     {diffPct != null && (
                       <p className="mt-0.5 font-semibold" style={{ color: diffPct >= 0 ? "#10B981" : "#64748B" }}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
@@ -7847,13 +7847,13 @@ function LinhaFaturamento({ dados }) {
   const idxMin = dados.findIndex((d) => d.valor === valorMin);
   const media = dados.reduce((s, d) => s + d.valor, 0) / n;
   const yMedia = y(media);
-  const corPonto = (i) => (i === idxMax ? "#F59E0B" : i === idxMin ? "#8B5CF6" : "#0F4C5C");
+  const corPonto = (i) => (i === idxMax ? "#F38525" : i === idxMin ? "#8B5CF6" : "#012E46");
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="pp-chart-container w-full overflow-visible" style={{ height: 180 }}>
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
       {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
-      <path d={area} fill="#0F4C5C" fillOpacity="0.08" />
-      <path d={linha} fill="none" stroke="#0F4C5C" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill="#012E46" fillOpacity="0.08" />
+      <path d={linha} fill="none" stroke="#012E46" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (
         <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatCurrency(dados[i].valor)}`}
           onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
@@ -7872,7 +7872,7 @@ function LinhaFaturamento({ dados }) {
           <g pointerEvents="none">
             <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
             <text x={bx + boxW / 2} y={by + 14} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
-            <text x={bx + boxW / 2} y={by + 27} textAnchor="middle" fill="#0F4C5C" style={{ fontSize: 10, fontWeight: 800 }}>{formatCurrency(d.valor)}</text>
+            <text x={bx + boxW / 2} y={by + 27} textAnchor="middle" fill="#012E46" style={{ fontSize: 10, fontWeight: 800 }}>{formatCurrency(d.valor)}</text>
           </g>
         );
       })()}
@@ -8042,7 +8042,7 @@ function analisarGestaoIA(ctx) {
 // e paleta oficial (hex exatos, não classes genéricas do Tailwind). "Analisar"
 // preenche o chat com uma pergunta contextual sobre o indicador.
 const KPI_COPILOTO_TONS = {
-  blue: "#0F4C5C", emerald: "#10B981", amber: "#F59E0B", violet: "#8B5CF6", red: "#EF4444",
+  blue: "#012E46", emerald: "#10B981", amber: "#F38525", violet: "#8B5CF6", red: "#EF4444",
 };
 // "Analisar" não recebe uma função por prop — o clique sobe até o container
 // do grid (elemento nativo) por delegação, que lê data-pergunta e chama o
@@ -8083,7 +8083,7 @@ function OportunidadeCard({ titulo, itens, vazio, render }) {
         <ul className="space-y-1.5">
           {itens.map((it, i) => (
             <li key={i} className="flex items-start gap-2 text-xs text-[#334155]">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0F4C5C]" />
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#012E46]" />
               <span className="min-w-0">{render(it)}</span>
             </li>
           ))}
@@ -8097,7 +8097,7 @@ function OportunidadeCard({ titulo, itens, vazio, render }) {
 // partes (resposta direta, evidências, diagnóstico, ações, impacto,
 // limitações) mais riscos/oportunidades quando existirem, e o rodapé de
 // "grounding" (período analisado, confiança, quando foi gerada).
-const CONFIANCA_COR = { alta: "#10B981", media: "#F59E0B", baixa: "#64748B" };
+const CONFIANCA_COR = { alta: "#10B981", media: "#F38525", baixa: "#64748B" };
 function RespostaCopilotoBubble({ resultado, modelo, dataPeriod, bloqueado, atualizadoEm, copiado, onCopiar, feedback, onFeedback }) {
   if (!resultado) return null;
   const corConfianca = CONFIANCA_COR[resultado.confidence] || "#64748B";
@@ -8145,11 +8145,11 @@ function RespostaCopilotoBubble({ resultado, modelo, dataPeriod, bloqueado, atua
           <span className="flex items-center gap-1">Confiança: <b style={{ color: corConfianca }}>{resultado.confidence || "—"}</b></span>
           {atualizadoEm && <span>🕐 {new Date(atualizadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
           {modelo && !resultado.fallback && <span title="Modelo de IA usado nesta resposta">🤖 {modelo}</span>}
-          {resultado.fallback && <span className="font-bold text-[#F59E0B]">⚠️ Diagnóstico local (sem IA externa)</span>}
+          {resultado.fallback && <span className="font-bold text-[#F38525]">⚠️ Diagnóstico local (sem IA externa)</span>}
         </div>
       )}
       <div className="flex items-center gap-3 pt-1">
-        <button onClick={() => onCopiar(textoParaCopiar)} className="text-[10px] font-bold text-[#0F4C5C] hover:underline">{copiado ? "Copiado ✓" : "Copiar resposta"}</button>
+        <button onClick={() => onCopiar(textoParaCopiar)} className="text-[10px] font-bold text-[#012E46] hover:underline">{copiado ? "Copiado ✓" : "Copiar resposta"}</button>
         {!bloqueado && (
           <span className="flex items-center gap-1.5">
             <button onClick={() => onFeedback("util")} title="Resposta útil" aria-label="Marcar como útil" className="text-xs" style={{ opacity: feedback === "util" ? 1 : 0.4 }}>👍</button>
@@ -8174,7 +8174,7 @@ const IcoPrioMedia = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="curren
 const IcoPrioBaixa = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M12 5v14M6 13l6 6 6-6" /></svg>);
 const PRIORIDADE_ACAO = {
   alta: { label: "Alta", cor: "#DC2626", Icone: IcoPrioAlta },
-  media: { label: "Média", cor: "#D97706", Icone: IcoPrioMedia },
+  media: { label: "Média", cor: "#F38525", Icone: IcoPrioMedia },
   baixa: { label: "Baixa", cor: "#64748B", Icone: IcoPrioBaixa },
 };
 
@@ -8244,7 +8244,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
     setTimeout(() => onConfirmar({ titulo: titulo.trim(), responsavel, prazo, prioridade, planoAcao: planoAcao.trim(), resultadoEsperado: resultadoEsperado.trim() }), 500);
   }
 
-  const inputCls = "w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#0F172A] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/25";
+  const inputCls = "w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#0F172A] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/25";
   const lblCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#64748B]";
   const usuariosAtivos = usuarios.filter((u) => u.active !== false);
 
@@ -8258,7 +8258,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
             <h2 id="titulo-modal-acao" className="text-lg font-black text-[#0F172A]">Criar plano de ação</h2>
             <p className="mt-1 text-sm text-[#64748B]">Transforme esta recomendação em uma atividade prática para acompanhar a melhoria dos resultados.</p>
           </div>
-          <button onClick={onFechar} title="Fechar" aria-label="Fechar modal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-sm font-black text-[#64748B] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C]">✕</button>
+          <button onClick={onFechar} title="Fechar" aria-label="Fechar modal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-sm font-black text-[#64748B] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46]">✕</button>
         </div>
 
         {/* Corpo com rolagem interna */}
@@ -8320,7 +8320,7 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
                 const Icone = cfg.Icone;
                 return (
                   <button key={id} type="button" aria-pressed={sel} onClick={() => setPrioridade(id)}
-                    className="flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2.5 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1"
+                    className="flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2.5 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46] focus-visible:ring-offset-1"
                     style={sel ? { borderColor: cfg.cor, background: `${cfg.cor}14`, color: cfg.cor } : { borderColor: "#E2E8F0", background: "#FFFFFF", color: "#64748B" }}>
                     <Icone />{cfg.label}
                   </button>
@@ -8355,17 +8355,17 @@ function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
             mobile em diante. */}
         <div className="flex shrink-0 flex-col-reverse items-stretch justify-end gap-2 border-t border-[#E2E8F0] bg-white px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] min-[360px]:flex-row min-[360px]:items-center">
           <button type="button" onClick={onFechar} disabled={enviando}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-[10px] border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F8FAFC] active:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C]/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]">
+            className="inline-flex min-h-[48px] items-center justify-center rounded-[10px] border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F8FAFC] active:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46]/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]">
             Cancelar
           </button>
           <button type="button" onClick={confirmar} disabled={enviando} aria-busy={enviando}
             style={{
-              "--btn-bg": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0F4C5C",
-              "--btn-bg-hover": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0B3A46",
-              "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#0A3A47",
-              boxShadow: enviando ? "none" : "0 4px 10px rgba(15, 76, 92,0.20)",
+              "--btn-bg": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#012E46",
+              "--btn-bg-hover": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#012E46",
+              "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#012E46",
+              boxShadow: enviando ? "none" : "0 4px 10px rgba(1, 46, 70,0.20)",
             }}
-            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(15,76,92,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
+            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(1, 46, 70,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
               ${!enviando && !sucesso && !erroEnvio ? "hover:bg-[var(--btn-bg-hover)] active:bg-[var(--btn-bg-active)]" : ""}
               ${!enviando ? "disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:shadow-none disabled:hover:bg-[#CBD5E1]" : ""}
               ${erroEnvio ? "animate-pulse" : ""}`}>
@@ -8442,11 +8442,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   // Paleta OFICIAL Pedido Prime: petróleo (institucional) + laranja (ação) +
   // verde (frescor) e seus tons claros — sem arco-íris (azul/violeta/ciano fora
   // da marca). Grafite fecha o ciclo como neutro para categorias extras.
-  const PALETA_SERIES_DASHBOARD = ["#0F4C5C", "#E67E22", "#5E8C31", "#3E7C8C", "#F0A55E", "#2D3436"];
+  const PALETA_SERIES_DASHBOARD = ["#012E46", "#F38525", "#5E8C31", "#012E46", "#F38525", "#2D3436"];
   const catDonut = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_SERIES_DASHBOARD[i % PALETA_SERIES_DASHBOARD.length] }));
   // Cor semântica por status, dentro da paleta: aguardando=laranja (atenção/ação),
   // em preparo=petróleo (padrão), pronto=petróleo claro (apoio), entregue=verde (sucesso).
-  const CORES_STATUS_PEDIDO = { received: "#E67E22", preparing: "#0F4C5C", ready: "#3E7C8C", delivered: "#5E8C31" };
+  const CORES_STATUS_PEDIDO = { received: "#F38525", preparing: "#012E46", ready: "#012E46", delivered: "#5E8C31" };
   const statusDist = ["received", "preparing", "ready", "delivered"]
     .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length, cor: CORES_STATUS_PEDIDO[s] }))
     .filter((d) => d.valor > 0);
@@ -8485,7 +8485,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   const mesasAbertas = mesasAtencao.length;
   const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
   const fmtTempo = formatarDuracaoMin; // helper global — mesmo formato em toda a tela
-  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#0F4C5C]/30 bg-[#0F4C5C]/10 text-[#0F4C5C]" } : { label: "Aguardando pagamento", cls: "border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]" };
+  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#012E46]/30 bg-[#012E46]/10 text-[#012E46]" } : { label: "Aguardando pagamento", cls: "border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]" };
 
   // Cancelamentos e perdas
   const valorPerdido = cancelados.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
@@ -8515,8 +8515,8 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   ];
   const tomCls = {
     danger:  "border-[rgba(200,30,74,0.30)] bg-[rgba(200,30,74,0.08)] text-[#C81E4A]",
-    warning: "border-[rgba(230,126,34,0.30)] bg-[rgba(230,126,34,0.08)] text-[#E67E22]",
-    info:    "border-[rgba(15,76,92,0.30)] bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]",
+    warning: "border-[rgba(243, 133, 37,0.30)] bg-[rgba(243, 133, 37,0.08)] text-[#F38525]",
+    info:    "border-[rgba(1, 46, 70,0.30)] bg-[rgba(1, 46, 70,0.08)] text-[#012E46]",
     success: "border-[rgba(47,158,82,0.30)] bg-[rgba(47,158,82,0.08)] text-[#2F9E52]",
   };
 
@@ -8720,7 +8720,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
             {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-[13px] text-[var(--pp-text-muted)]">
@@ -8741,7 +8741,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         </div>
         <div className="flex flex-wrap items-start gap-2">
           {soCopiloto && (
-            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[rgba(15,76,92,0.06)]" style={{ borderColor: "var(--pp-border)", color: "#0F4C5C" }}>🔄 Atualizar análise</button>
+            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[rgba(1, 46, 70,0.06)]" style={{ borderColor: "var(--pp-border)", color: "#012E46" }}>🔄 Atualizar análise</button>
           )}
           <div className="pp-filter-panel">
             <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
@@ -8770,21 +8770,21 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         const meta = 45;
         const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
         const pills = [
-          melhorHora?.valor > 0 && { dot: "bg-[#E67E22]", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
-          produtoTop && { dot: "bg-[#0F4C5C]", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
-          { dot: a.ticket >= meta ? "bg-[#5E8C31]" : "bg-[#E67E22]", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
-          { dot: abertos.length === 0 ? "bg-[#5E8C31]" : "bg-[#E67E22]", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
+          melhorHora?.valor > 0 && { dot: "bg-[#F38525]", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
+          produtoTop && { dot: "bg-[#012E46]", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
+          { dot: a.ticket >= meta ? "bg-[#5E8C31]" : "bg-[#F38525]", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
+          { dot: abertos.length === 0 ? "bg-[#5E8C31]" : "bg-[#F38525]", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
           { dot: estoqueBaixo === 0 ? "bg-[#5E8C31]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
         ].filter(Boolean);
         return (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(15,76,92,0.16)] bg-[rgba(15,76,92,0.035)] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(15,76,92,0.10)] px-2.5 py-1 text-[10.5px] font-black uppercase tracking-widest text-[#0F4C5C]">
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(1, 46, 70,0.16)] bg-[rgba(1, 46, 70,0.035)] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(1, 46, 70,0.10)] px-2.5 py-1 text-[10.5px] font-black uppercase tracking-widest text-[#012E46]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
               Resumo inteligente
             </span>
             <span className="hidden h-4 w-px bg-[var(--pp-border)] sm:block" />
             {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,76,92,0.16)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.06)]">
+              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[rgba(1, 46, 70,0.16)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.06)]">
                 <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
               </span>
             ))}
@@ -8814,11 +8814,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
       {/* Copiloto de Gestão (IA) — só na tela dedicada do menu "Copiloto IA" */}
       {soCopiloto && (() => {
-        const NIVEL_COR = { "Saudável": "#2F9E52", "Atenção": "#F59E0B", "Crítico": "#C81E4A" };
-        const nivelCorAnel = NIVEL_COR[ia.nivel] || "#F59E0B";
-        const sevCor = { pos: "#2F9E52", info: "#8B5CF6", warn: "#F59E0B", crit: "#C81E4A" };
+        const NIVEL_COR = { "Saudável": "#2F9E52", "Atenção": "#F38525", "Crítico": "#C81E4A" };
+        const nivelCorAnel = NIVEL_COR[ia.nivel] || "#F38525";
+        const sevCor = { pos: "#2F9E52", info: "#8B5CF6", warn: "#F38525", crit: "#C81E4A" };
         const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
-        const prioCor = { alta: "#C81E4A", media: "#F59E0B", baixa: "#8A7D73" };
+        const prioCor = { alta: "#C81E4A", media: "#F38525", baixa: "#8A7D73" };
         const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
         const semDados = a.totalPedidos === 0;
         const CATEGORIAS_INSIGHT = ["Vendas", "Clientes", "Produtos", "Estoque", "Operação", "Financeiro", "Satisfação"];
@@ -8858,7 +8858,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">
                     Saúde do estabelecimento
-                    <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[var(--pp-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
+                    <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[var(--pp-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
                   </p>
                   <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-bold" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
                   {comparativo?.faturamento != null && (
@@ -8873,12 +8873,12 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             {/* 4b. Resumo do cenário — bloco SEPARADO, com destaque para leitura rápida */}
             <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
               <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]" aria-hidden="true">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.08)] text-[#012E46]" aria-hidden="true">
                   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M4 12h16M4 19h10" /></svg>
                 </span>
                 Resumo do cenário
               </p>
-              <div className="mt-2.5 rounded-xl border-l-[3px] border-[#0F4C5C] bg-[rgba(15,76,92,0.035)] px-4 py-3.5">
+              <div className="mt-2.5 rounded-xl border-l-[3px] border-[#012E46] bg-[rgba(1, 46, 70,0.035)] px-4 py-3.5">
                 <p className="text-[15px] leading-relaxed text-[var(--pp-text)]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
               </div>
               {!semDados && (
@@ -8893,7 +8893,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text)]">Três prioridades agora</p>
                   <div className="grid gap-2 sm:grid-cols-3">
                     {ia.acoes.slice(0, 3).map((ac, i) => (
-                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
                         <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
                         <p className="mt-1.5 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ac.texto}</p>
                       </div>
@@ -8909,10 +8909,10 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {chatMsgs.some((m) => m.role === "user") && !chatLoading && (
-                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">🔁 Refazer análise</button>
+                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#012E46] hover:text-[#012E46]">🔁 Refazer análise</button>
                   )}
                   {chatMsgs.length > 0 && (
-                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C]">Limpar conversa</button>
+                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#012E46] hover:text-[#012E46]">Limpar conversa</button>
                   )}
                 </div>
               </div>
@@ -8923,7 +8923,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                   {chatMsgs.map((m, i) => (
                     <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#0F4C5C", color: "#FFFFFF" } : { border: "1px solid #EAE0D6", background: "#FFFFFF", color: "#2B2320" }}>
+                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#012E46", color: "#FFFFFF" } : { border: "1px solid #EAE0D6", background: "#FFFFFF", color: "#2B2320" }}>
                         {m.role === "user" ? m.content : (
                           <RespostaCopilotoBubble resultado={m.resultado} modelo={m.modelo} dataPeriod={m.dataPeriod} bloqueado={m.bloqueado} atualizadoEm={m.atualizadoEm}
                             copiado={chatCopiadoIdx === i} onCopiar={(texto) => copiarResposta(texto, i)}
@@ -8945,25 +8945,25 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 </div>
               )}
               {chatErro && (
-                <div className="mt-3 rounded-xl border px-4 py-3 text-[12px] font-semibold" style={{ borderColor: "#F59E0B4D", background: "#F59E0B1A", color: "#B45309" }}>⚠️ {chatErro}</div>
+                <div className="mt-3 rounded-xl border px-4 py-3 text-[12px] font-semibold" style={{ borderColor: "#F385254D", background: "#F385251A", color: "#012E46" }}>⚠️ {chatErro}</div>
               )}
               <div className="mt-3 flex gap-2">
                 <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarPerguntaIA(); } }}
                   rows={2} placeholder="Ex.: Como aumentar o ticket médio neste período? (Enter envia, Shift+Enter quebra linha)"
                   aria-label="Pergunta para o Copiloto"
-                  className="flex-1 resize-none rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[#0F4C5C]/25 placeholder:text-[var(--pp-text-muted)]" />
+                  className="flex-1 resize-none rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/25 placeholder:text-[var(--pp-text-muted)]" />
                 {chatLoading ? (
                   <button onClick={interromperRespostaIA} className="shrink-0 self-end rounded-xl border border-[#C81E4A] bg-white px-5 py-2.5 text-sm font-black text-[#C81E4A] transition hover:bg-[#FEF2F2]">■ Interromper</button>
                 ) : (
                   <button onClick={() => enviarPerguntaIA()} disabled={!chatInput.trim()}
-                    className="shrink-0 self-end rounded-xl bg-[#0F4C5C] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0B3A46] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
+                    className="shrink-0 self-end rounded-xl bg-[#012E46] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#012E46] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
                 )}
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {["Como aumentar meu faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?", "Quais riscos exigem atenção?", "Qual oportunidade tem maior impacto?"].map((s) => (
                   <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#0F4C5C] hover:text-[#0F4C5C] disabled:opacity-40">{s}</button>
+                    className="rounded-full border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#012E46] hover:text-[#012E46] disabled:opacity-40">{s}</button>
                 ))}
               </div>
               <p className="mt-3 text-[10px] text-[var(--pp-text-muted)]">Respostas usam somente os dados reais do período e filtros ativos ({filtrosAtivosTexto}) — o Copiloto não inventa números. Chat via IA por função segura no servidor; sem chave configurada ou em caso de erro, cai automaticamente no diagnóstico local desta tela.</p>
@@ -8986,9 +8986,9 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               ) : (
                 <div className="grid gap-2 sm:grid-cols-2">
                   {ia.alertasCriticos.map((al, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]" style={{ borderLeftColor: al.sev === "crit" ? "#C81E4A" : "#F59E0B" }}>
+                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]" style={{ borderLeftColor: al.sev === "crit" ? "#C81E4A" : "#F38525" }}>
                       <span className="shrink-0">{al.sev === "crit" ? "🔴" : "⚠️"}</span>
-                      <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#C81E4A" : "#B45309" }}>{al.titulo}</p><p className="text-xs text-[var(--pp-text-muted)]">{al.desc}</p></div>
+                      <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#C81E4A" : "#012E46" }}>{al.titulo}</p><p className="text-xs text-[var(--pp-text-muted)]">{al.desc}</p></div>
                     </div>
                   ))}
                 </div>
@@ -9015,7 +9015,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                             </div>
                             <div className="mt-1.5 flex items-center gap-2 pl-5">
                               <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: `${sevCor[it.sev]}1A`, color: sevCor[it.sev] }}>Impacto {it.impacto}</span>
-                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70" style={{ color: "#0F4C5C" }}>Ver origem →</button>}
+                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70" style={{ color: "#012E46" }}>Ver origem →</button>}
                             </div>
                           </div>
                         ))}
@@ -9054,7 +9054,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                           },
                         });
                       }}
-                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[rgba(15,76,92,0.06)] sm:self-center" style={{ borderColor: "#0F4C5C", color: "#0F4C5C" }}>Criar ação</button>
+                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[rgba(1, 46, 70,0.06)] sm:self-center" style={{ borderColor: "#012E46", color: "#012E46" }}>Criar ação</button>
                     </div>
                   ))}
                 </div>
@@ -9092,7 +9092,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                       { titulo: "Promover 1 produto parado", premissa: produtoTop ? `Referência: ${produtoTop.nome} vendeu ${produtoTop.qtd} un. no período` : "Sem produto de referência no período", resultado: produtosParados.length ? `Se um item parado vender como 30% do carro-chefe, +${Math.round((produtoTop?.qtd || 0) * 0.3)} un. projetadas` : "Nenhum produto parado no período" },
                       { titulo: "Reduzir o tempo de preparo em 20%", premissa: tempoMedioPrep != null ? `Tempo atual: ${fmtTempo(tempoMedioPrep)}` : "Sem tempo médio de preparo no período", resultado: tempoMedioPrep != null ? `Tempo projetado: ${fmtTempo(Math.round(tempoMedioPrep * 0.8))} — pode aumentar o giro de mesas` : "—" },
                     ].map((s, i) => (
-                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
                         <p className="text-xs font-black text-[var(--pp-text)]">{s.titulo}</p>
                         <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Premissa: {s.premissa}</p>
                         <p className="mt-1 text-[11px] font-bold" style={{ color: "#8B5CF6" }}>Projeção: {s.resultado}</p>
@@ -9137,11 +9137,11 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
             <span className="block text-sm font-black text-[var(--pp-text)]">{formatCurrency(a.faturamento)}</span>
           </span>
         ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#E6E6E6", pico: "var(--pp-destaque)", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#E6E6E6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
+        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#E6E6E6", pico: "var(--pp-destaque)", acimaMedia: "#012E46", padrao: "#012E46", grade: "#E6E6E6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
         {melhorHora.valor > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-[#E67E22]/10 px-3 py-1.5 text-xs font-bold text-[#E67E22]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
-            <span className="rounded-full bg-[#0F4C5C]/10 px-3 py-1.5 text-xs font-bold text-[#0F4C5C]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
+            <span className="rounded-full bg-[#F38525]/10 px-3 py-1.5 text-xs font-bold text-[#F38525]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
+            <span className="rounded-full bg-[#012E46]/10 px-3 py-1.5 text-xs font-bold text-[#012E46]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
           </div>
         )}
       </Painel>
@@ -9154,7 +9154,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
           <div className="space-y-3">
             {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
             {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#0F4C5C]"} />
+              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#012E46]"} />
             ))}
           </div>
         </Painel>
@@ -9171,7 +9171,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               { r: "Pedido mais demorado", v: tempoMaxPrep != null ? formatarDuracaoMin(tempoMaxPrep) : "—" },
               { r: "Setor mais acionado", v: setorMaisAcionado },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
                 <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
                 <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}</p>
               </div>
@@ -9186,13 +9186,13 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 <div key={s.id}>
                   <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
                     <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i === 0 ? "var(--pp-destaque)" : "#0F4C5C" }} />
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i === 0 ? "var(--pp-destaque)" : "#012E46" }} />
                       <span className="truncate">{s.nome}</span>
                     </span>
                     <span className="shrink-0 text-[var(--pp-text-muted)]"><b className="text-dash-navy">{s.qtd}</b> {s.qtd === 1 ? "item" : "itens"}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]">
-                    <div className="h-full rounded-full" style={{ width: `${(s.qtd / maxSetorQtd) * 100}%`, background: i === 0 ? "var(--pp-destaque)" : "#0F4C5C" }} />
+                    <div className="h-full rounded-full" style={{ width: `${(s.qtd / maxSetorQtd) * 100}%`, background: i === 0 ? "var(--pp-destaque)" : "#012E46" }} />
                   </div>
                 </div>
               ))}
@@ -9204,7 +9204,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         <Painel titulo="Formas de Pagamento">
           <div className="space-y-3">
             <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[var(--pp-destaque)]" />
-            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#0F4C5C]" />
+            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#012E46]" />
           </div>
           <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
         </Painel>
@@ -9217,7 +9217,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
               { r: "Pedidos por cliente", v: clientesPeriodo ? (filtrados.length / clientesPeriodo).toFixed(1) : "0" },
               { r: "Ticket médio/cliente", v: formatCurrency(ticketPorCliente) },
             ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
                 <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
                 <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{c.r}</p>
               </div>
@@ -9229,7 +9229,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
       {/* Painéis de ação gerencial */}
       <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
         <Painel titulo="Mesas e Comandas em Atenção" className="xl:col-span-2"
-          acao={<button onClick={irParaMesas} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-bold text-dash-navy shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]">Ver todas as mesas e comandas</button>}>
+          acao={<button onClick={irParaMesas} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-bold text-dash-navy shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Ver todas as mesas e comandas</button>}>
           {mesasAtencao.length === 0 ? (
             <p className="py-4 text-center text-sm text-[#2F9E52]">✅ Nenhuma mesa em aberto no momento.</p>
           ) : (
@@ -9244,7 +9244,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                     return (
                       <tr key={m.mesa} className="border-b border-[var(--pp-border)]">
                         <td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td>
-                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-[#E67E22] font-semibold" : "text-[var(--pp-text-muted)]"}`}>{fmtTempo(m.mins)}</td>
+                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-[#F38525] font-semibold" : "text-[var(--pp-text-muted)]"}`}>{fmtTempo(m.mins)}</td>
                         <td className="py-2.5 pr-3 text-right font-semibold text-dash-navy">{formatCurrency(m.valor)}</td>
                         <td className="py-2.5 pl-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span></td>
                       </tr>
@@ -9290,7 +9290,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
                 { r: "Pedidos", v: comparativo.pedidos },
                 { r: "Ticket médio", v: comparativo.ticket },
               ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
                   <p className={`page-title text-lg font-bold ${c.v == null ? "text-[var(--pp-text-muted)]" : c.v >= 0 ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
                   <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}<br />vs período anterior</p>
                 </div>
@@ -9302,7 +9302,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
         <Painel titulo="Recomendações para o Gestor" className="xl:col-span-3">
           <ul className="grid gap-2 sm:grid-cols-2">
             {recomendacoes.map((r, i) => (
-              <li key={i} className="flex items-start gap-2 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+              <li key={i} className="flex items-start gap-2 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
                 <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#2F9E52]/15 text-[10px] font-black text-[#2F9E52]">✓</span>{r}
               </li>
             ))}
@@ -9397,16 +9397,16 @@ function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
     <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
       <div className="flex items-start justify-between gap-2">
         <p className="text-[10.5px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{titulo}</p>
-        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0F4C5C]/10 text-sm">{icon}</span>}
+        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#012E46]/10 text-sm">{icon}</span>}
       </div>
       <p className="page-title mt-1.5 text-[22px] font-bold leading-tight text-[var(--pp-text)]">{valor}</p>
       <div className="mt-1 flex items-center gap-2">
         {variacao != null && (
-          <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#2F9E52]" : "text-[#F59E0B]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
+          <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#2F9E52]" : "text-[#F38525]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
         )}
         {tendencia && tendencia.length > 1 && (
           <span className="flex h-4 items-end gap-[2px]" aria-hidden="true">
-            {tendencia.slice(-8).map((v, i) => (<span key={i} className="w-[3px] rounded-sm bg-[#0F4C5C]/35" style={{ height: `${Math.max(15, (v / max) * 100)}%` }} />))}
+            {tendencia.slice(-8).map((v, i) => (<span key={i} className="w-[3px] rounded-sm bg-[#012E46]/35" style={{ height: `${Math.max(15, (v / max) * 100)}%` }} />))}
           </span>
         )}
       </div>
@@ -9439,9 +9439,9 @@ function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.
 // vermelho — vermelho reservado ao caso realmente crítico: estoque zerado).
 const INSIGHT_TONS_VENDAS = {
   success: { icon: "📈", bg: "bg-[#2F9E52]/10" },
-  warning: { icon: "⚠️", bg: "bg-[#F59E0B]/10" },
-  info:    { icon: "💡", bg: "bg-[#0F4C5C]/10" },
-  violet:  { icon: "✨", bg: "bg-[#0F4C5C]/10" },
+  warning: { icon: "⚠️", bg: "bg-[#F38525]/10" },
+  info:    { icon: "💡", bg: "bg-[#012E46]/10" },
+  violet:  { icon: "✨", bg: "bg-[#012E46]/10" },
   danger:  { icon: "🔴", bg: "bg-[#C81E4A]/10" },
 };
 function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
@@ -9453,7 +9453,7 @@ function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
         <p className="text-sm font-bold text-[var(--pp-text)]">{titulo}</p>
         <p className="mt-0.5 text-xs leading-relaxed text-[var(--pp-text)]">{texto}</p>
         {acaoLabel && onAcao && (
-          <button onClick={onAcao} className="mt-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">{acaoLabel} →</button>
+          <button onClick={onAcao} className="mt-1.5 text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">{acaoLabel} →</button>
         )}
       </div>
     </div>
@@ -9578,7 +9578,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
   // Paleta oficial única de donuts do projeto (mesma do Dashboard Gerencial).
-  const PALETA_GRAF_RELATORIOS = ["#0F4C5C", "#10B981", "#F59E0B", "#8B5CF6", "#06B6D4", "#64748B"];
+  const PALETA_GRAF_RELATORIOS = ["#012E46", "#10B981", "#F38525", "#8B5CF6", "#012E46", "#64748B"];
   const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
   // Mesas com maior faturamento
   const porMesaR = {};
@@ -9807,7 +9807,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     j.document.close();
   }
   function atualizarEstoqueVisao() { setAtualizadoEmEstoque(new Date()); }
-  const inputClsEstoque = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]";
+  const inputClsEstoque = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46]";
   const labelClsEstoque = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
 
   function exportarEstoqueCSV() {
@@ -9937,30 +9937,30 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       @page { size: A4; margin: 14mm 14mm 16mm; }
       * { box-sizing: border-box; }
       body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
-      .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0F4C5C; padding-bottom:12px; }
+      .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #012E46; padding-bottom:12px; }
       .head .emp { font-size:22px; font-weight:800; }
       .head .sub { font-size:12px; color:#475569; margin-top:2px; }
       .head .doc { text-align:right; }
-      .head .doc .t { font-size:15px; font-weight:800; color:#0F4C5C; }
+      .head .doc .t { font-size:15px; font-weight:800; color:#012E46; }
       .head .doc .m { font-size:11px; color:#667085; }
       .meta { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 4px; font-size:12px; color:#475569; }
       .meta b { color:#0f172a; }
       .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
-      .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#F8F6F0; }
+      .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#FFFFFF; }
       .kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#667085; font-weight:700; }
       .kpi .v { font-size:18px; font-weight:800; margin-top:3px; }
-      .kpi .v.green { color:#059669; } .kpi .v.blue { color:#0F4C5C; }
+      .kpi .v.green { color:#059669; } .kpi .v.blue { color:#012E46; }
       h2 { font-size:14px; margin:18px 0 6px; color:#0f172a; }
       table { width:100%; border-collapse:collapse; font-size:12px; }
       thead th { background:#0f172a; color:#fff; text-align:left; padding:8px 10px; font-size:11px; }
       thead th.r, td.r { text-align:right; }
       tbody td { padding:7px 10px; border-bottom:1px solid #e2e8f0; }
-      tbody tr:nth-child(even) td { background:#F8F6F0; }
-      td.rank { color:#0F4C5C; font-weight:800; width:26px; }
+      tbody tr:nth-child(even) td { background:#FFFFFF; }
+      td.rank { color:#012E46; font-weight:800; width:26px; }
       td.b, .b { font-weight:800; }
       tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#DCE8EA; }
       .bar { height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; min-width:90px; }
-      .fill { height:100%; background:#3b82f6; } .fill.cat { background:#10b981; }
+      .fill { height:100%; background:#012e46; } .fill.cat { background:#10b981; }
       .foot { margin-top:22px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; }
     </style></head><body>
       <div class="head">
@@ -10369,7 +10369,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     URL.revokeObjectURL(url);
   }
   function atualizarClientesVisaoE() { setAtualizadoEmClientesE(new Date()); }
-  const inputClsClientesE = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]";
+  const inputClsClientesE = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46]";
   const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
 
   return (
@@ -10377,7 +10377,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IconRelatorios /></span>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IconRelatorios /></span>
             Relatórios de vendas
           </h2>
           <p className="mt-1 text-[13px] text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
@@ -10414,8 +10414,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { r: "Maior dia", v: maiorDiaSemana ? maiorDiaSemana.dia.split("-")[0] : "—", s: maiorDiaSemana ? formatCurrency(maiorDiaSemana.valor) : "—", cor: "text-amber-500" },
-                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—", cor: "text-[#0F4C5C]" },
-                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período", cor: "text-[#0F4C5C]" },
+                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—", cor: "text-[#012E46]" },
+                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período", cor: "text-[#012E46]" },
                   { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}`, cor: "text-[#2F9E52]" },
                 ].map((c) => (
                   <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
@@ -10433,29 +10433,29 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             acao={a.faturamento > 0 ? (
               <span className="shrink-0 text-right">
                 <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total do período</span>
-                <span className="block text-sm font-black text-[#172033]">{formatCurrency(a.faturamento)}</span>
+                <span className="block text-sm font-black text-[#012E46]">{formatCurrency(a.faturamento)}</span>
               </span>
             ) : null}>
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#012E46", pico: "#F38525", acimaMedia: "#012E46", padrao: "#012E46", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
           </Painel>
 
           {/* Tabelas: produtos, mesas */}
           <div className="grid gap-5 xl:grid-cols-2">
-            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-[#0F4C5C] hover:underline">Ver todos →</button>}>
+            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-[#012E46] hover:underline">Ver todos →</button>}>
               <div className="space-y-2.5">
                 {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
                 {a.topProdutos.map((p, i) => (
                   <div key={p.nome}>
                     <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-[var(--pp-destaque-soft)] text-[#B4611A]" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
+                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-[var(--pp-destaque-soft)] text-[#F38525]" : "bg-[rgba(1, 46, 70,0.06)] text-[#012E46]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
                       <span className="shrink-0 text-[var(--pp-text-muted)]">{p.qtd} un · <b className="text-[#2F9E52]">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
                     </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#0F4C5C]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#012E46]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
                   </div>
                 ))}
               </div>
             </Painel>
-            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-[#0F4C5C] hover:underline">Ver mapa →</button>}>
+            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-[#012E46] hover:underline">Ver mapa →</button>}>
               {mesasFaturamento.length === 0 ? <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p> : (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[360px] text-sm">
@@ -10484,10 +10484,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div><p className="page-title text-2xl font-bold text-amber-500">{baixoCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">abaixo do mínimo</p></div>
                 <div><p className="page-title text-2xl font-bold text-[#C81E4A]">{zeradosCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">zerados</p></div>
               </div>
-              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-[#0F4C5C] hover:underline">Ver relatório de estoque →</button>
+              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-[#012E46] hover:underline">Ver relatório de estoque →</button>
             </Painel>
             <Painel titulo="Permanência">
-              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-[#0F4C5C] hover:underline">Ver tempo de permanência →</button>
+              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-[#012E46] hover:underline">Ver tempo de permanência →</button>
               <p className="mt-2 text-xs text-[var(--pp-text-muted)]">Análise do tempo entre abertura e pagamento das comandas.</p>
             </Painel>
           </div>
@@ -10501,7 +10501,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <div className="flex flex-wrap items-center gap-2">
               <button onClick={exportarClientesExcelE} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar</button>
               <button onClick={() => setCompararPeriodoClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
               <button onClick={atualizarClientesVisaoE} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
             </div>
             <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
@@ -10568,7 +10568,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div key={r} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{r}</p>
                   <p className="mt-0.5 truncate text-sm font-black text-[var(--pp-text)]">{v}</p>
-                  {sub && <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{sub}</p>}
+                  {sub && <p className="truncate text-[11px] font-semibold text-[#012E46]">{sub}</p>}
                 </div>
               ))}
             </div>
@@ -10602,9 +10602,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <input value={buscaClientesE} onChange={(e) => setBuscaClientesE(e.target.value)} placeholder="🔎 Buscar por cliente ou telefone…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]" />
+                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46]" />
               <button onClick={() => setMostrarFiltrosClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
                 ⚙️ Filtros{filtrosClientesAtivosE ? " •" : ""}
               </button>
             </div>
@@ -10637,7 +10637,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div><label className={labelClsClientesE}>Pedidos no período (mín.)</label><input value={fPedidosMinE} onChange={(e) => setFPedidosMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
                 <div><label className={labelClsClientesE}>Dias sem comprar (mín.)</label><input value={fDiasSemComprarMinE} onChange={(e) => setFDiasSemComprarMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
                 {filtrosClientesAtivosE && (
-                  <button onClick={limparFiltrosClientesE} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+                  <button onClick={limparFiltrosClientesE} className="self-end text-left text-[11px] font-bold text-[#012E46] hover:text-[#012E46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
                 )}
               </div>
             )}
@@ -10660,7 +10660,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       ["canalPredominante", "Canal"], ["formaPagamentoFavorita", "Forma pagto."],
                     ].map(([campo, rotulo]) => (
                       <th key={campo} className="whitespace-nowrap border-b border-[var(--pp-border)] px-3 py-2.5 text-left">
-                        <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
+                        <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#012E46]">
                           {rotulo}{ordenacaoClientesE.campo === campo ? (ordenacaoClientesE.dir === "desc" ? " ▼" : " ▲") : ""}
                         </button>
                       </th>
@@ -10722,7 +10722,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
           {pedidosSemId > 0 && (
             <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
-              <h3 className="page-title text-sm font-bold text-[#0F4C5C]">💡 Recomendação gerencial</h3>
+              <h3 className="page-title text-sm font-bold text-[#012E46]">💡 Recomendação gerencial</h3>
               <p className="mt-2 text-sm leading-6 text-[var(--pp-text)]">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
             </div>
           )}
@@ -10753,7 +10753,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <div className="flex flex-wrap items-center gap-2">
               <BotoesExport />
               <button onClick={() => setCompararPeriodo((v) => !v)}
-                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
+                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
               <button onClick={compartilharRelatorioV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔗 Compartilhar</button>
               <button onClick={atualizarVisaoV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
             </div>
@@ -10769,7 +10769,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Visão consolidada do período selecionado</p>
               </div>
               {comparativo && (
-                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "bg-[#2F9E52]/10 text-[#2F9E52]" : "bg-[#F59E0B]/10 text-[#F59E0B]"}`}>
+                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "bg-[#2F9E52]/10 text-[#2F9E52]" : "bg-[#F38525]/10 text-[#F38525]"}`}>
                   {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% vs. período anterior
                 </span>
               )}
@@ -10789,7 +10789,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.r}</p>
                   <p className="page-title mt-1 truncate text-base font-bold text-[var(--pp-text)]">{c.v}</p>
-                  <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{c.s}</p>
+                  <p className="truncate text-[11px] font-semibold text-[#012E46]">{c.s}</p>
                 </div>
               ))}
             </div>
@@ -10811,7 +10811,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <Painel titulo="Vendas por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
           </div>
           <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado">
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#0F4C5C", pico: "#F59E0B", acimaMedia: "#0F4C5C", padrao: "#0F4C5C", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
+            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#012E46", pico: "#F38525", acimaMedia: "#012E46", padrao: "#012E46", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
           </Painel>
 
           {/* 3. Produtos mais vendidos — ranking profissional (busca, ordenação, paginação) */}
@@ -10822,15 +10822,15 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{produtosCompletosV.length} produto(s) com venda no período · toque para ver os cupons</p>
               </div>
               <input value={buscaProdV} onChange={(e) => setBuscaProdV(e.target.value)} placeholder="🔎 Buscar produto…"
-                className="w-full max-w-[220px] rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]" />
+                className="w-full max-w-[220px] rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46]" />
             </div>
             <div className="hidden items-center justify-between border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)] sm:flex">
               <span>#, Produto e categoria</span>
               <span className="flex gap-3">
-                <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#0F4C5C]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
-                <button onClick={() => alternarOrdemV("valor")} className="transition hover:text-[#0F4C5C]">Faturamento{ordemProdV.campo === "valor" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#012E46]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("valor")} className="transition hover:text-[#012E46]">Faturamento{ordemProdV.campo === "valor" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
                 <span>%</span><span>Ticket médio</span>
-                <button onClick={() => alternarOrdemV("margem")} className="transition hover:text-[#0F4C5C]">Margem{ordemProdV.campo === "margem" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                <button onClick={() => alternarOrdemV("margem")} className="transition hover:text-[#012E46]">Margem{ordemProdV.campo === "margem" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
               </span>
             </div>
             {produtosVisiveisV.length === 0 && (
@@ -10841,7 +10841,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               return (
                 <div key={p.nome} className="border-t border-[var(--pp-bg)] px-5 py-3.5 transition hover:bg-[var(--pp-bg)]">
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F59E0B]/15 text-[#F59E0B]" : "bg-[#0F4C5C]/10 text-[#0F4C5C]"}`}>{rankGlobal}</span>
+                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F38525]/15 text-[#F38525]" : "bg-[#012E46]/10 text-[#012E46]"}`}>{rankGlobal}</span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-[var(--pp-text)]">{p.nome}</p>
                       <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{p.categoria}</p>
@@ -10854,9 +10854,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       <span className="hidden font-semibold text-[#2F9E52] sm:inline">{formatCurrency(p.margem)}</span>
                     </div>
                     <button onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                      className="shrink-0 rounded-lg border border-[var(--pp-border)] px-2.5 py-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.06)]">Ver detalhes</button>
+                      className="shrink-0 rounded-lg border border-[var(--pp-border)] px-2.5 py-1.5 text-[11px] font-bold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.06)]">Ver detalhes</button>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className="h-full rounded-full bg-[#0F4C5C]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className="h-full rounded-full bg-[#012E46]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
                 </div>
               );
             })}
@@ -10869,7 +10869,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <TopLista titulo="Top categorias" icon="🏷️" itens={a.categorias.slice(0, 5)} vazio="Sem categorias vendidas no período."
               render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.categoria}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.valor)}</span></div>)} />
             <TopLista titulo="Top clientes" icon="👤" itens={clientesLista.filter((c) => c.identificado).slice(0, 5)} vazio="Sem clientes identificados no período."
-              acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">Ver todos →</button>}
+              acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver todos →</button>}
               render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.cliente}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.faturamento)}</span></div>)} />
             <TopLista titulo="Top mesas" icon="🍽️" itens={mesasFaturamento.slice(0, 5)} vazio="Sem vendas por mesa no período."
               render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{m.mesa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(m.faturamento)}</span></div>)} />
@@ -10877,8 +10877,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosSemVendaV.length - 5}</span> : null}
               render={(p) => <span className="block truncate text-sm text-[var(--pp-text)]">{p.name}</span>} />
             <TopLista titulo="Produtos com baixo estoque" icon="📉" itens={produtosBaixoEstoqueV.slice(0, 5)} vazio="Nenhum produto em estoque crítico."
-              acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">Ver estoque →</button>}
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#C81E4A]" : "text-[#F59E0B]"}`}>{l.posterior} un</span></div>)} />
+              acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver estoque →</button>}
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#C81E4A]" : "text-[#F38525]"}`}>{l.posterior} un</span></div>)} />
             <TopLista titulo="Maior margem" icon="💎" itens={produtosPorMargemV.slice(0, 5)} vazio="Sem dados de margem no período."
               render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{p.nome}</span><span className="shrink-0 font-bold text-[#2F9E52]">{formatCurrency(p.margem)}</span></div>)} />
             <TopLista titulo="Maior faturamento" icon="🏆" itens={produtosPorFaturamentoV.slice(0, 5)} vazio="Sem vendas no período."
@@ -10935,7 +10935,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               <button onClick={exportarEstoqueCSV} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar Excel</button>
               <button onClick={exportarEstoquePDF} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📄 Exportar PDF</button>
               <button onClick={() => setCompararPeriodoEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
+                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
               <button onClick={() => setSomenteCriticosEstoque((v) => !v)}
                 className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteCriticosEstoque ? "border-[#C81E4A] bg-[#C81E4A]/10 text-[#C81E4A]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>🚨 Ver somente críticos</button>
               <button onClick={atualizarEstoqueVisao} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
@@ -10978,9 +10978,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
           <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <input value={buscaEstoque} onChange={(e) => setBuscaEstoque(e.target.value)} placeholder="🔎 Buscar por produto ou categoria…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C]" />
+                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46]" />
               <button onClick={() => setMostrarFiltrosEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#0F4C5C] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
+                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
                 ⚙️ Filtros{filtrosEstoqueAtivos ? " •" : ""}
               </button>
             </div>
@@ -10999,7 +10999,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div><label className={labelClsEstoque}>Estoque mínimo (faixa)</label><input value={fEstoqueMin} onChange={(e) => setFEstoqueMin(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsEstoque} /></div>
                 <div><label className={labelClsEstoque}>Estoque máximo (faixa)</label><input value={fEstoqueMax} onChange={(e) => setFEstoqueMax(e.target.value.replace(/[^\d]/g, ""))} placeholder="999" inputMode="numeric" className={inputClsEstoque} /></div>
                 {filtrosEstoqueAtivos && (
-                  <button onClick={limparFiltrosEstoque} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+                  <button onClick={limparFiltrosEstoque} className="self-end text-left text-[11px] font-bold text-[#012E46] hover:text-[#012E46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
                 )}
               </div>
             )}
@@ -11020,7 +11020,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       ["posterior", "Atual"], ["minimo", "Mínimo"], ["cobertura", "Cobertura"], ["custoUnit", "Custo un."], ["valorEstoque", "Valor"], ["status", "Status"],
                     ].map(([campo, rotulo]) => (
                       <th key={campo} className="whitespace-nowrap border-b border-[var(--pp-border)] px-3 py-2.5 text-left">
-                        <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
+                        <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#012E46]">
                           {rotulo}{ordenacaoEstoque.campo === campo ? (ordenacaoEstoque.dir === "desc" ? " ▼" : " ▲") : ""}
                         </button>
                       </th>
@@ -11038,7 +11038,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                       <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-[var(--pp-text)]">{l.nome}</td>
                       <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{l.categoria || "—"}</td>
                       <td className="px-3 py-2.5 font-mono text-[var(--pp-text-muted)]">{l.anterior}</td>
-                      <td className="px-3 py-2.5 font-mono font-semibold text-[#0F4C5C]">{l.vendido}</td>
+                      <td className="px-3 py-2.5 font-mono font-semibold text-[#012E46]">{l.vendido}</td>
                       <td className="px-3 py-2.5 font-mono font-bold text-[var(--pp-text)]">{l.posterior}</td>
                       <td className="px-3 py-2.5 font-mono text-[var(--pp-text-muted)]">{l.minimo}</td>
                       <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{l.cobertura != null ? `${l.cobertura.toFixed(0)}d` : "—"}</td>
@@ -11059,7 +11059,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <TopLista titulo="Maior giro" icon="🔁" itens={maiorGiro} vazio="Sem dados de giro no período."
               render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{l.giro.toFixed(2)}x</span></div>)} />
             <TopLista titulo="Menor giro" icon="🐌" itens={menorGiro} vazio="Sem produtos com giro baixo (excluindo parados)."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[#F59E0B]">{l.giro.toFixed(2)}x</span></div>)} />
+              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[#F38525]">{l.giro.toFixed(2)}x</span></div>)} />
             <TopLista titulo="Produtos parados" icon="😴" itens={produtosParadosEstoqueE.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
               acao={produtosParadosEstoqueE.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosParadosEstoqueE.length - 5}</span> : null}
               render={(l) => <span className="block truncate text-sm text-[var(--pp-text)]">{l.nome}</span>} />
@@ -11074,7 +11074,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span>
                   <span className="shrink-0 text-right">
-                    <span className="font-bold text-[#0F4C5C]">+{l.sugestaoQtd} un. até o mínimo</span>
+                    <span className="font-bold text-[#012E46]">+{l.sugestaoQtd} un. até o mínimo</span>
                     <span className="ml-2 text-[11px] text-[var(--pp-text-muted)]">média {l.mediaDiaria.toFixed(1)} un./dia</span>
                   </span>
                 </div>
@@ -11104,25 +11104,25 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
 // ── Relatório analítico por cupom fiscal / mesa / comanda ────
 // Badge de indicador do cupom — paleta oficial restrita a estas 5 cores.
-const INDICADOR_CUPOM_CORES = { cancelada: "#C81E4A", reimpressa: "#F59E0B", enviada: "#2F9E52", fiscal: "#0F4C5C", naoFiscal: "#8A7D73" };
+const INDICADOR_CUPOM_CORES = { cancelada: "#C81E4A", reimpressa: "#F38525", enviada: "#2F9E52", fiscal: "#012E46", naoFiscal: "#8A7D73" };
 function BadgeCupom({ tipo, children }) {
   const cor = INDICADOR_CUPOM_CORES[tipo] || INDICADOR_CUPOM_CORES.naoFiscal;
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${cor}1A`, color: cor }}>{children}</span>;
 }
 // Badge de anomalia — só estas 4 cores oficiais (azul=informativo,
 // laranja=atenção, vermelho=crítico; verde reservado para "sem anomalias").
-const ANOMALIA_CORES = { azul: "#0F4C5C", laranja: "#F59E0B", vermelho: "#EF4444", verde: "#10B981" };
+const ANOMALIA_CORES = { azul: "#012E46", laranja: "#F38525", vermelho: "#EF4444", verde: "#10B981" };
 function BadgeAnomalia({ cor, children }) {
   const hex = ANOMALIA_CORES[cor] || ANOMALIA_CORES.laranja;
   return <span className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${hex}1A`, color: hex }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: hex }} />{children}</span>;
 }
 
 // Status de estoque — paleta oficial restrita a estas 5 cores (a 6ª,
-// #0F4C5C, é usada à parte pelo BadgeCupom tipo="fiscal" para o caso
+// #012E46, é usada à parte pelo BadgeCupom tipo="fiscal" para o caso
 // "informativo": custo sem cadastro, que não é um nível de estoque).
 const ESTOQUE_STATUS = {
   normal: { label: "Normal", cor: "#10B981" },
-  atencao: { label: "Atenção", cor: "#F59E0B" },
+  atencao: { label: "Atenção", cor: "#F38525" },
   critico: { label: "Crítico", cor: "#EF4444" },
   excesso: { label: "Excesso", cor: "#8B5CF6" },
   semMovimento: { label: "Sem movimento", cor: "#64748B" },
@@ -11218,7 +11218,7 @@ function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
     <PainelDetalhe aberto={!!produto} ariaLabel={`Detalhe do produto ${l.nome}`} titulo={l.nome}
       badges={<BadgeEstoque status={l.status} />} subtitulo={l.categoria || "Sem categoria"}
       onFechar={onFechar}
-      rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#0F4C5C] py-2.5 text-sm font-bold text-white transition hover:bg-[#0B3A46]">Abrir cadastro do produto</button>}>
+      rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#012E46] py-2.5 text-sm font-bold text-white transition hover:bg-[#012E46]">Abrir cadastro do produto</button>}>
       <div className="grid grid-cols-2 gap-2.5">
         {[
           ["Estoque anterior", `${l.anterior} un.`], ["Vendido no período", `${l.vendido} un.`],
@@ -11242,22 +11242,22 @@ function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
 // na paleta oficial).
 const CLIENTE_TIER = {
   vip: { label: "VIP", cor: "#8B5CF6" },
-  ouro: { label: "Ouro", cor: "#F59E0B" },
+  ouro: { label: "Ouro", cor: "#F38525" },
   prata: { label: "Prata", cor: "#64748B" },
   bronze: { label: "Bronze", cor: "#334155" },
 };
 const CLIENTE_STATUS = {
-  novo: { label: "Novo", cor: "#0F4C5C" },
+  novo: { label: "Novo", cor: "#012E46" },
   recorrente: { label: "Recorrente", cor: "#10B981" },
   recuperado: { label: "Recuperado", cor: "#10B981" },
-  risco: { label: "Em risco", cor: "#F59E0B" },
+  risco: { label: "Em risco", cor: "#F38525" },
   inativo: { label: "Inativo", cor: "#EF4444" },
   ativo: { label: "Ativo", cor: "#64748B" },
   semDados: { label: "—", cor: "#64748B" },
 };
 // Classificação do score de relacionamento (0–100) — cor só do indicador.
 const SCORE_CLASSIFICACAO_CORES = {
-  VIP: "#8B5CF6", Frequente: "#10B981", "Em crescimento": "#0F4C5C", "Em risco": "#F59E0B", Inativo: "#EF4444",
+  VIP: "#8B5CF6", Frequente: "#10B981", "Em crescimento": "#012E46", "Em risco": "#F38525", Inativo: "#EF4444",
 };
 function BadgeCliente({ mapa, chave }) {
   const s = mapa[chave] || { label: chave, cor: "#64748B" };
@@ -11272,11 +11272,11 @@ function IconAcaoCliente({ icone, label, onClick, disabled = false, carregando =
   return (
     <button type="button" title={label} aria-label={label} disabled={disabled || carregando}
       onClick={(e) => { e.stopPropagation(); if (!disabled && !carregando) onClick(e); }}
-      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0F4C5C] focus-visible:ring-offset-1 ${
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46] focus-visible:ring-offset-1 ${
         disabled ? "cursor-not-allowed border-[#E2E8F0] bg-white text-[#64748B] opacity-40"
-          : "cursor-pointer border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F4C5C]"
+          : "cursor-pointer border-[#E2E8F0] bg-white text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#012E46]"
       }`}>
-      {carregando ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#0F4C5C]" /> : icone}
+      {carregando ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#E2E8F0] border-t-[#012E46]" /> : icone}
     </button>
   );
 }
@@ -11308,7 +11308,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
 
   return (
     <PainelDetalhe aberto={!!cliente} ariaLabel={`Perfil de ${c.cliente}`} onFechar={onFechar} largura="lg:w-[560px] lg:max-w-[560px]"
-      icone={<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0F4C5C]/10 text-base font-black text-[#0F4C5C]" aria-hidden="true">{iniciais}</span>}
+      icone={<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#012E46]/10 text-base font-black text-[#012E46]" aria-hidden="true">{iniciais}</span>}
       titulo={<span title={c.cliente}>{c.cliente}</span>}
       badges={<>
         {c.classificacao === "vip" && <BadgeCliente mapa={CLIENTE_TIER} chave="vip" />}
@@ -11322,7 +11322,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
       </>}
       rodape={
         <div className="flex items-center gap-2 sm:hidden">
-          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#0F4C5C] py-2.5 text-xs font-bold text-white transition hover:bg-[#0B3A46]">💬 WhatsApp</button>
+          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#012E46] py-2.5 text-xs font-bold text-white transition hover:bg-[#012E46]">💬 WhatsApp</button>
           <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
         </div>
       }>
@@ -11420,7 +11420,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                 </div>
               ))}
             </div>
-            <p className="mt-2 rounded-xl bg-[#0F4C5C]/10 px-3 py-2 text-xs font-semibold text-[#0F4C5C]">Próxima ação recomendada: {proximaAcao}</p>
+            <p className="mt-2 rounded-xl bg-[#012E46]/10 px-3 py-2 text-xs font-semibold text-[#012E46]">Próxima ação recomendada: {proximaAcao}</p>
           </div>
 
           {/* 5/6. Histórico de pedidos */}
@@ -11428,7 +11428,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Histórico de pedidos</p>
               {onExportarHistorico && (
-                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#0F4C5C] transition hover:text-[#0B3A46]">📤 Exportar</button>
+                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">📤 Exportar</button>
               )}
             </div>
             {(!c.ultimosPedidos || c.ultimosPedidos.length === 0) ? (
@@ -11452,7 +11452,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                           <span>💳 {p.pedidoObj?.pagamentoForma || "Não informado"}</span>
                           {onAbrirCupom && (
                             <button onClick={() => onAbrirCupom(p.pedidoObj)} title="Ver cupom" aria-label="Ver detalhe deste cupom"
-                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">🧾 Ver cupom</button>
+                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">🧾 Ver cupom</button>
                           )}
                         </div>
                       </div>
@@ -11460,7 +11460,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                   })}
                 </div>
                 {!verTodosPedidos && c.ultimosPedidos.length > 5 && (
-                  <button onClick={() => setVerTodosPedidos(true)} className="mt-2 w-full rounded-xl border border-[#E2E8F0] py-2 text-xs font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">Ver todos ({c.ultimosPedidos.length})</button>
+                  <button onClick={() => setVerTodosPedidos(true)} className="mt-2 w-full rounded-xl border border-[#E2E8F0] py-2 text-xs font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">Ver todos ({c.ultimosPedidos.length})</button>
                 )}
               </>
             )}
@@ -11497,7 +11497,7 @@ function TimelineVenda({ pedido }) {
           const feito = !!p.quando;
           const atual = i === ultimoAlcancadoIdx && i < passos.length - 1;
           const delta = feito && passos[i - 1]?.quando ? minutosEntreISO(passos[i - 1].quando, p.quando) : null;
-          const cor = cancelado && p.chave === "pago" ? "#EF4444" : atual ? "#0F4C5C" : feito ? "#10B981" : "#CBD5E1";
+          const cor = cancelado && p.chave === "pago" ? "#EF4444" : atual ? "#012E46" : feito ? "#10B981" : "#CBD5E1";
           return (
             <div key={p.chave} className="flex flex-1 flex-col items-center text-center">
               <div className="flex w-full items-center">
@@ -11507,7 +11507,7 @@ function TimelineVenda({ pedido }) {
               </div>
               <p className="mt-1.5 px-1 text-[10px] font-bold leading-tight" style={{ color: feito ? "#0D1B2A" : "#94A3B8" }}>{p.rotulo}</p>
               <p className="text-[9px] text-[#64748B]">{p.quando ? new Date(p.quando).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}</p>
-              {delta != null && <p className="text-[9px] font-bold text-[#0F4C5C]">+{formatarDuracaoMin(delta)}</p>}
+              {delta != null && <p className="text-[9px] font-bold text-[#012E46]">+{formatarDuracaoMin(delta)}</p>}
             </div>
           );
         })}
@@ -11808,7 +11808,7 @@ function DropdownSelect({ valor, opcoes, onSelecionar, ariaLabel, className = ""
             <button key={o.valor} type="button" role="option" aria-selected={o.valor === valor} data-selecionado={o.valor === valor}
               onClick={() => { setAberto(false); onSelecionar(o.valor); btnRef.current?.focus({ preventScroll: true }); }}
               className={`block w-full truncate rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                o.valor === valor ? "bg-[#0F4C5C] text-white" : "text-[#334155] hover:bg-[#F1F5F9]"
+                o.valor === valor ? "bg-[#012E46] text-white" : "text-[#334155] hover:bg-[#F1F5F9]"
               }`}>
               {o.rotulo}
             </button>
@@ -12144,7 +12144,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     URL.revokeObjectURL(url);
   }
 
-  const inputCls = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
+  const inputCls = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#012E46]";
   const labelCls = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
 
   return (
@@ -12209,12 +12209,12 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
               <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                 <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
                 <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
-                {sub && <p className="truncate text-[11px] font-semibold text-[#0F4C5C]">{sub}</p>}
+                {sub && <p className="truncate text-[11px] font-semibold text-[#012E46]">{sub}</p>}
               </div>
             ))}
           </div>
           {insights.pedidoMaiorPermanencia && tempoAtendimentoMedioGlobal > 0 && tempoVenda(insights.pedidoMaiorPermanencia) > tempoAtendimentoMedioGlobal * 1.8 && (
-            <p className="mt-3 rounded-xl bg-[#F59E0B]/10 px-3 py-2 text-xs font-semibold text-[#F59E0B]">Recomendação: revisar o fluxo de fechamento — a maior permanência do período ficou bem acima da média ({formatarDuracaoMin(tempoAtendimentoMedioGlobal)}).</p>
+            <p className="mt-3 rounded-xl bg-[#F38525]/10 px-3 py-2 text-xs font-semibold text-[#F38525]">Recomendação: revisar o fluxo de fechamento — a maior permanência do período ficou bem acima da média ({formatarDuracaoMin(tempoAtendimentoMedioGlobal)}).</p>
           )}
         </div>
       )}
@@ -12223,9 +12223,9 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Buscar por cupom, comanda, produto ou cliente…"
-            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#012E46]" />
           <DropdownSelect ariaLabel="Ordenar por" valor={ordenacao} onSelecionar={setOrdenacao}
-            className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition hover:bg-[#F1F5F9] focus:border-[#0F4C5C]"
+            className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition hover:bg-[#F1F5F9] focus:border-[#012E46]"
             opcoes={[
               { valor: "recente", rotulo: "Mais recente" },
               { valor: "antigo", rotulo: "Mais antigo" },
@@ -12234,7 +12234,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
               { valor: "maiorLucro", rotulo: "Maior lucro" },
             ]} />
           <button onClick={() => setMostrarFiltros((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{filtrosAtivos ? " •" : ""}
           </button>
           <label className="flex items-center gap-1.5 text-xs font-bold text-[#334155]">
@@ -12286,7 +12286,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
               <input type="checkbox" checked={fSomenteReimpressos} onChange={(e) => setFSomenteReimpressos(e.target.checked)} /> Somente reimpressos
             </label>
             {filtrosAtivos && (
-              <button onClick={limparFiltros} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+              <button onClick={limparFiltros} className="self-end text-left text-[11px] font-bold text-[#012E46] hover:text-[#012E46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
             )}
             <p className="text-[10px] text-[#94A3B8] sm:col-span-2 lg:col-span-4">Filtro por "Operador" não disponível — nenhum pedido registra o usuário responsável no modelo de dados atual.</p>
           </div>
@@ -12335,7 +12335,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
                 <input type="checkbox" className="mt-1.5" checked={selecionados.has(o.id)} onChange={() => alternar(setSelecionados, o.id)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="rounded-lg border border-[#0F4C5C]/25 bg-[#0F4C5C]/10 px-2.5 py-1 font-mono text-xs font-black text-[#0F4C5C]">Cupom {o.id}</span>
+                    <span className="rounded-lg border border-[#012E46]/25 bg-[#012E46]/10 px-2.5 py-1 font-mono text-xs font-black text-[#012E46]">Cupom {o.id}</span>
                     <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 text-xs font-bold text-[#0D1B2A]">{o.table || "Balcão"}</span>
                     {o.command && <span className="rounded-lg bg-[#F1F5F9] px-2.5 py-1 font-mono text-xs font-bold text-[#64748B]">{o.command}</span>}
                     <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${statusMap[o.status]?.chip}`}>{statusMap[o.status]?.label}</span>
@@ -12564,22 +12564,22 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .doc{max-width:680px;margin:0 auto}
-  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #0F4C5C;padding-bottom:16px}
-  .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #012E46;padding-bottom:16px}
+  .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#012e46,#012e46);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
   .emp{flex:1}
   .emp h1{font-size:24px;font-weight:800;letter-spacing:-.5px;line-height:1.1}
   .emp p{font-size:12px;color:#667085;margin-top:2px}
-  .pill{align-self:flex-start;background:#DCE8EA;color:#0B3A46;border:1px solid #B0C9D0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .pill{align-self:flex-start;background:#DCE8EA;color:#012E46;border:1px solid #9BB4C0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .info{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0}
-  .card{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#F8F6F0}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;background:#FFFFFF}
   .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
   .card .v{font-size:14px;font-weight:700;margin-top:3px;word-break:break-word}
   table{width:100%;border-collapse:collapse;margin-top:6px}
   thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#667085;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
   thead th.r,tbody td.un,tbody td.tt{text-align:right}
   tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:13px}
-  tbody tr.alt td{background:#F8F6F0}
-  td.qt{font-weight:800;color:#0F4C5C;width:48px}
+  tbody tr.alt td{background:#FFFFFF}
+  td.qt{font-weight:800;color:#012E46;width:48px}
   .np{font-weight:700;display:block}
   .dt{display:block;font-size:11px;color:#667085;margin-top:2px}
   td.un{color:#667085}
@@ -12587,7 +12587,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   .tot{margin-top:18px;display:flex;justify-content:flex-end}
   .totbox{width:300px}
   .tr{display:flex;justify-content:space-between;padding:7px 0;font-size:13px;color:#475569}
-  .tr.grand{margin-top:6px;padding:14px 16px;background:linear-gradient(135deg,#0F4C5C,#1e3a8a);color:#fff;border-radius:14px;font-size:18px;font-weight:800}
+  .tr.grand{margin-top:6px;padding:14px 16px;background:linear-gradient(135deg,#012E46,#012e46);color:#fff;border-radius:14px;font-size:18px;font-weight:800}
   .ft{margin-top:26px;border-top:1px dashed #cbd5e1;padding-top:16px;text-align:center;color:#667085}
   .ft .ty{font-size:15px;font-weight:800;color:#0f172a}
   .ft .nf{font-size:10px;text-transform:uppercase;letter-spacing:1px;margin-top:6px}
@@ -12718,23 +12718,23 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   @page{size:A4;margin:14mm}*{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Segoe UI',Arial,sans-serif;color:#0f172a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .doc{max-width:720px;margin:0 auto}
-  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #0F4C5C;padding-bottom:16px}
-  .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#3b82f6,#1e3a8a);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
+  .top{display:flex;align-items:center;gap:16px;border-bottom:3px solid #012E46;padding-bottom:16px}
+  .logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#012e46,#012e46);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800}
   .emp{flex:1}.emp h1{font-size:22px;font-weight:800;letter-spacing:-.5px}.emp p{font-size:12px;color:#667085;margin-top:2px}
-  .pill{align-self:flex-start;background:#DCE8EA;color:#0B3A46;border:1px solid #B0C9D0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+  .pill{align-self:flex-start;background:#DCE8EA;color:#012E46;border:1px solid #9BB4C0;border-radius:999px;padding:6px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
   .info{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}
-  .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#F8F6F0}
+  .card{border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;background:#FFFFFF}
   .card .l{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#94a3b8}
   .card .v{font-size:16px;font-weight:800;margin-top:3px}
   table{width:100%;border-collapse:collapse;margin-top:6px}
   thead th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#667085;text-align:left;padding:10px 8px;border-bottom:2px solid #e2e8f0}
   thead th.qt,thead th.tt,tbody td.qt,tbody td.tt{text-align:right}
   tbody td{padding:11px 8px;border-bottom:1px solid #f1f5f9;vertical-align:top;font-size:12px}
-  tbody tr.alt td{background:#F8F6F0}
+  tbody tr.alt td{background:#FFFFFF}
   .np{font-weight:800;display:block}.dt{display:block;font-size:10px;color:#94a3b8;margin-top:2px}
-  td.dh{color:#667085}td.qt{font-weight:800;color:#0F4C5C}td.tt{font-weight:800}
+  td.dh{color:#667085}td.qt{font-weight:800;color:#012E46}td.tt{font-weight:800}
   tfoot td{padding:14px 8px;font-size:14px;font-weight:800;border-top:2px solid #0f172a}
-  tfoot td.tt{text-align:right;color:#0B3A46;font-size:16px}
+  tfoot td.tt{text-align:right;color:#012E46;font-size:16px}
   .ft{margin-top:24px;border-top:1px dashed #cbd5e1;padding-top:14px;text-align:center;color:#667085;font-size:10px;text-transform:uppercase;letter-spacing:1px}
 </style></head><body>
   <div class="doc">
@@ -12803,11 +12803,11 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
         acoes={<>
           <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <button onClick={() => setFormato("80mm")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#0F4C5C] text-white" : "text-[#64748B] hover:bg-white"}`}>🧾 80mm</button>
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#012E46] text-white" : "text-[#64748B] hover:bg-white"}`}>🧾 80mm</button>
             <button onClick={() => setFormato("a4")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#0F4C5C] text-white" : "text-[#64748B] hover:bg-white"}`}>📄 A4</button>
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#012E46] text-white" : "text-[#64748B] hover:bg-white"}`}>📄 A4</button>
           </div>
-          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#0F4C5C] px-4 py-2 text-xs font-black text-white transition hover:bg-[#0B3A46]">🖨️ Imprimir</button>
+          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#012E46] px-4 py-2 text-xs font-black text-white transition hover:bg-[#012E46]">🖨️ Imprimir</button>
         </>}
         rodape={null}>
         {cupons.length === 0 && <p className="py-8 text-center text-sm text-[#64748B]">Nenhum cupom pago com este produto no período.</p>}
@@ -12827,7 +12827,7 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
                   <p className="text-sm font-black text-[#10B981]">{formatCurrency(v)}</p>
                 </div>
                 <button onClick={() => setCupomSel(o)} title="Ver cupom não fiscal (imprimir / WhatsApp)"
-                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#0F4C5C] transition hover:bg-[#E6EEF1]">🧾 Cupom</button>
+                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#012E46] transition hover:bg-[#E8EDF0]">🧾 Cupom</button>
               </div>
             );
           })}
@@ -12908,13 +12908,13 @@ function ModalDetalheComanda({
 
   // ── Indicadores inteligentes — só quando o dado real sustenta o badge ──
   const indicadores = [];
-  if (variacaoPct != null && variacaoPct > 0) indicadores.push({ texto: "Permanência acima da média", cor: "#F59E0B" });
+  if (variacaoPct != null && variacaoPct > 0) indicadores.push({ texto: "Permanência acima da média", cor: "#F38525" });
   if (mediaTicketGeral > 0 && c.ticketMedio > mediaTicketGeral * 1.5) indicadores.push({ texto: "Ticket alto", cor: "#10B981" });
   if (historicoCliente && historicoCliente.totalPedidos >= 10) indicadores.push({ texto: "Cliente frequente", cor: "#8B5CF6" });
   const temposPreparoComanda = pedidosOrdenados.filter((o) => o.preparoEmISO && o.prontoEmISO).map((o) => minutosEntreISO(o.preparoEmISO, o.prontoEmISO));
   const mediaPreparoComanda = temposPreparoComanda.length ? temposPreparoComanda.reduce((s, v) => s + v, 0) / temposPreparoComanda.length : null;
   if (mediaPreparoComanda != null && mediaPreparoGeral > 0 && mediaPreparoComanda > mediaPreparoGeral * 1.3) indicadores.push({ texto: "Tempo de preparo elevado", cor: "#EF4444" });
-  if (mediaItensGeral > 0 && c.itens > mediaItensGeral * 1.5) indicadores.push({ texto: "Comanda longa", cor: "#0F4C5C" });
+  if (mediaItensGeral > 0 && c.itens > mediaItensGeral * 1.5) indicadores.push({ texto: "Comanda longa", cor: "#012E46" });
 
   // ── Insights — apenas comparações com dados já calculados no período ──
   const insights = [];
@@ -12935,7 +12935,7 @@ function ModalDetalheComanda({
         <span className="text-[#64748B]">Valor total: <b className="text-[#0D1B2A]">{formatCurrency(c.valor)}</b></span>
       </>}
       acoes={<>
-        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">🧾 Ver cupom</button>
+        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">🧾 Ver cupom</button>
         <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Imprimir</button>
         <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Compartilhar o cupom por WhatsApp" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Compartilhar</button>
       </>}>
@@ -13216,9 +13216,9 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   // ── 4. Distribuição por faixa ──
   const FAIXAS_PERM_E = [
     { rotulo: "Até 30 min", min: 0, max: 30, cor: "#10B981" },
-    { rotulo: "31–60 min", min: 31, max: 60, cor: "#0F4C5C" },
+    { rotulo: "31–60 min", min: 31, max: 60, cor: "#012E46" },
     { rotulo: "61–90 min", min: 61, max: 90, cor: "#8B5CF6" },
-    { rotulo: "91–120 min", min: 91, max: 120, cor: "#F59E0B" },
+    { rotulo: "91–120 min", min: 91, max: 120, cor: "#F38525" },
     { rotulo: "Acima de 120 min", min: 121, max: Infinity, cor: "#EF4444" },
   ];
   const distribuicaoFaixasE = FAIXAS_PERM_E.map((f) => ({ label: f.rotulo, valor: lista.filter((c) => c.minutos >= f.min && c.minutos <= f.max).length, cor: f.cor }));
@@ -13324,7 +13324,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
     j.document.close();
   }
 
-  const inputClsPermE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
+  const inputClsPermE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#012E46]";
   const labelClsPermE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
 
   return (
@@ -13335,9 +13335,9 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
           <button onClick={exportarPermExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
           <button onClick={exportarPermPDFE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ PDF / Imprimir</button>
           <button onClick={() => setCompararPeriodoPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoPermE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoPermE ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
           <button onClick={() => setSomenteAcimaMediaPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteAcimaMediaPermE ? "border-[#F59E0B] bg-[#F59E0B]/10 text-[#F59E0B]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas acima da média</button>
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteAcimaMediaPermE ? "border-[#F38525] bg-[#F38525]/10 text-[#F38525]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas acima da média</button>
           <button onClick={atualizarPermVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
         </div>
         <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmPermE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
@@ -13415,9 +13415,9 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={buscaPermE} onChange={(e) => setBuscaPermE(e.target.value)} placeholder="🔎 Buscar por comanda ou mesa…"
-            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#012E46]" />
           <button onClick={() => setMostrarFiltrosPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosPermE || filtrosPermAtivosE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosPermE || filtrosPermAtivosE ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{filtrosPermAtivosE ? " •" : ""}
           </button>
         </div>
@@ -13444,7 +13444,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
                 opcoes={[{ valor: "todas", rotulo: "Todas" }, ...FAIXAS_PERM_E.map((f) => ({ valor: f.rotulo, rotulo: f.rotulo }))]} />
             </div>
             {filtrosPermAtivosE && (
-              <button onClick={limparFiltrosPermE} className="self-end text-left text-[11px] font-bold text-[#0F4C5C] hover:text-[#0B3A46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
+              <button onClick={limparFiltrosPermE} className="self-end text-left text-[11px] font-bold text-[#012E46] hover:text-[#012E46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
             )}
           </div>
         )}
@@ -13465,7 +13465,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
                   ["minutos", "Permanência"], ["valor", "Valor"], ["ticketMedio", "Ticket médio"], ["itens", "Itens"], ["status", "Status"],
                 ].map(([campo, rotulo]) => (
                   <th key={campo} className="whitespace-nowrap border-b border-[#E2E8F0] px-3 py-2.5 text-left">
-                    <button onClick={() => alternarOrdemPermE(campo)} className="flex items-center gap-1 transition hover:text-[#0F4C5C]">
+                    <button onClick={() => alternarOrdemPermE(campo)} className="flex items-center gap-1 transition hover:text-[#012E46]">
                       {rotulo}{ordenacaoPermE.campo === campo ? (ordenacaoPermE.dir === "desc" ? " ▼" : " ▲") : ""}
                     </button>
                   </th>
@@ -13485,13 +13485,13 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
                   <td className="px-3 py-2.5 text-[#64748B]">{c.mesa || "Balcão"}</td>
                   <td className="px-3 py-2.5 text-[#64748B]">{new Date(c.inicio).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
                   <td className="px-3 py-2.5 text-[#64748B]">{new Date(c.fim).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
-                  <td className="px-3 py-2.5 font-bold" style={{ color: c.status === "critico" ? "#EF4444" : c.status === "atencao" ? "#F59E0B" : "#0D1B2A" }}>{formatarDuracaoMin(c.minutos)}</td>
+                  <td className="px-3 py-2.5 font-bold" style={{ color: c.status === "critico" ? "#EF4444" : c.status === "atencao" ? "#F38525" : "#0D1B2A" }}>{formatarDuracaoMin(c.minutos)}</td>
                   <td className="px-3 py-2.5 font-semibold text-[#0D1B2A]">{formatCurrency(c.valor)}</td>
                   <td className="px-3 py-2.5 text-[#64748B]">{formatCurrency(c.ticketMedio)}</td>
                   <td className="px-3 py-2.5 font-mono text-[#334155]">{c.itens}</td>
                   <td className="px-3 py-2.5"><BadgeEstoque status={c.status} /></td>
                   <td className="px-3 py-2.5">
-                    <button onClick={(e) => { e.stopPropagation(); setComandaDetalheE(c); }} className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1]">Ver detalhes</button>
+                    <button onClick={(e) => { e.stopPropagation(); setComandaDetalheE(c); }} className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">Ver detalhes</button>
                   </td>
                 </tr>
               ))}
@@ -13558,7 +13558,7 @@ function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
   const idxMin = dados.findIndex((d) => d.valor === valorMin);
   const media = dados.reduce((s, d) => s + d.valor, 0) / n;
   const yMedia = y(media);
-  const corPonto = (i) => (i === idxMax ? "#10B981" : i === idxMin ? "#F59E0B" : "#0F4C5C");
+  const corPonto = (i) => (i === idxMax ? "#10B981" : i === idxMin ? "#F38525" : "#012E46");
   const temComparacao = dados.some((d) => d.valorAnterior != null);
   const ptsAnt = temComparacao ? dados.map((d, i) => [x(i), y(d.valorAnterior ?? 0)]) : null;
   const linhaAnt = ptsAnt ? ptsAnt.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") : null;
@@ -13567,8 +13567,8 @@ function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
       {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
       {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
       {linhaAnt && <path d={linhaAnt} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" />}
-      <path d={area} fill="#0F4C5C" fillOpacity="0.08" />
-      <path d={linha} fill="none" stroke="#0F4C5C" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={area} fill="#012E46" fillOpacity="0.08" />
+      <path d={linha} fill="none" stroke="#012E46" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {pts.map((p, i) => (
         <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatarValor(dados[i].valor)}${sufixo}`}
           onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
@@ -13591,7 +13591,7 @@ function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
             <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
             <text x={bx + boxW / 2} y={by + 13} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
             {linhas.map((l, li) => (
-              <text key={li} x={bx + boxW / 2} y={by + 26 + li * 13} textAnchor="middle" fill={li === 0 ? "#0F4C5C" : "#64748B"} style={{ fontSize: 9, fontWeight: li === 0 ? 800 : 600 }}>{l}</text>
+              <text key={li} x={bx + boxW / 2} y={by + 26 + li * 13} textAnchor="middle" fill={li === 0 ? "#012E46" : "#64748B"} style={{ fontSize: 9, fontWeight: li === 0 ? 800 : 600 }}>{l}</text>
             ))}
           </g>
         );
@@ -13626,8 +13626,8 @@ function mediaNotasValidas(notas) {
 function classificacaoMediaSatE(media) {
   if (media == null) return null;
   if (media >= 4.5) return { label: "Excelente", cor: "#10B981" };
-  if (media >= 3.5) return { label: "Bom", cor: "#0F4C5C" };
-  if (media >= 2.5) return { label: "Atenção", cor: "#F59E0B" };
+  if (media >= 3.5) return { label: "Bom", cor: "#012E46" };
+  if (media >= 2.5) return { label: "Atenção", cor: "#F38525" };
   return { label: "Crítico", cor: "#EF4444" };
 }
 
@@ -13686,9 +13686,9 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const taxaResposta = pedidosPagosPeriodo > 0 ? (lista.length / pedidosPagosPeriodo) * 100 : null;
   const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
   const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
-  // Escala 1→5. Âmbar e verde levemente aprofundados (#D97706/#059669) para o
+  // Escala 1→5. Âmbar e verde levemente aprofundados (#F38525/#059669) para o
   // NÚMERO BRANCO ter contraste em todos os segmentos (padrão único de leitura).
-  const CORES_NOTA = ["#EF4444", "#D97706", "#64748B", "#0F4C5C", "#059669"];
+  const CORES_NOTA = ["#EF4444", "#F38525", "#64748B", "#012E46", "#059669"];
 
   // ── Comparativo com o período anterior (mesma técnica das demais abas) ──
   const comparativoSatE = (() => {
@@ -13843,7 +13843,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   }
   function atualizarSatE() { setAtualizadoEmSatE(new Date()); }
 
-  const inputClsSatE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#0F4C5C]";
+  const inputClsSatE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#012E46]";
   const labelClsSatE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
   const notasOrdenadas = [...medias].sort((a, b) => (ordenarNotasSatE === "piores" ? a.media - b.media : b.media - a.media));
 
@@ -13855,7 +13855,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
           <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">📊 Exportar CSV</button>
           <button onClick={exportarPDF} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">🖨️ PDF / Imprimir</button>
           <button onClick={() => setCompararPeriodoSatE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoSatE ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
+            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoSatE ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
           <button onClick={() => setSomenteDetratoresSatE((v) => !v)}
             className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteDetratoresSatE ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas detratores</button>
           <button onClick={() => comentariosRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ver comentários</button>
@@ -13868,9 +13868,9 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <input value={buscaSatE} onChange={(e) => setBuscaSatE(e.target.value)} placeholder="🔎 Buscar por telefone ou nº do pedido…"
-            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#0F4C5C]" />
+            className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#012E46]" />
           <button onClick={() => setMostrarFiltrosSatE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosSatE || chipsAtivosSatE.length > 0 ? "border-[#0F4C5C] bg-[#E6EEF1] text-[#0F4C5C]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
+            className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosSatE || chipsAtivosSatE.length > 0 ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
             ⚙️ Filtros{chipsAtivosSatE.length > 0 ? ` • ${chipsAtivosSatE.length}` : ""}
           </button>
         </div>
@@ -13901,9 +13901,9 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
         {chipsAtivosSatE.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[#F1F5F9] pt-3">
             {chipsAtivosSatE.map((c, i) => (
-              <span key={i} className="flex items-center gap-1.5 rounded-full border border-[#0F4C5C] bg-[#E6EEF1] px-3 py-1 text-[11px] font-bold text-[#0F4C5C]">
+              <span key={i} className="flex items-center gap-1.5 rounded-full border border-[#012E46] bg-[#E8EDF0] px-3 py-1 text-[11px] font-bold text-[#012E46]">
                 {c.label}
-                <button onClick={c.limpar} title="Remover filtro" aria-label={`Remover filtro: ${c.label}`} className="text-[#0F4C5C] hover:text-[#0B3A46]">✕</button>
+                <button onClick={c.limpar} title="Remover filtro" aria-label={`Remover filtro: ${c.label}`} className="text-[#012E46] hover:text-[#012E46]">✕</button>
               </span>
             ))}
             <button onClick={limparFiltrosSatE} className="text-[11px] font-bold text-[#64748B] hover:text-[#334155]">Limpar todos</button>
@@ -13958,7 +13958,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
               <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Neutros (3)</p><p className="mt-0.5 text-xl font-black text-[#64748B]">{neutros} <span className="text-xs font-bold text-[#94A3B8]">({((neutros / recVals.length) * 100).toFixed(0)}%)</span></p></div>
               <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Detratores (1-2)</p><p className="mt-0.5 text-xl font-black text-[#EF4444]">{detratores} <span className="text-xs font-bold text-[#94A3B8]">({((detratores / recVals.length) * 100).toFixed(0)}%)</span></p></div>
             </div>
-            <p className="mt-3 text-sm font-bold text-[#0D1B2A]">NPS calculado: <span className="text-[#0F4C5C]">{nps}</span>{comparativoSatE?.variacaoNps != null && <span className="ml-2 text-xs font-semibold text-[#64748B]">({comparativoSatE.variacaoNps >= 0 ? "+" : ""}{comparativoSatE.variacaoNps} vs. período anterior)</span>}</p>
+            <p className="mt-3 text-sm font-bold text-[#0D1B2A]">NPS calculado: <span className="text-[#012E46]">{nps}</span>{comparativoSatE?.variacaoNps != null && <span className="ml-2 text-xs font-semibold text-[#64748B]">({comparativoSatE.variacaoNps >= 0 ? "+" : ""}{comparativoSatE.variacaoNps} vs. período anterior)</span>}</p>
             <p className="mt-1.5 text-[10px] text-[#94A3B8]">Fórmula: ((promotores − detratores) ÷ respostas) × 100. A pesquisa usa escala de 1 a 5 (não a escala clássica de 0 a 10) — nota 4-5 conta como promotor, 1-2 como detrator, 3 como neutro.</p>
           </>
         )}
@@ -13970,8 +13970,8 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Distribuição das notas</h3>
             <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
-              <button onClick={() => setOrdenarNotasSatE("piores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "piores" ? "bg-[#0F4C5C] text-white" : "text-[#64748B]"}`}>Piores primeiro</button>
-              <button onClick={() => setOrdenarNotasSatE("melhores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "melhores" ? "bg-[#0F4C5C] text-white" : "text-[#64748B]"}`}>Melhores primeiro</button>
+              <button onClick={() => setOrdenarNotasSatE("piores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "piores" ? "bg-[#012E46] text-white" : "text-[#64748B]"}`}>Piores primeiro</button>
+              <button onClick={() => setOrdenarNotasSatE("melhores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "melhores" ? "bg-[#012E46] text-white" : "text-[#64748B]"}`}>Melhores primeiro</button>
             </div>
           </div>
           <div className="mb-3 flex flex-wrap gap-2 text-[10px] font-bold text-[#64748B]">
@@ -14017,12 +14017,12 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
                     <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <span className="font-semibold text-[#334155]">{m.label}</span>
                       <span className="flex items-center gap-2">
-                        {classe && <span className="rounded-full px-2 py-0.5 text-[9px] font-black" style={ehDestaque ? { background: "var(--pp-destaque-soft)", color: "#B4611A" } : { background: `${classe.cor}1A`, color: classe.cor }}>{classe.label}</span>}
+                        {classe && <span className="rounded-full px-2 py-0.5 text-[9px] font-black" style={ehDestaque ? { background: "var(--pp-destaque-soft)", color: "#F38525" } : { background: `${classe.cor}1A`, color: classe.cor }}>{classe.label}</span>}
                         <EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-[#0D1B2A]">{m.n ? m.media.toFixed(1) : "—"}</span>
                       </span>
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-[#F1F5F9]">
-                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: ehDestaque ? "var(--pp-destaque)" : "#0F4C5C" }} />
+                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: ehDestaque ? "var(--pp-destaque)" : "#012E46" }} />
                     </div>
                     <p className="mt-0.5 text-[10px] text-[#94A3B8]">{m.n} resposta(s){compararPeriodoSatE && varPct != null ? ` · ${varPct >= 0 ? "+" : ""}${varPct.toFixed(0)}% vs. período anterior` : ""}</p>
                   </div>
@@ -14085,7 +14085,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
               {q.comentario && <p className="mt-1 text-sm text-[#334155]">"{q.comentario}"</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => abrirPedidoRelacionadoSatE(q.pedidoId)} disabled={!pedidoEncontrado} title={pedidoEncontrado ? "Ver pedido/cupom relacionado" : "Pedido não encontrado no histórico"}
-                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#0F4C5C] transition hover:bg-[#E6EEF1] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">🧾 Ver pedido</button>
+                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">🧾 Ver pedido</button>
                 {q.comentario && (
                   <button onClick={() => copiarComentarioSatE(q.comentario)} title="Copiar comentário" className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar</button>
                 )}
@@ -14379,7 +14379,7 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
       {/* Cabeçalho + versão liberada */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconVersoes /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]"><IconVersoes /></span>
           Controle de Versões
         </h3>
         <p className="mt-1 text-sm text-slate-400">Acompanhe a versão liberada da plataforma e a versão aplicada em cada aparelho.</p>
@@ -14675,7 +14675,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconCrm /></span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]"><IconCrm /></span>
               CRM — Clientes
             </h3>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Clientes identificados nos pedidos do cardápio digital. Analise frequência, consumo, faturamento, recorrência e oportunidades de relacionamento para aumentar vendas e fidelização.</p>
@@ -15274,7 +15274,7 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
     <main className="space-y-5">
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22]"><IconCardapio /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]"><IconCardapio /></span>
           Cardápio Digital Externo
         </h3>
         <p className="mt-0.5 text-sm text-slate-400">Cardápio do cliente no celular — ver, pedir e acompanhar. Empresa: <b className="text-white">{lojaInfo?.nome || "—"}</b></p>
@@ -17367,7 +17367,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
     setConfirmar(null);
   }
 
-  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]";
 
   return (
     <main className="space-y-5">
@@ -17377,11 +17377,11 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       )}
 
       {/* ── Cabeçalho — botão de cadastro no topo direito (padrão Mesas) ── */}
-      <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
-        <span className="pointer-events-none absolute -right-6 -top-6 text-[rgba(230,126,34,0.06)] [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
+      <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
+        <span className="pointer-events-none absolute -right-6 -top-6 text-[rgba(243, 133, 37,0.06)] [&>svg]:h-44 [&>svg]:w-44"><IcoChef /></span>
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.1)] text-[#F38525] [&>svg]:h-6 [&>svg]:w-6"><IcoChef /></span>
             <div className="min-w-0">
               <h3 className="page-title text-lg font-semibold tracking-tight text-[var(--pp-text)] sm:text-xl">Setores de Produtos</h3>
               <p className="mt-1 max-w-2xl text-[13px] leading-6 text-[var(--pp-text-muted)]">
@@ -17396,12 +17396,12 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       {/* ── Cards de resumo ───────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { rotulo: "Total de setores", valor: totalSetores, sub: "Setores cadastrados", icone: <IcoLayers />, cor: "#0F4C5C" },
+          { rotulo: "Total de setores", valor: totalSetores, sub: "Setores cadastrados", icone: <IcoLayers />, cor: "#012E46" },
           { rotulo: "Setores ativos", valor: setoresAtivos, sub: `${pctAtivos}% dos setores ativos`, icone: <IcoChef />, cor: "#2F9E52" },
-          { rotulo: "Produtos vinculados", valor: produtosVinculados, sub: "Em todos os setores", icone: <IcoBox />, cor: "#0F4C5C" },
-          { rotulo: "Pedidos em preparo", valor: pedidosPreparoTotal, sub: "Agora na cozinha", icone: <IcoFogo />, cor: "#E67E22" },
+          { rotulo: "Produtos vinculados", valor: produtosVinculados, sub: "Em todos os setores", icone: <IcoBox />, cor: "#012E46" },
+          { rotulo: "Pedidos em preparo", valor: pedidosPreparoTotal, sub: "Agora na cozinha", icone: <IcoFogo />, cor: "#F38525" },
         ].map((c) => (
-          <div key={c.rotulo} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+          <div key={c.rotulo} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
             <div className="flex items-start justify-between gap-3">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.rotulo}</p>
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full [&>svg]:h-[18px] [&>svg]:w-[18px]" style={{ background: `${c.cor}14`, color: c.cor }}>{c.icone}</span>
@@ -17413,7 +17413,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       </div>
 
       {/* ── Listagem (largura total) — cadastro agora abre em modal ── */}
-      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Setores cadastrados</h4>
@@ -17429,7 +17429,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
 
           {lista.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-[var(--pp-border)] py-12 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-7 [&>svg]:w-7"><IcoChef /></span>
+              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.1)] text-[#F38525] [&>svg]:h-7 [&>svg]:w-7"><IcoChef /></span>
               <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhum setor cadastrado ainda.</p>
               <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Crie setores para organizar o preparo dos pedidos e facilitar o controle da cozinha.</p>
               <p className="mt-1 text-xs text-[var(--pp-text-muted)]">Exemplos: Bar, Pizzaria, Chapa, Cozinha, Sobremesas e Bebidas.</p>
@@ -17442,29 +17442,29 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               {filtrados.map((s) => {
                 const ativo = s.ativo !== false;
                 return (
-                  <div key={s.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]" : "border-[var(--pp-border)] bg-white opacity-70"}`}>
+                  <div key={s.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] hover:border-[rgba(1, 46, 70,0.24)]" : "border-[var(--pp-border)] bg-white opacity-70"}`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex min-w-0 items-start gap-3">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.25)] bg-[rgba(230,126,34,0.1)] text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IcoChef /></span>
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(243, 133, 37,0.25)] bg-[rgba(243, 133, 37,0.1)] text-[#F38525] [&>svg]:h-5 [&>svg]:w-5"><IcoChef /></span>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="page-title truncate text-sm font-semibold text-[var(--pp-text)]">{s.nome}</p>
-                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ativo ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]"}`}>{ativo ? "Ativo" : "Inativo"}</span>
+                            <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ativo ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.06)] text-[var(--pp-text-muted)]"}`}>{ativo ? "Ativo" : "Inativo"}</span>
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-xs text-[var(--pp-text-muted)]">{s.descricao || "Sem descrição."}</p>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--pp-text-muted)]">
-                            <span><b className="font-semibold text-[#0F4C5C]">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
-                            <span><b className="font-semibold text-[#E67E22]">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
+                            <span><b className="font-semibold text-[#012E46]">{contarProdutos(s.id)}</b> produto(s) vinculado(s)</span>
+                            <span><b className="font-semibold text-[#F38525]">{pedidosEmPreparo(s.id)}</b> pedido(s) em preparo</span>
                           </div>
                         </div>
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-1.5">
-                        <button onClick={() => setEditando({ ...s })} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoEditSet /> Editar</button>
-                        <button onClick={() => setVinculando(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoLinkSet /> Vincular produtos</button>
-                        <button onClick={() => irParaCozinha(s.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoFiltro /> Filtrar cozinha</button>
+                        <button onClick={() => setEditando({ ...s })} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoEditSet /> Editar</button>
+                        <button onClick={() => setVinculando(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoLinkSet /> Vincular produtos</button>
+                        <button onClick={() => irParaCozinha(s.id)} className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoFiltro /> Filtrar cozinha</button>
                         {ativo
-                          ? <button onClick={() => setConfirmar(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-1.5 text-xs font-semibold text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(200,30,74,0.08)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Inativar</button>
-                          : <button onClick={() => alternarAtivo(s, true)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(47,158,82,0.08)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Ativar</button>}
+                          ? <button onClick={() => setConfirmar(s)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-1.5 text-xs font-semibold text-[#C81E4A] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(200,30,74,0.08)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Inativar</button>
+                          : <button onClick={() => alternarAtivo(s, true)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(47,158,82,0.08)] [&>svg]:h-3.5 [&>svg]:w-3.5"><IcoPower /> Ativar</button>}
                       </div>
                     </div>
                   </div>
@@ -17475,8 +17475,8 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
       </div>
 
       {/* ── Como funciona (largura total, informativo) ────── */}
-      <div className="rounded-[2rem] border border-[rgba(230,126,34,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
-        <div className="flex items-center gap-2 text-[#E67E22]">
+      <div className="rounded-[2rem] border border-[rgba(243, 133, 37,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
+        <div className="flex items-center gap-2 text-[#F38525]">
           <span className="[&>svg]:h-5 [&>svg]:w-5"><IcoBulb /></span>
           <h4 className="page-title text-sm font-semibold">Como funciona</h4>
         </div>
@@ -17490,10 +17490,10 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
           <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IcoChef /></span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IcoChef /></span>
                 <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Novo setor</h4>
               </div>
-              <button onClick={() => setCriando(false)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+              <button onClick={() => setCriando(false)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
             </div>
             <div className="mt-4 space-y-3">
               <div>
@@ -17504,7 +17504,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Descrição do setor</label>
                 <textarea value={descricao} maxLength={120} onChange={(e) => setDescricao(e.target.value)} rows={2} placeholder="Descreva a função ou os tipos de preparo deste setor..." className={`${inp} resize-none`} />
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                 <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
                 <button type="button" onClick={() => setAtivoNovo((v) => !v)} className={`relative h-6 w-11 rounded-full transition ${ativoNovo ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
                   <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${ativoNovo ? "left-[22px]" : "left-0.5"}`} />
@@ -17513,7 +17513,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
               </div>
             </div>
             <div className="mt-5 flex gap-2">
-              <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Limpar</button>
+              <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Limpar</button>
               <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Criando…" : "Cadastrar setor"}</PrimeButton>
             </div>
           </div>
@@ -17527,7 +17527,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
           <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Editar setor</h4>
-              <button onClick={() => setEditando(null)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+              <button onClick={() => setEditando(null)} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
             </div>
             <div className="mt-4 space-y-3">
               <div>
@@ -17538,7 +17538,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
                 <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Descrição</label>
                 <textarea value={editando.descricao || ""} maxLength={120} rows={2} onChange={(e) => setEditando({ ...editando, descricao: e.target.value })} className={`${inp} resize-none`} />
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                 <span className="text-sm font-semibold text-[var(--pp-text-body)]">Status</span>
                 <button type="button" onClick={() => setEditando({ ...editando, ativo: editando.ativo === false })} className={`relative h-6 w-11 rounded-full transition ${editando.ativo !== false ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
                   <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${editando.ativo !== false ? "left-[22px]" : "left-0.5"}`} />
@@ -17548,7 +17548,7 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
             </div>
             <div className="mt-5 flex gap-2">
               <button onClick={salvarEdicao} className="btn-laranja flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">Salvar alterações</button>
-              <button onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+              <button onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -17561,10 +17561,10 @@ function SetoresCozinhaAdmin({ setores = [], produtos = [], orders = [], api, vi
           <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Deseja realmente inativar este setor?</h4>
             <p className="mt-2 text-sm leading-6 text-[var(--pp-text-muted)]">Setores inativos não aparecerão como opção principal no painel da cozinha, mas permanecerão no histórico do sistema.</p>
-            <p className="mt-3 rounded-xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-sm font-semibold text-[var(--pp-text)]">{confirmar.nome}</p>
+            <p className="mt-3 rounded-xl border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.04)] px-3 py-2 text-sm font-semibold text-[var(--pp-text)]">{confirmar.nome}</p>
             <div className="mt-5 flex gap-2">
               <button onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-xl bg-[#C81E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B01A40]">Confirmar inativação</button>
-              <button onClick={() => setConfirmar(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+              <button onClick={() => setConfirmar(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -17610,7 +17610,7 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
     await onSalvar(alteracoes);
     setSalvando(false);
   }
-  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -17618,9 +17618,9 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
         <div className="border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center justify-between">
             <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Vincular produtos ao setor</h4>
-            <button onClick={onFechar} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
+            <button onClick={onFechar} className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)] [&>svg]:h-4 [&>svg]:w-4"><IcoFechaSet /></button>
           </div>
-          <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Selecione os produtos que devem ser preparados em <b className="font-semibold text-[#E67E22]">{setor.nome}</b>.</p>
+          <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Selecione os produtos que devem ser preparados em <b className="font-semibold text-[#F38525]">{setor.nome}</b>.</p>
           <div className="relative mt-3">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto..." className={`${inp} pl-11`} />
@@ -17633,15 +17633,15 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
             const marcado = sel.has(p.id);
             const vinculado = p.setorId === setor.id;
             return (
-              <button key={p.id} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-3 border-b border-[var(--pp-border)] py-2.5 text-left transition hover:bg-[rgba(15,76,92,0.03)]`}>
-                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${marcado ? "border-[#E67E22] bg-[#E67E22] text-white" : "border-[var(--pp-border)]"}`}>{marcado && <span className="text-[11px] font-semibold">✓</span>}</span>
+              <button key={p.id} onClick={() => toggle(p.id)} className={`flex w-full items-center gap-3 border-b border-[var(--pp-border)] py-2.5 text-left transition hover:bg-[rgba(1, 46, 70,0.03)]`}>
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${marcado ? "border-[#F38525] bg-[#F38525] text-[#012E46]" : "border-[var(--pp-border)]"}`}>{marcado && <span className="text-[11px] font-semibold">✓</span>}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-[var(--pp-text)]">{p.name}</span>
                   <span className="block truncate text-[11px] text-[var(--pp-text-muted)]">{p.category || "Sem categoria"} · {brl(p.price)}</span>
                 </span>
                 <span className="flex shrink-0 flex-col items-end gap-1">
-                  {vinculado && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#B4611A]">{nomeSetor(p.setorId)}</span>}
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${p.active !== false ? "bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
+                  {vinculado && <span className="rounded-full bg-[rgba(243, 133, 37,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#F38525]">{nomeSetor(p.setorId)}</span>}
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${p.active !== false ? "bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "bg-[rgba(1, 46, 70,0.06)] text-[var(--pp-text-muted)]"}`}>{p.active !== false ? "Ativo" : "Inativo"}</span>
                 </span>
               </button>
             );
@@ -17650,7 +17650,7 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
         <div className="flex items-center justify-between gap-2 border-t border-[var(--pp-border)] px-6 py-4">
           <span className="text-xs text-[var(--pp-text-muted)]"><b className="font-semibold text-[var(--pp-text)]">{sel.size}</b> selecionado(s)</span>
           <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             <button onClick={salvar} disabled={salvando} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{salvando ? "Salvando…" : "Salvar vínculos"}</button>
           </div>
         </div>
@@ -17931,10 +17931,10 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
   const recVisiveis = verTodasRec ? recompensas : recompensas.slice(0, 5);
 
   const KPIS = [
-    { rot: "Clientes Cadastrados", val: fmtInt(met.totalClientes), d: deltaMesFid(met.cadMes, met.cadAnt), cor: "#E67E22", Icone: FidIco.pessoas },
-    { rot: "Pontos Emitidos", val: fmtInt(met.emitidos), d: deltaMesFid(met.emitidosMes, met.emitidosAnt), cor: "#0F4C5C", Icone: FidIco.estrela },
+    { rot: "Clientes Cadastrados", val: fmtInt(met.totalClientes), d: deltaMesFid(met.cadMes, met.cadAnt), cor: "#F38525", Icone: FidIco.pessoas },
+    { rot: "Pontos Emitidos", val: fmtInt(met.emitidos), d: deltaMesFid(met.emitidosMes, met.emitidosAnt), cor: "#012E46", Icone: FidIco.estrela },
     { rot: "Pontos Resgatados", val: fmtInt(met.resgatados), d: deltaMesFid(met.resgMes, met.resgAnt), cor: "#5E8C31", Icone: FidIco.presente },
-    { rot: "Valor Gerado", val: formatCurrency(met.valorGerado), d: deltaMesFid(met.valorMes, met.valorAnt), cor: "#B45309", Icone: FidIco.dinheiro },
+    { rot: "Valor Gerado", val: formatCurrency(met.valorGerado), d: deltaMesFid(met.valorMes, met.valorAnt), cor: "#012E46", Icone: FidIco.dinheiro },
   ];
 
   // Exportações CSV (dados reais)
@@ -17953,10 +17953,10 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
       ...transacoes.map((t) => [t.criadoEmISO ? new Date(t.criadoEmISO).toLocaleString("pt-BR") : "", nomeCli[t.clienteId] || "—", t.tipo === "redeem" ? "Resgate" : "Emissão", t.pontos, t.descricao || ""])]);
   }
 
-  const inpCard = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#E67E22]";
+  const inpCard = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#F38525]";
   const COMO = [
-    { n: 1, cor: "#E67E22", Icone: FidIco.dinheiro, t: "Cliente faz compra", d: "A cada real gasto, pontos são acumulados automaticamente." },
-    { n: 2, cor: "#0F4C5C", Icone: FidIco.estrela, t: "Pontos acumulam", d: "Os pontos ficam disponíveis na conta do cliente." },
+    { n: 1, cor: "#F38525", Icone: FidIco.dinheiro, t: "Cliente faz compra", d: "A cada real gasto, pontos são acumulados automaticamente." },
+    { n: 2, cor: "#012E46", Icone: FidIco.estrela, t: "Pontos acumulam", d: "Os pontos ficam disponíveis na conta do cliente." },
     { n: 3, cor: "#5E8C31", Icone: FidIco.presente, t: "Troca por recompensas", d: "Cliente troca pontos por recompensas incríveis!" },
   ];
   const DICAS = ["Divulgue o programa nas redes sociais", "Informe os clientes no momento do pedido", "Crie recompensas atrativas", "Acompanhe os relatórios regularmente"];
@@ -18049,7 +18049,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
           <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-base font-black text-dash-navy">Recompensas Disponíveis</h3>
-              <button onClick={() => setModalRec({})} className="inline-flex items-center gap-1.5 rounded-xl border border-[#E67E22]/40 bg-[#E67E22]/[0.08] px-3.5 py-2 text-sm font-bold text-[#C2410C] transition hover:bg-[#E67E22]/15 [&>svg]:h-4 [&>svg]:w-4"><FidIco.mais /> Nova Recompensa</button>
+              <button onClick={() => setModalRec({})} className="inline-flex items-center gap-1.5 rounded-xl border border-[#F38525]/40 bg-[#F38525]/[0.08] px-3.5 py-2 text-sm font-bold text-[#F38525] transition hover:bg-[#F38525]/15 [&>svg]:h-4 [&>svg]:w-4"><FidIco.mais /> Nova Recompensa</button>
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
@@ -18064,7 +18064,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                     <tr key={r.id} className="border-b border-[var(--pp-border)] last:border-0">
                       <td className="py-3 pr-3">
                         <span className="flex items-center gap-2 font-bold text-dash-navy">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#E67E22]/12 text-[#E67E22] [&>svg]:h-4 [&>svg]:w-4"><FidIco.presente /></span>
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#F38525]/12 text-[#F38525] [&>svg]:h-4 [&>svg]:w-4"><FidIco.presente /></span>
                           {r.nome}
                         </span>
                       </td>
@@ -18078,7 +18078,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                       </td>
                       <td className="py-3">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => setModalRec(r)} title="Editar" className="rounded-lg border border-[var(--pp-border)] bg-white p-1.5 text-[#0F4C5C] transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.lapis /></button>
+                          <button onClick={() => setModalRec(r)} title="Editar" className="rounded-lg border border-[var(--pp-border)] bg-white p-1.5 text-[#012E46] transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.lapis /></button>
                           <button onClick={() => setConfirmarExcluir(r)} title="Excluir" className="rounded-lg border border-[#DC2626]/25 bg-[#DC2626]/[0.06] p-1.5 text-[#B91C1C] transition hover:bg-[#DC2626]/12 [&>svg]:h-4 [&>svg]:w-4"><FidIco.lixo /></button>
                         </div>
                       </td>
@@ -18089,7 +18089,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
             </div>
             {recompensas.length > 5 && (
               <div className="mt-3 text-center">
-                <button onClick={() => setVerTodasRec((v) => !v)} className="text-sm font-bold text-[#C2410C] hover:underline">{verTodasRec ? "Mostrar menos" : `Ver todas as recompensas (${recompensas.length})`}</button>
+                <button onClick={() => setVerTodasRec((v) => !v)} className="text-sm font-bold text-[#F38525] hover:underline">{verTodasRec ? "Mostrar menos" : `Ver todas as recompensas (${recompensas.length})`}</button>
               </div>
             )}
           </section>
@@ -18098,7 +18098,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
           <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-base font-black text-dash-navy">Clientes com Mais Pontos</h3>
-              {onVerClientes && <button onClick={onVerClientes} className="inline-flex items-center gap-1.5 text-sm font-bold text-[#C2410C] hover:underline [&>svg]:h-3.5 [&>svg]:w-3.5">Ver todos os clientes <FidIco.seta /></button>}
+              {onVerClientes && <button onClick={onVerClientes} className="inline-flex items-center gap-1.5 text-sm font-bold text-[#F38525] hover:underline [&>svg]:h-3.5 [&>svg]:w-3.5">Ver todos os clientes <FidIco.seta /></button>}
             </div>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
@@ -18110,14 +18110,14 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                 <tbody>
                   {ranking.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-[var(--pp-text-muted)]">Nenhum cliente com pontos ainda.</td></tr>}
                   {ranking.slice(0, 5).map((c, i) => {
-                    const medalha = ["#E6A817", "#9CA3AF", "#B45309"][i];
+                    const medalha = ["#F38525", "#9CA3AF", "#012E46"][i];
                     return (
                       <tr key={c.id} className="border-b border-[var(--pp-border)] last:border-0">
                         <td className="py-3 pr-3">
                           <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${medalha ? "text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`} style={medalha ? { background: medalha } : undefined}>{i + 1}</span>
                         </td>
                         <td className="py-3 pr-3 font-bold text-dash-navy">{c.nome}</td>
-                        <td className="py-3 pr-3 font-black text-[#C2410C]">{fmtInt(c.pontos)} pts</td>
+                        <td className="py-3 pr-3 font-black text-[#F38525]">{fmtInt(c.pontos)} pts</td>
                         <td className="py-3 pr-3 text-[var(--pp-text-muted)]">{c.ultimo ? new Date(c.ultimo).toLocaleDateString("pt-BR") : "—"}</td>
                         <td className="py-3 text-right font-bold text-dash-navy">{formatCurrency(c.total)}</td>
                       </tr>
@@ -18202,7 +18202,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
 // Modal de cadastro/edição de recompensa (tema claro)
 function RecompensaModal({ recompensa, onFechar, onSalvar }) {
   const [f, setF] = useState({ nome: recompensa?.nome || "", descricao: recompensa?.descricao || "", pontosNecessarios: recompensa?.pontosNecessarios != null ? String(recompensa.pontosNecessarios) : "" });
-  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#E67E22]";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#F38525]";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]";
   const valido = f.nome.trim().length > 0 && Number(f.pontosNecessarios) > 0;
   return (
@@ -18232,8 +18232,8 @@ function RecompensaModal({ recompensa, onFechar, onSalvar }) {
 // Tipos de chamado — tema CLARO do painel (paleta oficial): laranja de ação
 // (garçom), âmbar (conta), roxo (ajuda) e verde (limpeza).
 const CHAMADO_TIPOS = {
-  garcom:  { label: "Garçom",  emoji: "🔔", cor: "#E67E22", cls: "border-[#E67E22]/35 bg-[#E67E22]/12 text-[#C2410C]" },
-  conta:   { label: "Conta",   emoji: "🧾", cor: "#D97706", cls: "border-[#D97706]/35 bg-[#D97706]/12 text-[#B45309]" },
+  garcom:  { label: "Garçom",  emoji: "🔔", cor: "#F38525", cls: "border-[#F38525]/35 bg-[#F38525]/12 text-[#F38525]" },
+  conta:   { label: "Conta",   emoji: "🧾", cor: "#F38525", cls: "border-[#F38525]/35 bg-[#F38525]/12 text-[#012E46]" },
   ajuda:   { label: "Ajuda",   emoji: "🆘", cor: "#7C3AED", cls: "border-[#7C3AED]/30 bg-[#7C3AED]/10 text-[#6D28D9]" },
   limpeza: { label: "Limpeza", emoji: "🧹", cor: "#059669", cls: "border-[#047857]/30 bg-[#059669]/10 text-[#047857]" },
 };
@@ -18241,7 +18241,7 @@ const CHAMADO_TIPOS = {
 const CHAMADO_SLA_CRITICO = 10, CHAMADO_SLA_ATENCAO = 5;
 const CHAMADO_PRIOS = {
   critico: { label: "Crítico", cor: "#DC2626" },
-  atencao: { label: "Atenção", cor: "#D97706" },
+  atencao: { label: "Atenção", cor: "#F38525" },
   normal:  { label: "Normal",  cor: "#059669" },
 };
 const CHAMADO_PRIO_PESO = { critico: 3, atencao: 2, normal: 1 };
@@ -18382,10 +18382,10 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
   const periodoBaixo = periodoLabel.toLowerCase();
 
   const KPIS = [
-    { rot: "Pendentes agora", val: abertos.length, cor: "#E67E22", Icone: IconComanda, sub: novosUltimaHora > 0 ? `+${novosUltimaHora} na última hora` : "estável na última hora" },
+    { rot: "Pendentes agora", val: abertos.length, cor: "#F38525", Icone: IconComanda, sub: novosUltimaHora > 0 ? `+${novosUltimaHora} na última hora` : "estável na última hora" },
     { rot: "Críticos", val: criticos, cor: "#DC2626", Icone: IconAlerta, sub: `acima de ${CHAMADO_SLA_CRITICO} min de espera` },
-    { rot: "Tempo médio de resposta", val: tmr != null ? fmtRespostaChamado(tmr) : "—", cor: "#0F4C5C", Icone: IconRelogio, sub: deltaTmr != null ? `${deltaTmr <= 0 ? "−" : "+"}${fmtRespostaChamado(Math.abs(deltaTmr))} vs. período anterior` : `${periodoBaixo} · sem base anterior`, subCor: deltaTmr != null ? (deltaTmr <= 0 ? "#047857" : "#B91C1C") : null },
-    { rot: "Mesa com mais chamados", val: mesaTop ? mesaTop.mesa : "—", cor: "#0F4C5C", Icone: IconUsuarios, sub: mesaTop ? `${mesaTop.n} ${mesaTop.n === 1 ? "chamado" : "chamados"} · ${periodoBaixo}` : `sem chamados · ${periodoBaixo}` },
+    { rot: "Tempo médio de resposta", val: tmr != null ? fmtRespostaChamado(tmr) : "—", cor: "#012E46", Icone: IconRelogio, sub: deltaTmr != null ? `${deltaTmr <= 0 ? "−" : "+"}${fmtRespostaChamado(Math.abs(deltaTmr))} vs. período anterior` : `${periodoBaixo} · sem base anterior`, subCor: deltaTmr != null ? (deltaTmr <= 0 ? "#047857" : "#B91C1C") : null },
+    { rot: "Mesa com mais chamados", val: mesaTop ? mesaTop.mesa : "—", cor: "#012E46", Icone: IconUsuarios, sub: mesaTop ? `${mesaTop.n} ${mesaTop.n === 1 ? "chamado" : "chamados"} · ${periodoBaixo}` : `sem chamados · ${periodoBaixo}` },
     { rot: "Atendidos", val: atendidosPeriodo.length, cor: "#059669", Icone: IconCheck, sub: deltaAtend != null ? `${deltaAtend >= 0 ? "+" : "−"}${Math.abs(deltaAtend)} vs. período anterior` : `${dentroPrazo} no prazo · ${periodoBaixo}`, subCor: deltaAtend != null ? (deltaAtend >= 0 ? "#047857" : "#B91C1C") : null },
   ];
   const selBox = "flex min-w-0 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5";
@@ -18398,7 +18398,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IconMesas /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-5 [&>svg]:w-5"><IconMesas /></span>
             Chamados de Mesa
           </h2>
           <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Solicitações dos clientes em tempo real — garçom, conta, ajuda e limpeza.</p>
@@ -18406,14 +18406,14 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
         <div className="flex flex-wrap items-center gap-3">
           <span className="hidden items-center gap-1.5 text-sm text-[var(--pp-text-muted)] sm:inline-flex">Última atualização: hoje às {horaAtualizacao} <span className="h-1.5 w-1.5 rounded-full bg-[#059669]" /></span>
           <button onClick={() => setAtualizadoEm(Date.now())} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]"><IconRelogio /> Atualizar</button>
-          <button onClick={() => setAlertasAbertos((v) => !v)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition ${alertasAbertos ? "border-[#E67E22] bg-[#E67E22]/10 text-[#C2410C]" : "border-[#E67E22]/40 bg-[#E67E22]/8 text-[#C2410C] hover:bg-[#E67E22]/15"}`}><IconAlerta /> Configurar alertas</button>
+          <button onClick={() => setAlertasAbertos((v) => !v)} className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition ${alertasAbertos ? "border-[#F38525] bg-[#F38525]/10 text-[#F38525]" : "border-[#F38525]/40 bg-[#F38525]/8 text-[#F38525] hover:bg-[#F38525]/15"}`}><IconAlerta /> Configurar alertas</button>
         </div>
       </div>
 
       {alertasAbertos && (
-        <div className="rounded-2xl border border-[#E67E22]/30 bg-[#E67E22]/[0.06] p-4 text-sm text-dash-navy">
+        <div className="rounded-2xl border border-[#F38525]/30 bg-[#F38525]/[0.06] p-4 text-sm text-dash-navy">
           <p className="font-bold">Regras de alerta por tempo de espera (SLA)</p>
-          <p className="mt-1 text-[var(--pp-text-muted)]">Um chamado entra em <b className="text-[#B45309]">Atenção</b> ao passar de {CHAMADO_SLA_ATENCAO} min sem atendimento e vira <b className="text-[#B91C1C]">Crítico</b> a partir de {CHAMADO_SLA_CRITICO} min. Esses limites definem os KPIs "Críticos" e "SLA de atendimento".</p>
+          <p className="mt-1 text-[var(--pp-text-muted)]">Um chamado entra em <b className="text-[#012E46]">Atenção</b> ao passar de {CHAMADO_SLA_ATENCAO} min sem atendimento e vira <b className="text-[#B91C1C]">Crítico</b> a partir de {CHAMADO_SLA_CRITICO} min. Esses limites definem os KPIs "Críticos" e "SLA de atendimento".</p>
         </div>
       )}
 
@@ -18442,13 +18442,13 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
           <div className="flex flex-wrap items-center gap-1.5">
             {CHIP_TIPOS.map(([id, label]) => (
               <button key={id} onClick={() => comReset(setFTipo)(id)}
-                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${fTipo === id ? "border-[#E67E22] bg-[#E67E22] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#E67E22]/50"}`}>{label}</button>
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${fTipo === id ? "border-[#F38525] bg-[#F38525] text-[#012E46] shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#F38525]/50"}`}>{label}</button>
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {CHIP_ESTADOS.map(([id, label]) => (
               <button key={id} onClick={() => comReset(setFEstado)(fEstado === id ? "abertos" : id)}
-                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${fEstado === id ? "border-[#0F4C5C] bg-[#0F4C5C] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#0F4C5C]/40"}`}>{label}</button>
+                className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${fEstado === id ? "border-[#012E46] bg-[#012E46] text-white shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#012E46]/40"}`}>{label}</button>
             ))}
           </div>
         </div>
@@ -18487,7 +18487,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
               </label>
             </>
           )}
-          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(15,76,92,0.35)] bg-[rgba(15,76,92,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.12)]">Limpar filtros</button>
+          <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(1, 46, 70,0.35)] bg-[rgba(1, 46, 70,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.12)]">Limpar filtros</button>
         </div>
       </div>
 
@@ -18497,7 +18497,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="page-title flex items-center gap-2 text-lg font-bold text-dash-navy">Fila de chamados
-              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#E67E22]/12 px-1.5 text-xs font-black text-[#C2410C]">{totalFila}</span>
+              <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-[#F38525]/12 px-1.5 text-xs font-black text-[#F38525]">{totalFila}</span>
             </h3>
             <span className="text-xs font-semibold text-[var(--pp-text-muted)]">Ordenar por: <b className="text-dash-navy">{({ prioridade: "Prioridade", antigos: "Mais antigos", recentes: "Mais recentes" })[ordenacao]}</b></span>
           </div>
@@ -18550,7 +18550,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPagina(Math.max(1, pgAtual - 1))} disabled={pgAtual <= 1} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">‹</button>
                     {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((pp) => (
-                      <button key={pp} onClick={() => setPagina(pp)} className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${pp === pgAtual ? "border-[#E67E22] bg-[#E67E22] text-white" : "border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>{pp}</button>
+                      <button key={pp} onClick={() => setPagina(pp)} className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-sm font-bold transition ${pp === pgAtual ? "border-[#F38525] bg-[#F38525] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>{pp}</button>
                     ))}
                     <button onClick={() => setPagina(Math.min(totalPaginas, pgAtual + 1))} disabled={pgAtual >= totalPaginas} className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-dash-navy transition hover:bg-[var(--pp-bg)] disabled:opacity-40">›</button>
                   </div>
@@ -18603,7 +18603,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
                 {mesasRank.slice(0, 4).map((m) => (
                   <div key={m.mesa} className="flex items-center gap-2 text-[13px]">
                     <span className="w-16 shrink-0 font-semibold text-dash-navy">{m.mesa}</span>
-                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#EAE0D6]"><div className="h-full rounded-full bg-[#0F4C5C]" style={{ width: `${Math.max(8, (m.n / mesasRank[0].n) * 100)}%` }} /></div>
+                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-[#EAE0D6]"><div className="h-full rounded-full bg-[#012E46]" style={{ width: `${Math.max(8, (m.n / mesasRank[0].n) * 100)}%` }} /></div>
                     <span className="w-5 shrink-0 text-right font-bold text-dash-navy">{m.n}</span>
                   </div>
                 ))}
@@ -18619,7 +18619,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
                 <div className="relative h-[76px] w-[76px] shrink-0">
                   <svg viewBox="0 0 80 80" className="h-full w-full -rotate-90">
                     <circle cx="40" cy="40" r="32" fill="none" stroke="#EAE0D6" strokeWidth="10" />
-                    <circle cx="40" cy="40" r="32" fill="none" stroke={slaPct >= 80 ? "#059669" : slaPct >= 50 ? "#D97706" : "#DC2626"} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(slaPct / 100) * 2 * Math.PI * 32} ${2 * Math.PI * 32}`} />
+                    <circle cx="40" cy="40" r="32" fill="none" stroke={slaPct >= 80 ? "#059669" : slaPct >= 50 ? "#F38525" : "#DC2626"} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(slaPct / 100) * 2 * Math.PI * 32} ${2 * Math.PI * 32}`} />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center"><span className="page-title text-base font-black text-dash-navy">{slaPct}%</span></div>
                 </div>
@@ -18638,9 +18638,9 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
                   const linha = pts.map((p) => p.join(",")).join(" ");
                   const area = `10,70 ${linha} 230,70`;
                   return <>
-                    <polygon points={area} fill="#0F4C5C" opacity="0.08" />
-                    <polyline points={linha} fill="none" stroke="#0F4C5C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                    {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="2.5" fill="#0F4C5C" />)}
+                    <polygon points={area} fill="#012E46" opacity="0.08" />
+                    <polyline points={linha} fill="none" stroke="#012E46" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="2.5" fill="#012E46" />)}
                   </>;
                 })()}
               </svg>
@@ -18650,8 +18650,8 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
 
           {/* Sugestão do sistema */}
           {mesaTop && mesaTop.n >= 3 && (
-            <div className="rounded-xl border border-[#0F4C5C]/20 bg-[#0F4C5C]/[0.05] p-4">
-              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#0F4C5C]">💡 Sugestão do sistema</p>
+            <div className="rounded-xl border border-[#012E46]/20 bg-[#012E46]/[0.05] p-4">
+              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#012E46]">💡 Sugestão do sistema</p>
               <p className="mt-1.5 text-[13px] text-dash-navy">{mesaTop.mesa} concentrou {mesaTop.n} chamados ({periodoBaixo}). Verificar necessidade de apoio no salão.</p>
             </div>
           )}
@@ -19630,14 +19630,14 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
         <input value={input} onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder={placeholder} className={`${PP_INP} flex-1`} />
-        <button type="button" onClick={add} className="shrink-0 rounded-xl border border-[var(--pp-border)] bg-white px-4 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]">Adicionar</button>
+        <button type="button" onClick={add} className="shrink-0 rounded-xl border border-[var(--pp-border)] bg-white px-4 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Adicionar</button>
       </div>
       {tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {tags.map((t) => (
-            <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.06)] px-3 py-1.5 text-sm font-semibold text-[#0F4C5C]">
+            <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.06)] px-3 py-1.5 text-sm font-semibold text-[#012E46]">
               {t}
-              <button type="button" onClick={() => setTags(tags.filter((x) => x !== t))} className="flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(15,76,92,0.15)] text-xs text-[#0F4C5C] transition hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
+              <button type="button" onClick={() => setTags(tags.filter((x) => x !== t))} className="flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(1, 46, 70,0.15)] text-xs text-[#012E46] transition hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
             </span>
           ))}
         </div>
@@ -19667,12 +19667,12 @@ function AdicionaisEditor({ value = [], onChange }) {
           placeholder="Adicional (ex.: Bacon)" className={`${inp} flex-1`} />
         <input value={preco} onChange={(e) => { const { display } = handleMoeda(e); setPreco(display); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           inputMode="numeric" placeholder="R$ 0,00" className={`${inp} w-28 shrink-0`} />
-        <button type="button" onClick={add} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#E67E22] text-lg font-semibold text-white transition hover:bg-[#D06E1A]">+</button>
+        <button type="button" onClick={add} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#F38525] text-lg font-semibold text-[#012E46] transition hover:bg-[#F38525]">+</button>
       </div>
       {(value || []).length > 0 && (
         <div className="mt-2 space-y-1.5">
           {value.map((a, i) => (
-            <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+            <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
               <span className="text-sm font-semibold text-[var(--pp-text)]">{a.nome}</span>
               <span className="flex items-center gap-2 text-sm"><span className="font-semibold text-[#2F9E52]">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
                 <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(200,30,74,0.12)] text-xs text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.24)]">✕</button></span>
@@ -19846,7 +19846,7 @@ function CentralFiscalAdmin({ dados = null, api = null, regras = [], versoes = [
       />
 
       {!ehSuper && (
-        <div className="rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-4 py-3 text-[13px] font-semibold text-[#B4611A]">
+        <div className="rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-4 py-3 text-[13px] font-semibold text-[#F38525]">
           Você está no modo consulta. Apenas o super administrador pode criar, editar ou remover itens da Central Fiscal.
         </div>
       )}
@@ -19883,13 +19883,13 @@ function CentralFiscalVisaoGeral({ contagem, totalCst, onIr }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cards.map((c) => (
           <button key={c.id} type="button" onClick={() => onIr(c.id === "cstIcms" ? "cstIcms" : c.id)}
-            className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 text-left shadow-[0_1px_2px_rgba(15,76,92,0.04)] transition hover:border-[#0F4C5C]/40">
+            className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 text-left shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] transition hover:border-[#012E46]/40">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.rotulo}</p>
-            <p className="page-title mt-1 text-[20px] font-bold text-[#0F4C5C]">{c.valor}</p>
+            <p className="page-title mt-1 text-[20px] font-bold text-[#012E46]">{c.valor}</p>
           </button>
         ))}
       </div>
-      <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
         <h4 className="text-sm font-bold text-[var(--pp-text)]">Como a Central Fiscal funciona</h4>
         <ul className="mt-2 space-y-1.5">
           {[
@@ -19898,10 +19898,10 @@ function CentralFiscalVisaoGeral({ contagem, totalCst, onIr }) {
             "Alterações da loja são locais: nunca alteram a Central nem a configuração de outra loja.",
             "A arquitetura segue: Central Fiscal → Regra → Versão → Importação → Configuração da loja → Produtos → NF-e/NFC-e.",
           ].map((t, i) => (
-            <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-[var(--pp-text-body)]"><span className="text-[#E67E22]">•</span><span>{t}</span></li>
+            <li key={i} className="flex gap-2 text-[13px] leading-relaxed text-[var(--pp-text-body)]"><span className="text-[#F38525]">•</span><span>{t}</span></li>
           ))}
         </ul>
-        <div className="mt-3 rounded-xl border border-[rgba(15,76,92,0.15)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-[12px] font-semibold text-[#0F4C5C]">
+        <div className="mt-3 rounded-xl border border-[rgba(1, 46, 70,0.15)] bg-[rgba(1, 46, 70,0.04)] px-3 py-2 text-[12px] font-semibold text-[#012E46]">
           Próximas fases: regras fiscais por operação (com versão e vigência), importação para a loja com aviso de atualização, e templates por segmento.
         </div>
       </div>
@@ -19944,19 +19944,19 @@ function CatalogoFiscalLista({ tipo, itens = [], api = null, ehSuper = false }) 
       ) : (<>
         {ehSuper && (
           <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+            <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
           </label>
         )}
         <div className="space-y-2">
           {f.visiveis.map((x) => (
             <div key={x.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${x.ativo === false ? "opacity-60" : ""}`}>
-              {ehSuper && <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />}
-              <span className="flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] px-2 text-[11px] font-black text-[#0F4C5C]">{cfg.tile}</span>
+              {ehSuper && <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />}
+              <span className="flex h-11 min-w-[44px] shrink-0 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.12)] px-2 text-[11px] font-black text-[#012E46]">{cfg.tile}</span>
               <div className="min-w-[160px] flex-1">
                 <p className="text-base font-semibold tabular-nums text-white">{x.codigo}</p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                   {cfg.resumo(x).map((r, i) => <span key={i} className="truncate">{r}</span>)}
-                  {x.fonte && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 font-semibold text-[#E67E22]">{x.fonte}</span>}
+                  {x.fonte && <span className="rounded-full bg-[rgba(243, 133, 37,0.12)] px-2 py-0.5 font-semibold text-[#F38525]">{x.fonte}</span>}
                 </div>
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -20034,7 +20034,7 @@ function CatalogoFiscalModal({ tipo, item = null, api, onFechar }) {
           <input value={d.observacao} onChange={(e) => set("observacao", e.target.value)} placeholder="Referência/legislação (opcional)" className={PP_INP} />
         </div>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> {cfg.singular} ativo</label>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> {cfg.singular} ativo</label>
     </FiscalModalShell>
   );
 }
@@ -20088,7 +20088,7 @@ function FiscalRegraLista({ regras = [], versoes = [], api = null, catalogos = {
             const pub = publicadaDe(r.id); const rasc = rascunhoDe(r.id); const total = versoesDe(r.id).length;
             return (
               <div key={r.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 ${r.ativo === false ? "opacity-60" : ""}`}>
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">⚖️</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.12)] text-lg text-[#012E46]">⚖️</span>
                 <div className="min-w-[180px] flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">{r.nome}<StatusRegraBadge status={r.status} /></p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
@@ -20179,7 +20179,7 @@ function FiscalRegraModal({ regra = null, versao = null, api, catalogos = {}, on
     } finally { setSalvando(false); }
   }
 
-  const secTitulo = "mb-2 mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#0F4C5C]";
+  const secTitulo = "mb-2 mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#012E46]";
   const numInput = (label, k) => (
     <div><label className={PP_LBL}>{label}</label><input type="number" step="0.01" min="0" value={v[k]} onChange={(e) => setV_(k, e.target.value)} className={PP_INP} /></div>
   );
@@ -20206,8 +20206,8 @@ function FiscalRegraModal({ regra = null, versao = null, api, catalogos = {}, on
           <div><label className={PP_LBL}>UF origem</label><select value={v.ufOrigem} onChange={(e) => setV_("ufOrigem", e.target.value)} className={PP_INP}><option value="">—</option>{UFS_BR.map((s) => <option key={s}>{s}</option>)}</select></div>
           <div><label className={PP_LBL}>UF destino</label><select value={v.ufDestino} onChange={(e) => setV_("ufDestino", e.target.value)} className={PP_INP}><option value="">—</option>{UFS_BR.map((s) => <option key={s}>{s}</option>)}</select></div>
         </div>
-        <label className="flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.consumidorFinal} onChange={(e) => setV_("consumidorFinal", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> Consumidor final</label>
-        <label className="flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.contribuinteIcms} onChange={(e) => setV_("contribuinteIcms", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> Contribuinte de ICMS</label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.consumidorFinal} onChange={(e) => setV_("consumidorFinal", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> Consumidor final</label>
+        <label className="flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.contribuinteIcms} onChange={(e) => setV_("contribuinteIcms", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> Contribuinte de ICMS</label>
       </div>
 
       <h4 className={secTitulo}>🏷️ Classificação</h4>
@@ -20226,7 +20226,7 @@ function FiscalRegraModal({ regra = null, versao = null, api, catalogos = {}, on
         {numInput("FCP %", "fcpAliquota")}
         {numInput("MVA %", "mva")}
       </div>
-      <label className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.icmsSt} onChange={(e) => setV_("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> ICMS ST (substituição tributária)</label>
+      <label className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.icmsSt} onChange={(e) => setV_("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> ICMS ST (substituição tributária)</label>
 
       <h4 className={secTitulo}>💵 PIS · COFINS · IPI</h4>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -20256,7 +20256,7 @@ function FiscalRegraModal({ regra = null, versao = null, api, catalogos = {}, on
         <div><label className={PP_LBL}>Referência da fonte</label><input value={v.fonteReferencia} onChange={(e) => setV_("fonteReferencia", e.target.value)} placeholder="Ex.: Convênio ICMS 52/91" className={PP_INP} /></div>
         <div className="sm:col-span-2"><label className={PP_LBL}>Observação</label><input value={v.observacao} onChange={(e) => setV_("observacao", e.target.value)} className={PP_INP} /></div>
       </div>
-      <p className="mt-3 rounded-xl border border-[rgba(15,76,92,0.15)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-[12px] font-semibold text-[#0F4C5C]">Ao salvar, a versão fica em <b>rascunho</b>. Use <b>Publicar</b> na lista para disponibilizá-la às lojas — a versão publicada anterior vira “substituída” (histórico preservado).</p>
+      <p className="mt-3 rounded-xl border border-[rgba(1, 46, 70,0.15)] bg-[rgba(1, 46, 70,0.04)] px-3 py-2 text-[12px] font-semibold text-[#012E46]">Ao salvar, a versão fica em <b>rascunho</b>. Use <b>Publicar</b> na lista para disponibilizá-la às lojas — a versão publicada anterior vira “substituída” (histórico preservado).</p>
     </FiscalModalShell>
   );
 }
@@ -20292,7 +20292,7 @@ function FiscalRegraVersoes({ regras = [], versoes = [] }) {
                       {(v.cstIcms || v.csosn) && <span>ICMS {v.cstIcms || v.csosn} · {Number(v.icmsAliquota || 0).toFixed(2)}%</span>}
                       {v.vigenciaInicio && <span className="text-emerald-300">vig. {formatarDataBR(v.vigenciaInicio)}{v.vigenciaFim ? `–${formatarDataBR(v.vigenciaFim)}` : ""}</span>}
                       {v.publicadoEmISO && <span className="text-slate-500">publicada {formatarDataBR(v.publicadoEmISO)}</span>}
-                      {v.fonte && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 font-semibold text-[#E67E22]">{v.fonte}</span>}
+                      {v.fonte && <span className="rounded-full bg-[rgba(243, 133, 37,0.12)] px-2 py-0.5 font-semibold text-[#F38525]">{v.fonte}</span>}
                     </div>
                   ))}
                 </div>
@@ -20342,7 +20342,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       />
 
       {pendentes > 0 && aba !== "minha" && (
-        <button onClick={() => setAba("minha")} className="w-full rounded-2xl border border-[rgba(230,126,34,0.35)] bg-[rgba(230,126,34,0.08)] px-4 py-3 text-left text-[13px] font-bold text-[#B4611A]">
+        <button onClick={() => setAba("minha")} className="w-full rounded-2xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.08)] px-4 py-3 text-left text-[13px] font-bold text-[#F38525]">
           ⚠ {pendentes} atualização(ões) fiscal(is) disponível(is) — revise em “Minha loja”.
         </button>
       )}
@@ -20384,19 +20384,19 @@ function LojaFiscalBiblioteca({ publicadas = [], publicadaDe, importadaDe, api }
             const pub = publicadaDe(r.id); const imp = importadaDe(r.id);
             return (
               <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">⚖️</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.12)] text-lg text-[#012E46]">⚖️</span>
                 <div className="min-w-[180px] flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">{r.nome}{imp && <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-black text-emerald-600">Importada v{imp.versaoImportada}</span>}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                     {r.segmento && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{r.segmento}</span>}
                     {r.regime && <span>{r.regime}</span>}
                     {pub && <span className="text-emerald-300">v{pub.versao} publicada</span>}
-                    {pub?.fonte && <span className="rounded-full bg-[rgba(230,126,34,0.12)] px-2 py-0.5 font-semibold text-[#E67E22]">{pub.fonte}</span>}
+                    {pub?.fonte && <span className="rounded-full bg-[rgba(243, 133, 37,0.12)] px-2 py-0.5 font-semibold text-[#F38525]">{pub.fonte}</span>}
                   </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button onClick={() => setVer({ titulo: `${r.nome} — v${pub?.versao}`, dados: pub })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">👁 Visualizar</button>
-                  <button onClick={() => importar(r)} className="rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A]">{imp ? "Importar novamente" : "＋ Importar"}</button>
+                  <button onClick={() => setVer({ titulo: `${r.nome} — v${pub?.versao}`, dados: pub })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">👁 Visualizar</button>
+                  <button onClick={() => importar(r)} className="rounded-xl bg-[#F38525] px-3 py-1.5 text-xs font-black text-[#012E46] transition hover:bg-[#F38525]">{imp ? "Importar novamente" : "＋ Importar"}</button>
                 </div>
               </div>
             );
@@ -20430,9 +20430,9 @@ function LojaFiscalMinhaLoja({ importadas = [], atualizacaoDe, api }) {
         {f.visiveis.map((imp) => {
           const nova = atualizacaoDe(imp);
           return (
-            <div key={imp.id} className={`rounded-3xl border p-4 ${nova ? "border-[rgba(230,126,34,0.35)] bg-[rgba(230,126,34,0.06)]" : "border-white/10 bg-slate-950/40"}`}>
+            <div key={imp.id} className={`rounded-3xl border p-4 ${nova ? "border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.06)]" : "border-white/10 bg-slate-950/40"}`}>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">⚖️</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.12)] text-lg text-[#012E46]">⚖️</span>
                 <div className="min-w-[180px] flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-white">{imp.regraNome || "Regra importada"}
                     {imp.customizada && <span className="rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[11px] font-black text-blue-300">Customizada</span>}
@@ -20444,15 +20444,15 @@ function LojaFiscalMinhaLoja({ importadas = [], atualizacaoDe, api }) {
                   </div>
                 </div>
                 <div className="ml-auto flex flex-wrap shrink-0 items-center gap-2">
-                  <button onClick={() => setVer({ titulo: imp.regraNome || "Regra da loja", dados: imp })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">👁</button>
+                  <button onClick={() => setVer({ titulo: imp.regraNome || "Regra da loja", dados: imp })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">👁</button>
                   <button onClick={() => setEditar(imp)} className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️ Editar</button>
                   <button onClick={() => setExcluir(imp)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
                 </div>
               </div>
               {nova && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(230,126,34,0.35)] bg-white/[0.03] px-3 py-2">
-                  <span className="text-[13px] font-black text-[#B4611A]">⚠ Atualização fiscal disponível — Central publicou a v{nova.versao}.</span>
-                  <button onClick={() => setComparar({ imp, nova })} className="ml-auto rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A]">Comparar e decidir</button>
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(243, 133, 37,0.35)] bg-white/[0.03] px-3 py-2">
+                  <span className="text-[13px] font-black text-[#F38525]">⚠ Atualização fiscal disponível — Central publicou a v{nova.versao}.</span>
+                  <button onClick={() => setComparar({ imp, nova })} className="ml-auto rounded-xl bg-[#F38525] px-3 py-1.5 text-xs font-black text-[#012E46] transition hover:bg-[#F38525]">Comparar e decidir</button>
                 </div>
               )}
             </div>
@@ -20490,7 +20490,7 @@ function LojaRegraVerModal({ titulo, dados, onFechar }) {
             </div>
           ))}
         </div>
-        <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4"><button onClick={onFechar} className="w-full rounded-xl bg-[#0F4C5C] px-5 py-2.5 text-sm font-semibold text-white">Fechar</button></div>
+        <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4"><button onClick={onFechar} className="w-full rounded-xl bg-[#012E46] px-5 py-2.5 text-sm font-semibold text-white">Fechar</button></div>
       </div>
     </div>
   );
@@ -20507,7 +20507,7 @@ function CompararVersaoModal({ imp, nova, api, onFechar }) {
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
-          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(230,126,34,0.12)] text-lg text-[#E67E22]">⚠</span>
+          <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525]">⚠</span>
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Atualização fiscal — v{imp.versaoImportada} → v{nova.versao}</h2>
               <p className="text-[13px] text-[var(--pp-text-muted)]">{mudancas.length} campo(s) alterado(s). Nada muda até você decidir.</p></div>
           </div>
@@ -20515,24 +20515,24 @@ function CompararVersaoModal({ imp, nova, api, onFechar }) {
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="overflow-hidden rounded-2xl border border-[var(--pp-border)]">
-            <div className="grid grid-cols-[1.2fr_1fr_1fr] bg-[rgba(15,76,92,0.05)] text-[11px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">
+            <div className="grid grid-cols-[1.2fr_1fr_1fr] bg-[rgba(1, 46, 70,0.05)] text-[11px] font-black uppercase tracking-wide text-[var(--pp-text-muted)]">
               <div className="px-3 py-2">Campo</div><div className="px-3 py-2">Config. atual</div><div className="px-3 py-2">Nova versão</div>
             </div>
             {(mudancas.length ? mudancas : difs).map(({ c, a, b, mudou }) => (
-              <div key={c.k} className={`grid grid-cols-[1.2fr_1fr_1fr] border-t border-[var(--pp-border)] text-[13px] ${mudou ? "bg-[rgba(230,126,34,0.06)]" : ""}`}>
+              <div key={c.k} className={`grid grid-cols-[1.2fr_1fr_1fr] border-t border-[var(--pp-border)] text-[13px] ${mudou ? "bg-[rgba(243, 133, 37,0.06)]" : ""}`}>
                 <div className="px-3 py-2 font-semibold text-[var(--pp-text)]">{c.label}</div>
                 <div className={`px-3 py-2 ${mudou ? "text-[#C81E4A] line-through" : "text-[var(--pp-text-body)]"}`}>{a}</div>
                 <div className={`px-3 py-2 font-semibold ${mudou ? "text-[#2F9E52]" : "text-[var(--pp-text-body)]"}`}>{b}</div>
               </div>
             ))}
           </div>
-          {imp.customizada && <p className="mt-3 rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">Atenção: esta cópia foi customizada. Atualizar substitui os valores pela nova versão da Central.</p>}
+          {imp.customizada && <p className="mt-3 rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#F38525]">Atenção: esta cópia foi customizada. Atualizar substitui os valores pela nova versão da Central.</p>}
         </div>
         <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
           <div className="flex flex-wrap gap-2">
-            <button disabled={salvando} onClick={() => run(() => api.manter(imp.id, nova.versao, true))} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:opacity-40">Ignorar</button>
-            <button disabled={salvando} onClick={() => run(() => api.manter(imp.id, nova.versao, false))} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:opacity-40">Manter atual</button>
-            <button disabled={salvando} onClick={() => run(() => api.aplicarVersao(imp.id, { versao: nova.versao, snapshot: nova }))} className="flex-1 rounded-xl bg-[#E67E22] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#D06E1A] disabled:opacity-40">{salvando ? "⏳…" : `Atualizar para v${nova.versao}`}</button>
+            <button disabled={salvando} onClick={() => run(() => api.manter(imp.id, nova.versao, true))} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:opacity-40">Ignorar</button>
+            <button disabled={salvando} onClick={() => run(() => api.manter(imp.id, nova.versao, false))} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:opacity-40">Manter atual</button>
+            <button disabled={salvando} onClick={() => run(() => api.aplicarVersao(imp.id, { versao: nova.versao, snapshot: nova }))} className="flex-1 rounded-xl bg-[#F38525] px-4 py-2.5 text-sm font-black text-[#012E46] transition hover:bg-[#F38525] disabled:opacity-40">{salvando ? "⏳…" : `Atualizar para v${nova.versao}`}</button>
           </div>
         </div>
       </div>
@@ -20546,7 +20546,7 @@ function EditarLojaRegraModal({ imp, api, onFechar }) {
   const set = (k, val) => setV((c) => ({ ...c, [k]: val }));
   const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
   const numInput = (label, k) => (<div><label className={PP_LBL}>{label}</label><input type="number" step="0.01" min="0" value={v[k]} onChange={(e) => set(k, e.target.value)} className={PP_INP} /></div>);
-  const secTitulo = "mb-2 mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#0F4C5C]";
+  const secTitulo = "mb-2 mt-4 flex items-center gap-2 text-xs font-black uppercase tracking-wide text-[#012E46]";
   async function salvar() {
     setErro(""); setSalvando(true);
     try { const ok = await api.salvar(imp.id, v); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique a migration 087."); }
@@ -20579,7 +20579,7 @@ function EditarLojaRegraModal({ imp, api, onFechar }) {
         {numInput("FCP %", "fcpAliquota")}
         {numInput("MVA %", "mva")}
       </div>
-      <label className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.icmsSt} onChange={(e) => set("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> ICMS ST</label>
+      <label className="mt-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={v.icmsSt} onChange={(e) => set("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> ICMS ST</label>
       <h4 className={secTitulo}>💵 PIS · COFINS · IPI</h4>
       <div className="grid gap-3 sm:grid-cols-3">
         <div><label className={PP_LBL}>CST PIS</label><input value={v.cstPis} onChange={(e) => set("cstPis", e.target.value)} className={PP_INP} /></div>
@@ -20645,7 +20645,7 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
           { valor: produtos.filter((p) => p.ncmId).length, rotulo: "produtos vinculados", tom: "ok" },
         ]}
         acao={<button type="button" onClick={() => setAjuda(true)} title="Como usar esta tela" aria-label="Ajuda"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#0F4C5C]/30 bg-[rgba(15,76,92,0.08)] text-lg font-black text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.15)]">?</button>}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[#012E46]/30 bg-[rgba(1, 46, 70,0.08)] text-lg font-black text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.15)]">?</button>}
       />
 
       {/* Sub-navegação dos cadastros fiscais — contadores sem fundo, texto branco */}
@@ -20677,8 +20677,8 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
 function BulkBar({ n, onAtivar, onInativar, onExcluir = null, onLimpar }) {
   if (n === 0) return null;
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[#0F4C5C]/30 bg-[rgba(15,76,92,0.08)] px-4 py-2.5">
-      <span className="text-xs font-black text-[#0F4C5C]">{n} selecionado{n === 1 ? "" : "s"}</span>
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[#012E46]/30 bg-[rgba(1, 46, 70,0.08)] px-4 py-2.5">
+      <span className="text-xs font-black text-[#012E46]">{n} selecionado{n === 1 ? "" : "s"}</span>
       <div className="ml-auto flex gap-2">
         <button onClick={onAtivar} className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-black text-emerald-600 transition hover:bg-emerald-500/20">Ativar</button>
         <button onClick={onInativar} className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-600 transition hover:bg-amber-500/20">Inativar</button>
@@ -20782,7 +20782,7 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
         <div><h3 className="page-title text-lg font-bold text-white">Cadastro de NCM</h3>
           <p className="text-xs text-slate-400">Cadastre manualmente ou importe a Tabela TIPI (XLSX). Cada NCM guarda descrição, tipo, CEST e regra de ICMS.</p></div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setImportar(true)} className="inline-flex items-center gap-2 rounded-xl border border-[rgba(15,76,92,0.25)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#0F4C5C] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.05)]">⬆ Importar TIPI (XLSX)</button>
+          <button onClick={() => setImportar(true)} className="inline-flex items-center gap-2 rounded-xl border border-[rgba(1, 46, 70,0.25)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#012E46] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.05)]">⬆ Importar TIPI (XLSX)</button>
           <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar NCM</PrimeButton>
         </div>
       </div>
@@ -20796,10 +20796,10 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
       ) : (<>
         <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <label className="flex items-center gap-2 text-xs font-semibold text-slate-400">
-            <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+            <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
           </label>
           {f.filtrados.length > f.visiveis.length && (
-            <button type="button" onClick={() => setSel(todosFiltradosMarcados ? new Set() : new Set(f.filtrados.map((n) => n.id)))} className="text-xs font-black text-[#0F4C5C] underline-offset-2 hover:underline">
+            <button type="button" onClick={() => setSel(todosFiltradosMarcados ? new Set() : new Set(f.filtrados.map((n) => n.id)))} className="text-xs font-black text-[#012E46] underline-offset-2 hover:underline">
               {todosFiltradosMarcados ? "Limpar seleção" : `Selecionar todos os ${f.filtrados.length} do filtro`}
             </button>
           )}
@@ -20810,13 +20810,13 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
             const uso = produtosPorNcm(n.id); const rIcms = nomeIcms(n.icmsId);
             return (
               <div key={n.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${n.ativo === false ? "opacity-60" : ""}`}>
-                <input type="checkbox" checked={sel.has(n.id)} onChange={() => toggleSel(n.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
-                <span className="flex h-11 w-9 shrink-0 items-center justify-center text-[10px] font-semibold uppercase tracking-wide text-[#0F4C5C]">NCM</span>
+                <input type="checkbox" checked={sel.has(n.id)} onChange={() => toggleSel(n.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
+                <span className="flex h-11 w-9 shrink-0 items-center justify-center text-[10px] font-semibold uppercase tracking-wide text-[#012E46]">NCM</span>
                 <div className="min-w-[160px] flex-1">
                   <p className="text-base font-semibold tabular-nums text-white">{n.codigo}{n.exTipi ? <span className="ml-1.5 text-xs font-semibold text-slate-400">EX {n.exTipi}</span> : null}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
                     {n.descricao && <span className="truncate">{n.descricao}</span>}
-                    {n.tipo && <span className="rounded bg-[rgba(230,126,34,0.12)] px-1.5 py-0.5 font-semibold text-[#E67E22]">{n.tipo}</span>}
+                    {n.tipo && <span className="rounded bg-[rgba(243, 133, 37,0.12)] px-1.5 py-0.5 font-semibold text-[#F38525]">{n.tipo}</span>}
                     {rIcms ? <span className="rounded-full bg-white/[0.06] px-2 py-0.5">ICMS: {rIcms}</span> : <span className="text-amber-400">sem regra de ICMS</span>}
                     {n.cest && <span>CEST {n.cest}</span>}
                     <span className={uso > 0 ? "text-emerald-300" : "text-slate-500"}>{uso} produto{uso === 1 ? "" : "s"}</span>
@@ -20863,20 +20863,20 @@ function VinculosNcmModal({ acao, itens = [], feitos = 0, onFechar }) {
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{feitos > 0 ? `${feitos} ${verboFeito} · ${itens.length} mantido(s)` : `Não é possível ${verbo}`}</h2>
               <p className="text-[13px] text-[var(--pp-text-muted)]">{itens.length} NCM({itens.length === 1 ? "" : "s"}) em uso por {totalProd} produto(s) {feitos > 0 ? "permanecem" : "não pode(m) ser removidos"}.</p></div>
           </div>
-          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto px-6 py-5">
           {feitos > 0 && <p className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.06)] px-3 py-2 text-[12px] font-semibold text-[#2F9E52]">✅ {feitos} NCM(s) sem vínculo {verboFeito} com sucesso. Os {itens.length} abaixo continuam selecionados por terem produtos vinculados.</p>}
-          <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">Para {verbo} estes, primeiro desvincule (ou troque o NCM) dos produtos abaixo — na aba Produtos ou pela Atualização em lote.</p>
+          <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#F38525]">Para {verbo} estes, primeiro desvincule (ou troque o NCM) dos produtos abaixo — na aba Produtos ou pela Atualização em lote.</p>
           {itens.map(({ ncm, produtos }) => (
-            <div key={ncm.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
-              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text)]"><span className="rounded bg-[rgba(15,76,92,0.08)] px-1.5 py-0.5 text-xs font-black text-[#0F4C5C]">NCM {ncm.codigo}</span><span className="text-[var(--pp-text-muted)]">{produtos.length} produto(s)</span></p>
+            <div key={ncm.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text)]"><span className="rounded bg-[rgba(1, 46, 70,0.08)] px-1.5 py-0.5 text-xs font-black text-[#012E46]">NCM {ncm.codigo}</span><span className="text-[var(--pp-text-muted)]">{produtos.length} produto(s)</span></p>
               <div className="space-y-1">
                 {produtos.map((p) => (
                   <div key={p.id} className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5">
                     <img src={p.imageUrl || fallbackImage} alt="" className="h-7 w-7 shrink-0 rounded-lg object-cover" />
                     <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[var(--pp-text)]">{p.name}</span>
-                    <span className="shrink-0 rounded-full bg-[rgba(15,76,92,0.06)] px-2 py-0.5 text-[11px] text-[var(--pp-text-muted)]">{p.category || "—"}</span>
+                    <span className="shrink-0 rounded-full bg-[rgba(1, 46, 70,0.06)] px-2 py-0.5 text-[11px] text-[var(--pp-text-muted)]">{p.category || "—"}</span>
                   </div>
                 ))}
               </div>
@@ -20884,7 +20884,7 @@ function VinculosNcmModal({ acao, itens = [], feitos = 0, onFechar }) {
           ))}
         </div>
         <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4">
-          <button onClick={onFechar} className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Entendi</button>
+          <button onClick={onFechar} className="w-full rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Entendi</button>
         </div>
       </div>
     </div>
@@ -20921,15 +20921,15 @@ function FiscalIcmsLista({ icms, api, ncmsPorIcms, produtosPorIcms }) {
           acao={icms.length === 0 ? <PrimeButton onClick={() => setCriando(true)}>+ Cadastrar regra</PrimeButton> : null} />
       ) : (<>
         <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+          <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
         </label>
         <div className="space-y-2">
           {f.visiveis.map((r) => {
             const nn = ncmsPorIcms(r.id); const pp = produtosPorIcms(r.id);
             return (
               <div key={r.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${r.ativo === false ? "opacity-60" : ""}`}>
-                <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(230,126,34,0.12)] text-lg text-[#E67E22]">⚖</span>
+                <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525]">⚖</span>
                 <div className="min-w-[160px] flex-1">
                   <p className="font-black text-white">{r.nome}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
@@ -20994,11 +20994,11 @@ function NcmModal({ ncm = null, icms = [], api, onFechar }) {
             <option value="">Sem regra de ICMS</option>
             {icms.filter((r) => r.ativo !== false || String(r.id) === String(d.icmsId)).map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
           </select>
-          {icms.length === 0 && <p className="mt-1 text-[11px] text-[#B4611A]">Nenhuma regra de ICMS cadastrada ainda — cadastre em “Regras de ICMS”.</p>}
+          {icms.length === 0 && <p className="mt-1 text-[11px] text-[#F38525]">Nenhuma regra de ICMS cadastrada ainda — cadastre em “Regras de ICMS”.</p>}
         </div>
       </div>
       <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]">
-        <input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> NCM ativo
+        <input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> NCM ativo
       </label>
     </FiscalModalShell>
   );
@@ -21029,7 +21029,7 @@ function IcmsModal({ icms = null, api, impacto = 0, onFechar }) {
   return (
     <FiscalModalShell titulo={ehEdicao ? "Editar regra de ICMS" : "Cadastrar regra de ICMS"} sub="Reutilizável: vincule esta regra a vários NCMs." icone="⚖" erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.nome.trim()} rotulo={ehEdicao ? "Salvar alterações" : "Cadastrar regra"}>
       {ehEdicao && impacto > 0 && (
-        <div className="mb-3 rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-xs font-semibold text-[#B4611A]">
+        <div className="mb-3 rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">
           ⚠ Esta regra impacta <b>{impacto} produto(s)</b>. Alterá-la reflete em todos eles.
         </div>
       )}
@@ -21045,7 +21045,7 @@ function IcmsModal({ icms = null, api, impacto = 0, onFechar }) {
         {numIn("reducaoBase", "Redução da base (%)", "0,00")}
         {numIn("fcp", "FCP (%)", "0,00")}
         <div className="sm:col-span-2 flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white p-3">
-          <input type="checkbox" checked={d.icmsSt} onChange={(e) => set("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" />
+          <input type="checkbox" checked={d.icmsSt} onChange={(e) => set("icmsSt", e.target.checked)} className="h-4 w-4 accent-[#012E46]" />
           <span className="text-sm font-semibold text-[var(--pp-text-body)]">ICMS-ST (substituição tributária)</span>
         </div>
         {d.icmsSt && numIn("mva", "MVA (%)", "0,00")}
@@ -21053,7 +21053,7 @@ function IcmsModal({ icms = null, api, impacto = 0, onFechar }) {
         <div><label className={PP_LBL}>UF destino</label><input value={d.ufDestino} onChange={(e) => set("ufDestino", e.target.value.toUpperCase().slice(0, 2))} placeholder="Ex.: SP" className={PP_INP} /></div>
       </div>
       <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]">
-        <input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> Regra ativa
+        <input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> Regra ativa
       </label>
     </FiscalModalShell>
   );
@@ -21090,15 +21090,15 @@ function FiscalListaSimples({ titulo, subtitulo, itens, api, usoDe, buscaPh, tex
           acao={itens.length === 0 ? <PrimeButton onClick={() => setCriando(true)}>+ {novoRotulo}</PrimeButton> : null} />
       ) : (<>
         <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+          <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
         </label>
         <div className="space-y-2">
           {f.visiveis.map((x) => {
             const uso = usoDe(x.id);
             return (
               <div key={x.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${x.ativo === false ? "opacity-60" : ""}`}>
-                <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${tile.cor === "laranja" ? "bg-[rgba(230,126,34,0.12)] text-[#E67E22]" : "bg-[rgba(15,76,92,0.12)] text-[#0F4C5C]"}`}>{tile.txt}</span>
+                <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${tile.cor === "laranja" ? "bg-[rgba(243, 133, 37,0.12)] text-[#F38525]" : "bg-[rgba(1, 46, 70,0.12)] text-[#012E46]"}`}>{tile.txt}</span>
                 <div className="min-w-[160px] flex-1">
                   <p className="font-black text-white">{nomeDe(x)}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
@@ -21201,7 +21201,7 @@ function CfopModal({ cfop = null, api, onFechar }) {
         <div><label className={PP_LBL}>Tipo de operação</label><select value={d.operacao} onChange={(e) => set("operacao", e.target.value)} className={PP_INP}><option value="">Selecione...</option><option>Interna</option><option>Interestadual</option><option>Exterior</option></select></div>
         <div><label className={PP_LBL}>Finalidade</label><input value={d.finalidade} onChange={(e) => set("finalidade", e.target.value)} placeholder="Ex.: Venda" className={PP_INP} /></div>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> CFOP ativo</label>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> CFOP ativo</label>
     </FiscalModalShell>
   );
 }
@@ -21224,7 +21224,7 @@ function CestModal({ cest = null, api, onFechar }) {
         <CampoFiscalValidado tipo="cest" label="Código CEST" obrigatorio valor={d.codigo} onChange={(v) => set("codigo", v)} />
         <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Descrição do CEST" className={PP_INP} /></div>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> CEST ativo</label>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> CEST ativo</label>
     </FiscalModalShell>
   );
 }
@@ -21251,7 +21251,7 @@ function TribModal({ tipo, item = null, api, onFechar }) {
         <div><label className={PP_LBL}>Tipo de cálculo</label><select value={d.tipoCalculo} onChange={(e) => set("tipoCalculo", e.target.value)} className={PP_INP}><option>Percentual</option><option>Valor por unidade</option></select></div>
         <div><label className={PP_LBL}>Alíquota (%)</label><input inputMode="decimal" value={d.aliquota} onChange={(e) => set("aliquota", e.target.value.replace(/[^\d.,]/g, ""))} placeholder="Ex.: 1,65" className={PP_INP} /></div>
       </div>
-      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> Regra ativa</label>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#012E46]" /> Regra ativa</label>
     </FiscalModalShell>
   );
 }
@@ -21329,7 +21329,7 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
       {/* 1 — Filtros */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="mb-3 flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.12)] text-sm text-[#0F4C5C]">1</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.12)] text-sm text-[#012E46]">1</span>
           <div><h3 className="page-title text-base font-bold text-white">Selecione os produtos</h3><p className="text-xs text-slate-400">Combine os filtros para atingir só os produtos desejados.</p></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -21354,7 +21354,7 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
           <div className="mt-3 rounded-2xl border border-white/10 bg-slate-950/30 p-3">
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-2 text-xs font-black text-slate-200">
-                <input type="checkbox" checked={todosMarcados} onChange={toggleTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar todos ({filtrados.length})
+                <input type="checkbox" checked={todosMarcados} onChange={toggleTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar todos ({filtrados.length})
               </label>
               <div className="relative ml-auto min-w-[180px] flex-1 sm:max-w-xs">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"><IconBusca /></span>
@@ -21364,7 +21364,7 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
             <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
               {visiveisProd.map((p) => (
                 <label key={p.id} className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition ${excluidos.has(p.id) ? "border-white/5 bg-transparent opacity-60" : "border-white/10 bg-white/[0.04]"}`}>
-                  <input type="checkbox" checked={!excluidos.has(p.id)} onChange={() => toggleProd(p.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
+                  <input type="checkbox" checked={!excluidos.has(p.id)} onChange={() => toggleProd(p.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
                   <img src={p.imageUrl || fallbackImage} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold text-white">{p.name} <span className="text-[11px] font-semibold text-slate-500">· {catNome(p.categoriaId)}</span></p>
@@ -21383,13 +21383,13 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
       {/* 2 — Alterações */}
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="mb-3 flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(230,126,34,0.15)] text-sm text-[#E67E22]">2</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(243, 133, 37,0.15)] text-sm text-[#F38525]">2</span>
           <div><h3 className="page-title text-base font-bold text-white">Defina o que alterar</h3><p className="text-xs text-slate-400">Deixe em “Não alterar” os vínculos que devem permanecer como estão.</p></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {LOTE_CAMPOS.map(({ campo, rot, lista, texto }) => (
             <div key={campo}><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">{rot}</label>
-              <select value={valorSelect(campo)} onChange={(e) => setAlterCampo(campo, e.target.value)} className={`w-full rounded-xl border px-3 py-2.5 text-sm text-white outline-none ${campo in alter ? "border-[#E67E22]/60 bg-[rgba(230,126,34,0.08)]" : "border-white/10 bg-slate-950/70"}`}>
+              <select value={valorSelect(campo)} onChange={(e) => setAlterCampo(campo, e.target.value)} className={`w-full rounded-xl border px-3 py-2.5 text-sm text-white outline-none ${campo in alter ? "border-[#F38525]/60 bg-[rgba(243, 133, 37,0.08)]" : "border-white/10 bg-slate-950/70"}`}>
                 <option value="">— Não alterar —</option>
                 <option value="__clear__">Remover vínculo</option>
                 {(listas[lista] || []).filter((x) => x.ativo !== false).map((x) => <option key={x.id} value={x.id}>{texto(x)}</option>)}
@@ -21399,10 +21399,10 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
       </div>
 
       {/* 3 — Impacto e ação */}
-      <div className="rounded-[2rem] border border-[#E67E22]/30 bg-[rgba(230,126,34,0.06)] p-5">
+      <div className="rounded-[2rem] border border-[#F38525]/30 bg-[rgba(243, 133, 37,0.06)] p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(230,126,34,0.15)] text-sm text-[#E67E22]">3</span>
-          <p className="text-lg font-black text-white">Esta alteração afetará <span className="text-[#E67E22]">{afetados.length}</span> produto(s).</p>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(243, 133, 37,0.15)] text-sm text-[#F38525]">3</span>
+          <p className="text-lg font-black text-white">Esta alteração afetará <span className="text-[#F38525]">{afetados.length}</span> produto(s).</p>
           <div className="ml-auto flex flex-wrap gap-2">
             <button onClick={() => setSimular((s) => !s)} disabled={chaves.length === 0} className="rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-slate-200 transition hover:bg-white/[0.12] disabled:opacity-40">{simular ? "Ocultar simulação" : "Simular alteração"}</button>
             <PrimeButton onClick={() => setConfirmar(true)} disabled={chaves.length === 0 || afetados.length === 0}>Confirmar atualização</PrimeButton>
@@ -21473,7 +21473,7 @@ function CampoFiscalValidado({ tipo, valor, onChange, label, obrigatorio = false
     if (meu === seqRef.current) setStatus(r);
   }
 
-  const cor = { valido: "#2F9E52", formato: "#2F9E52", invalido: "#C81E4A", incompleto: "#B4611A", validando: "#0F4C5C", erro: "#B4611A" }[status?.estado] || "";
+  const cor = { valido: "#2F9E52", formato: "#2F9E52", invalido: "#C81E4A", incompleto: "#F38525", validando: "#012E46", erro: "#F38525" }[status?.estado] || "";
   const icone = { valido: "✅", formato: "✅", invalido: "❌", incompleto: "…", validando: "⏳", erro: "ⓘ" }[status?.estado] || "";
   const borda = status?.estado === "invalido" ? "border-[#C81E4A]" : status?.estado === "valido" || status?.estado === "formato" ? "border-[#2F9E52]" : "border-[var(--pp-border)]";
 
@@ -21547,22 +21547,22 @@ function ImportarNcmModal({ existentes = [], importar, onFechar }) {
       <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.1)] text-lg text-[#0F4C5C]">⬆</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.1)] text-lg text-[#012E46]">⬆</span>
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Importar Tabela TIPI</h2>
               <p className="text-[13px] text-[var(--pp-text-muted)]">Arquivo .xlsx com colunas NCM · Descrição · Alíquota (tipo).</p></div>
           </div>
-          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {/* Seletor de arquivo */}
           <input ref={fileRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) analisar(f); }} />
           <button type="button" onClick={() => fileRef.current?.click()} disabled={importando}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[rgba(15,76,92,0.25)] bg-[rgba(15,76,92,0.03)] py-6 text-sm font-semibold text-[#0F4C5C] transition hover:bg-[rgba(15,76,92,0.06)] disabled:opacity-50">
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[rgba(1, 46, 70,0.25)] bg-[rgba(1, 46, 70,0.03)] py-6 text-sm font-semibold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.06)] disabled:opacity-50">
             📄 {nomeArq || "Escolher arquivo TIPI (.xlsx)"}
           </button>
 
-          {analisando && <p className="text-sm font-semibold text-[#0F4C5C]">⏳ Lendo e validando a planilha…</p>}
+          {analisando && <p className="text-sm font-semibold text-[#012E46]">⏳ Lendo e validando a planilha…</p>}
           {erro && <p className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-xs font-semibold text-[#C81E4A]">❌ {erro}</p>}
 
           {/* Análise */}
@@ -21587,8 +21587,8 @@ function ImportarNcmModal({ existentes = [], importar, onFechar }) {
                 <div className="space-y-1">
                   {resultado.validos.slice(0, 6).map((v) => (
                     <div key={v.codigo} className="flex items-center gap-2 text-[12px]">
-                      <span className="rounded bg-[rgba(15,76,92,0.08)] px-1.5 py-0.5 font-semibold text-[#0F4C5C]">{v.codigo}</span>
-                      <span className="rounded bg-[rgba(230,126,34,0.1)] px-1.5 py-0.5 font-semibold text-[#B4611A]">{v.tipo}</span>
+                      <span className="rounded bg-[rgba(1, 46, 70,0.08)] px-1.5 py-0.5 font-semibold text-[#012E46]">{v.codigo}</span>
+                      <span className="rounded bg-[rgba(243, 133, 37,0.1)] px-1.5 py-0.5 font-semibold text-[#F38525]">{v.tipo}</span>
                       <span className="min-w-0 flex-1 truncate text-[var(--pp-text-body)]">{v.descricao}</span>
                     </div>
                   ))}
@@ -21598,7 +21598,7 @@ function ImportarNcmModal({ existentes = [], importar, onFechar }) {
             {importando && (
               <div>
                 <div className="mb-1 flex justify-between text-[12px] font-semibold text-[var(--pp-text-body)]"><span>Importando…</span><span>{progresso.feito} / {progresso.total} ({pct}%)</span></div>
-                <div className="h-3 w-full overflow-hidden rounded-full bg-[rgba(15,76,92,0.1)]"><div className="h-full rounded-full bg-[#2F9E52] transition-all duration-200" style={{ width: `${pct}%` }} /></div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-[rgba(1, 46, 70,0.1)]"><div className="h-full rounded-full bg-[#2F9E52] transition-all duration-200" style={{ width: `${pct}%` }} /></div>
               </div>
             )}
           </>)}
@@ -21614,7 +21614,7 @@ function ImportarNcmModal({ existentes = [], importar, onFechar }) {
 
         <div className="shrink-0 border-t border-[var(--pp-border)] px-6 py-4">
           <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">{concluido != null ? "Fechar" : "Cancelar"}</button>
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">{concluido != null ? "Fechar" : "Cancelar"}</button>
             {concluido == null && (
               <PrimeButton onClick={fazerImport} disabled={!resultado?.validos.length || importando || analisando} className="flex-1">
                 {importando ? `⏳ Importando… ${pct}%` : `⬆ Importar ${resultado?.validos.length || 0} NCM(s)`}
@@ -21751,16 +21751,16 @@ function FiscalAjuda({ contexto = {}, onFechar }) {
     <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div role="dialog" aria-modal="true" aria-label="Ajuda do módulo Fiscal" className="flex h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-[var(--pp-border)] bg-white shadow-2xl sm:h-[86dvh] sm:rounded-2xl">
         <div className="flex shrink-0 items-center gap-3 border-b border-[var(--pp-border)] px-5 py-3.5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.1)] text-lg text-[#0F4C5C]">🧾</span>
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.1)] text-lg text-[#012E46]">🧾</span>
           <div className="min-w-0 flex-1"><h2 className="text-[15px] font-bold text-[var(--pp-text)]">Central de ajuda — Fiscal</h2>
             <p className="truncate text-[11px] font-semibold text-[var(--pp-text-muted)]">{contexto.empresa || "Documentação da tela"} · {contexto.ncm ?? 0} NCM · {contexto.icms ?? 0} regra(s) de ICMS · {contexto.produtos ?? 0} produto(s)</p></div>
-          <button onClick={onFechar} aria-label="Fechar ajuda" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} aria-label="Fechar ajuda" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-          <nav aria-label="Índice" className="shrink-0 overflow-x-auto overflow-y-auto border-b border-[var(--pp-border)] bg-[rgba(15,76,92,0.03)] p-2 lg:w-[240px] lg:border-b-0 lg:border-r">
+          <nav aria-label="Índice" className="shrink-0 overflow-x-auto overflow-y-auto border-b border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.03)] p-2 lg:w-[240px] lg:border-b-0 lg:border-r">
             <div className="flex gap-1.5 lg:flex-col">
               {FISCAL_DOC.map((s) => (
-                <button key={s.id} onClick={() => setAtiva(s.id)} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left text-[13px] font-semibold transition ${ativa === s.id ? "bg-[#0F4C5C] text-white" : "text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.06)]"}`}>
+                <button key={s.id} onClick={() => setAtiva(s.id)} className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-left text-[13px] font-semibold transition ${ativa === s.id ? "bg-[#012E46] text-white" : "text-[var(--pp-text-body)] hover:bg-[rgba(1, 46, 70,0.06)]"}`}>
                   <span>{s.icone}</span><span className="whitespace-nowrap lg:whitespace-normal">{s.titulo}</span>
                 </button>
               ))}
@@ -21771,13 +21771,13 @@ function FiscalAjuda({ contexto = {}, onFechar }) {
             <div className="mt-3 space-y-3">
               {secao.blocos.map((b, i) => b.p
                 ? <p key={i} className="text-[14px] leading-relaxed text-[var(--pp-text-body)]">{b.p}</p>
-                : <ul key={i} className="space-y-1.5">{b.lista.map((li, j) => <li key={j} className="flex gap-2 text-[14px] leading-relaxed text-[var(--pp-text-body)]"><span className="text-[#E67E22]">•</span><span>{li}</span></li>)}</ul>
+                : <ul key={i} className="space-y-1.5">{b.lista.map((li, j) => <li key={j} className="flex gap-2 text-[14px] leading-relaxed text-[var(--pp-text-body)]"><span className="text-[#F38525]">•</span><span>{li}</span></li>)}</ul>
               )}
             </div>
           </div>
         </div>
         <div className="shrink-0 border-t border-[var(--pp-border)] px-5 py-3">
-          <button onClick={onFechar} className="w-full rounded-xl bg-[#0F4C5C] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0B3A46]">Entendi</button>
+          <button onClick={onFechar} className="w-full rounded-xl bg-[#012E46] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#012E46]">Entendi</button>
         </div>
       </div>
     </div>
@@ -21792,18 +21792,18 @@ function FiscalModalShell({ titulo, sub, icone, erro, salvando, onFechar, onSalv
       <div className="relative flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.1)] text-lg text-[#0F4C5C]">{icone}</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.1)] text-lg text-[#012E46]">{icone}</span>
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{titulo}</h2><p className="text-[13px] text-[var(--pp-text-muted)]">{sub}</p></div>
           </div>
-          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">{children}</section>
+          <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">{children}</section>
         </div>
         <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
           {erro && <p className="text-xs font-semibold text-[#C81E4A]">❌ {erro}</p>}
           <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             <PrimeButton onClick={onSalvar} disabled={salvando || !podeSalvar} className="flex-1">{salvando ? "⏳ Salvando…" : `💾 ${rotulo}`}</PrimeButton>
           </div>
         </div>
@@ -22006,7 +22006,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
     <div className="space-y-2">
       <div className="flex gap-3">
         {/* Miniatura */}
-        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.05)]">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.05)]">
           {exibir
             ? <img src={exibir} alt="prévia" className="h-full w-full object-cover" onError={() => {}} />
             : <div className="flex h-full w-full items-center justify-center text-2xl">🖼️</div>
@@ -22022,7 +22022,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
           {/* Arquivo local */}
           <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={handleFile} />
           <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(15,76,92,0.25)] bg-white py-2.5 text-xs font-semibold text-[#0F4C5C] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.05)]">
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(1, 46, 70,0.25)] bg-white py-2.5 text-xs font-semibold text-[#012E46] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.05)]">
             ⬆ Trocar imagem <span className="text-[var(--pp-text-muted)]">(PNG / JPEG • máx 2 MB)</span>
           </button>
           {/* OU URL */}
@@ -22032,7 +22032,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
               value={previa ? "" : (urlAtual || "")}
               onChange={(e) => { setPrevia(""); onFileChange(null); onImageUrl(e.target.value); }}
               placeholder="ou cole uma URL de imagem..."
-              className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-8 pr-3 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]"
+              className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-8 pr-3 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]"
             />
           </div>
         </div>
@@ -22184,9 +22184,9 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
     </button>
   );
   const secao = (icon, titulo, desc, children) => (
-    <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+    <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
       <div className="mb-3 flex items-start gap-2.5">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(15,76,92,0.08)] text-[13px] text-[#0F4C5C]">{icon}</span>
+        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.08)] text-[13px] text-[#012E46]">{icon}</span>
         <div className="min-w-0"><h4 className="text-sm font-semibold text-[var(--pp-text)]">{titulo}</h4>{desc && <p className="text-[12px] leading-snug text-[var(--pp-text-muted)]">{desc}</p>}</div>
       </div>
       {children}
@@ -22199,7 +22199,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
     </div>
   );
   const stat = (rotulo, valor, cor, icon) => (
-    <div className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+    <div className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
       <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">{icon && <span>{icon}</span>}{rotulo}</div>
       <p className="mt-1 text-lg font-semibold tabular-nums" style={{ color: cor }}>{valor}</p>
     </div>
@@ -22215,7 +22215,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       </select></div>
   );
   const chipCanal = (k, label) => (
-    <button type="button" onClick={() => set(k, !f[k])} className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${f[k] ? "border-[#0F4C5C] bg-[#0F4C5C] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>
+    <button type="button" onClick={() => set(k, !f[k])} className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${f[k] ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>
       <span>{f[k] ? "✓" : "○"}</span>{label}
     </button>
   );
@@ -22229,34 +22229,34 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
         {/* Cabeçalho */}
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(230,126,34,0.12)] text-lg text-[#E67E22]">{ehEdicao ? "✏️" : "＋"}</span>
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525]">{ehEdicao ? "✏️" : "＋"}</span>
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{ehEdicao ? "Editar produto" : "Cadastrar produto"}</h2>
               <p className="text-[13px] text-[var(--pp-text-muted)]">{ehEdicao ? "Atualize as informações do produto no cardápio." : "Preencha as informações do novo produto."}</p></div>
           </div>
-          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         {/* Abas — barra fixa (fora da rolagem), alinhada ao conteúdo, com respiro */}
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-6 pt-1">
           {ABAS.map(([id, rot]) => (
             <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#0F4C5C] text-[#0F4C5C]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
+              className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
           ))}
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {/* Card do produto (topo de todas as abas) */}
-          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
-            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.05)]">
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
+            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.05)]">
               <img src={f.imageUrl || fallbackImage} alt="prévia" className="h-full w-full object-cover" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-semibold text-[var(--pp-text)]">{f.name || "Novo produto"}</p>
-              <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[var(--pp-text-muted)]"><span className="h-1.5 w-1.5 rounded-full bg-[#E67E22]" />{catNome}{f.time && <span className="ml-1.5">🕐 {f.time}</span>}</p>
+              <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[var(--pp-text-muted)]"><span className="h-1.5 w-1.5 rounded-full bg-[#F38525]" />{catNome}{f.time && <span className="ml-1.5">🕐 {f.time}</span>}</p>
               {f.description && <p className="mt-0.5 truncate text-[12px] text-[var(--pp-text-muted)]">{f.description}</p>}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <button type="button" onClick={() => set("active", !f.active)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold transition ${f.active ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>{f.active ? "✓ Produto ativo" : "○ Inativo"}</button>
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold ${fiscalPreparado ? "border-[rgba(15,76,92,0.25)] bg-[rgba(15,76,92,0.08)] text-[#0F4C5C]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>📄 {fiscalPreparado ? "Fiscal preparado" : "Fiscal pendente"}</span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold ${fiscalPreparado ? "border-[rgba(1, 46, 70,0.25)] bg-[rgba(1, 46, 70,0.08)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>📄 {fiscalPreparado ? "Fiscal preparado" : "Fiscal pendente"}</span>
             </div>
           </div>
 
@@ -22268,7 +22268,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 <div><label className={PP_LBL}>Tempo de preparo *</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="" disabled>Selecione...</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
               </div>
               <div className="mt-3"><label className={PP_LBL}>Categoria *</label>
-                {categoriasAtivas.length === 0 ? <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-xs font-semibold text-[#B4611A]">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias.</p>
+                {categoriasAtivas.length === 0 ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias.</p>
                   : <SeletorCategoria valorId={f.categoriaId} aoMudar={(c) => setF((cur) => ({ ...cur, categoriaId: c.id, category: c.nome }))} categorias={categoriasAtivas} />}
               </div>
               <div className="mt-3"><label className={PP_LBL}>Descrição *</label>
@@ -22299,15 +22299,15 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                 <div><label className={PP_LBL}>Estoque atual</label><input value={f.estoque} onChange={(e) => set("estoque", e.target.value.replace(/\D/g, ""))} placeholder="0" className={PP_INP} /></div>
                 <div><label className={PP_LBL}>Estoque mínimo — alerta</label><input value={f.estoqueMinimo} onChange={(e) => set("estoqueMinimo", e.target.value.replace(/\D/g, ""))} placeholder="0" disabled={!f.controlaEstoque} className={`${PP_INP} disabled:opacity-50`} /></div>
-                <div className={`rounded-xl border px-4 py-2 text-center ${estoqueSaudavel ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)]" : "border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)]"}`}><p className={`text-[12px] font-semibold ${estoqueSaudavel ? "text-[#2F9E52]" : "text-[#B4611A]"}`}>🛡 {estoqueSaudavel ? "Estoque saudável" : "Estoque baixo"}</p><p className="text-[11px] text-[var(--pp-text-muted)]">{estoqueSaudavel ? "Níveis dentro do esperado." : "Abaixo do mínimo."}</p></div>
+                <div className={`rounded-xl border px-4 py-2 text-center ${estoqueSaudavel ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)]" : "border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)]"}`}><p className={`text-[12px] font-semibold ${estoqueSaudavel ? "text-[#2F9E52]" : "text-[#F38525]"}`}>🛡 {estoqueSaudavel ? "Estoque saudável" : "Estoque baixo"}</p><p className="text-[11px] text-[var(--pp-text-muted)]">{estoqueSaudavel ? "Níveis dentro do esperado." : "Abaixo do mínimo."}</p></div>
               </div>
             </>)}
             {secao("📈", "Indicadores rápidos", "Resumo comercial e de estoque para uma visão rápida do desempenho.",
               <div className="grid gap-3 sm:grid-cols-4">
-                {stat("Preço de venda", formatCurrency(precoNum), "#0F4C5C", "🏷️")}
+                {stat("Preço de venda", formatCurrency(precoNum), "#012E46", "🏷️")}
                 {stat("Lucro bruto por item", formatCurrency(lucro), "#2F9E52", "📈")}
-                {stat("Markup estimado", `${markup.toFixed(2)}x`, "#0F4C5C", "📊")}
-                {stat("Situação do estoque", estoqueSaudavel ? "Normal" : "Baixo", estoqueSaudavel ? "#2F9E52" : "#E67E22", "🛡")}
+                {stat("Markup estimado", `${markup.toFixed(2)}x`, "#012E46", "📊")}
+                {stat("Situação do estoque", estoqueSaudavel ? "Normal" : "Baixo", estoqueSaudavel ? "#2F9E52" : "#F38525", "🛡")}
               </div>)}
             {secao("⚙️", "Regras comerciais", "Configure regras que impactam a precificação, visibilidade e alertas deste produto.",
               <div className="grid gap-4 sm:grid-cols-3">
@@ -22350,9 +22350,9 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               </div>)}
             {secao("📊", "Resumo operacional", "Visão geral da configuração operacional deste produto.",
               <div className="grid gap-3 sm:grid-cols-4">
-                {stat("Setor", setores.find((s) => s.id === f.setorId)?.nome || "Categoria", "#0F4C5C", "👨‍🍳")}
-                {stat("Tempo", f.time || "—", "#0F4C5C", "🕐")}
-                {stat("Canais", [f.visivelTablet && "Tablet", f.visivelQr && "QR", f.visivelExterno && "Externo"].filter(Boolean).join(" + ") || "—", "#0F4C5C", "📱")}
+                {stat("Setor", setores.find((s) => s.id === f.setorId)?.nome || "Categoria", "#012E46", "👨‍🍳")}
+                {stat("Tempo", f.time || "—", "#012E46", "🕐")}
+                {stat("Canais", [f.visivelTablet && "Tablet", f.visivelQr && "QR", f.visivelExterno && "Externo"].filter(Boolean).join(" + ") || "—", "#012E46", "📱")}
                 {stat("Status", f.disponivel ? "Operacional" : "Indisponível", f.disponivel ? "#2F9E52" : "#C81E4A", "🛡")}
               </div>)}
           </>)}
@@ -22363,7 +22363,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               <div className="flex flex-wrap gap-2">
                 {TIPOS_PRODUTO.map((t) => (
                   <button key={t.id} type="button" onClick={() => setTipoOverride(t.id)}
-                    className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${tipoProduto === t.id ? "border-[#0F4C5C] bg-[#0F4C5C] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#0F4C5C]"}`}>{t.nome}</button>
+                    className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${tipoProduto === t.id ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#012E46]"}`}>{t.nome}</button>
                 ))}
               </div>
               <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">Categoria: <b className="font-semibold text-[var(--pp-text)]">{catNome}</b>{!tipoOverride && <span> · tipo automático</span>}</p>
@@ -22373,9 +22373,9 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               <div className="flex flex-wrap gap-2">
                 {sugestoes.map((p) => (
                   <button key={p.nome} type="button" onClick={() => addGrupo(p)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[rgba(230,126,34,0.35)] bg-[rgba(230,126,34,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#B4611A] transition hover:bg-[rgba(230,126,34,0.12)]">
+                    className="inline-flex items-center gap-2 rounded-xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#F38525] transition hover:bg-[rgba(243, 133, 37,0.12)]">
                     <span className="text-base leading-none">＋</span>{p.nome}
-                    {p.obrigatorio && <span className="rounded-full bg-[rgba(15,76,92,0.1)] px-1.5 py-0.5 text-[10px] font-semibold text-[#0F4C5C]">obrigatório</span>}
+                    {p.obrigatorio && <span className="rounded-full bg-[rgba(1, 46, 70,0.1)] px-1.5 py-0.5 text-[10px] font-semibold text-[#012E46]">obrigatório</span>}
                   </button>
                 ))}
               </div>)}
@@ -22387,12 +22387,12 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                   const ops = opcoesDe(g);
                   const nd = novaOpcao[chaveGrupo(g)] || { nome: "", precoDelta: "" };
                   return (
-                    <div key={chaveGrupo(g)} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                    <div key={chaveGrupo(g)} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                       <div className="flex flex-wrap items-end gap-2">
                         <div className="min-w-[150px] flex-1"><label className={PP_LBL}>Grupo</label><input value={g.nome} onChange={(e) => editGrupo(g, { nome: e.target.value })} className={PP_INP} /></div>
                         <div className="w-16"><label className={PP_LBL}>Mín</label><input inputMode="numeric" value={g.minSelect} onChange={(e) => editGrupo(g, { minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={PP_INP} /></div>
                         <div className="w-16"><label className={PP_LBL}>Máx</label><input inputMode="numeric" value={g.maxSelect} onChange={(e) => editGrupo(g, { maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={PP_INP} /></div>
-                        <button type="button" onClick={() => editGrupo(g, { obrigatorio: !g.obrigatorio })} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${g.obrigatorio ? "border-[#0F4C5C] bg-[#0F4C5C] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
+                        <button type="button" onClick={() => editGrupo(g, { obrigatorio: !g.obrigatorio })} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${g.obrigatorio ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
                         <button type="button" onClick={() => removeGrupo(g)} className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-2.5 text-xs font-semibold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.08)]">🗑</button>
                       </div>
                       <div className="mt-2.5 space-y-1.5">
@@ -22407,14 +22407,14 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                       <div className="mt-2 flex gap-2">
                         <input value={nd.nome} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, nome: e.target.value } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} placeholder="Nova opção (ex.: Ao ponto)" className={`${PP_INP} flex-1`} />
                         <input value={nd.precoDelta} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, precoDelta: e.target.value.replace(/[^\d.,-]/g, "") } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} placeholder="+ R$" className={`${PP_INP} w-24 shrink-0`} />
-                        <button type="button" onClick={() => addOpcaoG(g)} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#0F4C5C] text-lg font-semibold text-white transition hover:bg-[#0B3A46]">＋</button>
+                        <button type="button" onClick={() => addOpcaoG(g)} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#012E46] text-lg font-semibold text-white transition hover:bg-[#012E46]">＋</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
               <button type="button" onClick={() => addGrupo({ nome: "Novo grupo", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [] })}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]"><span className="text-base leading-none">＋</span> Criar grupo em branco</button>
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]"><span className="text-base leading-none">＋</span> Criar grupo em branco</button>
               <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Preço 0 aparece como “Grátis”. Diferente de <b className="font-semibold">Adicionais</b> (aba Geral), que são extras pagos avulsos.</p>
             </>)}
           </>)}
@@ -22423,7 +22423,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
           {aba === "fiscal" && (<>
             {secao("🗂️", "NCM do produto", "Vincule um NCM cadastrado no módulo Fiscal. A regra de ICMS vem do NCM (Produto → NCM → ICMS) — altere a regra uma vez e reflete em todos os produtos do mesmo NCM.", <>
               {fiscalNcm.length === 0
-                ? <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-xs font-semibold text-[#B4611A]">Nenhum NCM cadastrado. Cadastre NCMs e regras de ICMS no menu lateral <b>Fiscal</b>.</p>
+                ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhum NCM cadastrado. Cadastre NCMs e regras de ICMS no menu lateral <b>Fiscal</b>.</p>
                 : (<>
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="min-w-[220px] flex-1"><label className={PP_LBL}>NCM vinculado</label>
@@ -22435,12 +22435,12 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                     </div>
                     {ncmSel && (
                       <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        <div className="rounded-xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
-                          <p className="font-semibold text-[#0F4C5C]">🔗 NCM {ncmSel.codigo}</p>
+                        <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
+                          <p className="font-semibold text-[#012E46]">🔗 NCM {ncmSel.codigo}</p>
                           <p className="mt-0.5">{[ncmSel.descricao, ncmSel.unidade && `Unid. ${ncmSel.unidade}`, ncmSel.cest && `CEST ${ncmSel.cest}`].filter(Boolean).join(" · ") || "Sem detalhes"}</p>
                         </div>
-                        <div className="rounded-xl border border-[rgba(230,126,34,0.25)] bg-[rgba(230,126,34,0.06)] p-3 text-[12px] text-[var(--pp-text-body)]">
-                          <p className="font-semibold text-[#B4611A]">⚖ Regra de ICMS</p>
+                        <div className="rounded-xl border border-[rgba(243, 133, 37,0.25)] bg-[rgba(243, 133, 37,0.06)] p-3 text-[12px] text-[var(--pp-text-body)]">
+                          <p className="font-semibold text-[#F38525]">⚖ Regra de ICMS</p>
                           <p className="mt-0.5">{icmsDoNcm ? `${icmsDoNcm.nome} · ${(icmsDoNcm.cst || icmsDoNcm.csosn || "—")} · ${Number(icmsDoNcm.aliquota || 0).toFixed(2)}%` : "Este NCM ainda não tem regra de ICMS vinculada."}</p>
                         </div>
                       </div>
@@ -22459,7 +22459,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 ].map(([campo, rot, lista, textoDe]) => (
                   <div key={campo}><label className={PP_LBL}>{rot}</label>
                     {lista.length === 0
-                      ? <p className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[11px] font-semibold text-[#B4611A]">Nenhum {rot} cadastrado — crie no menu <b>Fiscal</b>.</p>
+                      ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-[11px] font-semibold text-[#F38525]">Nenhum {rot} cadastrado — crie no menu <b>Fiscal</b>.</p>
                       : <select value={vinc[campo] ?? ""} onChange={(e) => setV(campo, e.target.value)} className={PP_INP}>
                           <option value="">Sem {rot} vinculado</option>
                           {lista.filter((x) => x.ativo !== false || String(x.id) === String(vinc[campo])).map((x) => <option key={x.id} value={x.id}>{textoDe(x)}</option>)}
@@ -22494,8 +22494,8 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               </div>
               <div className="mt-3"><label className={PP_LBL}>Observações fiscais</label><textarea value={fis.observacoesFiscais || ""} onChange={(e) => setF2("observacoesFiscais", e.target.value.slice(0, 500))} rows={2} placeholder="Informações complementares para fiscais e integração com ERP…" className={`${PP_INP} resize-none`} /></div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#0F4C5C]">ⓘ CRT / regime tributário é definido nas configurações da empresa.</p><p className="mt-0.5">As informações fiscais do produto seguirão o regime da empresa.</p></div>
-                <div className="rounded-xl border border-[rgba(230,126,34,0.25)] bg-[rgba(230,126,34,0.06)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#B4611A]">⚖ Reforma Tributária — IBS / CBS</p><p className="mt-0.5">Os campos CST IBS/CBS, cClassTrib e cCredPres serão utilizados quando a Reforma Tributária estiver em vigor.</p></div>
+                <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#012E46]">ⓘ CRT / regime tributário é definido nas configurações da empresa.</p><p className="mt-0.5">As informações fiscais do produto seguirão o regime da empresa.</p></div>
+                <div className="rounded-xl border border-[rgba(243, 133, 37,0.25)] bg-[rgba(243, 133, 37,0.06)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#F38525]">⚖ Reforma Tributária — IBS / CBS</p><p className="mt-0.5">Os campos CST IBS/CBS, cClassTrib e cCredPres serão utilizados quando a Reforma Tributária estiver em vigor.</p></div>
               </div>
             </>)}
           </>)}
@@ -22528,16 +22528,16 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 <div><label className={PP_LBL}>Mensagem no rodapé do DANFE / NFC-e</label><textarea value={fis.mensagemRodapeDanfe || ""} onChange={(e) => setF2("mensagemRodapeDanfe", e.target.value.slice(0, 300))} rows={2} placeholder="Ex.: Obrigado pela preferência! Volte sempre." className={`${PP_INP} resize-none`} /></div>
                 <div><label className={PP_LBL}>Observações internas</label><textarea value={fis.observacoesInternas || ""} onChange={(e) => setF2("observacoesInternas", e.target.value.slice(0, 300))} rows={2} placeholder="Apenas para controle interno" className={`${PP_INP} resize-none`} /></div>
               </div>)}
-            <div className="rounded-xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#0F4C5C]">ⓘ Sobre NF-e / NFC-e</p><p className="mt-0.5">Estas informações serão utilizadas na emissão dos documentos fiscais eletrônicos. Certifique-se de que os dados fiscais estejam corretos para evitar rejeições.</p></div>
+            <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#012E46]">ⓘ Sobre NF-e / NFC-e</p><p className="mt-0.5">Estas informações serão utilizadas na emissão dos documentos fiscais eletrônicos. Certifique-se de que os dados fiscais estejam corretos para evitar rejeições.</p></div>
           </>)}
         </div>
 
         {/* Rodapé */}
         <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
-          {!valido && <p className="text-xs font-semibold text-[#B4611A]">⚠ Preencha os campos obrigatórios da aba Geral (nome, categoria, custo, preço, preparo, imagem, ingredientes, descrição).</p>}
+          {!valido && <p className="text-xs font-semibold text-[#F38525]">⚠ Preencha os campos obrigatórios da aba Geral (nome, categoria, custo, preço, preparo, imagem, ingredientes, descrição).</p>}
           {erroUpload && <p className="text-xs font-semibold text-[#C81E4A]">❌ {erroUpload}</p>}
           <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             <PrimeButton onClick={handleSalvar} disabled={!valido || uploadando} className="flex-1">{uploadando ? "⏳ Enviando imagem…" : (ehEdicao ? "💾 Salvar alterações" : "＋ Cadastrar produto")}</PrimeButton>
           </div>
         </div>
@@ -22559,8 +22559,8 @@ function SeletorCategoria({ valorId, aoMudar, categorias }) {
           <button key={c.id} type="button" onClick={() => aoMudar(c)}
             className={`group inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-tight transition active:scale-95 ${
               ativo
-                ? "border-[#0F4C5C] bg-[#0F4C5C] text-white shadow-[0_2px_6px_rgba(15,76,92,0.22)]"
-                : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#0F4C5C] hover:text-[#0F4C5C]"
+                ? "border-[#012E46] bg-[#012E46] text-white shadow-[0_2px_6px_rgba(1, 46, 70,0.22)]"
+                : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#012E46] hover:text-[#012E46]"
             }`}>
             {ativo && <span className="text-[13px] leading-none">✓</span>}
             {c.nome}
@@ -23537,12 +23537,12 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
       {/* Cards de resumo — superfícies brancas, acento na paleta (petróleo/verde/laranja) */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { l: "Total de mesas", v: mesas.length, cor: "#0F4C5C" },
+          { l: "Total de mesas", v: mesas.length, cor: "#012E46" },
           { l: "Disponíveis", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) === 0).length, cor: "#2F9E52" },
-          { l: "Ocupadas", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) > 0).length, cor: "#E67E22" },
+          { l: "Ocupadas", v: mesas.filter((m) => m.active !== false && pedidosAbertos(m) > 0).length, cor: "#F38525" },
           { l: "Inativas", v: mesas.filter((m) => m.active === false).length, cor: "#8A7D73" },
         ].map((c) => (
-          <div key={c.l} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+          <div key={c.l} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.l}</p>
             <p className="mt-1 text-xl font-black tabular-nums" style={{ color: c.cor }}>{c.v}</p>
           </div>
@@ -23550,11 +23550,11 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
       </div>
 
       {/* Busca + lista — superfície branca, separação por borda petróleo + sombra leve */}
-      <div className="rounded-3xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.05)] sm:p-5">
+      <div className="rounded-3xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] sm:p-5">
         <div className="relative mb-4">
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
           <input value={busca} onChange={(e) => { setBusca(e.target.value); setPagina(1); }} placeholder="Buscar por número ou nome..."
-            className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]" />
+            className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]" />
         </div>
         <div className="space-y-2">
           {mesas.length === 0 && (
@@ -23569,8 +23569,8 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
             const ocupada = abertos > 0;
             // Mesa OCUPADA em destaque: fundo laranja sólido + texto branco.
             return (
-              <div key={m.id} className={`flex items-center gap-2.5 rounded-2xl border p-2.5 transition ${ocupada ? "pp-mesa-ocupada" : "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]"}`}>
-                <span className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black ${ocupada ? "bg-white/20 text-white" : "bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]"}`}>
+              <div key={m.id} className={`flex items-center gap-2.5 rounded-2xl border p-2.5 transition ${ocupada ? "pp-mesa-ocupada" : "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] hover:border-[rgba(1, 46, 70,0.24)]"}`}>
+                <span className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black ${ocupada ? "bg-white/20 text-white" : "bg-[rgba(1, 46, 70,0.06)] text-[#012E46]"}`}>
                   {String(m.numero).padStart(2, "0")}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -23582,20 +23582,20 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
                   </p>
                 </div>
                 {/* Status operacional: ocupada > inativa > disponível */}
-                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${ocupada ? "bg-white/25 text-white" : m.active === false ? "bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]" : "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]"}`}>
+                <span className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black sm:inline ${ocupada ? "bg-white/25 text-white" : m.active === false ? "bg-[rgba(1, 46, 70,0.06)] text-[var(--pp-text-muted)]" : "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]"}`}>
                   {ocupada ? "Ocupada" : m.active === false ? "Inativa" : "Disponível"}
                 </span>
                 <button onClick={() => toggleMesa(m.id)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition active:scale-95 ${m.active !== false ? (ocupada ? "bg-white text-[#2F9E52]" : "bg-[#2F9E52] text-white") : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] hover:bg-[rgba(15,76,92,0.04)]"}`}>
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[11px] font-black transition active:scale-95 ${m.active !== false ? (ocupada ? "bg-white text-[#2F9E52]" : "bg-[#2F9E52] text-white") : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] hover:bg-[rgba(1, 46, 70,0.04)]"}`}>
                   {m.active !== false ? "Ativa" : "Inativa"}
                 </button>
                 <button onClick={() => setEditando(m)} title="Editar mesa" aria-label="Editar mesa"
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${ocupada ? "border border-white/40 bg-white/15 text-white hover:bg-white/25" : "border border-[var(--pp-border)] bg-white text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] hover:bg-[rgba(230,126,34,0.08)]"}`}>
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${ocupada ? "border border-white/40 bg-white/15 text-white hover:bg-white/25" : "border border-[var(--pp-border)] bg-white text-[#F38525] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] hover:bg-[rgba(243, 133, 37,0.08)]"}`}>
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                 </button>
                 <button onClick={() => setExcluir(m)} disabled={abertos > 0}
                   title={abertos > 0 ? "Há pedidos em aberto — inative em vez de excluir" : "Excluir mesa"} aria-label="Excluir mesa"
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${ocupada ? "border border-white/40 bg-white/15 text-white" : "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] hover:bg-[rgba(200,30,74,0.08)]"}`}>
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${ocupada ? "border border-white/40 bg-white/15 text-white" : "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] hover:bg-[rgba(200,30,74,0.08)]"}`}>
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
                 </button>
               </div>
@@ -23608,13 +23608,13 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
             <p className="text-[11px] text-[var(--pp-text-muted)]">Página {paginaAtual} de {totalPaginas} · {mesasOrdenadas.length} mesas</p>
             <div className="flex items-center gap-1.5">
               <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1} aria-label="Página anterior"
-                className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
+                className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
               {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
                 <button key={n} onClick={() => setPagina(n)}
-                  className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-black transition ${n === paginaAtual ? "bg-[#E67E22] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]"}`}>{n}</button>
+                  className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-black transition ${n === paginaAtual ? "bg-[#F38525] text-[#012E46]" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(1, 46, 70,0.04)]"}`}>{n}</button>
               ))}
               <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas} aria-label="Próxima página"
-                className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">›</button>
+                className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:cursor-not-allowed disabled:opacity-40">›</button>
             </div>
           </div>
         )}
@@ -23636,7 +23636,7 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
 // Ícones (linha) reutilizados nos modais de mesa — visual premium, na paleta.
 const IconMesaLinha = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><ellipse cx="12" cy="7" rx="8" ry="3" /><path d="M6 9v7M18 9v7M12 10v9" /></svg>);
 const MesaFormCampos = ({ form, setForm, onEnter }) => {
-  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]";
   const lbl = "mb-1 block text-[11px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]";
   return (
     <>
@@ -23677,17 +23677,17 @@ function MesaCadastroModal({ onSalvar, onFechar }) {
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><IconMesaLinha width={17} height={17} /></span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"><IconMesaLinha width={17} height={17} /></span>
             <h2 className="page-title text-base font-black text-[var(--pp-text)]">Nova mesa</h2>
           </div>
-          <button onClick={onFechar} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         <div className="space-y-3 px-5 py-4">
           <MesaFormCampos form={form} setForm={setForm} onEnter={() => valido && onSalvar(form)} />
           <p className="text-[11px] text-[var(--pp-text-muted)]">A mesa ficará disponível imediatamente no tablet e no QR Code do cliente.</p>
         </div>
         <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] px-5 py-3.5">
-          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
           <button onClick={() => onSalvar(form)} disabled={!valido}
             className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
             + Cadastrar mesa
@@ -23706,17 +23706,17 @@ function MesaEditModal({ mesa, onSalvar, onFechar }) {
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><IconMesaLinha width={17} height={17} /></span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"><IconMesaLinha width={17} height={17} /></span>
             <h2 className="page-title text-base font-black text-[var(--pp-text)]">Editar mesa {String(mesa.numero).padStart(2, "0")}</h2>
           </div>
-          <button onClick={onFechar} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+          <button onClick={onFechar} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         <div className="space-y-3 px-5 py-4">
           <MesaFormCampos form={form} setForm={setForm} onEnter={() => valido && onSalvar(form)} />
           <p className="text-[11px] text-[var(--pp-text-muted)]">As alterações valem imediatamente no tablet e no QR Code do cliente.</p>
         </div>
         <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] px-5 py-3.5">
-          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-2.5 text-sm font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
           <button onClick={() => valido && onSalvar(form)} disabled={!valido}
             className="btn-laranja flex-[2] rounded-xl py-2.5 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
             Salvar alterações

@@ -136,7 +136,7 @@ export function PlanosModal({ onFechar, onEscolherPlano, onFalarConsultor }) {
               const Icone = ICONE_PLANO[p.ico] || IcoGema;
               const filled = p.id !== "start";
               return (
-                <div key={p.id} className={`relative flex flex-col rounded-[1.6rem] border bg-[#061A2E] p-5 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(201,154,46,.4),0_16px_44px_-12px_rgba(201,154,46,.3)]" : "border-gold-400/15"}`}>
+                <div key={p.id} className={`relative flex flex-col rounded-[1.6rem] border bg-[#012E46] p-5 transition ${p.destaque ? "border-gold-400/70 shadow-[0_0_0_1px_rgba(201,154,46,.4),0_16px_44px_-12px_rgba(201,154,46,.3)]" : "border-gold-400/15"}`}>
                   {p.destaque && <span className="absolute -top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-gold-400 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-blue-950 shadow-lg">★ Mais escolhido</span>}
                   <div className="text-center">
                     <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold-400/50 text-gold-400"><Icone className="h-6 w-6" /></span>

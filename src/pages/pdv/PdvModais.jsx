@@ -116,7 +116,7 @@ export function ModalIncluirProduto({
     >
       {exigeComanda && (
         <div className="mb-3 space-y-2">
-          <p className="rounded-xl border border-[#F5DFA3] bg-[#FFFBEB] px-3 py-2.5 text-sm font-semibold text-[#8D6708]">
+          <p className="rounded-xl border border-[#F5DFA3] bg-[#FFFBEB] px-3 py-2.5 text-sm font-semibold text-[#012E46]">
             Comprovante já emitido. Informe a comanda do cliente para vincular esta nova venda.
           </p>
           <label className="block">
@@ -319,8 +319,8 @@ function LegendaMesas() {
       <span className="inline-flex items-center gap-1.5 text-[#1F7A3D]">
         <span className="h-2.5 w-2.5 rounded-full bg-[#2F9E52]" /> Disponível
       </span>
-      <span className="inline-flex items-center gap-1.5 text-[#B3600E]">
-        <span className="h-2.5 w-2.5 rounded-full bg-[#F2994A]" /> Ocupada
+      <span className="inline-flex items-center gap-1.5 text-[#012E46]">
+        <span className="h-2.5 w-2.5 rounded-full bg-[#F38525]" /> Ocupada
       </span>
     </div>
   );
@@ -470,7 +470,7 @@ export function ModalSepararItens({
       </div>
 
       {aviso && (
-        <p className="mb-3 rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2.5 py-2 text-[11px] font-semibold text-[#8D6708]">{aviso}</p>
+        <p className="mb-3 rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2.5 py-2 text-[11px] font-semibold text-[#012E46]">{aviso}</p>
       )}
 
       <div className="grid grid-cols-2 gap-2">

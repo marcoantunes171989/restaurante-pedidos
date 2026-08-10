@@ -38,14 +38,14 @@ export default function PdvStatsBar({
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="inline-flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-left shadow-[inset_0_0_0_1px_rgba(15,76,92,0.04)] active:scale-[0.99]"
+          className="inline-flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-left shadow-[inset_0_0_0_1px_rgba(1, 46, 70,0.04)] active:scale-[0.99]"
         >
           <span className="min-w-0 flex-1">
             <span className="block text-[10px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]">Resumo do turno · {dataTurno} {horaTurno}</span>
             <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-black text-[var(--pp-text)]">
               <span className="text-[#1F7A3D]">{mesasDisponiveis} livres</span>
               <span className="text-[var(--pp-primary-text)]">{mesasOcupadas} ocup.</span>
-              <span className="text-[#8D6708]">{pagamentoPendente} pend.</span>
+              <span className="text-[#012E46]">{pagamentoPendente} pend.</span>
               <span className="tabular-nums">{formatCurrency(faturamentoDia)}</span>
             </span>
             <span className="block truncate text-[10px] font-bold text-[var(--pp-text-muted)]">
@@ -58,7 +58,7 @@ export default function PdvStatsBar({
           <button
             type="button"
             onClick={() => setModalAberto(true)}
-            className="grid h-11 min-w-11 place-items-center rounded-xl border border-[#F5DFA3] bg-white px-2 text-xs font-black text-[#8D6708]"
+            className="grid h-11 min-w-11 place-items-center rounded-xl border border-[#F5DFA3] bg-white px-2 text-xs font-black text-[#012E46]"
           >
             {pagamentoPendente}
           </button>
@@ -70,7 +70,7 @@ export default function PdvStatsBar({
         <button
           type="button"
           onClick={() => setModalAberto(true)}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 text-[11px] font-bold text-[var(--pp-text-body)] shadow-[inset_0_0_0_1px_rgba(15,76,92,0.03)] transition hover:border-[var(--pp-primary)] active:scale-[0.99]"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 text-[11px] font-bold text-[var(--pp-text-body)] shadow-[inset_0_0_0_1px_rgba(1, 46, 70,0.03)] transition hover:border-[var(--pp-primary)] active:scale-[0.99]"
         >
           <span className="text-[var(--pp-text-muted)]">Turno</span>
           <span className="font-black text-[var(--pp-text)]">{dataTurno} · {horaTurno}</span>
@@ -83,11 +83,11 @@ export default function PdvStatsBar({
         </GrupoInfo>
 
         <GrupoInfo titulo="Status cozinha" className="min-w-0">
-          <Metrica label="Recebido" valor={cozinha.recebido} tom="text-[#0F4C5C]" />
+          <Metrica label="Recebido" valor={cozinha.recebido} tom="text-[#012E46]" />
           <Metrica label="Em preparo" valor={cozinha.preparando} tom="text-[var(--pp-primary-text)]" />
           <Metrica label="Pronto" valor={cozinha.pronto} tom="text-[#1F7A3D]" />
           <Metrica label="Retirado" valor={cozinha.retirado} tom="text-[var(--pp-text-body)]" />
-          <Metrica label="Aguard. pagto" valor={pagamentoPendente} tom="text-[#8D6708]" />
+          <Metrica label="Aguard. pagto" valor={pagamentoPendente} tom="text-[#012E46]" />
         </GrupoInfo>
 
         <GrupoInfo titulo="Financeiro" className="min-w-0 flex-1">
@@ -170,7 +170,7 @@ function ModalResumoTurno({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <CardMetrica Icon={DoorOpen} label="Mesas disponíveis" valor={mesasDisponiveis} tom="text-[#1F7A3D]" />
             <CardMetrica Icon={DoorClosed} label="Mesas ocupadas" valor={mesasOcupadas} tom="text-[var(--pp-primary-text)]" />
-            <CardMetrica Icon={Wallet} label="Pag. pendente" valor={pagamentoPendente} tom="text-[#8D6708]" />
+            <CardMetrica Icon={Wallet} label="Pag. pendente" valor={pagamentoPendente} tom="text-[#012E46]" />
             <CardMetrica Icon={CheckCircle2} label="Pag. finalizado" valor={pagamentoFinalizado} tom="text-[#1F7A3D]" />
             <CardMetrica Icon={TrendingUp} label="Faturamento" valor={formatCurrency(faturamentoDia)} tom="text-[var(--pp-text)]" />
             <CardMetrica Icon={Ticket} label="Ticket médio" valor={formatCurrency(ticketMedio)} tom="text-[var(--pp-text)]" />
@@ -180,7 +180,7 @@ function ModalResumoTurno({
           <section>
             <SecaoTitulo Icon={PieChart} titulo="Análise financeira do turno" />
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <CardMetrica Icon={Hourglass} label="Em aberto" valor={formatCurrency(analise.totalAberto)} tom="text-[#8D6708]" />
+              <CardMetrica Icon={Hourglass} label="Em aberto" valor={formatCurrency(analise.totalAberto)} tom="text-[#012E46]" />
               <CardMetrica Icon={Percent} label="Ocupação" valor={`${analise.ocupacaoPct}%`} tom="text-[var(--pp-text)]" />
               <CardMetrica Icon={UtensilsCrossed} label="Mesas (pago)" valor={formatCurrency(analise.fatMesa)} tom="text-[var(--pp-text)]" />
               <CardMetrica Icon={Bike} label="Delivery" valor={formatCurrency(analise.fatDelivery)} tom="text-[var(--pp-text)]" />
@@ -198,7 +198,7 @@ function ModalResumoTurno({
                           <span className="truncate font-bold text-[var(--pp-text)]">{f.nome}</span>
                           <span className="shrink-0 font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(f.valor)}</span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-[#F8F6F2]">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-[#FFFFFF]">
                           <div
                             className="h-full rounded-full bg-[var(--pp-primary)]"
                             style={{ width: `${Math.max(4, f.pct)}%` }}
@@ -229,7 +229,7 @@ function ModalResumoTurno({
           <section>
             <SecaoTitulo Icon={ChefHat} titulo="Status da cozinha" />
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <CardMetrica Icon={ChefHat} label="Recebido" valor={cozinha.recebido} tom="text-[#0F4C5C]" />
+              <CardMetrica Icon={ChefHat} label="Recebido" valor={cozinha.recebido} tom="text-[#012E46]" />
               <CardMetrica Icon={Flame} label="Em preparo" valor={cozinha.preparando} tom="text-[var(--pp-primary-text)]" />
               <CardMetrica Icon={CheckCircle2} label="Pronto" valor={cozinha.pronto} tom="text-[#1F7A3D]" />
               <CardMetrica Icon={PackageCheck} label="Retirado" valor={cozinha.retirado} tom="text-[var(--pp-text-body)]" />
@@ -274,7 +274,7 @@ function ModalResumoTurno({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${
-                            externo ? "bg-[#E0F0F4] text-[#0F4C5C]" : "bg-[#FCE8D4] text-[#B3600E]"
+                            externo ? "bg-[#E0F0F4] text-[#012E46]" : "bg-[#FCE8D4] text-[#012E46]"
                           }`}>
                             {externo ? "Delivery" : "Mesa"}
                           </span>
@@ -402,7 +402,7 @@ function IndicadorLinha({ label, valor, destaque }) {
 function GrupoInfo({ titulo, children, className = "" }) {
   return (
     <div
-      className={`flex items-center gap-x-2.5 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 shadow-[inset_0_0_0_1px_rgba(15,76,92,0.03)] ${className}`}
+      className={`flex items-center gap-x-2.5 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 shadow-[inset_0_0_0_1px_rgba(1, 46, 70,0.03)] ${className}`}
     >
       <span className="shrink-0 border-r border-[var(--pp-border)] pr-2 text-[9px] font-black uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]">
         {titulo.split(" ").map((p) => (
@@ -477,12 +477,12 @@ function GrupoContasAbertas({ titulo, Icon, contas = [], vazio }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${
-                      c.externo ? "bg-[#E0F0F4] text-[#0F4C5C]" : "bg-[#FCE8D4] text-[#B3600E]"
+                      c.externo ? "bg-[#E0F0F4] text-[#012E46]" : "bg-[#FCE8D4] text-[#012E46]"
                     }`}>
                       {tipoEntrega}
                     </span>
                     {c.solicitada && (
-                      <span className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase bg-[#FBEFC4] text-[#8D6708]">
+                      <span className="rounded px-1.5 py-0.5 text-[9px] font-black uppercase bg-[#FBEFC4] text-[#012E46]">
                         Conta pedida
                       </span>
                     )}

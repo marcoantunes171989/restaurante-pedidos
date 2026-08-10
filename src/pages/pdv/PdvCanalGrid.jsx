@@ -58,7 +58,7 @@ export default function PdvCanalGrid({
                   <div className="flex items-center justify-between gap-1.5">
                     <span className="truncate text-[12px] font-black text-[var(--pp-text)]">{item.titulo}</span>
                     <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${
-                      item.statusChip || (pendente ? "bg-[#FBEFC4] text-[#8D6708]" : "bg-[#FCE8D4] text-[#B3600E]")
+                      item.statusChip || (pendente ? "bg-[#FBEFC4] text-[#012E46]" : "bg-[#FCE8D4] text-[#012E46]")
                     }`}>
                       {item.statusLabel || "Em aberto"}
                     </span>

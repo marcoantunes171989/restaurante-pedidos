@@ -531,7 +531,7 @@ export default function CashierPdv({
           vip: !!c.vip,
           status: c.solicitada ? "pendente" : "ocupada",
           statusLabel: c.solicitada ? "Conta pedida" : "Em consumo",
-          statusChip: c.solicitada ? "bg-[#FBEFC4] text-[#8D6708]" : "bg-[#FCE8D4] text-[#B3600E]",
+          statusChip: c.solicitada ? "bg-[#FBEFC4] text-[#012E46]" : "bg-[#FCE8D4] text-[#012E46]",
           produtosResumo: "",
           orderIds: [],
         };
@@ -544,7 +544,7 @@ export default function CashierPdv({
       if (c.solicitada) {
         row.status = "pendente";
         row.statusLabel = "Conta pedida";
-        row.statusChip = "bg-[#FBEFC4] text-[#8D6708]";
+        row.statusChip = "bg-[#FBEFC4] text-[#012E46]";
       }
     });
     return Object.values(mapa)
@@ -577,7 +577,7 @@ export default function CashierPdv({
           vip: !!c.vip,
           status: c.solicitada ? "pendente" : "ocupada",
           statusLabel: c.solicitada ? "Conta pedida" : "Aberta",
-          statusChip: c.solicitada ? "bg-[#FBEFC4] text-[#8D6708]" : "bg-[#FCE8D4] text-[#B3600E]",
+          statusChip: c.solicitada ? "bg-[#FBEFC4] text-[#012E46]" : "bg-[#FCE8D4] text-[#012E46]",
           produtosResumo: nomes.slice(0, 4).join(" · "),
         };
       }),
@@ -609,7 +609,7 @@ export default function CashierPdv({
           vip: conta?.vip,
           status: solicitado ? "pendente" : "ocupada",
           statusLabel: solicitado ? "Conta pedida" : st.label,
-          statusChip: solicitado ? "bg-[#FBEFC4] text-[#8D6708]" : st.chip,
+          statusChip: solicitado ? "bg-[#FBEFC4] text-[#012E46]" : st.chip,
           produtosResumo: nomes.slice(0, 4).join(" · "),
         };
       })
@@ -1835,7 +1835,7 @@ export default function CashierPdv({
             <div className="mt-4 space-y-1.5 text-sm">
               <div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotalSel)}</strong></div>
               {taxaPct > 0 && (
-                <div className={`flex justify-between ${taxaRemovida ? "text-[#8D6708]" : ""}`}>
+                <div className={`flex justify-between ${taxaRemovida ? "text-[#012E46]" : ""}`}>
                   <span>{taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}</span>
                   <strong>{formatCurrency(taxaValorSel)}</strong>
                 </div>

@@ -25,7 +25,7 @@ export function LogoPP({ size = 40, fundo = true, className = "" }) {
 // ferramenta interna da equipe, não a vitrine do cardápio. Disco branco +
 // sombra sutil dão profundidade e legibilidade sobre o chrome escuro.
 export function OperationalBrandLogo({ className = "" }) {
-  return <LogoPP size={44} className={`shadow-[0_2px_8px_rgba(15,76,92,.35)] ${className}`} />;
+  return <LogoPP size={44} className={`shadow-[0_2px_8px_rgba(1, 46, 70,.35)] ${className}`} />;
 }
 
 // Marca completa: logo + nome (PEDIDO petróleo / PRIME laranja).

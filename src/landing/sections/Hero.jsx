@@ -43,12 +43,12 @@ function DeviceScene() {
       {/* Ambiente quente ao fundo — sem foto real disponível no projeto,
           simulado com wash radial laranja/petróleo (restaurante desfocado). */}
       <div aria-hidden="true" className="pointer-events-none absolute -inset-6 -z-10 rounded-[3rem]"
-        style={{ background: "radial-gradient(60% 60% at 30% 20%, rgba(217,84,46,0.10), transparent), radial-gradient(50% 50% at 80% 80%, rgba(15,76,92,0.12), transparent)" }} />
+        style={{ background: "radial-gradient(60% 60% at 30% 20%, rgba(217,84,46,0.10), transparent), radial-gradient(50% 50% at 80% 80%, rgba(1, 46, 70,0.12), transparent)" }} />
 
       <svg aria-hidden="true" viewBox="0 0 400 420" className="pointer-events-none absolute inset-0 hidden h-full w-full min-[900px]:block">
-        <path d="M60 340 C 120 300, 140 220, 210 190" fill="none" stroke="#E67E22" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
-        <path d="M340 90 C 300 130, 260 150, 220 185" fill="none" stroke="#0F4C5C" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
-        <path d="M330 300 C 290 280, 250 250, 222 210" fill="none" stroke="#E67E22" strokeOpacity=".25" strokeWidth="1.6" className="pp-line-flow" />
+        <path d="M60 340 C 120 300, 140 220, 210 190" fill="none" stroke="#F38525" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
+        <path d="M340 90 C 300 130, 260 150, 220 185" fill="none" stroke="#012E46" strokeOpacity=".35" strokeWidth="1.6" className="pp-line-flow" />
+        <path d="M330 300 C 290 280, 250 250, 222 210" fill="none" stroke="#F38525" strokeOpacity=".25" strokeWidth="1.6" className="pp-line-flow" />
       </svg>
 
       <DeviceStack laptop={<TelaDashboard compacta />} tablet={<TelaMesa />} phone={<TelaCardapioCliente compacta />} />

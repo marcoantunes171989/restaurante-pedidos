@@ -2,8 +2,8 @@ import { Bike, CheckSquare, Clock, Layers, MapPin, Package, Square } from "lucid
 import { formatCurrency, tempoAbertoISO } from "./pdvHelpers";
 
 const STATUS_META = {
-  received: { label: "Recebido", chip: "bg-[#E0F0F4] text-[#0F4C5C]" },
-  preparing: { label: "Em preparo", chip: "bg-[#FCE8D4] text-[#B3600E]" },
+  received: { label: "Recebido", chip: "bg-[#E0F0F4] text-[#012E46]" },
+  preparing: { label: "Em preparo", chip: "bg-[#FCE8D4] text-[#012E46]" },
   ready: { label: "Pronto", chip: "bg-[#DFF3E6] text-[#1F7A3D]" },
   delivered: { label: "Saiu para entrega", chip: "bg-[#EDF0F4] text-[#52606D]" },
 };

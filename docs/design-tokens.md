@@ -1,11 +1,11 @@
 # Tokens `--pp-*` (referência técnica do sistema legado)
 
 > ⚠️ **Fonte única da PALETA OFICIAL atual:** `.claude/skills/identidade-visual`
-> (laranja `#E67E22` = ação · azul petróleo `#0F4C5C` = navegação/gestão · verde
-> `#5E8C31` = confirmação · off-white `#F8F6F2` = fundo · cinza `#E6E6E6` = bordas ·
+> (laranja `#F38525` = ação · azul petróleo `#012E46` = navegação/gestão · verde
+> `#5E8C31` = confirmação · off-white `#FFFFFF` = fundo · cinza `#E6E6E6` = bordas ·
 > grafite `#2D3436` = texto). Onde este documento divergir da skill, **a skill
 > vence** — a migração dos tokens `--pp-*` para a paleta oficial está em andamento
-> (ex.: `--pp-primary` já aponta para o laranja oficial `#E67E22`; o dourado
+> (ex.: `--pp-primary` já aponta para o laranja oficial `#F38525`; o dourado
 > `--pp-brand` está sendo removido, restando na Landing). Trate o texto abaixo como
 > histórico/técnico do namespace `--pp-*`, não como a definição da identidade.
 
@@ -25,21 +25,21 @@ se ajustar uma cor, ajuste os dois lugares.
 
 | Token | Hex | Uso |
 |---|---|---|
-| `--pp-brand` | `#D4A017` | Marca/premium — logo, "PRIME", badges de destaque |
+| `--pp-brand` | `#F38525` | Marca/premium — logo, "PRIME", badges de destaque |
 | `--pp-brand-hover` | `#B8860B` | Hover de elementos `--pp-brand` |
 | `--pp-primary` | `#E8622C` | Ação/CTA — tom claro (hover de botões sólidos, texto grande, ícones, fundos suaves) |
 | `--pp-primary-hover` | `#C9501F` | Ação/CTA — tom escuro (fundo padrão de botões sólidos com texto branco, texto/links) |
 | `--pp-primary-soft` | `rgba(232,98,44,.07)` | Fundo suave de destaque |
 | `--pp-graphite` | `#1A1A1A` | Sidebar, topbar, títulos, botões escuros |
 | `--pp-graphite-deep` | `#101012` | Hover de superfícies `--pp-graphite` |
-| `--pp-bg` | `#FAF9F5` | Fundo geral (off-white quente) |
+| `--pp-bg` | `#FFFFFF` | Fundo geral (off-white quente) |
 | `--pp-surface` | `#FFFFFF` | Cards, inputs |
 | `--pp-border` | `#E7E5E4` | Bordas |
 | `--pp-text` | `#1A1A1A` | Texto principal |
 | `--pp-text-body` | `#3F3F46` | Texto secundário/corpo |
 | `--pp-text-muted` | `#71717A` | Texto auxiliar |
-| `--pp-info` | `#2563EB` | Status de pedido: recebido |
-| `--pp-warning` | `#F59E0B` | Status de pedido: em preparo/pendente |
+| `--pp-info` | `#012E46` | Status de pedido: recebido |
+| `--pp-warning` | `#F38525` | Status de pedido: em preparo/pendente |
 | `--pp-success` | `#16A34A` | Status de pedido: pronto/concluído |
 | `--pp-danger` | `#DC2626` | Status de pedido: cancelado |
 | `--pp-*-soft` | — | Tintas 10-12% dos 4 tokens de status, para fundo de badges/chips |
@@ -55,7 +55,7 @@ e como *marcador/ícone*, não como texto em si. Para texto, use:
 |---|---|---|
 | `--pp-primary` (3.38:1 com texto branco em cima) | `--pp-primary-text` (= `--pp-primary-hover`, `#C9501F`) | 4.52:1 |
 | `--pp-brand` (2.38:1) | `--pp-brand-text` (`#8A6A12`) | 5.06:1 |
-| `--pp-warning` (2.15:1) | `--pp-warning-text` (`#B45309`) | 5.02:1 |
+| `--pp-warning` (2.15:1) | `--pp-warning-text` (`#012E46`) | 5.02:1 |
 | `--pp-success` (3.30:1) | `--pp-success-text` (`#147A4A`) | 5.37:1 |
 | `--pp-danger` | (já passa: 4.83:1) — pode ser usado diretamente | — |
 
@@ -103,7 +103,7 @@ estão documentados como comentário em `src/index.css` (bloco
 --pp-bg: #17140F;      --pp-surface: #211D17;   --pp-border: #35302A;
 --pp-text: #F5F3EE;    --pp-text-body: #D4D1CA; --pp-text-muted: #9C968C;
 --pp-primary: #F17B45; --pp-primary-hover: #E8622C;
---pp-brand: #E8B94A;   --pp-brand-hover: #D4A017;
+--pp-brand: #E8B94A;   --pp-brand-hover: #F38525;
 ```
 
 ## O que foi migrado nesta rodada

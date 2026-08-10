@@ -7,7 +7,7 @@ export function Headline({ as: Tag = "h2", lead, accent, tail, className = "" })
     <Tag className={className}>
       {lead && <span className="block">{lead}</span>}
       {accent && (
-        <span className="mt-1 block bg-gradient-to-r from-[#E67E22] to-[#D06E1A] bg-clip-text text-transparent">
+        <span className="mt-1 block bg-gradient-to-r from-[#F38525] to-[#F38525] bg-clip-text text-transparent">
           {accent}
         </span>
       )}

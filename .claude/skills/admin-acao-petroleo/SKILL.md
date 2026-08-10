@@ -1,30 +1,30 @@
 ---
 name: admin-acao-petroleo
-description: Cor de AÇÃO do PAINEL ADMINISTRATIVO do restaurante-pedidos (Pedido Prime) = AZUL PETRÓLEO (#0F4C5C) com texto/ícone BRANCO — NÃO o laranja da marca. Todo botão, chip/filtro selecionado, tile de ícone e ícone de ação do admin é petróleo. Escopo estrito a .pp-admin-module; cardápio do cliente, tablet, PDV e cozinha continuam laranja. Use SEMPRE que criar/alterar botão, filtro, ícone ou CTA em qualquer tela do painel administrativo, ou quando pedirem "botão azul", "azul petróleo no admin", "trocar laranja por petróleo", "padronizar os botões do admin", "cadastrar/editar em azul". Trabalha com identidade-visual, botao-colorido-texto-branco, botao-acao-padrao e superficies-brancas-admin.
+description: Cor de AÇÃO do PAINEL ADMINISTRATIVO do restaurante-pedidos (Pedido Prime) = AZUL PETRÓLEO (#012E46) com texto/ícone BRANCO — NÃO o laranja da marca. Todo botão, chip/filtro selecionado, tile de ícone e ícone de ação do admin é petróleo. Escopo estrito a .pp-admin-module; cardápio do cliente, tablet, PDV e cozinha continuam laranja. Use SEMPRE que criar/alterar botão, filtro, ícone ou CTA em qualquer tela do painel administrativo, ou quando pedirem "botão azul", "azul petróleo no admin", "trocar laranja por petróleo", "padronizar os botões do admin", "cadastrar/editar em azul". Trabalha com identidade-visual, botao-colorido-texto-branco, botao-acao-padrao e superficies-brancas-admin.
 ---
 
 # Cor de ação do painel administrativo = Azul Petróleo
 
 No **painel administrativo** (`.pp-admin-module`), a cor de **ação** é o
-**azul petróleo `#0F4C5C`** com **texto/ícone branco** — e **não** o laranja
-`#E67E22` da marca. Isso dá ao admin um visual único, elegante e "gourmet",
+**azul petróleo `#012E46`** com **texto/ícone branco** — e **não** o laranja
+`#F38525` da marca. Isso dá ao admin um visual único, elegante e "gourmet",
 sem competir com o laranja das telas voltadas ao cliente.
 
 - **Cardápio do cliente, tablet, PDV e cozinha continuam LARANJA** — ficam
   fora de `.pp-admin-module` e não são afetados.
 - Verde (sucesso), vermelho (erro), âmbar (aviso) e o laranja de **DESTAQUE de
-  dados** (`--pp-destaque #F2994A`, skill `destaque-laranja-claro`) **não** são
+  dados** (`--pp-destaque #F38525`, skill `destaque-laranja-claro`) **não** são
   tocados — mantêm a semântica.
 
 ## O que é petróleo no admin
 
 | Elemento | Antes (laranja) | Depois (petróleo) |
 |---|---|---|
-| Botão de ação sólido ("Cadastrar", "Editar", "Salvar") | `bg-[#E67E22] text-white` | fundo `#0F4C5C`, texto **branco** |
-| Filtro/chip/aba selecionado (período, turno, canal, status…) | selecionado laranja | selecionado `#0F4C5C`, texto branco |
-| Tile de ícone do cabeçalho (`PageHeader`) | soft laranja + ícone laranja | soft petróleo + ícone `#0F4C5C` |
-| Ícone/texto de ação | `text-[#E67E22]` | `#0F4C5C` |
-| Borda de botão/tile | `border-[#E67E22]` | petróleo `rgba(15,76,92,.30)` |
+| Botão de ação sólido ("Cadastrar", "Editar", "Salvar") | `bg-[#F38525] text-[#012E46]` | fundo `#012E46`, texto **branco** |
+| Filtro/chip/aba selecionado (período, turno, canal, status…) | selecionado laranja | selecionado `#012E46`, texto branco |
+| Tile de ícone do cabeçalho (`PageHeader`) | soft laranja + ícone laranja | soft petróleo + ícone `#012E46` |
+| Ícone/texto de ação | `text-[#F38525]` | `#012E46` |
+| Borda de botão/tile | `border-[#F38525]` | petróleo `rgba(1, 46, 70,.30)` |
 
 ## Como está implementado (NÃO estilizar botão por conta própria)
 
@@ -37,13 +37,13 @@ Tudo é governado por **um único bloco** em `src/index.css`, escopado a
    `FilterChip`/`FilterGroup`, `PrimeButton` e qualquer `var(--pp-primary*)`
    viram petróleo **automaticamente** no admin.
 2. Remapeia o laranja escrito **em hex inline** (Tailwind arbitrary values):
-   - **sólido** (`[class~="bg-[#E67E22]"]`, `#D06E1A`, `#EC8B3E`) → petróleo
-     sólido `#0F4C5C` (o `~=` casa a classe inteira e **não** pega as variantes
+   - **sólido** (`[class~="bg-[#F38525]"]`, `#F38525`, `#F38525`) → petróleo
+     sólido `#012E46` (o `~=` casa a classe inteira e **não** pega as variantes
      de opacidade);
-   - **suave** (`bg-[#E67E22]/NN`, `bg-[rgba(230,126,34,·)]`) → petróleo suave
-     `rgba(15,76,92,.10)`;
-   - **texto** (`#E67E22`, `#D06E1A`, `#B4611A`, `#A6540E`) → `#0F4C5C`;
-   - **borda** → `rgba(15,76,92,.30)`;
+   - **suave** (`bg-[#F38525]/NN`, `bg-[rgba(243, 133, 37,·)]`) → petróleo suave
+     `rgba(1, 46, 70,.10)`;
+   - **texto** (`#F38525`, `#F38525`, `#F38525`, `#012E46`) → `#012E46`;
+   - **borda** → `rgba(1, 46, 70,.30)`;
    - `.btn-laranja` dentro do admin → degradê petróleo.
 
 ### Regra de ouro

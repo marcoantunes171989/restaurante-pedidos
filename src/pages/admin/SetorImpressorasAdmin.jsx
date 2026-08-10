@@ -148,9 +148,9 @@ export default function SetorImpressorasAdmin({
     return <HardDrive className="h-4 w-4" />;
   };
 
-  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#0F4C5C] focus:ring-2 focus:ring-[rgba(15,76,92,0.12)] placeholder:text-[var(--pp-text-muted)]";
+  const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]";
   const lbl = "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]";
-  const toggleRow = "flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(15,76,92,0.04)]";
+  const toggleRow = "flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]";
   // Campos do formulário (reaproveitados no modal de novo)
   const camposNovo = (
     <div className="space-y-3">
@@ -212,7 +212,7 @@ export default function SetorImpressorasAdmin({
       />
 
       {/* Listagem (largura total) — cadastro abre em modal */}
-      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Impressoras cadastradas</h4>
@@ -228,7 +228,7 @@ export default function SetorImpressorasAdmin({
 
         {lista.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-[var(--pp-border)] py-12 text-center">
-            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22]"><Printer className="h-7 w-7" /></span>
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.1)] text-[#F38525]"><Printer className="h-7 w-7" /></span>
             <p className="mt-3 font-semibold text-[var(--pp-text)]">Nenhuma impressora cadastrada.</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-[var(--pp-text-muted)]">Cadastre ao menos uma para vincular nas categorias e liberar a impressão automática.</p>
             <button onClick={() => setCriando(true)} className="btn-laranja mt-4 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">Cadastrar impressora</button>
@@ -240,19 +240,19 @@ export default function SetorImpressorasAdmin({
             {filtrados.map((imp) => {
               const ativo = imp.ativo !== false;
               return (
-                <div key={imp.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.04)] hover:border-[rgba(15,76,92,0.24)]" : "border-[var(--pp-border)] bg-white opacity-70"}`}>
+                <div key={imp.id} className={`rounded-2xl border p-4 transition ${ativo ? "border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] hover:border-[rgba(1, 46, 70,0.24)]" : "border-[var(--pp-border)] bg-white opacity-70"}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex min-w-0 items-start gap-3">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(15,76,92,0.2)] bg-[rgba(15,76,92,0.06)] text-[#0F4C5C]">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]">
                         {iconeTipo(imp.tipo)}
                       </span>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="page-title truncate text-sm font-semibold text-[var(--pp-text)]">{imp.nome}</p>
-                          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ativo ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-[rgba(15,76,92,0.06)] text-[var(--pp-text-muted)]"}`}>
+                          <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${ativo ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.06)] text-[var(--pp-text-muted)]"}`}>
                             {ativo ? "Ativa" : "Inativa"}
                           </span>
-                          <span className="rounded-full border border-[var(--pp-border)] bg-[rgba(15,76,92,0.05)] px-2 py-0.5 text-[10px] font-semibold text-[var(--pp-text-body)]">
+                          <span className="rounded-full border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.05)] px-2 py-0.5 text-[10px] font-semibold text-[var(--pp-text-body)]">
                             {rotuloTipoImpressora(imp.tipo)}
                           </span>
                         </div>
@@ -260,19 +260,19 @@ export default function SetorImpressorasAdmin({
                         {imp.observacao ? <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">{imp.observacao}</p> : null}
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--pp-text-muted)]">
                           <span>{imp.impressaoAuto === false ? "Impressão manual" : "Impressão automática"}</span>
-                          <span><b className="font-semibold text-[#0F4C5C]">{categoriasVinculadas(imp.id)}</b> categoria(s)</span>
-                          <span><b className="font-semibold text-[#0F4C5C]">{produtosVinculados(imp.id)}</b> produto(s) com override</span>
+                          <span><b className="font-semibold text-[#012E46]">{categoriasVinculadas(imp.id)}</b> categoria(s)</span>
+                          <span><b className="font-semibold text-[#012E46]">{produtosVinculados(imp.id)}</b> produto(s) com override</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-1.5">
-                      <button type="button" onClick={() => testar(imp)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(230,126,34,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(230,126,34,0.08)]">
+                      <button type="button" onClick={() => testar(imp)} className="inline-flex items-center gap-1.5 rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#F38525] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(243, 133, 37,0.08)]">
                         <FlaskConical className="h-3.5 w-3.5" /> Testar impressão
                       </button>
-                      <button type="button" onClick={() => setEditando({ ...imp })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]">Editar</button>
+                      <button type="button" onClick={() => setEditando({ ...imp })} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Editar</button>
                       {ativo
-                        ? <button type="button" onClick={() => setConfirmar(imp)} className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-1.5 text-xs font-semibold text-[#C81E4A] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(200,30,74,0.08)]">Inativar</button>
-                        : <button type="button" onClick={() => alternarAtivo(imp, true)} className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(47,158,82,0.08)]">Ativar</button>}
+                        ? <button type="button" onClick={() => setConfirmar(imp)} className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-1.5 text-xs font-semibold text-[#C81E4A] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(200,30,74,0.08)]">Inativar</button>
+                        : <button type="button" onClick={() => alternarAtivo(imp, true)} className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(47,158,82,0.08)]">Ativar</button>}
                     </div>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export default function SetorImpressorasAdmin({
         )}
 
         {categorias.some((c) => !c.impressoraId && c.active !== false) && (
-          <p className="mt-4 rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.08)] px-4 py-3 text-xs text-[#B4611A]">
+          <p className="mt-4 rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.08)] px-4 py-3 text-xs text-[#F38525]">
             Há categorias ativas sem impressora. Vincule em <b className="font-semibold">Gestão → Categorias</b> para a impressão automática funcionar.
             {categorias.filter((c) => !c.impressoraId && c.active !== false).slice(0, 3).map((c) => ` “${c.nome}”`).join(",")}
           </p>
@@ -290,8 +290,8 @@ export default function SetorImpressorasAdmin({
       </div>
 
       {/* Como configurar rápido (largura total, informativo) */}
-      <div className="rounded-[2rem] border border-[rgba(230,126,34,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
-        <h4 className="page-title text-sm font-semibold text-[#E67E22]">Como configurar rápido</h4>
+      <div className="rounded-[2rem] border border-[rgba(243, 133, 37,0.25)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
+        <h4 className="page-title text-sm font-semibold text-[#F38525]">Como configurar rápido</h4>
         <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs leading-5 text-[var(--pp-text-body)]">
           <li>Instale ou compartilhe a impressora no Windows/Linux da estação.</li>
           <li>Cadastre aqui o nome e o destino (driver, IP ou \\\\PC\\Fila).</li>
@@ -308,14 +308,14 @@ export default function SetorImpressorasAdmin({
           <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><Printer className="h-[18px] w-[18px]" /></span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"><Printer className="h-[18px] w-[18px]" /></span>
                 <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Nova impressora</h4>
               </div>
-              <button onClick={() => setCriando(false)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+              <button onClick={() => setCriando(false)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
             </div>
             <div className="overflow-y-auto px-6 py-4">{camposNovo}</div>
             <div className="flex gap-2 border-t border-[var(--pp-border)] px-6 py-4">
-              <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Limpar</button>
+              <button onClick={limpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Limpar</button>
               <PrimeButton onClick={criar} disabled={salvando} className="flex-1"><span className="text-lg leading-none">+</span> {salvando ? "Salvando…" : "Cadastrar impressora"}</PrimeButton>
             </div>
           </div>
@@ -328,10 +328,10 @@ export default function SetorImpressorasAdmin({
           <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(230,126,34,0.12)] text-[#E67E22]"><Printer className="h-[18px] w-[18px]" /></span>
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"><Printer className="h-[18px] w-[18px]" /></span>
                 <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Editar impressora</h4>
               </div>
-              <button onClick={() => setEditando(null)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(15,76,92,0.04)]">✕</button>
+              <button onClick={() => setEditando(null)} aria-label="Fechar" className="flex h-8 w-8 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
             </div>
             <div className="space-y-3 overflow-y-auto px-6 py-4">
               <div>
@@ -367,8 +367,8 @@ export default function SetorImpressorasAdmin({
             </div>
             <div className="flex gap-2 border-t border-[var(--pp-border)] px-6 py-4">
               <PrimeButton onClick={salvarEdicao} className="flex-1">Salvar</PrimeButton>
-              <button type="button" onClick={() => testar(editando)} className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-white px-4 py-2.5 text-sm font-semibold text-[#E67E22] transition hover:bg-[rgba(230,126,34,0.08)]">Testar</button>
-              <button type="button" onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+              <button type="button" onClick={() => testar(editando)} className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-white px-4 py-2.5 text-sm font-semibold text-[#F38525] transition hover:bg-[rgba(243, 133, 37,0.08)]">Testar</button>
+              <button type="button" onClick={() => setEditando(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>
@@ -380,10 +380,10 @@ export default function SetorImpressorasAdmin({
           <div className="relative w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Inativar impressora?</h4>
             <p className="mt-2 text-sm leading-6 text-[var(--pp-text-muted)]">Ela deixa de aparecer na seleção de categorias/produtos. Histórico da fila de impressão é preservado.</p>
-            <p className="mt-3 rounded-xl border border-[var(--pp-border)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-sm font-semibold text-[var(--pp-text)]">{confirmar.nome}</p>
+            <p className="mt-3 rounded-xl border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.04)] px-3 py-2 text-sm font-semibold text-[var(--pp-text)]">{confirmar.nome}</p>
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => alternarAtivo(confirmar, false)} className="flex-1 rounded-xl bg-[#C81E4A] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B01A40]">Confirmar inativação</button>
-              <button type="button" onClick={() => setConfirmar(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">Cancelar</button>
+              <button type="button" onClick={() => setConfirmar(null)} className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
             </div>
           </div>
         </div>

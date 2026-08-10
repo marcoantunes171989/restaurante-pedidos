@@ -27,7 +27,7 @@ export default function Ecosystem() {
                 <TelaPorTipo tipo={item.tela} />
               </div>
               <div className="flex items-start gap-3 border-t border-[var(--pp-border)] p-4">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/20 bg-[#E67E22]/5 text-[var(--pp-primary-hover)]"><Icone nome={item.icon} className="h-4.5 w-4.5" /></span>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/20 bg-[#F38525]/5 text-[var(--pp-primary-hover)]"><Icone nome={item.icon} className="h-4.5 w-4.5" /></span>
                 <div className="min-w-0">
                   <h3 className="font-display text-sm font-bold text-[var(--pp-graphite)]">{item.titulo}</h3>
                   <p className="mt-0.5 text-xs leading-5 text-[var(--pp-text-muted)]">{item.desc}</p>

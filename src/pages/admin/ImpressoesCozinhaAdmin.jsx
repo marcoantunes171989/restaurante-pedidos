@@ -93,10 +93,10 @@ export default function ImpressoesCozinhaAdmin({
 
   return (
     <main className="space-y-5">
-      <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+      <div className="relative overflow-hidden rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.1)] text-[#E67E22]">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.1)] text-[#F38525]">
               <Printer size={22} aria-hidden="true" />
             </span>
             <div>
@@ -109,7 +109,7 @@ export default function ImpressoesCozinhaAdmin({
           <button
             type="button"
             onClick={() => onRecarregar?.()}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]"
           >
             <RefreshCw size={14} aria-hidden="true" /> Atualizar
           </button>
@@ -117,8 +117,8 @@ export default function ImpressoesCozinhaAdmin({
       </div>
 
       {(contadores.intervencao > 0 || semImpressorasCadastradas || categoriasSemImpressora.length > 0) && (
-        <div className="rounded-2xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-4 py-3 text-sm text-[var(--pp-text-body)]">
-          <p className="flex items-center gap-2 font-semibold text-[#B4611A]">
+        <div className="rounded-2xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-4 py-3 text-sm text-[var(--pp-text-body)]">
+          <p className="flex items-center gap-2 font-semibold text-[#F38525]">
             <AlertTriangle size={16} aria-hidden="true" />
             Manutenção necessária
           </p>
@@ -143,12 +143,12 @@ export default function ImpressoesCozinhaAdmin({
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { rotulo: "Precisam atenção", valor: contadores.intervencao, cor: "#E67E22" },
-          { rotulo: "Pendentes", valor: contadores.pendente, cor: "#0F4C5C" },
+          { rotulo: "Precisam atenção", valor: contadores.intervencao, cor: "#F38525" },
+          { rotulo: "Pendentes", valor: contadores.pendente, cor: "#012E46" },
           { rotulo: "Com erro", valor: contadores.erro, cor: "#C81E4A" },
           { rotulo: "Impressas", valor: contadores.impresso + contadores.reimpresso, cor: "#2F9E52" },
         ].map((c) => (
-          <div key={c.rotulo} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+          <div key={c.rotulo} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.rotulo}</p>
             <p className="mt-1.5 text-xl font-semibold tabular-nums" style={{ color: c.cor }}>{c.valor}</p>
           </div>
@@ -169,8 +169,8 @@ export default function ImpressoesCozinhaAdmin({
             onClick={() => trocarFiltro(id)}
             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
               filtro === id
-                ? "border-[#E67E22] bg-[rgba(230,126,34,0.12)] text-[#B4611A]"
-                : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]"
+                ? "border-[#F38525] bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"
+                : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(1, 46, 70,0.04)]"
             }`}
           >
             {label}
@@ -178,7 +178,7 @@ export default function ImpressoesCozinhaAdmin({
         ))}
       </div>
 
-      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+      <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
         {lista.length === 0 ? (
           <div className="py-10 text-center">
             <CheckCircle2 className="mx-auto text-[#2F9E52]" size={28} aria-hidden="true" />
@@ -192,7 +192,7 @@ export default function ImpressoesCozinhaAdmin({
               const st = rotuloStatusImpressao(j.status);
               const busy = processandoId === j.id;
               return (
-                <li key={j.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                <li key={j.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -226,7 +226,7 @@ export default function ImpressoesCozinhaAdmin({
                         type="button"
                         disabled={busy}
                         onClick={() => reimprimir(j)}
-                        className="rounded-xl border border-[rgba(230,126,34,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#E67E22] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(230,126,34,0.08)] disabled:opacity-50"
+                        className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#F38525] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(243, 133, 37,0.08)] disabled:opacity-50"
                       >
                         {busy ? "…" : "Reimprimir"}
                       </button>
@@ -235,7 +235,7 @@ export default function ImpressoesCozinhaAdmin({
                           type="button"
                           disabled={busy}
                           onClick={() => marcarImpresso(j)}
-                          className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(47,158,82,0.08)] disabled:opacity-50"
+                          className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-white px-3 py-1.5 text-xs font-semibold text-[#2F9E52] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(47,158,82,0.08)] disabled:opacity-50"
                         >
                           Marcar impresso
                         </button>
@@ -245,7 +245,7 @@ export default function ImpressoesCozinhaAdmin({
                           type="button"
                           disabled={busy}
                           onClick={() => cancelar(j)}
-                          className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:opacity-50"
+                          className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:opacity-50"
                         >
                           Cancelar
                         </button>
@@ -260,11 +260,11 @@ export default function ImpressoesCozinhaAdmin({
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--pp-border)] pt-3">
               <p className="text-[11px] text-[var(--pp-text-muted)]">Página {paginaAtual} de {totalPaginas} · {lista.length} registro(s)</p>
               <div className="flex items-center gap-1.5">
-                <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1} aria-label="Página anterior" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
+                <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1} aria-label="Página anterior" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
                 {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
-                  <button key={n} onClick={() => setPagina(n)} className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition ${n === paginaAtual ? "bg-[#E67E22] text-white" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]"}`}>{n}</button>
+                  <button key={n} onClick={() => setPagina(n)} className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition ${n === paginaAtual ? "bg-[#F38525] text-[#012E46]" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(1, 46, 70,0.04)]"}`}>{n}</button>
                 ))}
-                <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas} aria-label="Próxima página" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)] disabled:cursor-not-allowed disabled:opacity-40">›</button>
+                <button onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))} disabled={paginaAtual >= totalPaginas} aria-label="Próxima página" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:cursor-not-allowed disabled:opacity-40">›</button>
               </div>
             </div>
           )}

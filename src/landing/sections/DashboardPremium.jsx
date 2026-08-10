@@ -52,7 +52,7 @@ export default function DashboardPremium() {
                 <div className="mt-3 flex items-end justify-between gap-1.5" style={{ height: 100 }}>
                   {HORAS.map((x) => (
                     <div key={x.h} className="flex flex-1 flex-col items-center justify-end gap-1">
-                      <div className="w-full rounded-t-md" style={{ height: Math.max(6, (x.v / max) * 84), background: x.v === max ? "#0F4C5C" : "#E67E22" }} />
+                      <div className="w-full rounded-t-md" style={{ height: Math.max(6, (x.v / max) * 84), background: x.v === max ? "#012E46" : "#F38525" }} />
                       <span className="text-[8px] font-semibold text-[var(--pp-text-muted)]">{x.h}</span>
                     </div>
                   ))}

@@ -1,6 +1,6 @@
 ---
 name: manutencao-de-telas
-description: Manutenção sistemática de TODAS as telas do projeto restaurante-pedidos (Pedido Prime) — faz uma VARREDURA tela a tela e APLICA o padrão visual oficial (laranja de ação #E67E22 + azul petróleo #0F4C5C, texto branco em preenchimento sólido), corrige divergências e valida sem quebrar. Use quando pedirem "manutenção nas telas", "varredura", "padronize todas as telas", "revise o sistema inteiro", "aplique o padrão em tudo", "passe em todas as telas", ou ao finalizar um rebrand/consolidação de paleta. Orquestra as skills identidade-visual, botao-colorido-texto-branco, botao-laranja-degrade, botao-verde-degrade, responsabilidade-qualidade, compatibilidade-dispositivos, preview-navegavel, testes-apos-execucao e finalizar-tarefa.
+description: Manutenção sistemática de TODAS as telas do projeto restaurante-pedidos (Pedido Prime) — faz uma VARREDURA tela a tela e APLICA o padrão visual oficial (laranja de ação #F38525 + azul petróleo #012E46, texto branco em preenchimento sólido), corrige divergências e valida sem quebrar. Use quando pedirem "manutenção nas telas", "varredura", "padronize todas as telas", "revise o sistema inteiro", "aplique o padrão em tudo", "passe em todas as telas", ou ao finalizar um rebrand/consolidação de paleta. Orquestra as skills identidade-visual, botao-colorido-texto-branco, botao-laranja-degrade, botao-verde-degrade, responsabilidade-qualidade, compatibilidade-dispositivos, preview-navegavel, testes-apos-execucao e finalizar-tarefa.
 ---
 
 # Manutenção de telas — varredura + padronização do sistema inteiro
@@ -13,10 +13,10 @@ Ela **não substitui** as skills de detalhe — ela as **orquestra**. A fonte de
 cores é sempre a skill `identidade-visual`.
 
 ## Padrão-alvo (resumo — detalhe em `identidade-visual`)
-- 🟧 **Laranja `#E67E22`** = AÇÃO/seleção ativa (CTAs, botão primário, aba/item ativo, chip selecionado). Token `--pp-primary`.
-- 🔵 **Azul petróleo `#0F4C5C`** = navegação/institucional (header, menu, barras, rodapé).
+- 🟧 **Laranja `#F38525`** = AÇÃO/seleção ativa (CTAs, botão primário, aba/item ativo, chip selecionado). Token `--pp-primary`.
+- 🔵 **Azul petróleo `#012E46`** = navegação/institucional (header, menu, barras, rodapé).
 - 🟩 **Verde `#5E8C31`** = sucesso/confirmação e OFERTA/economia. Token de oferta `--client-offer`.
-- ⬜ Fundo off-white `#F8F6F2`; cards branco; ▫️ bordas cinza `#E6E6E6`; ⬛ texto grafite `#2D3436`.
+- ⬜ Fundo off-white `#FFFFFF`; cards branco; ▫️ bordas cinza `#E6E6E6`; ⬛ texto grafite `#2D3436`.
 - **Contraste:** todo preenchimento SÓLIDO colorido usa **texto/ícone BRANCO** (skill `botao-colorido-texto-branco`).
 - **Botões:** laranja usa `.btn-laranja`; verde de sucesso usa `.btn-verde` (degradê + texto branco).
 
@@ -34,21 +34,21 @@ Trabalhe por grupos, uma tela por vez. Sugestão de ordem:
 ## Como varrer cada tela (checklist)
 Para **cada** tela:
 1. **Localize as cores** com busca de hex/classes fora da paleta:
-   - Laranjas/dourados fora do padrão: `#C9501F`, `#E8622C`, `#C6551A`, `#A6540E`, `#D4A017`, `#f59e0b`, `#b8872a`, classes `gold-*`, `amber-*` usadas como **ação** (não como status).
-   - Azuis genéricos como institucional: `blue-500/600/700`, `#0d1b2a` usados onde deveria ser petróleo `#0F4C5C`.
+   - Laranjas/dourados fora do padrão: `#C9501F`, `#E8622C`, `#F38525`, `#012E46`, `#F38525`, `#f38525`, `#f38525`, classes `gold-*`, `amber-*` usadas como **ação** (não como status).
+   - Azuis genéricos como institucional: `blue-500/600/700`, `#0d1b2a` usados onde deveria ser petróleo `#012E46`.
 2. **Classifique cada ocorrência** antes de trocar (isto é o passo que evita estragos):
-   - É **ação/seleção**? → laranja `#E67E22`, texto branco.
-   - É **navegação/institucional**? → petróleo `#0F4C5C`, texto branco.
+   - É **ação/seleção**? → laranja `#F38525`, texto branco.
+   - É **navegação/institucional**? → petróleo `#012E46`, texto branco.
    - É **sucesso/oferta**? → verde `#5E8C31`.
    - É **status/semântico** (aviso, preparando, erro) ou **exceção intencional**? → **NÃO troque** (ver Exceções).
-3. **Aplique** preferindo tokens (`var(--pp-primary)`, `var(--pp-*)`) e utilities (`.btn-laranja`, `.btn-verde`); só use hex literal quando precisar de opacidade (`bg-[#E67E22]/10`).
+3. **Aplique** preferindo tokens (`var(--pp-primary)`, `var(--pp-*)`) e utilities (`.btn-laranja`, `.btn-verde`); só use hex literal quando precisar de opacidade (`bg-[#F38525]/10`).
 4. **Garanta contraste:** preenchimento sólido colorido → texto/ícone branco.
 5. **Confira responsividade** (celular → tablet → desktop) — nada pode quebrar. Use `compatibilidade-dispositivos`.
 6. **Preview** quando a mudança for visível (`preview-navegavel`): renderize e confira antes de seguir.
 
 ## Exceções — NÃO padronizar (senão você destrói decisões deliberadas)
-- **Módulo Cozinha:** tint **dourado** (`#D9A441`/`#F4D27A`/`#FFF7E0`) é a **identidade de cor operacional** da Cozinha, para distingui-la do laranja de Pedidos. Mantém-se.
-- **Âmbar de aviso / status "Preparando":** `#F59E0B`/`--pp-warning` é **semântico** (alerta/em produção), não é ação. Mantém-se.
+- **Módulo Cozinha:** tint **dourado** (`#F38525`/`#F4D27A`/`#FFF7E0`) é a **identidade de cor operacional** da Cozinha, para distingui-la do laranja de Pedidos. Mantém-se.
+- **Âmbar de aviso / status "Preparando":** `#F38525`/`--pp-warning` é **semântico** (alerta/em produção), não é ação. Mantém-se.
 - **Verde/vermelho semânticos:** sucesso/erro seguem o padrão de status — alinhe ao verde oficial `#5E8C31`, mas não vire "ação".
 - **Landing de marketing (`src/landing/*`):** tema escuro com acentos dourados "premium" **proposital**. Só mexa sob pedido explícito do usuário.
 - **Acento "Prime" premium:** o dourado assinatura da marca (quando usado como identidade, não como status/ação) é preservado — confirme com `identidade-visual`.
@@ -59,7 +59,7 @@ Na dúvida entre "é exceção?" ou "é divergência?": **não troque e registre
 1. `npm run build` (verde) e `npm run lint` (0 `no-unused-vars` novos).
 2. Testes: `npm test` (suíte passando).
 3. Confirme no CSS/preview que os hex fora do padrão sumiram das telas alteradas
-   (ex.: buscar `#C9501F`/`#E8622C`/`#C6551A` e não achar no que você tocou).
+   (ex.: buscar `#C9501F`/`#E8622C`/`#F38525` e não achar no que você tocou).
 4. Rode `responsabilidade-qualidade` + `testes-apos-execucao`.
 
 ## Fechamento

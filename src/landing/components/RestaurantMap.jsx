@@ -103,7 +103,7 @@ export function RestaurantMap({ className = "" }) {
               {/* Linha tracejada só faz sentido apontando para um rótulo — no
                   mobile os rótulos viram a legenda em lista, abaixo da cena,
                   então a linha some e fica só o ponto pulsante sobre a cena. */}
-              <path d={`M${ax} ${ay} L${lx} ${ly}`} fill="none" stroke="#E67E22" strokeOpacity=".4" strokeWidth="1.4" className="pp-line-flow hidden sm:block" />
+              <path d={`M${ax} ${ay} L${lx} ${ly}`} fill="none" stroke="#F38525" strokeOpacity=".4" strokeWidth="1.4" className="pp-line-flow hidden sm:block" />
               <circle cx={ax} cy={ay} r="4.5" fill="var(--pp-primary-hover)" />
               <circle cx={ax} cy={ay} r="4.5" fill="var(--pp-primary-hover)" opacity=".35" className="pp-pulse-ring" style={{ transformOrigin: `${ax}px ${ay}px` }} />
             </g>

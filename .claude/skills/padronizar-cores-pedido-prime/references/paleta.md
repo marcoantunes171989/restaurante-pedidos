@@ -48,8 +48,12 @@ pelo papel semântico (borda, muted, disabled).
 ## Exceções permitidas (documentar)
 
 - Conteúdo do usuário (fotos de pratos, logos de loja).
-- Mídia e logos de terceiros.
-- Cor cujo significado normativo exija matiz própria (documentar no PR/relatório).
+- Mídia e logos de terceiros (`src/assets/react.svg`, `vite.svg`, ícone WhatsApp `#10B981`).
+- Status normativos de pedido/pagamento: vermelho (`#EF4444`, `#DC2626`, `#C81E4A`) e
+  verdes de sucesso/oferta (`#2F9E52`, `#5E8C31`, `#16A34A`, `#10B981`) — não são
+  tokens de marca; mantidos por semântica operacional.
+- Namespace legado `brand.primary` vermelho-terra (`#C4322B`) em `tailwind.config.js`
+  (telas ainda não migradas) — não expandir uso.
 
 ## Tokens sugeridos (CSS)
 

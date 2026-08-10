@@ -92,7 +92,7 @@ export default function PdvPaymentPanel({
   const tomLegenda = {
     ok: "text-[#1F7A3D]",
     erro: "text-[var(--pp-danger)]",
-    aviso: "text-[#8D6708]",
+    aviso: "text-[#012E46]",
     neutro: "text-[var(--pp-text-muted)]",
   };
 
@@ -317,7 +317,7 @@ export default function PdvPaymentPanel({
               aria-pressed={taxaRemovida}
               className={`flex h-7 w-full items-center justify-between gap-1 rounded-lg border px-1.5 text-[9px] font-black transition ${
                 taxaRemovida
-                  ? "border-[#F5DFA3] bg-[#FFFBEB] text-[#8D6708]"
+                  ? "border-[#F5DFA3] bg-[#FFFBEB] text-[#012E46]"
                   : "border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] hover:border-[var(--pp-primary)]"
               }`}
             >

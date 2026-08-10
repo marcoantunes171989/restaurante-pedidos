@@ -57,7 +57,7 @@ export default function PdvActionBar({
           onClick={onFecharConta}
           disabled={!podeFechar || fechando}
           className={`flex h-10 w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg px-3 text-[12px] font-black text-white transition ${
-            podeFechar && !fechando ? "btn-laranja" : "cursor-not-allowed bg-[#F2994A]/45"
+            podeFechar && !fechando ? "btn-laranja" : "cursor-not-allowed bg-[#F38525]/45"
           }`}
         >
           {fechando ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <DoorClosed size={15} aria-hidden="true" />}
@@ -93,7 +93,7 @@ export default function PdvActionBar({
           disabled={!podeFechar || fechando}
           title="Fechar conta (F5)"
           className={`flex h-9 w-[158px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-lg px-2 text-[11px] font-black text-white transition ${
-            podeFechar && !fechando ? "btn-laranja" : "cursor-not-allowed bg-[#F2994A]/45"
+            podeFechar && !fechando ? "btn-laranja" : "cursor-not-allowed bg-[#F38525]/45"
           }`}
         >
           {fechando ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <DoorClosed size={14} aria-hidden="true" />}

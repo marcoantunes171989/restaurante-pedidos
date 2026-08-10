@@ -26,7 +26,7 @@ function TimelinePedido() {
   return (
     <div ref={ref} className="mx-auto mt-16 max-w-3xl">
       <div className="relative h-1 rounded-full bg-[var(--pp-border)]">
-        <div className="pp-timeline-fill absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#E67E22] to-[#D06E1A]" style={{ width: ativo ? "100%" : "0%" }} />
+        <div className="pp-timeline-fill absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#F38525] to-[#F38525]" style={{ width: ativo ? "100%" : "0%" }} />
       </div>
       <div className="mt-4 grid grid-cols-5 gap-2">
         {TIMELINE_PEDIDO.map((etapa, i) => (

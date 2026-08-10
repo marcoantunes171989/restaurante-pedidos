@@ -1,6 +1,6 @@
 ---
 name: superficies-brancas-admin
-description: Padrão OFICIAL de superfícies BRANCAS do painel administrativo do restaurante-pedidos (Pedido Prime). O fundo do admin é BRANCO puro; toda caixinha/tile/chip interno que ainda usa off-white (bg-[var(--pp-bg)], #F8F6F2), cinza (bg-slate-50/100) ou tom cru deve virar BRANCO com borda fina em azul petróleo + leve sombra de elevação (efeito "tile gourmet"). Use SEMPRE que uma tela do admin mostrar caixinhas com cor de fundo destoando do branco, ou quando pedirem "deixar fundo branco", "tirar a cor de fundo", "gourmet", "elegante", "profissional", "cartão interno branco", "igual ao Dashboard". Trabalha com identidade-visual, designer-grafico-senior e responsabilidade-qualidade.
+description: Padrão OFICIAL de superfícies BRANCAS do painel administrativo do restaurante-pedidos (Pedido Prime). O fundo do admin é BRANCO puro; toda caixinha/tile/chip interno que ainda usa off-white (bg-[var(--pp-bg)], #FFFFFF), cinza (bg-slate-50/100) ou tom cru deve virar BRANCO com borda fina em azul petróleo + leve sombra de elevação (efeito "tile gourmet"). Use SEMPRE que uma tela do admin mostrar caixinhas com cor de fundo destoando do branco, ou quando pedirem "deixar fundo branco", "tirar a cor de fundo", "gourmet", "elegante", "profissional", "cartão interno branco", "igual ao Dashboard". Trabalha com identidade-visual, designer-grafico-senior e responsabilidade-qualidade.
 ---
 
 # Superfícies brancas do painel administrativo (padrão "tile gourmet")
@@ -10,7 +10,7 @@ pela regra `[data-theme="light"].pp-admin-module .tema-claro-area { background:#
 em `src/index.css`. Sobre esse branco, os **painéis** (cards grandes, `Painel`) já
 são brancos com borda + sombra. O problema recorrente são as **caixinhas internas**
 (tiles de indicador, chips, itens de lista, botões secundários) que ainda usam o
-**off-white da paleta** (`--pp-bg` = `#F8F6F2`) ou cinza — e destoam na tela branca.
+**off-white da paleta** (`--pp-bg` = `#FFFFFF`) ou cinza — e destoam na tela branca.
 
 **Regra permanente:** essas superfícies internas viram **BRANCAS**, e a separação
 visual passa a vir de **borda fina em azul petróleo + leve sombra de elevação**
@@ -21,31 +21,31 @@ dentro da paleta oficial (ver skill `identidade-visual`).
 
 **Tile / caixinha de indicador** (antes `bg-[var(--pp-bg)]`):
 ```
-rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(15,76,92,0.05)]
+rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]
 ```
 
 **Chip / pílula** (antes `bg-[var(--pp-bg)]` com borda neutra):
 ```
-rounded-full border border-[rgba(15,76,92,0.16)] bg-white px-2.5 py-1 shadow-[0_1px_2px_rgba(15,76,92,0.06)]
+rounded-full border border-[rgba(1, 46, 70,0.16)] bg-white px-2.5 py-1 shadow-[0_1px_2px_rgba(1, 46, 70,0.06)]
 ```
 
 **Botão secundário** (antes `bg-[var(--pp-bg)]`, hover cru):
 ```
-border border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(15,76,92,0.05)] transition hover:bg-[rgba(15,76,92,0.04)]
+border border-[var(--pp-border)] bg-white shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]
 ```
 
 **Painel/faixa que agrupa tiles brancos** — para os tiles brancos "saltarem" sobre
 um agrupador, o agrupador pode receber um tom de petróleo BEM leve (não branco):
 ```
-bg-[rgba(15,76,92,0.035)]
+bg-[rgba(1, 46, 70,0.035)]
 ```
 
 Constantes do padrão:
-- Sombra de elevação do tile: `shadow-[0_1px_2px_rgba(15,76,92,0.05)]` (petróleo 5%).
-- Borda: `border-[var(--pp-border)]` (neutra) ou `border-[rgba(15,76,92,0.16)]` (petróleo sutil, para chips).
-- Hover de botão branco: `hover:bg-[rgba(15,76,92,0.04)]` (nunca voltar ao off-white).
+- Sombra de elevação do tile: `shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]` (petróleo 5%).
+- Borda: `border-[var(--pp-border)]` (neutra) ou `border-[rgba(1, 46, 70,0.16)]` (petróleo sutil, para chips).
+- Hover de botão branco: `hover:bg-[rgba(1, 46, 70,0.04)]` (nunca voltar ao off-white).
 - Texto: grafite (`--pp-text`/`--pp-text-body`); o **acento colorido** fica só no
-  ponto/badge/valor (laranja `#E67E22`, petróleo `#0F4C5C`, verde `#5E8C31`, e
+  ponto/badge/valor (laranja `#F38525`, petróleo `#012E46`, verde `#5E8C31`, e
   vermelho `#C81E4A` só para erro/crítico).
 
 ## Base automática (já ativa) — regra CSS que uniformiza tudo
@@ -85,7 +85,7 @@ pequenas devem permanecer, senão somem no branco).
 3. **Menus/cabeçalhos escuros** (sidebar `--pp-nav`, header petróleo) — ficam FORA
    de `.tema-claro-area`. **Não toque.**
 4. **Módulos NÃO-admin** (caixa, cozinha, painel, cardápio do cliente) — esses
-   mantêm o **off-white `#F8F6F2`** como fundo/superfície padrão. Este padrão é só
+   mantêm o **off-white `#FFFFFF`** como fundo/superfície padrão. Este padrão é só
    dentro de `.pp-admin-module`.
 5. **Estados vazios** (placeholders "Nenhum dado…") — opcional; se converter,
    mantenha a **borda tracejada** para continuar lendo como "vazio".

@@ -225,9 +225,9 @@ function Bloco({ bloco }) {
       <div className={`flex gap-2 rounded-xl border px-2.5 py-2 ${
         aviso ? "border-[#F5DFA3] bg-[#FFFBEB]" : "border-[#BFE3CB] bg-[#F2FBF5]"
       }`}>
-        <Icon size={15} className={`mt-0.5 shrink-0 ${aviso ? "text-[#8D6708]" : "text-[#1F7A3D]"}`} aria-hidden="true" />
+        <Icon size={15} className={`mt-0.5 shrink-0 ${aviso ? "text-[#012E46]" : "text-[#1F7A3D]"}`} aria-hidden="true" />
         <div className="min-w-0">
-          {bloco.titulo && <p className={`text-[11.5px] font-black ${aviso ? "text-[#8D6708]" : "text-[#1F7A3D]"}`}>{bloco.titulo}</p>}
+          {bloco.titulo && <p className={`text-[11.5px] font-black ${aviso ? "text-[#012E46]" : "text-[#1F7A3D]"}`}>{bloco.titulo}</p>}
           <p className="text-[12px] leading-relaxed text-[var(--pp-text-body)]">{bloco.texto}</p>
         </div>
       </div>
@@ -305,12 +305,12 @@ function imprimirDocumentacao(secoes, contexto) {
   @page { size: A4; margin: 16mm 14mm; }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1F2933; margin: 0; font-size: 11pt; line-height: 1.55; }
-  .capa { text-align: center; padding: 40mm 0 18mm; border-bottom: 3px solid #F2994A; margin-bottom: 10mm; }
+  .capa { text-align: center; padding: 40mm 0 18mm; border-bottom: 3px solid #F38525; margin-bottom: 10mm; }
   .capa h1 { margin: 0; font-size: 26pt; letter-spacing: -0.5px; }
   .capa p { margin: 6px 0 0; color: #7B8794; font-size: 11pt; }
-  .capa .selo { display: inline-block; margin-top: 12px; padding: 5px 12px; border-radius: 999px; background: #FFF7EF; color: #B3600E; font-weight: 800; font-size: 10pt; }
+  .capa .selo { display: inline-block; margin-top: 12px; padding: 5px 12px; border-radius: 999px; background: #FFF7EF; color: #012E46; font-weight: 800; font-size: 10pt; }
   h2 { font-size: 14pt; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  h2 .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #F2994A; color: #fff; font-size: 10pt; }
+  h2 .num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: #F38525; color: #fff; font-size: 10pt; }
   h3 { font-size: 11pt; margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .08em; color: #7B8794; }
   .resumo { color: #52606D; margin: 0 0 8px; font-style: italic; }
   .sec { page-break-inside: avoid; margin-bottom: 9mm; }
@@ -324,7 +324,7 @@ function imprimirDocumentacao(secoes, contexto) {
   td:first-child { font-weight: 700; }
   ol, ul { margin: 4px 0 8px; padding-left: 18px; }
   li { margin: 3px 0; }
-  .box { border-left: 4px solid #F0B429; background: #FFFBEB; padding: 8px 10px; margin: 8px 0; page-break-inside: avoid; }
+  .box { border-left: 4px solid #F38525; background: #FFFBEB; padding: 8px 10px; margin: 8px 0; page-break-inside: avoid; }
   .box.dica { border-left-color: #2F9E52; background: #F2FBF5; }
   .box b { display: block; margin-bottom: 2px; }
   figure { margin: 8px 0; page-break-inside: avoid; }

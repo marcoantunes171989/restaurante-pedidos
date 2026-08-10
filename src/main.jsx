@@ -264,13 +264,13 @@ class RootErrorBoundary extends Component {
   render() {
     if (this.state.erro) {
       return (
-        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#070B16', color: '#e2e8f0', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
+        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#012E46', color: '#e2e8f0', padding: 24, fontFamily: 'system-ui, sans-serif' }}>
           <div style={{ maxWidth: 520, width: '100%', border: '1px solid rgba(248,113,113,.3)', background: 'rgba(239,68,68,.08)', borderRadius: 24, padding: 28, textAlign: 'center' }}>
             <div style={{ fontSize: 34 }}>⚠️</div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '8px 0' }}>Ops! Algo deu errado ao abrir esta tela</h1>
             <p style={{ fontSize: 14, color: '#cbd5e1' }}>Tente recarregar. Se continuar, envie a mensagem abaixo ao suporte.</p>
             <pre style={{ marginTop: 12, textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, color: '#fca5a5', background: 'rgba(0,0,0,.3)', borderRadius: 12, padding: 12, maxHeight: 200, overflow: 'auto' }}>{String(this.state.erro?.stack || this.state.erro?.message || this.state.erro)}</pre>
-            <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#C99A2E', color: '#0A1424', fontWeight: 800, border: 'none', borderRadius: 16, padding: '12px 20px', cursor: 'pointer' }}>Recarregar</button>
+            <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#F38525', color: '#0A1424', fontWeight: 800, border: 'none', borderRadius: 16, padding: '12px 20px', cursor: 'pointer' }}>Recarregar</button>
           </div>
         </div>
       )

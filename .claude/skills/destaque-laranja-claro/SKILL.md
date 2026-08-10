@@ -1,6 +1,6 @@
 ---
 name: destaque-laranja-claro
-description: Padrão OFICIAL de DESTAQUE de dados do restaurante-pedidos (Pedido Prime). O melhor/maior ponto de um conjunto — o 1º de um ranking, a barra/linha de MAIOR valor, a MELHOR média/nota, o horário de pico — é realçado em LARANJA CLARO (token --pp-destaque, #F2994A); os demais itens do conjunto ficam em AZUL PETRÓLEO (--pp-info / #0F4C5C). Facilita identificar o ponto forte para tomada de decisão e dá um ar premium. Use SEMPRE que criar/alterar rankings, gráficos de barras/linha, comparativos, "mais vendidos", "top N", "melhor média", "maior faturamento", ou quando pedirem "destacar o maior", "cor do destaque", "laranja claro". Trabalha com identidade-visual, designer-grafico-senior e superficies-brancas-admin.
+description: Padrão OFICIAL de DESTAQUE de dados do restaurante-pedidos (Pedido Prime). O melhor/maior ponto de um conjunto — o 1º de um ranking, a barra/linha de MAIOR valor, a MELHOR média/nota, o horário de pico — é realçado em LARANJA CLARO (token --pp-destaque, #F38525); os demais itens do conjunto ficam em AZUL PETRÓLEO (--pp-info / #012E46). Facilita identificar o ponto forte para tomada de decisão e dá um ar premium. Use SEMPRE que criar/alterar rankings, gráficos de barras/linha, comparativos, "mais vendidos", "top N", "melhor média", "maior faturamento", ou quando pedirem "destacar o maior", "cor do destaque", "laranja claro". Trabalha com identidade-visual, designer-grafico-senior e superficies-brancas-admin.
 ---
 
 # Destaque de dados em LARANJA CLARO (`--pp-destaque`)
@@ -10,32 +10,32 @@ comparativo), o **item de MAIOR relevância** — o 1º colocado, a barra de mai
 valor, a melhor média/nota, o horário de pico — é **realçado em laranja claro**.
 Os demais ficam em **azul petróleo**. Assim o olho encontra o ponto forte na hora.
 
-> **Laranja claro ≠ laranja de ação.** O `--pp-destaque` (#F2994A) é DE PROPÓSITO
-> mais claro que o `--pp-primary` (#E67E22, botões/CTAs). Isso separa "dado em
+> **Laranja claro ≠ laranja de ação.** O `--pp-destaque` (#F38525) é DE PROPÓSITO
+> mais claro que o `--pp-primary` (#F38525, botões/CTAs). Isso separa "dado em
 > destaque" de "botão de ação" e evita competição visual. Nunca use o laranja de
 > destaque em botão, nem o laranja de CTA para destacar dado.
 
 ## Tokens (fonte única: `src/index.css`)
 
 ```
---pp-destaque:      #F2994A;                    /* barra/linha/preenchimento do destaque */
---pp-destaque-soft: rgba(242, 153, 74, 0.14);   /* fundo de selo/badge do destaque */
+--pp-destaque:      #F38525;                    /* barra/linha/preenchimento do destaque */
+--pp-destaque-soft: rgba(243, 133, 37, 0.14);   /* fundo de selo/badge do destaque */
 ```
-Texto sobre fundo claro do destaque (selo): `#B4611A` (laranja escurecido, AA).
+Texto sobre fundo claro do destaque (selo): `#F38525` (laranja escurecido, AA).
 
 ## Como aplicar (copie/cole)
 
 **Barra/linha/preenchimento (o maior do conjunto):**
 ```jsx
-style={{ background: ehDestaque ? "var(--pp-destaque)" : "#0F4C5C" }}
+style={{ background: ehDestaque ? "var(--pp-destaque)" : "#012E46" }}
 // ou, via classe Tailwind:
-className={ehDestaque ? "bg-[var(--pp-destaque)]" : "bg-[#0F4C5C]"}
+className={ehDestaque ? "bg-[var(--pp-destaque)]" : "bg-[#012E46]"}
 ```
 
 **Selo/badge/nº de posição do destaque:**
 ```jsx
-style={ehDestaque ? { background: "var(--pp-destaque-soft)", color: "#B4611A" } : {...}}
-// ou: className="bg-[var(--pp-destaque-soft)] text-[#B4611A]"
+style={ehDestaque ? { background: "var(--pp-destaque-soft)", color: "#F38525" } : {...}}
+// ou: className="bg-[var(--pp-destaque-soft)] text-[#F38525]"
 ```
 
 **Como decidir o destaque** (o maior/melhor do conjunto):
@@ -50,7 +50,7 @@ const ehDestaque = item.key === keyDestaque;
 ## Regras
 
 - **Um destaque por conjunto** (o maior/melhor). Empate: o primeiro encontrado.
-- Os **demais** itens do mesmo conjunto = azul petróleo `#0F4C5C` (`--pp-info`).
+- Os **demais** itens do mesmo conjunto = azul petróleo `#012E46` (`--pp-info`).
 - Vale para barras horizontais/verticais, linhas, "top N", comparativos e a
   melhor média/nota. Em **status semânticos** de pedido (recebido/preparo/pronto/
   cancelado) NÃO se aplica — ali manda a cor de status.

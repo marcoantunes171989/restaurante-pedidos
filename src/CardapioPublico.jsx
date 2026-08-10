@@ -1595,17 +1595,17 @@ export default function CardapioPublico() {
               <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] rounded-full border-[3px] border-[#E6E6E6] object-cover bg-white" onError={(e) => { e.currentTarget.style.display = "none"; }} />
             ) : (
               <span className="flex h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] items-center justify-center rounded-full border-[3px] border-[#E6E6E6] bg-white text-xl font-black" aria-hidden="true">
-                <span className="text-[#0F4C5C]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
-                <span className="text-[#E67E22]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
+                <span className="text-[#012E46]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
+                <span className="text-[#F38525]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
               </span>
             )}
             <h1 className="mt-[clamp(0.25rem,0.8vh,0.5rem)] max-w-full px-1 font-black leading-none tracking-tight break-words">
-              <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#0F4C5C]">{nomePrimario}</span>
-              {nomeSecundario ? <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#E67E22]"> {nomeSecundario}</span> : null}
+              <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#012E46]">{nomePrimario}</span>
+              {nomeSecundario ? <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#F38525]"> {nomeSecundario}</span> : null}
             </h1>
             <div className="pp-welcome-brand-sub mt-1 flex items-center gap-2">
               <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#0F4C5C]">Cardápio digital</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#012E46]">Cardápio digital</p>
               <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
             </div>
           </header>
@@ -1615,17 +1615,17 @@ export default function CardapioPublico() {
             <div className="pp-welcome-status mt-[clamp(0.4rem,1.2vh,0.7rem)] grid w-full shrink-0 grid-cols-2 gap-2">
               {currentTable ? (
                 <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconMesa width={16} height={16} /></span>
+                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#F38525]"><CkIconMesa width={16} height={16} /></span>
                   <span className="min-w-0 flex-1 overflow-hidden">
-                    <span className="block truncate text-[13px] font-black text-[#0F4C5C]">{currentTable}</span>
+                    <span className="block truncate text-[13px] font-black text-[#012E46]">{currentTable}</span>
                     <span className="block truncate text-[10px] font-medium text-[#6B7280]">Sua comanda</span>
                   </span>
                 </div>
               ) : (
                 <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#E67E22]"><CkIconLoja width={16} height={16} /></span>
+                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#F38525]"><CkIconLoja width={16} height={16} /></span>
                   <span className="min-w-0 flex-1 overflow-hidden">
-                    <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Pedido online</span>
+                    <span className="block truncate text-[13px] font-black text-[#012E46]">Pedido online</span>
                     <span className="block truncate text-[10px] font-medium text-[#6B7280]">Cardápio externo</span>
                   </span>
                 </div>
@@ -1652,9 +1652,9 @@ export default function CardapioPublico() {
                   </>
                 ) : (
                   <>
-                    <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#0F4C5C]"><CkIconRelogio width={15} height={15} /></span>
+                    <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#012E46]"><CkIconRelogio width={15} height={15} /></span>
                     <span className="min-w-0 flex-1 overflow-hidden">
-                      <span className="block truncate text-[13px] font-black text-[#0F4C5C]">Atendimento</span>
+                      <span className="block truncate text-[13px] font-black text-[#012E46]">Atendimento</span>
                       <span className="block truncate text-[10px] font-medium text-[#6B7280]">Consulte a equipe</span>
                     </span>
                   </>
@@ -1669,13 +1669,13 @@ export default function CardapioPublico() {
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
               <div className="mb-1.5 flex min-w-0 shrink-0 items-center justify-between gap-2">
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <h2 id="pp-destaques-titulo" className="truncate text-[clamp(14px,2.1vh,16px)] font-black text-[#0F4C5C]">Destaques da casa</h2>
+                  <h2 id="pp-destaques-titulo" className="truncate text-[clamp(14px,2.1vh,16px)] font-black text-[#012E46]">Destaques da casa</h2>
                   <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
                 </div>
                 {nSlides > 1 && (
                   <div className="flex shrink-0 gap-1.5">
                     <button type="button" onClick={() => irSlide(-1)} aria-label="Produto anterior"
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[#0F4C5C] transition active:scale-95">
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[#012E46] transition active:scale-95">
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                     </button>
                     <button type="button" onClick={() => irSlide(1)} aria-label="Próximo produto"
@@ -1725,17 +1725,17 @@ export default function CardapioPublico() {
                         }}
                         className="pp-img-fill"
                       />
-                      <span className="pp-welcome-foto-badge pointer-events-none absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#0F4C5C]">{slideAtual + 1}</span>
+                      <span className="pp-welcome-foto-badge pointer-events-none absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#012E46]">{slideAtual + 1}</span>
                       {produtoAtivo.badge ? (
-                        <span className="pp-welcome-foto-badge pointer-events-none absolute right-2 top-2 truncate rounded-full border border-[#E6E6E6] bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#E67E22]">{produtoAtivo.badge}</span>
+                        <span className="pp-welcome-foto-badge pointer-events-none absolute right-2 top-2 truncate rounded-full border border-[#E6E6E6] bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#F38525]">{produtoAtivo.badge}</span>
                       ) : null}
                     </div>
                   );
                 })()}
                 <div className="min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
-                  <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#0F4C5C]">{produtoAtivo.name}</p>
+                  <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#012E46]">{produtoAtivo.name}</p>
                   <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
-                  <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#E67E22]">{formatCurrency(produtoAtivo.price)}</p>
+                  <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F38525]">{formatCurrency(produtoAtivo.price)}</p>
                 </div>
               </div>
 
@@ -1744,7 +1744,7 @@ export default function CardapioPublico() {
                   {destaques.map((p, i) => (
                     <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
                       onClick={() => setWelcomeSlide(i)}
-                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-4 bg-[#E67E22]" : "w-1.5 bg-[#E6E6E6]"}`} />
+                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-4 bg-[#F38525]" : "w-1.5 bg-[#E6E6E6]"}`} />
                   ))}
                 </div>
               )}
@@ -1756,7 +1756,7 @@ export default function CardapioPublico() {
             <div className="pp-mesa-opt-sub flex min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-3 py-2">
               <span className="shrink-0 text-xl" aria-hidden="true">👋</span>
               <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#374151]">
-                <b className="font-black text-[#0F4C5C]">Olá! Seja bem-vindo!</b>{" "}
+                <b className="font-black text-[#012E46]">Olá! Seja bem-vindo!</b>{" "}
                 Cardápio especial para você aproveitar cada momento.
               </p>
             </div>
@@ -1783,7 +1783,7 @@ export default function CardapioPublico() {
                     const emAndamento = chamando === t;
                     return (
                       <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E6E6] bg-white text-[#0F4C5C] transition active:scale-90 disabled:opacity-60">
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E6E6] bg-white text-[#012E46] transition active:scale-90 disabled:opacity-60">
                         {emAndamento ? <CkIconSpinner /> : <Icone width={15} height={15} />}
                       </button>
                     );
@@ -1795,7 +1795,7 @@ export default function CardapioPublico() {
             <footer className="mt-1.5 flex shrink-0 flex-col items-center gap-0.5 text-center">
               <p className="flex items-center gap-1 text-[10px] text-[#6B7280]">
                 Tecnologia e confiança
-                <span className="font-black"><span className="text-[#0F4C5C]">Pedido</span><span className="text-[#E67E22]">Prime</span></span>
+                <span className="font-black"><span className="text-[#012E46]">Pedido</span><span className="text-[#F38525]">Prime</span></span>
               </p>
               <p className="text-[9px] text-[#9CA3AF]">Versão {versaoApp}</p>
             </footer>
@@ -1974,7 +1974,7 @@ export default function CardapioPublico() {
           {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
           {grupos.map((g) => (
             <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
-              <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#F8F5F1]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
+              <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#FFFFFF]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
                 <span className="h-4 w-1 rounded-full bg-[var(--client-primary-hover)]" />
                 <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
                 <span className="text-[11px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>

@@ -95,8 +95,8 @@ export default function PdvMesaDetail({
           <h2 className="truncate text-[15px] font-black tracking-tight text-[var(--pp-text)]">{titulo}</h2>
           <span className={`inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase ${
             conta.solicitada
-              ? "bg-[#FBEFC4] text-[#8D6708]"
-              : "bg-[#FCE8D4] text-[#B3600E]"
+              ? "bg-[#FBEFC4] text-[#012E46]"
+              : "bg-[#FCE8D4] text-[#012E46]"
           }`}>
             {conta.solicitada && <HandCoins size={10} aria-hidden="true" />}
             {conta.solicitada ? "Conta solicitada" : "Ocupada"}
@@ -173,7 +173,7 @@ export default function PdvMesaDetail({
         )}
 
         {produtosBloqueados && (
-          <p className="mx-2.5 mb-1 rounded-md border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[9px] font-semibold text-[#8D6708]">
+          <p className="mx-2.5 mb-1 rounded-md border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[9px] font-semibold text-[#012E46]">
             Comprovante emitido — para incluir produto, informe a comanda do cliente.
           </p>
         )}
@@ -223,7 +223,7 @@ export default function PdvMesaDetail({
                           {formatCurrency(it.unit)} <span className="font-normal">un.</span>
                         </p>
                         {it.observation && (
-                          <p className="truncate text-[9px] font-semibold text-[#8D6708]">Obs.: {it.observation}</p>
+                          <p className="truncate text-[9px] font-semibold text-[#012E46]">Obs.: {it.observation}</p>
                         )}
                         {it.removed?.length > 0 && (
                           <p className="truncate text-[9px] font-semibold text-[var(--pp-text-muted)]">Sem: {it.removed.join(", ")}</p>

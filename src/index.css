@@ -81,7 +81,7 @@
 .pp-chart-focus { outline: none; -webkit-tap-highlight-color: transparent; }
 .pp-chart-focus:focus-visible {
   transform: scale(1.01);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 0 0 4px rgba(1, 46, 70, 0.22);
   transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
 }
 /* Variante para formas SVG (circle/g) — sem box-shadow (não é suportado em
@@ -125,7 +125,7 @@
    html/body sozinho não bloqueia o bounce elástico do PRÓPRIO #root em
    iOS/Safari: cada elemento rolável precisa da sua própria regra, ela não
    "desce" para descendentes. Sem isso, arrastar além do fim do conteúdo
-   esticava #root e revelava, por baixo, o fundo escuro (#070B16) do
+   esticava #root e revelava, por baixo, o fundo escuro (#012E46) do
    html/body — uma "tela preta" visível fora da interface do cardápio (e de
    qualquer outra tela pública) ao rolar rápido/arrastar até o fim. */
 html, body, #root { overscroll-behavior: none; }
@@ -138,22 +138,22 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
 /* ── Design tokens Pedido Prime (paleta premium) ────────────── */
 :root {
-  --prime-bg-dark: #070B16;
-  --prime-sidebar: #0B1B33;
-  --prime-card-dark: #111827;
-  --prime-card-soft: #172033;
-  --prime-border: #253149;
+  --prime-bg-dark: #012E46;
+  --prime-sidebar: #012E46;
+  --prime-card-dark: #012E46;
+  --prime-card-soft: #012E46;
+  --prime-border: #012E46;
 
-  --prime-blue: #0F4C5C;
-  --prime-blue-hover: #3B82F6;
+  --prime-blue: #012E46;
+  --prime-blue-hover: #012E46;
 
-  --prime-gold: #C99A2E;
-  --prime-gold-light: #E7C873;
-  --prime-gold-dark: #A97923;
+  --prime-gold: #F38525;
+  --prime-gold-light: #F38525;
+  --prime-gold-dark: #F38525;
 
   --prime-green: #10B981;
   --prime-red: #EF4444;
-  --prime-yellow: #D97706;
+  --prime-yellow: #F38525;
 
   --prime-text: #F9FAFB;
   --prime-text-muted: #94A3B8;
@@ -165,12 +165,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      Selecionado usa a variante escura --pp-primary-text (não --pp-primary
      puro) como fundo em repouso — só ela atinge 4.5:1 com texto branco. */
   --filter-chip-bg: #FFFFFF;
-  --filter-chip-selected: #E67E22;
-  --filter-chip-selected-hover: #D06E1A;
+  --filter-chip-selected: #F38525;
+  --filter-chip-selected-hover: #F38525;
   --filter-chip-hover-bg: #FCEFE1;
   --filter-chip-border: #E5E7EB;
-  --filter-chip-text: #172033;
-  --filter-chip-text-selected: #FFFFFF;
+  --filter-chip-text: #012E46;
+  /* Texto sobre laranja oficial = petróleo (não branco). */
+  --filter-chip-text-selected: #012E46;
   --filter-chip-disabled-bg: #F1F5F9;
   --filter-chip-disabled-text: #94A3B8;
 
@@ -188,23 +189,28 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
   /* ══════════════════════════════════════════════════════════════
      PALETA OFICIAL PEDIDO PRIME — fonte única de verdade.
-     Use estes tokens em QUALQUER tela nova (var(--color-*)) para
-     manter a identidade padronizada. Não crie cores fora daqui;
-     se precisar de uma variação, adicione-a aqui primeiro.
+     Petróleo #012E46 · Laranja #F38525 · Fundo #FFFFFF
+     (skill padronizar-cores-pedido-prime / identidade-visual)
      ══════════════════════════════════════════════════════════════ */
-  --color-primary: #0F4C5C;        /* azul petróleo oficial (institucional, links, blocos) */
-  --color-primary-light: #2E7A8C;  /* petróleo médio (hover/gráficos) */
-  --color-primary-dark: #0C3D4A;   /* petróleo pressionado */
-  --color-accent: #E67E22;         /* laranja padrão da marca (ações/detalhes) */
-  --color-accent-hover: #D06E1A;   /* laranja pressionado (hover) */
-  --color-gold: #E67E22;           /* laranja padrão (detalhes/badges) */
-  --color-cream: #FAFAF8;          /* superfície suave */
+  --pp-petroleo: #012E46;
+  --pp-laranja: #F38525;
+  --pp-fundo: #FFFFFF;
+  --pp-on-petroleo: #FFFFFF;
+  --pp-on-laranja: #012E46;
 
-  --color-bg: #F7F8FA;             /* fundo geral (light premium) */
+  --color-primary: #012E46;        /* azul petróleo oficial (institucional, links, blocos) */
+  --color-primary-light: #012E46;  /* petróleo médio (hover/gráficos) */
+  --color-primary-dark: #012E46;   /* petróleo pressionado */
+  --color-accent: #F38525;         /* laranja padrão da marca (ações/detalhes) */
+  --color-accent-hover: #F38525;   /* laranja pressionado (hover) */
+  --color-gold: #F38525;           /* laranja padrão (detalhes/badges) */
+  --color-cream: #FFFFFF;          /* superfície suave */
+
+  --color-bg: #FFFFFF;             /* fundo geral — branco oficial */
   --color-bg-secondary: #F3F4F6;   /* fundo secundário */
   --color-surface: #FFFFFF;        /* cards/blocos/áreas internas */
-  --color-bg-dark: #0C3D4A;        /* petróleo profundo (telas operacionais dark-by-design) */
-  --color-bg-dark-secondary: #111827;
+  --color-bg-dark: #012E46;        /* petróleo profundo (telas operacionais dark-by-design) */
+  --color-bg-dark-secondary: #012E46;
 
   --color-text: #182230;           /* texto principal */
   --color-text-secondary: #475467; /* texto secundário */
@@ -216,12 +222,12 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --color-border: #E5E7EB;         /* borda clara */
   --color-divider: #ECEFF3;        /* divisores (tabelas, listas) */
   --color-border-dark: rgba(255,255,255,0.08);
-  --color-border-accent: rgba(230,126,34,0.35);
+  --color-border-accent: rgba(243, 133, 37,0.35);
 
   --color-success: #22A06B;  --color-success-bg: #EAFBF2;
-  --color-warning: #F59E0B;  --color-warning-bg: #FFF4E5;
+  --color-warning: #F38525;  --color-warning-bg: #FFF4E5;
   --color-danger:  #E5484D;  --color-danger-bg:  #FFF1F2;
-  --color-info:    #0F4C5C;  --color-info-bg:    #E5EDEF;
+  --color-info:    #012E46;  --color-info-bg:    #E8EDF0;
 
   --shadow-card: 0 8px 24px rgba(16, 24, 40, 0.06);
   --shadow-card-hover: 0 12px 32px rgba(16, 24, 40, 0.08);
@@ -251,8 +257,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      etc.) — var() SEM modificador de opacidade funciona normalmente.
      ══════════════════════════════════════════════════════════════ */
   /* Marca / Premium (dourado antigo — só identidade, nunca status) */
-  --pp-brand: #B8872A;
-  --pp-brand-hover: #96701F;
+  --pp-brand: #F38525;
+  --pp-brand-hover: #012E46;
 
   /* Apetite / Ação — CTA principal (terracota).
      NOTA DE CONTRASTE: branco sobre --pp-primary-hover dá 5.08:1
@@ -261,42 +267,42 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      escuro só para o estado base. --pp-primary (mais claro) fica para
      hover/ícones/bordas, onde 4.0:1 já é suficiente (texto grande,
      bold ≥18px, ou uso não-textual). */
-  /* Laranja de AÇÃO = laranja oficial da paleta (#E67E22), igual ao Login.
-     Substitui a terracota antiga (#D9542E), alinhando toda a cor de ação do
+  /* Laranja de AÇÃO = laranja oficial da paleta (#F38525), igual ao Login.
+     Substitui a terracota antiga (#F38525), alinhando toda a cor de ação do
      app à identidade. Textos/ícones usam --pp-primary-text (escuro, AA). */
-  --pp-primary: #E67E22;
-  --pp-primary-hover: #D06E1A;
-  --pp-primary-soft: rgba(230, 126, 34, 0.08);
+  --pp-primary: #F38525;
+  --pp-primary-hover: #F38525;
+  --pp-primary-soft: rgba(243, 133, 37, 0.08);
 
   /* DESTAQUE DE DADOS — "laranja claro". Cor ÚNICA para realçar o melhor/maior
      ponto de um conjunto (o 1º de um ranking, a barra/linha de maior valor, a
      melhor média/nota) em gráficos, listas e comparativos. É mais claro que o
      --pp-primary (ação/CTA) DE PROPÓSITO: separa "dado em destaque" de "botão de
      ação", e facilita a leitura para tomada de decisão. Os demais itens do
-     conjunto ficam em azul petróleo (--pp-info / #0F4C5C). Ver skill
+     conjunto ficam em azul petróleo (--pp-info / #012E46). Ver skill
      `destaque-laranja-claro`. */
-  --pp-destaque: #F2994A;
-  --pp-destaque-soft: rgba(242, 153, 74, 0.14);
+  --pp-destaque: #F38525;
+  --pp-destaque-soft: rgba(243, 133, 37, 0.14);
 
   /* Chrome do /operacional (navegação + header) — azul petróleo (paleta
      oficial: cor de navegação/menus/barras). Não altera a cor de ação
      (laranja --pp-primary) do restante das telas. */
-  --op-nav-accent: #0F4C5C;
-  --op-nav-accent-soft: rgba(15, 76, 92, 0.09);
+  --op-nav-accent: #012E46;
+  --op-nav-accent-soft: rgba(1, 46, 70, 0.09);
 
   /* Chrome do painel administrativo (menu lateral desktop + drawer/topo
      mobile) — AZUL PETRÓLEO monocromático (paleta oficial: cor de navegação/
      menus/barras). Menu propositalmente escuro e tom-sobre-tom: a superfície
      é um petróleo PROFUNDO e o estado ativo/seleção "acende" num petróleo
      CLARO (--pp-nav-accent), da mesma família, com contraste AA (~5:1). */
-  --pp-nav: #0C3D4A;        /* superfície do menu — petróleo profundo */
-  --pp-nav-accent: #58B7CD; /* seleção/ativo — petróleo claro (tom sobre tom) */
+  --pp-nav: #012E46;        /* superfície do menu — petróleo profundo */
+  --pp-nav-accent: #F38525; /* seleção/ativo — petróleo claro (tom sobre tom) */
 
   /* Estrutura — neutros com base quente (não cinza-azulado), para a
      fotografia/ilustração de comida render mais convidativa. */
   --pp-graphite: #2B2320;
   --pp-graphite-deep: #1C140F;
-  --pp-bg: #FBF7F2;
+  --pp-bg: var(--pp-fundo);
   --pp-surface: #FFFFFF;
   --pp-border: #EAE0D6;
 
@@ -310,14 +316,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      a mesma semântica. Não usar como cor decorativa genérica. Afastadas
      de propósito do terracota da marca (info puxa pro azul, danger pro
      rosa/crimson) para nenhuma delas ser lida como uma ação da marca. */
-  --pp-info: #0F4C5C; /* azul petróleo oficial (era #2E5FA8 royal, fora da paleta) — status "recebido/novo/info", igual ao cliente */
-  --pp-warning: #F59E0B;
+  --pp-info: #012E46; /* azul petróleo oficial (era #012E46 royal, fora da paleta) — status "recebido/novo/info", igual ao cliente */
+  --pp-warning: #F38525;
   --pp-success: #2F9E52;
   --pp-danger: #C81E4A;
 
   /* Fundos suaves (10-12%) para badges/chips de status — mesma cor,
      tingida sobre uma superfície clara. */
-  --pp-info-soft: rgba(15, 76, 92, 0.10); /* azul petróleo #0F4C5C a 10% */
+  --pp-info-soft: rgba(1, 46, 70, 0.10); /* azul petróleo #012E46 a 10% */
   --pp-warning-soft: #FFF4E5;
   --pp-success-soft: rgba(47, 158, 82, 0.10);
   --pp-danger-soft: rgba(200, 30, 74, 0.10);
@@ -329,9 +335,9 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
      rótulo) em vez de preenchimento sólido. --pp-primary-hover e
      --pp-danger já passam AA nativamente como preenchimento e não
      precisam de variante própria. */
-  --pp-primary-text: #A6540E;  /* laranja escuro p/ texto/ícone — 5.4:1 (AA) */
+  --pp-primary-text: #012E46;  /* laranja escuro p/ texto/ícone — 5.4:1 (AA) */
   --pp-brand-text: #6B5015;    /* 6.1:1 */
-  --pp-warning-text: #B45309;  /* 5.02:1 */
+  --pp-warning-text: #012E46;  /* 5.02:1 */
   --pp-success-text: #1F7A3D;  /* 5.4:1 */
 
   /* ══════════════════════════════════════════════════════════════
@@ -353,20 +359,20 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --login-text-secondary: #5F6B6E;
   --login-border: #E6E6E6;       /* cinza claro — bordas/divisórias */
 
-  --login-primary: #0F4C5C;      /* azul petróleo — ação/CTA/foco (padrão admin) */
-  --login-primary-hover: #0B3A46;
-  --login-primary-active: #093039;
-  --login-primary-soft: rgba(15, 76, 92, 0.08);
+  --login-primary: #012E46;      /* azul petróleo — ação/CTA/foco (padrão admin) */
+  --login-primary-hover: #012E46;
+  --login-primary-active: #012E46;
+  --login-primary-soft: rgba(1, 46, 70, 0.08);
 
   /* Secundária institucional — azul petróleo (confiança/tecnologia). */
-  --login-secondary: #0F4C5C;
-  --login-secondary-soft: #E5EDEF;
+  --login-secondary: #012E46;
+  --login-secondary-soft: #E8EDF0;
 
   --login-error: #B4234D;
   --login-error-soft: #FBE7EE;
   --login-success: #5E8C31;      /* verde — confirmação */
 
-  --login-focus: rgba(230, 126, 34, 0.22);
+  --login-focus: rgba(243, 133, 37, 0.22);
   --login-shadow: 0 20px 60px rgba(45, 52, 54, 0.10);
 
   /* ══════════════════════════════════════════════════════════════
@@ -381,8 +387,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
        crimson = erro/cancelamento. Nunca intercambiáveis. Obs.: são dois verdes
        de papéis distintos — oferta/economia (paleta oficial #5E8C31) x status
        concluído/pago (#17824B); aparecem em telas diferentes. */
-  --client-background: #F8F5F1;
-  --client-background-soft: #FCFAF8;
+  --client-background: #FFFFFF;
+  --client-background-soft: #FFFFFF;
   --client-surface: #FFFDFC;
   --client-surface-secondary: #F3ECE6;
 
@@ -394,16 +400,16 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-border: #E5DBD3;
   --client-border-strong: #D5C6BB;
 
-  /* Ação do cliente = laranja oficial da paleta (#E67E22 = apetite), igual ao
+  /* Ação do cliente = laranja oficial da paleta (#F38525 = apetite), igual ao
      Login e ao operacional. Sólidos com texto branco e textos de acento usam o
-     tom -hover (#B25E15, ~4,66:1 = passa WCAG AA sobre branco / com branco em
-     cima); o -primary claro (#E67E22) fica para hover, acentos, badges e bordas.
-     -hover foi aprofundado de #D06E1A (só 3,5:1, falhava AA) para #B25E15. */
-  --client-primary: #E67E22;
-  --client-primary-hover: #B25E15;
-  --client-primary-active: #964E11;
+     tom -hover (#F38525, ~4,66:1 = passa WCAG AA sobre branco / com branco em
+     cima); o -primary claro (#F38525) fica para hover, acentos, badges e bordas.
+     -hover foi aprofundado de #F38525 (só 3,5:1, falhava AA) para #F38525. */
+  --client-primary: #F38525;
+  --client-primary-hover: #F38525;
+  --client-primary-active: #F38525;
   --client-primary-soft: #FCEFE1;
-  --client-primary-border: #F0B589;
+  --client-primary-border: #F5C48A;
 
   /* Oferta/economia/combo = VERDE oficial da paleta (#5E8C31 = vantagem/economia).
      Substitui o dourado legado (fora da paleta oficial). Em verde a oferta
@@ -415,14 +421,14 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-offer-soft: #EDF3E1;
   --client-offer-border: #C3D9A2;
 
-  /* Info/recebido/andamento = AZUL PETRÓLEO oficial (#0F4C5C = confiança/gestão),
-     substituindo o azul royal legado #2563EB (var(--pp-info)), estranho à paleta.
+  /* Info/recebido/andamento = AZUL PETRÓLEO oficial (#012E46 = confiança/gestão),
+     substituindo o azul royal legado #012E46 (var(--pp-info)), estranho à paleta.
      Harmoniza com o sistema quente-neutro; fills com texto branco ficam ~9:1.
      Continua distinto do verde de sucesso (petróleo é azul-dominante). */
-  --client-info: #0F4C5C;
-  --client-info-hover: #0B3A46;
-  --client-info-soft: #E6EEF1;
-  --client-info-border: #B0C9D0;
+  --client-info: #012E46;
+  --client-info-hover: #012E46;
+  --client-info-soft: #E8EDF0;
+  --client-info-border: #9BB4C0;
 
   --client-success: #17824B;
   --client-success-hover: #11663A;
@@ -431,7 +437,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
   /* Em preparo/andamento — distinto do dourado (promoção) e do azul
      (recebido/informativo): status "algo está acontecendo agora". */
-  --client-warning: #B96A00;
+  --client-warning: #F38525;
   --client-warning-hover: #935500;
   --client-warning-soft: #FFF1D9;
   --client-warning-border: #F1C77D;
@@ -451,8 +457,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --client-disabled-text: #98A2B3;
   --client-disabled-border: #DDE2E8;
 
-  --client-focus-primary: rgba(230, 126, 34, 0.22); /* laranja oficial #E67E22 */
-  --client-focus-info: rgba(15, 76, 92, 0.22); /* azul petróleo #0F4C5C */
+  --client-focus-primary: rgba(243, 133, 37, 0.22); /* laranja oficial #F38525 */
+  --client-focus-info: rgba(1, 46, 70, 0.22); /* azul petróleo #012E46 */
 
   --client-shadow-sm: 0 4px 14px rgba(57, 40, 31, 0.06);
   --client-shadow-md: 0 12px 32px rgba(57, 40, 31, 0.10);
@@ -470,51 +476,55 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --pp-text: #F4EBE2;
   --pp-text-body: #CBB9AC;
   --pp-text-muted: #9C8A7C;
-  --pp-primary: #E8734A;
-  --pp-primary-hover: #D9542E;
-  --pp-brand: #D0A548;
-  --pp-brand-hover: #B8872A;
+  --pp-primary: #F38525;
+  --pp-primary-hover: #F38525;
+  --pp-brand: #F38525;
+  --pp-brand-hover: #F38525;
 }
 */
 
 /* ══════════════════════════════════════════════════════════════════
-   Botão laranja "GOURMET" — degradê quente premium para os botões de
-   AÇÃO laranja (e o estado ativo de chips/toggles). Reúne os 3 estados
-   pedidos: repouso = laranja CLARO (mais apetitoso que o antigo fundo
-   chapado), hover = MAIS CLARO, ativo/pressionado = MAIS ESCURO (chapado).
-   Texto branco com leve sombra para manter a legibilidade sobre o laranja
-   (branco puro sobre laranja claro não atinge AA sozinho; a sombra + o
-   tom rico da base do degradê preservam a leitura). Basta trocar o antigo
-   `bg-[var(--pp-primary-hover)]` por `btn-laranja` (mantendo `text-white`).
+   Botão laranja oficial — sólido #F38525, texto/ícone #012E46.
+   Hover/foco via opacidade (sem matiz nova). Sem degradê colorido.
    ══════════════════════════════════════════════════════════════════ */
 .btn-laranja {
-  background-image: linear-gradient(180deg, #EC8B3E 0%, #D06E1A 100%);
-  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.35);
+  background-image: none;
+  background-color: #F38525;
+  color: #012E46;
+  text-shadow: none;
 }
 .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
-  background-image: linear-gradient(180deg, #F0994A 0%, #DE7420 100%);
+  background-image: none;
+  background-color: #F38525;
+  opacity: 0.92;
 }
 .btn-laranja:active:not(:disabled):not([aria-disabled="true"]) {
   background-image: none;
-  background-color: #B25E15;
+  background-color: #F38525;
+  opacity: 1;
+  filter: brightness(0.95);
 }
 .btn-laranja:disabled,
 .btn-laranja[disabled] {
   background-image: none;
   text-shadow: none;
+  opacity: 0.55;
 }
-/* Variante LARANJA CLARO (login): degradê mais claro/luminoso partindo de um
-   laranja suave até o laranja da marca — CTA elegante e "gourmet". */
 .btn-laranja-claro {
-  background-image: linear-gradient(180deg, #F4A45E 0%, #E67E22 100%);
-  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.28);
+  background-image: none;
+  background-color: #F38525;
+  color: #012E46;
+  text-shadow: none;
 }
 .btn-laranja-claro:hover:not(:disabled):not([aria-disabled="true"]) {
-  background-image: linear-gradient(180deg, #F7B274 0%, #EC8B3E 100%);
+  background-image: none;
+  background-color: #F38525;
+  opacity: 0.92;
 }
 .btn-laranja-claro:active:not(:disabled):not([aria-disabled="true"]) {
   background-image: none;
-  background-color: #D06E1A;
+  background-color: #F38525;
+  filter: brightness(0.95);
 }
 .btn-laranja-claro:disabled,
 .btn-laranja-claro[disabled] { background-image: none; text-shadow: none; }
@@ -558,20 +568,25 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    para manter o acabamento entre as ações da tela.
    ══════════════════════════════════════════════════════════════════ */
 .btn-petroleo {
-  background-image: linear-gradient(180deg, #17667A 0%, #0F4C5C 100%);
+  background-image: none;
+  background-color: #012E46;
   color: #FFFFFF;
 }
 .btn-petroleo:hover:not(:disabled):not([aria-disabled="true"]) {
-  background-image: linear-gradient(180deg, #1B7C93 0%, #12596B 100%);
+  background-image: none;
+  background-color: #012E46;
+  opacity: 0.92;
 }
 .btn-petroleo:active:not(:disabled):not([aria-disabled="true"]) {
   background-image: none;
-  background-color: #0B3D4A;
+  background-color: #012E46;
+  filter: brightness(0.95);
 }
 .btn-petroleo:disabled,
 .btn-petroleo[disabled] {
   background-image: none;
-  background-color: #0F4C5C;
+  background-color: #012E46;
+  opacity: 0.55;
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -584,11 +599,11 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    Texto sobre fundo claro segue usando --pp-primary-text (AA).
    ══════════════════════════════════════════════════════════════════ */
 .pdv-tema {
-  --pp-primary: #F2994A;
-  --pp-primary-hover: #E8873A;
-  --pp-primary-soft: rgba(242, 153, 74, 0.12);
-  --pp-primary-text: #B3600E;
-  --pp-bg: #F4F6F9;
+  --pp-primary: #F38525;
+  --pp-primary-hover: #F38525;
+  --pp-primary-soft: rgba(243, 133, 37, 0.12);
+  --pp-primary-text: #012E46;
+  --pp-bg: #FFFFFF;
   --pp-surface: #FFFFFF;
   --pp-border: #E3E8EF;
   --pp-text: #1F2933;
@@ -596,15 +611,20 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --pp-text-muted: #7B8794;
 }
 .pdv-tema .btn-laranja {
-  background-image: linear-gradient(180deg, #F6A961 0%, #EC8B3E 100%);
-  text-shadow: 0 1px 1.5px rgba(90, 35, 0, 0.28);
+  background-image: none;
+  background-color: #F38525;
+  color: #012E46;
+  text-shadow: none;
 }
 .pdv-tema .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
-  background-image: linear-gradient(180deg, #FAB672 0%, #F2994A 100%);
+  background-image: none;
+  background-color: #F38525;
+  opacity: 0.92;
 }
 .pdv-tema .btn-laranja:active:not(:disabled):not([aria-disabled="true"]) {
   background-image: none;
-  background-color: #D77B2C;
+  background-color: #F38525;
+  filter: brightness(0.95);
 }
 
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
@@ -625,8 +645,8 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --filter-chip-hover-bg: #FCEFE1;
   --filter-chip-border: var(--pp-border);
   --filter-chip-text: var(--pp-text-body);
-  --filter-chip-text-selected: #FFFFFF;
-  --filter-chip-selected-shadow: 0 2px 6px rgba(230, 126, 34, 0.25);
+  --filter-chip-text-selected: #012E46;
+  --filter-chip-selected-shadow: 0 2px 6px rgba(243, 133, 37, 0.25);
 }
 .pp-filter-panel .filter-chip:focus-visible {
   box-shadow: 0 0 0 4px rgba(198, 63, 29, 0.25);
@@ -688,121 +708,129 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    do creme/off-white que destoava — harmonizando com a paleta oficial em TODAS
    as telas do admin de uma vez. */
 [data-theme="light"].pp-admin-module .tema-claro-area .hover\:bg-\[var\(--pp-bg\)\]:hover {
-  background-color: rgba(15, 76, 92, 0.06) !important;
+  background-color: rgba(1, 46, 70, 0.06) !important;
 }
 /* ══════════════════════════════════════════════════════════════════
    PAINEL ADMINISTRATIVO — cor de AÇÃO = AZUL PETRÓLEO (não laranja)
    (skill admin-acao-petroleo). Escopo ESTRITO a .pp-admin-module: só o
    painel administrativo troca o laranja de ação pelo azul petróleo
-   (#0F4C5C) com texto/ícone BRANCO. Cardápio do cliente, tablet, PDV e
+   (#012E46) com texto/ícone BRANCO. Cardápio do cliente, tablet, PDV e
    cozinha continuam com o laranja "gourmet" da marca (ficam fora deste
    seletor). UM único lugar governa TODOS os botões/chips/ícones de ação
    do admin. Verde (sucesso), vermelho (erro), âmbar (aviso) e o laranja
-   de DESTAQUE de dados (--pp-destaque #F2994A) NÃO são tocados — mantêm
+   de DESTAQUE de dados (--pp-destaque #F38525) NÃO são tocados — mantêm
    a semântica. */
 [data-theme="light"].pp-admin-module .tema-claro-area {
   /* tokens de ação/CTA → petróleo. FilterChip, .btn-laranja (via var) e todo
      uso de var(--pp-primary*) herdam o petróleo dentro do admin. */
-  --pp-primary: #0F4C5C;
-  --pp-primary-hover: #0B3A46;
-  --pp-primary-soft: rgba(15, 76, 92, 0.08);
-  --pp-primary-text: #0F4C5C;
-  --filter-chip-selected: #0F4C5C;
-  --filter-chip-selected-hover: #0B3A46;
-  --filter-chip-hover-bg: rgba(15, 76, 92, 0.06);
-  --filter-chip-selected-shadow: 0 2px 6px rgba(15, 76, 92, 0.22);
+  --pp-primary: #012E46;
+  --pp-primary-hover: #012E46;
+  --pp-primary-soft: rgba(1, 46, 70, 0.08);
+  --pp-primary-text: #012E46;
+  --filter-chip-selected: #012E46;
+  --filter-chip-selected-hover: #012E46;
+  --filter-chip-hover-bg: rgba(1, 46, 70, 0.06);
+  --filter-chip-selected-shadow: 0 2px 6px rgba(1, 46, 70, 0.22);
+  --filter-chip-text-selected: #FFFFFF;
 }
 /* Preenchimento SÓLIDO laranja (botões de ação) → petróleo sólido. O `~=`
    casa a classe INTEIRA (token separado por espaço), então NÃO pega as
-   variantes com opacidade (bg-[#E67E22]/10) — fundos suaves, tratados
+   variantes com opacidade (bg-[#F38525]/10) — fundos suaves, tratados
    abaixo. O texto branco desses botões é preservado pela exceção já
    existente ([class*="bg-[#"].text-white → mantém branco). */
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#E67E22]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#D06E1A]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#EC8B3E]"] {
-  background-color: #0F4C5C !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] {
+  background-color: #012E46 !important;
   background-image: none !important;
 }
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="hover:bg-[#D06E1A]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="hover:bg-[#E67E22]"]:hover {
-  background-color: #0B3A46 !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="hover:bg-[#F38525]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="hover:bg-[#F38525]"]:hover {
+  background-color: #012E46 !important;
   background-image: none !important;
 }
 /* Preenchimento SUAVE laranja (tiles de ícone, chips, cards de atenção) →
-   petróleo suave. Casa as formas com opacidade (…]/NN) e rgba(230,126,34,·). */
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="bg-[#E67E22]/"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="bg-[rgba(230,126,34"] {
-  background-color: rgba(15, 76, 92, 0.10) !important;
+   petróleo suave. Casa as formas com opacidade (…]/NN) e rgba(243, 133, 37,·). */
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="bg-[#F38525]/"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="bg-[rgba(243, 133, 37"] {
+  background-color: rgba(1, 46, 70, 0.10) !important;
 }
 /* Texto/ícone laranja → petróleo (família de laranjas de texto da marca). */
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#E67E22]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="text-[#E67E22]/"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#D06E1A]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#B4611A]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#A6540E]"] {
-  color: #0F4C5C !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="text-[#F38525]/"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"] {
+  color: #012E46 !important;
 }
 /* Bordas laranja → petróleo (contorno de botões/tiles/chips). */
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="border-[#E67E22]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="border-[#E67E22]/"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="border-[rgba(230,126,34"] {
-  border-color: rgba(15, 76, 92, 0.30) !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="border-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="border-[#F38525]/"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="border-[rgba(243, 133, 37"] {
+  border-color: rgba(1, 46, 70, 0.30) !important;
 }
 /* .btn-laranja usado DENTRO do admin (degradê hardcoded) → degradê petróleo. */
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja {
-  background-image: linear-gradient(180deg, #14606F 0%, #0F4C5C 100%) !important;
+  background-image: none !important;
+  background-color: #012E46 !important;
+  color: #FFFFFF !important;
 }
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja:hover:not(:disabled):not([aria-disabled="true"]) {
-  background-image: linear-gradient(180deg, #1A6E80 0%, #12586A 100%) !important;
+  background-image: none !important;
+  background-color: #012E46 !important;
+  opacity: 0.92;
 }
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja:active:not(:disabled):not([aria-disabled="true"]) {
   background-image: none !important;
-  background-color: #0B3A46 !important;
+  background-color: #012E46 !important;
+  filter: brightness(0.95);
 }
 /* Família de laranjas de TEXTO adicionais (burnt orange de rótulos/chips/status)
    → petróleo, no repouso. Assim "Aguard. pagamento", "Aberta" etc. deixam de
    sair em laranja. (Os pontos/selos semânticos verde/vermelho/âmbar seguem.) */
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#C2410C]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#B45309]"] {
-  color: #0F4C5C !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"] {
+  color: #012E46 !important;
 }
 /* Estados de HOVER laranja dentro do admin → petróleo — o hover NUNCA acende
    laranja (fundo, borda e texto). Fundo branco→texto petróleo; fundo petróleo
    →texto branco já vêm das regras de preenchimento acima. */
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[#E67E22]/"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[rgba(230,126,34"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[#F38525]/"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[rgba(243, 133, 37"]:hover,
 [data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:bg-[#FCEFE1"]:hover {
-  background-color: rgba(15, 76, 92, 0.08) !important;
+  background-color: rgba(1, 46, 70, 0.08) !important;
   background-image: none !important;
 }
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[#E67E22"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[rgba(230,126,34"]:hover {
-  border-color: rgba(15, 76, 92, 0.35) !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[#F38525"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[rgba(243, 133, 37"]:hover {
+  border-color: rgba(1, 46, 70, 0.35) !important;
 }
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#E67E22]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#D06E1A]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#C2410C]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#B45309]"]:hover {
-  color: #0F4C5C !important;
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover,
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#012E46]"]:hover {
+  color: #012E46 !important;
 }
 /* Painel de filtro (.pp-filter-panel) dentro do admin: a classe reescreve as
    vars do chip com um creme laranja no hover (#FCEFE1) e laranja no selecionado
    — aqui devolvemos TUDO para petróleo. Vence por ser mais específico e casar
    o próprio elemento do painel (onde a var é resolvida). */
 [data-theme="light"].pp-admin-module .tema-claro-area .pp-filter-panel {
-  --filter-chip-selected: #0F4C5C;
-  --filter-chip-selected-hover: #0B3A46;
-  --filter-chip-hover-bg: rgba(15, 76, 92, 0.06);
-  --filter-chip-selected-shadow: 0 2px 6px rgba(15, 76, 92, 0.22);
+  --filter-chip-selected: #012E46;
+  --filter-chip-selected-hover: #012E46;
+  --filter-chip-hover-bg: rgba(1, 46, 70, 0.06);
+  --filter-chip-selected-shadow: 0 2px 6px rgba(1, 46, 70, 0.22);
+  --filter-chip-text-selected: #FFFFFF;
 }
-/* Mesa OCUPADA: destaque proposital em LARANJA (status de atenção, como o
-   destaque de dados) — NÃO segue o petróleo de ação. Fundo laranja liso,
-   borda laranja, texto branco (spans internos já são text-white) e SEM
-   sombra/glow. A classe semântica .pp-mesa-ocupada fica ISENTA do remap. */
+/* Mesa OCUPADA: destaque em LARANJA oficial — texto/ícone petróleo. */
 [data-theme="light"].pp-admin-module .tema-claro-area .pp-mesa-ocupada {
-  background-color: #E67E22 !important;
-  border-color: #E67E22 !important;
+  background-color: #F38525 !important;
+  border-color: #F38525 !important;
+  color: #012E46 !important;
   box-shadow: none !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area .pp-mesa-ocupada .text-white {
+  color: #012E46 !important;
 }
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
@@ -810,7 +838,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-slate-950,
 [data-theme="light"] .tema-claro-area .bg-slate-900,
 [data-theme="light"] .tema-claro-area .bg-blue-950,
-[data-theme="light"] .tema-claro-area .bg-\[\#070B16\],
+[data-theme="light"] .tema-claro-area .bg-\[\#012E46\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0A1424\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0B0F1A\],
 [data-theme="light"] .tema-claro-area .bg-\[\#060912\],
@@ -969,7 +997,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 [data-theme="light"] .tema-claro-area .bg-green-500.text-white,
 [data-theme="light"] .tema-claro-area .bg-red-500.text-white { color: #FFFFFF !important; }
 /* PADRONIZAÇÃO de contraste: qualquer preenchimento SÓLIDO de cor via classe hex
-   (ex.: bg-[#0F4C5C] petróleo, bg-[#E67E22] laranja, bg-[#C81E4A] etc.) com
+   (ex.: bg-[#012E46] petróleo, bg-[#F38525] laranja, bg-[#C81E4A] etc.) com
    text-white DEVE manter o branco. Sem isto, o remap genérico .text-white→grafite
    escurecia o texto e criava "texto escuro sobre fundo escuro" (toggles ativos,
    selos, chips selecionados). Espelha a regra já usada para os fills --client-*.
@@ -990,13 +1018,21 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    de "Entrando…" — DEVE ser branco (contraste sobre o degradê; petróleo é escuro,
    grafite sobre ele some). Mesma especificidade do remap (0,3,0), depois → vence. */
 [data-theme="light"] .tema-claro-area .btn-laranja,
-[data-theme="light"] .tema-claro-area .btn-laranja-claro,
+[data-theme="light"] .tema-claro-area .btn-laranja-claro { color: #012E46 !important; }
+/* Fill laranja sólido (#F38525) → texto petróleo (paleta oficial). */
+[data-theme="light"] .tema-claro-area [class~="bg-[#F38525]"].text-white,
+[data-theme="light"] .tema-claro-area [class~="bg-[#F38525]"] .text-white {
+  color: #012E46 !important;
+}
+
 [data-theme="light"] .tema-claro-area .btn-verde,
 [data-theme="light"] .tema-claro-area .btn-petroleo { color: #FFFFFF !important; }
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro { color: #FFFFFF !important; }
 /* Linha de mesa OCUPADA: fundo laranja sólido + texto branco. A classe
    .pp-mesa-ocupada eleva a especificidade (0,4,0) para o texto branco vencer
    o remap, inclusive em filhos que não têm bg-[#…]. */
-[data-theme="light"] .tema-claro-area .pp-mesa-ocupada .text-white { color: #FFFFFF !important; }
+[data-theme="light"] .tema-claro-area .pp-mesa-ocupada .text-white { color: #012E46 !important; }
 /* Cardápio do cliente: preenchimentos coloridos (tokens --client-*) com texto
    branco DEVEM manter o branco. A regra genérica acima (.text-white -> grafite)
    existe para remapear telas admin de tema escuro, mas escurecia por engano o
@@ -1051,10 +1087,10 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 }
 .card-premium:hover { transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
 .button-primary {
-  background-color: #E67E22; color: #FFFFFF; border-radius: 12px; font-weight: 700;
+  background-color: #F38525; color: #FFFFFF; border-radius: 12px; font-weight: 700;
   transition: background-color .15s ease;
 }
-.button-primary:hover { background-color: #D06E1A; }
+.button-primary:hover { background-color: #F38525; }
 .button-secondary {
   background-color: #FFFFFF; color: #344054; border: 1px solid #D0D5DD; border-radius: 12px; font-weight: 700;
   transition: background-color .15s ease;
@@ -1065,7 +1101,7 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   width: 100%; background-color: #FFFFFF; border: 1px solid #D0D5DD; border-radius: 16px;
   padding: 12px 16px; color: #182230; outline: none; transition: border-color .15s ease, box-shadow .15s ease;
 }
-.input-premium:focus { border-color: #0F4C5C; box-shadow: 0 0 0 3px rgba(15,76,92,0.18); }
+.input-premium:focus { border-color: #012E46; box-shadow: 0 0 0 3px rgba(1, 46, 70,0.18); }
 .table-premium thead { background-color: #F9FAFB; color: #475467; }
 .table-premium tbody tr { border-bottom: 1px solid #E5E7EB; }
 .table-premium tbody tr:hover { background-color: #F9FAFB; }
@@ -1141,13 +1177,13 @@ html {
   text-size-adjust: 100%;
   /* Fundo escuro no <html> também: cobre a área da status bar (topo) no
      PWA Android/iOS, eliminando a borda/faixa branca acima do app. */
-  background-color: #070B16;
+  background-color: #012E46;
 }
 html, body, #root {
   height: 100%;
   min-height: 100vh;
   min-height: 100dvh;               /* altura real do viewport (mobile) */
-  background-color: #070B16;        /* garante fundo escuro de ponta a ponta */
+  background-color: #012E46;        /* garante fundo escuro de ponta a ponta */
   width: 100%;
   max-width: 100%;
   margin: 0;

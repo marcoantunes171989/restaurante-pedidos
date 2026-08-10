@@ -39,9 +39,9 @@ de terceiros, semântica regulatória) devem ser documentadas.
 ## Hexes legados (substituir)
 | Legado | Oficial |
 |---|---|
-| `#0F4C5C`, `#17667A`, `#2E5FA8` | `#012E46` |
-| `#E67E22`, `#D06E1A`, `#EC8B3E`, `#F2994A` | `#F38525` |
-| `#F8F6F2` como fundo de tela | `#FFFFFF` |
+| `#012E46`, `#012E46`, `#012E46` | `#012E46` |
+| `#F38525`, `#F38525`, `#F38525`, `#F38525` | `#F38525` |
+| `#FFFFFF` como fundo de tela | `#FFFFFF` |
 
 ## Tokens CSS sugeridos
 ```css

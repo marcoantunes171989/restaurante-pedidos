@@ -185,7 +185,7 @@ export default function ModalDividirConta({ total = 0, restante = 0, itens = [],
             <span className="text-lg font-black tabular-nums text-[var(--pp-text)]">{formatCurrency(valor)}</span>
           </div>
           {excede && (
-            <p className="rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2.5 py-1.5 text-[10px] font-semibold text-[#8D6708]">
+            <p className="rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2.5 py-1.5 text-[10px] font-semibold text-[#012E46]">
               O valor passa do que falta receber. Será lançado {formatCurrency(restante)}.
             </p>
           )}

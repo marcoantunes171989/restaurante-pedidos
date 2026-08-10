@@ -15,10 +15,10 @@ export default function Intelligence() {
         <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {INTELIGENCIA.map((c, i) => (
             <Reveal as="article" key={c.frase} delay={(i % 4) * 80}
-              className="group relative overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_14px_36px_-28px_rgba(28,20,15,0.25)] transition hover:-translate-y-1 hover:border-[#0F4C5C]/40">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#E67E22]/10 to-[#0F4C5C]/10 text-[var(--pp-primary-hover)]"><Icone nome={c.icon} className="h-5 w-5" /></span>
+              className="group relative overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_14px_36px_-28px_rgba(28,20,15,0.25)] transition hover:-translate-y-1 hover:border-[#012E46]/40">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#F38525]/10 to-[#012E46]/10 text-[var(--pp-primary-hover)]"><Icone nome={c.icon} className="h-5 w-5" /></span>
               <p className="mt-4 text-sm font-bold leading-6 text-[var(--pp-graphite)]">{c.frase}</p>
-              <span aria-hidden="true" className="absolute -bottom-6 -right-6 h-20 w-20 rounded-full bg-[radial-gradient(closest-side,rgba(230,126,34,0.08),transparent)] transition group-hover:scale-125" />
+              <span aria-hidden="true" className="absolute -bottom-6 -right-6 h-20 w-20 rounded-full bg-[radial-gradient(closest-side,rgba(243, 133, 37,0.08),transparent)] transition group-hover:scale-125" />
             </Reveal>
           ))}
         </div>

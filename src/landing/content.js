@@ -171,10 +171,10 @@ export const SEGMENTOS_EXTRA = ["Açaíteria", "Choperia", "Japonês", "Marmitar
 // mostram o FORMATO do painel real do sistema, não são métricas reais de
 // clientes. Cores decorativas (paleta oficial 2026 v2). ──
 export const INDICADORES_PAINEL = [
-  { label: "Faturamento", valor: "R$ 4.860", cor: "#E67E22" },
-  { label: "Ticket médio", valor: "R$ 42,90", cor: "#0F4C5C" },
+  { label: "Faturamento", valor: "R$ 4.860", cor: "#F38525" },
+  { label: "Ticket médio", valor: "R$ 42,90", cor: "#012E46" },
   { label: "Pedidos", valor: "138", cor: "#5B4F47" },
-  { label: "Clientes recorrentes", valor: "63%", cor: "#D06E1A" },
+  { label: "Clientes recorrentes", valor: "63%", cor: "#F38525" },
 ];
 export const RECURSOS_PAINEL = [
   "Faturamento", "Ticket médio", "Ranking de produtos", "Tempo médio de preparo",

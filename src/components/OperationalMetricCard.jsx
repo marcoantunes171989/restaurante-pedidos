@@ -49,7 +49,7 @@ const VARIANTS = {
     iconBg: "bg-[var(--op-nav-accent)]",
     iconColor: "text-white",
     ring: "border-t-2 border-t-[var(--op-nav-accent)]",
-    warmBg: "rgba(15, 76, 92, 0.045)",
+    warmBg: "rgba(1, 46, 70, 0.045)",
   },
 };
 

@@ -56,7 +56,7 @@ export default function LoginBrandPanel() {
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {ESTABELECIMENTOS.itens.map((e) => (
-                <span key={e.nome} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--login-border)] bg-[var(--login-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--login-text-primary)] shadow-[0_1px_2px_rgba(15,76,92,0.04)]">
+                <span key={e.nome} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--login-border)] bg-[var(--login-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--login-text-primary)] shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                   <span aria-hidden="true">{e.icon}</span>{e.nome}
                 </span>
               ))}

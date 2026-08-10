@@ -69,7 +69,7 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
               // "Prime" em laranja (só nesta tela) — mantém o resto no grafite.
               const t = FORM.titulo;
               const i = t.toLowerCase().lastIndexOf("prime");
-              return i === -1 ? t : <>{t.slice(0, i)}<span className="text-[#E67E22]">{t.slice(i)}</span></>;
+              return i === -1 ? t : <>{t.slice(0, i)}<span className="text-[#F38525]">{t.slice(i)}</span></>;
             })()}
           </h1>
           <p className="mt-1 text-[13px] text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>

@@ -193,11 +193,11 @@ export function montarFilasImpressaoPedido(pedido, ctx = {}, origem = "sistema")
 
 export function rotuloStatusImpressao(status) {
   const mapa = {
-    pendente: { label: "Pendente", chip: "bg-[#FBEFC4] text-[#8D6708]" },
+    pendente: { label: "Pendente", chip: "bg-[#FBEFC4] text-[#012E46]" },
     impresso: { label: "Impresso", chip: "bg-[#DFF3E6] text-[#1F7A3D]" },
     erro: { label: "Erro", chip: "bg-[#FDE8E8] text-[#B42318]" },
     cancelado: { label: "Cancelado", chip: "bg-[#EDF0F4] text-[#52606D]" },
-    reimpresso: { label: "Reimpresso", chip: "bg-[#E0F0F4] text-[#0F4C5C]" },
+    reimpresso: { label: "Reimpresso", chip: "bg-[#E0F0F4] text-[#012E46]" },
   };
   return mapa[status] || { label: status || "—", chip: "bg-[#EDF0F4] text-[#52606D]" };
 }

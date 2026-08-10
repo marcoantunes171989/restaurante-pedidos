@@ -19,7 +19,7 @@ function numeroDoCodigo(codigo = "") {
 async function gerarQR(texto, densidade = "alta") {
   return QRCode.toDataURL(texto, {
     width: densidade === "alta" ? 420 : 300, margin: 1,
-    color: { dark: "#0F4C5C", light: "#ffffff" },
+    color: { dark: "#012E46", light: "#ffffff" },
     errorCorrectionLevel: densidade === "alta" ? "H" : "M",
   });
 }
@@ -33,13 +33,13 @@ const chaveModelo = (lojaId) => `pp_modelo_comanda_${lojaId || "default"}`;
 
 // ── Controles reutilizáveis (tema claro do painel) ────────────
 const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]";
-const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#E67E22] placeholder:text-[var(--pp-text-muted)]";
+const inp = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#F38525] placeholder:text-[var(--pp-text-muted)]";
 
 function Switch({ ligado, onChange, label }) {
   return (
     <button type="button" role="switch" aria-checked={ligado} onClick={() => onChange(!ligado)}
       className="flex items-center gap-2.5 text-sm font-semibold text-dash-navy">
-      <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${ligado ? "bg-[#E67E22]" : "bg-[var(--pp-border)]"}`}>
+      <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${ligado ? "bg-[#F38525]" : "bg-[var(--pp-border)]"}`}>
         <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${ligado ? "translate-x-5" : "translate-x-0.5"}`} />
       </span>
       {label}
@@ -50,7 +50,7 @@ function Switch({ ligado, onChange, label }) {
 function SecaoTitulo({ n, children }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0F4C5C] text-xs font-black text-white">{n}</span>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#012E46] text-xs font-black text-white">{n}</span>
       <h4 className="text-base font-black text-dash-navy">{children}</h4>
     </div>
   );
@@ -81,18 +81,18 @@ export function GeradorComandas({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-2xl font-bold tracking-tight text-dash-navy">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-5 [&>svg]:w-5"><IconQr /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-5 [&>svg]:w-5"><IconQr /></span>
             Comandas QR — uso local nas mesas
           </h2>
           <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Gere e imprima as comandas físicas das mesas. No atendimento, o tablet escaneia o QR da comanda para abrir o pedido.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setAba("gerar")}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === "gerar" ? "bg-[#0F4C5C] text-white shadow-sm" : "border border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === "gerar" ? "bg-[#012E46] text-white shadow-sm" : "border border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>
             <IconQr /> Gerar comandas
           </button>
           <button onClick={() => setAba("visualizar")}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === "visualizar" ? "bg-[#0F4C5C] text-white shadow-sm" : "border border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>
+            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${aba === "visualizar" ? "bg-[#012E46] text-white shadow-sm" : "border border-[var(--pp-border)] bg-white text-dash-navy hover:bg-[var(--pp-bg)]"}`}>
             <IconRecibo /> Visualizar comandas ({comandasRegistradas.length})
           </button>
         </div>
@@ -247,10 +247,10 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
 
   const codigoExemplo = gerarCodigo(prefixo || "CMD", inicio);
   const KPI_CARDS = [
-    { rot: "Total de comandas geradas", val: kpis.total, sub: "registradas nesta empresa", cor: "#0F4C5C", Icone: IconComanda, mono: false },
-    { rot: "Faixa numérica atual", val: kpis.faixa, sub: `Próximo: ${kpis.proximo}`, cor: "#0F4C5C", Icone: IconRecibo, mono: true },
+    { rot: "Total de comandas geradas", val: kpis.total, sub: "registradas nesta empresa", cor: "#012E46", Icone: IconComanda, mono: false },
+    { rot: "Faixa numérica atual", val: kpis.faixa, sub: `Próximo: ${kpis.proximo}`, cor: "#012E46", Icone: IconRecibo, mono: true },
     { rot: "Comandas ativas", val: kpis.ativas, sub: kpis.inativas > 0 ? `${kpis.inativas} inativa(s)` : "todas ativas", cor: "#5E8C31", Icone: IconCheck, mono: false },
-    { rot: "Prontas para impressão", val: comandas.length, sub: comandas.length ? "comandas neste lote" : "gere um lote", cor: "#E67E22", Icone: IconImpressora, mono: false },
+    { rot: "Prontas para impressão", val: comandas.length, sub: comandas.length ? "comandas neste lote" : "gere um lote", cor: "#F38525", Icone: IconImpressora, mono: false },
   ];
   const PASSOS = [
     { n: "1", Icone: IconImpressora, t: "Gere e imprima", d: "Crie as comandas com a identidade da empresa e imprima." },
@@ -264,7 +264,7 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
       <div className="grid gap-2 rounded-2xl border border-[var(--pp-border)] bg-white p-3 sm:grid-cols-3 sm:items-stretch">
         {PASSOS.map((p, i) => (
           <div key={p.n} className="relative flex items-start gap-3 rounded-xl px-3 py-2.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--pp-bg)] text-[#0F4C5C] [&>svg]:h-5 [&>svg]:w-5"><p.Icone /></span>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--pp-bg)] text-[#012E46] [&>svg]:h-5 [&>svg]:w-5"><p.Icone /></span>
             <div className="min-w-0">
               <p className="text-sm font-black text-dash-navy">{p.n}. {p.t}</p>
               <p className="mt-0.5 text-[12px] leading-snug text-[var(--pp-text-muted)]">{p.d}</p>
@@ -275,13 +275,13 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
       </div>
 
       {/* Banner — link do cardápio externo */}
-      <div className="flex flex-col gap-2 rounded-2xl border border-[#0F4C5C]/20 bg-[#0F4C5C]/[0.04] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-2xl border border-[#012E46]/20 bg-[#012E46]/[0.04] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-2">
-          <span className="mt-0.5 shrink-0 text-[#0F4C5C] [&>svg]:h-4 [&>svg]:w-4"><IconCardapio /></span>
+          <span className="mt-0.5 shrink-0 text-[#012E46] [&>svg]:h-4 [&>svg]:w-4"><IconCardapio /></span>
           <p className="text-sm text-dash-navy">Procurando o link do <b>cardápio digital do cliente</b> (externo)? Ele fica na tela <b>Cardápio externo</b>.</p>
         </div>
         {onIrCardapioExterno && (
-          <button onClick={onIrCardapioExterno} className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-[#0F4C5C] hover:underline">
+          <button onClick={onIrCardapioExterno} className="inline-flex shrink-0 items-center gap-1.5 text-sm font-bold text-[#012E46] hover:underline">
             Abrir Cardápio externo ↗
           </button>
         )}
@@ -322,7 +322,7 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)]">
                     {logoUrl ? <img src={logoUrl} alt="logo" className="h-full w-full object-contain p-1" onError={() => {}} /> : <span className="text-[var(--pp-text-muted)] [&>svg]:h-6 [&>svg]:w-6"><IconMesas /></span>}
-                    {uploadandoLogo && <div className="absolute inset-0 flex items-center justify-center bg-white/70"><span className="h-5 w-5 animate-spin rounded-full border-2 border-[#E67E22] border-t-transparent" /></div>}
+                    {uploadandoLogo && <div className="absolute inset-0 flex items-center justify-center bg-white/70"><span className="h-5 w-5 animate-spin rounded-full border-2 border-[#F38525] border-t-transparent" /></div>}
                   </div>
                   <div className="flex flex-1 flex-col gap-2">
                     <input ref={fileLogoRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={importarLogo} />
@@ -376,8 +376,8 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
                 </select>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 rounded-xl border border-[#E67E22]/25 bg-[#E67E22]/[0.06] px-4 py-2.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#E67E22]/15 text-[#E67E22] [&>svg]:h-4 [&>svg]:w-4"><IconRecibo /></span>
+            <div className="flex items-center gap-2.5 rounded-xl border border-[#F38525]/25 bg-[#F38525]/[0.06] px-4 py-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#F38525]/15 text-[#F38525] [&>svg]:h-4 [&>svg]:w-4"><IconRecibo /></span>
               <div className="min-w-0">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Resumo automático deste lote</p>
                 <p className="truncate font-mono text-sm font-black text-dash-navy">{codigoExemplo} até {gerarCodigo(prefixo || "CMD", inicio + quantidade - 1)}</p>
@@ -434,7 +434,7 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
         <div className="space-y-4">
           <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="flex items-center gap-2 text-sm font-black text-dash-navy"><span className="text-[#0F4C5C] [&>svg]:h-4 [&>svg]:w-4"><IconBusca /></span> Pré-visualização em tempo real</p>
+              <p className="flex items-center gap-2 text-sm font-black text-dash-navy"><span className="text-[#012E46] [&>svg]:h-4 [&>svg]:w-4"><IconBusca /></span> Pré-visualização em tempo real</p>
               <select value={verPreview} onChange={(e) => setVerPreview(e.target.value)} className="rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1.5 text-xs font-bold text-dash-navy outline-none">
                 <option value="frente">Ver frente</option>
                 <option value="verso">Ver verso</option>
@@ -442,8 +442,8 @@ function PainelGerar({ prefixoLoja, empresa, onGerar, lojaId, logoSalvo = "", on
             </div>
 
             {/* Card modelo */}
-            <div className="mx-auto w-full max-w-[240px] overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-[0_8px_24px_rgba(15,76,92,0.12)]">
-              <div className="h-1.5 w-full bg-[#0F4C5C]" />
+            <div className="mx-auto w-full max-w-[240px] overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-[0_8px_24px_rgba(1, 46, 70,0.12)]">
+              <div className="h-1.5 w-full bg-[#012E46]" />
               {verPreview === "frente" ? (
                 <div className="flex flex-col items-center px-4 pb-4 pt-3 text-center">
                   {mostrarLogo && logoUrl ? <img src={logoUrl} alt="logo" className="mb-1 h-11 w-11 rounded-lg object-contain" /> : null}
@@ -575,7 +575,7 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
           <h3 className="text-lg font-black text-dash-navy">Comandas registradas</h3>
           <p className="mt-0.5 text-sm text-[var(--pp-text-muted)]">
             {comandasRegistradas.length} comanda(s) gerada(s) nesta empresa.
-            {totalSel > 0 && <span className="ml-2 font-bold text-[#C2410C]">{totalSel} selecionada(s)</span>}
+            {totalSel > 0 && <span className="ml-2 font-bold text-[#F38525]">{totalSel} selecionada(s)</span>}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -607,7 +607,7 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
         {filtradas.length > 0 && (
           <>
             <div className="mb-3 flex items-center gap-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5">
-              <input type="checkbox" checked={selecionadas.size === filtradas.length && filtradas.length > 0} onChange={toggleTodos} className="h-4 w-4 accent-[#E67E22]" />
+              <input type="checkbox" checked={selecionadas.size === filtradas.length && filtradas.length > 0} onChange={toggleTodos} className="h-4 w-4 accent-[#F38525]" />
               <span className="text-xs font-bold text-[var(--pp-text-muted)]">{selecionadas.size === filtradas.length ? "Desmarcar todas" : `Selecionar todas (${filtradas.length})`}</span>
             </div>
 
@@ -617,20 +617,20 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
                 const qr  = qrCache[c.codigo];
                 return (
                   <div key={c.codigo} onClick={() => toggleSel(c.codigo)}
-                    className={`group cursor-pointer rounded-xl border p-3 transition ${sel ? "border-[#E67E22]/60 bg-[#E67E22]/[0.06]" : "border-[var(--pp-border)] bg-white hover:bg-[var(--pp-bg)]"}`}>
+                    className={`group cursor-pointer rounded-xl border p-3 transition ${sel ? "border-[#F38525]/60 bg-[#F38525]/[0.06]" : "border-[var(--pp-border)] bg-white hover:bg-[var(--pp-bg)]"}`}>
                     <div className="flex items-center gap-3">
-                      <input type="checkbox" checked={sel} onChange={() => toggleSel(c.codigo)} onClick={(e) => e.stopPropagation()} className="h-4 w-4 shrink-0 accent-[#E67E22]" />
+                      <input type="checkbox" checked={sel} onChange={() => toggleSel(c.codigo)} onClick={(e) => e.stopPropagation()} className="h-4 w-4 shrink-0 accent-[#F38525]" />
                       <div className="min-w-0 flex-1">
                         <div className="relative mb-1 inline-block">
                           {qr ? <img src={qr} alt={c.codigo} className={`h-16 w-16 rounded-lg border border-[var(--pp-border)] bg-white p-0.5 ${c.ativo === false ? "opacity-40 grayscale" : ""}`} />
                               : <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[10px] text-[var(--pp-text-muted)]">QR</div>}
                           {c.ativo === false && <span className="absolute -bottom-1 left-0 right-0 rounded-full bg-[var(--pp-text-muted)] px-1 py-0.5 text-center text-[9px] font-black text-white">INATIVA</span>}
-                          {temHistorico(c.codigo) && <span title={`${pedidosDaComanda(c.codigo).length} pedido(s)`} className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#E67E22] text-[9px] font-black text-white">{pedidosDaComanda(c.codigo).length}</span>}
+                          {temHistorico(c.codigo) && <span title={`${pedidosDaComanda(c.codigo).length} pedido(s)`} className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#F38525] text-[9px] font-black text-[#012E46]">{pedidosDaComanda(c.codigo).length}</span>}
                         </div>
                         <p className={`font-mono text-xs font-black ${c.ativo === false ? "text-[var(--pp-text-muted)] line-through" : "text-dash-navy"}`}>{c.codigo}</p>
                       </div>
                       <div className="flex shrink-0 flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => reimprimirUma(c.codigo)} title="Reimprimir esta comanda" className="rounded-lg border border-[var(--pp-border)] bg-white p-2 text-[#0F4C5C] transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><IconImpressora /></button>
+                        <button onClick={() => reimprimirUma(c.codigo)} title="Reimprimir esta comanda" className="rounded-lg border border-[var(--pp-border)] bg-white p-2 text-[#012E46] transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><IconImpressora /></button>
                         <button onClick={() => setEditando(c)} title="Editar código" className="rounded-lg border border-[var(--pp-border)] bg-white p-2 text-dash-navy transition hover:bg-[var(--pp-bg)] text-xs font-black">✎</button>
                         {onToggle && (
                           <button onClick={() => onToggle(c.codigo, c.ativo === false ? true : false)} title={c.ativo === false ? "Reativar comanda" : "Inativar comanda"}
@@ -678,17 +678,17 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
       {/* Modal bloqueio: comanda com histórico */}
       {bloqueioExcluir && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(33,24,20,0.4)] p-4 backdrop-blur-sm" onClick={() => setBloqueioExcluir(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-2xl border border-[#E67E22]/30 bg-white shadow-xl">
-            <div className="flex items-center gap-3 border-b border-[#E67E22]/20 bg-[#E67E22]/[0.06] px-6 py-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E67E22]/15 text-[#C2410C] [&>svg]:h-5 [&>svg]:w-5"><IconComanda /></span>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-2xl border border-[#F38525]/30 bg-white shadow-xl">
+            <div className="flex items-center gap-3 border-b border-[#F38525]/20 bg-[#F38525]/[0.06] px-6 py-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F38525]/15 text-[#F38525] [&>svg]:h-5 [&>svg]:w-5"><IconComanda /></span>
               <div>
                 <h2 className="text-base font-black text-dash-navy">Comanda com histórico de pedidos</h2>
-                <p className="text-xs text-[#B45309]">Exclusão bloqueada para preservar as referências</p>
+                <p className="text-xs text-[#012E46]">Exclusão bloqueada para preservar as referências</p>
               </div>
             </div>
             <div className="space-y-4 px-6 py-5">
               <p className="text-sm text-dash-navy">
-                A comanda <span className="font-mono font-black text-[#C2410C]">{bloqueioExcluir.codigo}</span> possui{" "}
+                A comanda <span className="font-mono font-black text-[#F38525]">{bloqueioExcluir.codigo}</span> possui{" "}
                 <span className="font-black">{pedidosDaComanda(bloqueioExcluir.codigo).length} pedido(s)</span> registrado(s). Excluí-la quebraria o histórico financeiro e de pedidos.
               </p>
               <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
@@ -697,20 +697,20 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
                   <div key={o.id} className="flex items-center justify-between gap-2 text-xs">
                     <span className="font-mono text-dash-navy">{o.id}</span>
                     <span className="text-[var(--pp-text-muted)]">{o.table} · {o.createdAt}</span>
-                    <span className={`rounded-full px-2 py-0.5 font-black ${o.paymentStatus === "paid" ? "bg-[#5E8C31]/15 text-[#3F6021]" : "bg-[#E67E22]/15 text-[#C2410C]"}`}>{o.paymentStatus === "paid" ? "Pago" : "Em aberto"}</span>
+                    <span className={`rounded-full px-2 py-0.5 font-black ${o.paymentStatus === "paid" ? "bg-[#5E8C31]/15 text-[#3F6021]" : "bg-[#F38525]/15 text-[#F38525]"}`}>{o.paymentStatus === "paid" ? "Pago" : "Em aberto"}</span>
                   </div>
                 ))}
                 {pedidosDaComanda(bloqueioExcluir.codigo).length > 10 && <p className="text-center text-xs text-[var(--pp-text-muted)]">+ {pedidosDaComanda(bloqueioExcluir.codigo).length - 10} pedido(s)</p>}
               </div>
-              <div className="rounded-xl border border-[#0F4C5C]/20 bg-[#0F4C5C]/[0.05] px-4 py-3">
-                <p className="text-xs font-bold text-[#0F4C5C]">Recomendação</p>
+              <div className="rounded-xl border border-[#012E46]/20 bg-[#012E46]/[0.05] px-4 py-3">
+                <p className="text-xs font-bold text-[#012E46]">Recomendação</p>
                 <p className="mt-0.5 text-xs text-dash-navy">Inative a comanda para que ela não aceite novos pedidos, mantendo o histórico intacto. Você pode reativá-la a qualquer momento.</p>
               </div>
             </div>
             <div className="flex gap-2 border-t border-[var(--pp-border)] px-6 py-4">
               <button onClick={() => setBloqueioExcluir(null)} className="flex-1 rounded-xl border border-[var(--pp-border)] bg-white py-3 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)]">Cancelar</button>
               {onToggle && bloqueioExcluir.ativo !== false && (
-                <button onClick={async () => { await onToggle?.(bloqueioExcluir.codigo, false); setBloqueioExcluir(null); }} className="flex-[1.5] rounded-xl bg-[#E67E22] py-3 text-sm font-black text-white transition hover:opacity-90">⏸ Inativar comanda</button>
+                <button onClick={async () => { await onToggle?.(bloqueioExcluir.codigo, false); setBloqueioExcluir(null); }} className="flex-[1.5] rounded-xl bg-[#F38525] py-3 text-sm font-black text-[#012E46] transition hover:opacity-90">⏸ Inativar comanda</button>
               )}
               {onToggle && bloqueioExcluir.ativo === false && (
                 <button onClick={async () => { await onToggle?.(bloqueioExcluir.codigo, true); setBloqueioExcluir(null); }} className="flex-[1.5] rounded-xl bg-[#5E8C31] py-3 text-sm font-black text-white transition hover:opacity-90">▶ Reativar comanda</button>
@@ -727,7 +727,7 @@ function PainelVisualizar({ comandasRegistradas, orders, empresa, prefixoLoja, o
 function ModalEditarComanda({ comanda, prefixoLoja, onSalvar, onFechar }) {
   const [codigo, setCodigo] = useState(comanda.codigo);
   const [qr, setQr]         = useState("");
-  const campo = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 font-mono text-lg font-black tracking-widest text-dash-navy outline-none transition focus:border-[#E67E22]";
+  const campo = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 font-mono text-lg font-black tracking-widest text-dash-navy outline-none transition focus:border-[#F38525]";
   const alterado = codigo.trim().toUpperCase() !== comanda.codigo;
   const valido   = /^[A-Z]{2,5}-\d{1,6}$/.test(codigo.trim().toUpperCase());
 
@@ -748,7 +748,7 @@ function ModalEditarComanda({ comanda, prefixoLoja, onSalvar, onFechar }) {
           <div>
             <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Novo código *</p>
             <input value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} placeholder={`Ex.: ${prefixoLoja}-000001`} className={campo} />
-            {!valido && codigo.trim() && <p className="mt-1 text-xs text-[#C2410C]">Formato: PREFIXO-NNNNNN (ex.: {prefixoLoja}-000001)</p>}
+            {!valido && codigo.trim() && <p className="mt-1 text-xs text-[#F38525]">Formato: PREFIXO-NNNNNN (ex.: {prefixoLoja}-000001)</p>}
           </div>
           {qr && valido && (
             <div className="flex items-center gap-4 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
@@ -793,10 +793,10 @@ function imprimirComandas(comandas, opts = {}) {
   <title>Comandas — ${esc(nomeEmpresa)}</title>
   <style>
     ${pageCss}*{box-sizing:border-box;margin:0;padding:0}
-    body{background:#fff;font-family:'Segoe UI',Arial,sans-serif;color:#0F4C5C}
+    body{background:#fff;font-family:'Segoe UI',Arial,sans-serif;color:#012E46}
     .grade{display:grid;grid-template-columns:repeat(${cols},1fr);gap:${layout === "compacto" ? 6 : 8}px}
     .card{position:relative;border:1.5px dashed #cbd5e1;border-radius:14px;padding:${pad}px 10px ${pad - 2}px;display:flex;flex-direction:column;align-items:center;text-align:center;break-inside:avoid;page-break-inside:avoid;overflow:hidden}
-    .card::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:#0F4C5C}
+    .card::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:#012E46}
     .top{display:flex;flex-direction:column;align-items:center;margin-top:4px}
     .logo{width:44px;height:44px;object-fit:contain;border-radius:10px;margin-bottom:4px}
     .emp{font-size:15px;font-weight:800;letter-spacing:.3px;line-height:1.1;color:#2D3436}

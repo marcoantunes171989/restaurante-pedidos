@@ -19,7 +19,7 @@ const FILTER_CHIP_SIZES = {
 // texto já diferencia a opção). Usadas por grupos como "Status" (pago/aberto/
 // cancelado) via a prop `tone`. Não alteram o fundo azul de "selecionado".
 const FILTER_CHIP_TONES = {
-  success: "#16A34A", warning: "#D97706", error: "#DC2626", info: "#7C3AED",
+  success: "#16A34A", warning: "#F38525", error: "#DC2626", info: "#7C3AED",
 };
 export const FilterChip = memo(function FilterChip({
   selected = false, disabled = false, icon = null, label, badge = null, loading = false,
@@ -63,7 +63,7 @@ export const FilterChip = memo(function FilterChip({
 // linha de FilterChip. Substitui implementações ad-hoc (divs soltas sem
 // título/card, ou botões próprios) — nenhuma tela deve estilizar isso por
 // conta própria. Aplica a paleta azul oficial de filtro (fundo branco,
-// selecionado #0F4C5C) via a classe `pp-filter-panel` (src/index.css),
+// selecionado #012E46) via a classe `pp-filter-panel` (src/index.css),
 // sem afetar outros usos de FilterChip (permissões, config, templates
 // etc.), que continuam com a cor vermelha padrão do sistema.
 const CHECK_ICON = (
@@ -79,7 +79,7 @@ export const FilterGroup = memo(function FilterGroup({
           e padronizado — mesmo formato em Turno/Canal/Status). */}
       <div className="flex items-center gap-2.5">
         {icone && (
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(15,76,92,0.08)] text-[#0F4C5C] [&>svg]:h-[18px] [&>svg]:w-[18px]" aria-hidden="true">{icone}</span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[rgba(1, 46, 70,0.08)] text-[#012E46] [&>svg]:h-[18px] [&>svg]:w-[18px]" aria-hidden="true">{icone}</span>
         )}
         <div className="min-w-0">
           <p className="text-[12px] font-semibold uppercase tracking-wide leading-tight text-[var(--pp-text)]">{titulo}</p>
@@ -124,7 +124,7 @@ export function ActiveFiltersSummary({ grupos, onClearAll, className = "" }) {
         {ativos.length} {ativos.length === 1 ? "filtro ativo" : "filtros ativos"}
       </span>
       <button type="button" onClick={onClearAll}
-        className="text-xs font-bold text-[#0F4C5C] transition hover:text-[#0B3A46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F4C5C]">
+        className="text-xs font-bold text-[#012E46] transition hover:text-[#012E46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46]">
         Limpar filtros
       </button>
     </div>
@@ -134,11 +134,11 @@ export function ActiveFiltersSummary({ grupos, onClearAll, className = "" }) {
 // Cabeçalho de página: título (Sora), descrição curta, indicadores e ação principal
 export function PageHeader({ icone = null, titulo, descricao, indicadores = [], acao = null }) {
   return (
-    <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(15,76,92,0.05)]">
+    <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
-            {icone && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E67E22]/30 bg-[#E67E22]/10 text-[#E67E22] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
+            {icone && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
             {titulo}
           </h3>
           {descricao && <p className="mt-1 text-sm leading-6 text-[var(--pp-text-muted)]">{descricao}</p>}
@@ -150,7 +150,7 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
           {indicadores.map((ind, i) => (
             <span key={i} className="flex items-center gap-2">
               {i > 0 && <span className="text-[var(--pp-border)]">|</span>}
-              <span className={`text-xs font-semibold ${ind.tom === "ok" ? "text-[#2F9E52]" : ind.tom === "alerta" ? "text-[#E67E22]" : ind.tom === "erro" ? "text-[#C81E4A]" : ind.tom === "gold" ? "text-[#E67E22]" : "text-[var(--pp-text-muted)]"}`}>
+              <span className={`text-xs font-semibold ${ind.tom === "ok" ? "text-[#2F9E52]" : ind.tom === "alerta" ? "text-[#F38525]" : ind.tom === "erro" ? "text-[#C81E4A]" : ind.tom === "gold" ? "text-[#F38525]" : "text-[var(--pp-text-muted)]"}`}>
                 <b className="font-bold text-[var(--pp-text)]">{ind.valor}</b> {ind.rotulo}
               </span>
             </span>
@@ -168,9 +168,9 @@ export function PrimeButton({ children, onClick, variante = "blue", className = 
   // Botão de ação padrão (skill botao-acao-padrao): laranja liso, SEM sombra/glow,
   // fonte no padrão do sistema (13px, semibold). A ênfase vem da cor, não da sombra.
   const estilos = {
-    blue: "bg-[#E67E22] text-white hover:bg-[#D06E1A]",
-    gold: "bg-[#E67E22] text-white hover:bg-[#D06E1A]",
-    ghost: "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(15,76,92,0.04)]",
+    blue: "bg-[#F38525] text-[#012E46] hover:bg-[#F38525]",
+    gold: "bg-[#F38525] text-[#012E46] hover:bg-[#F38525]",
+    ghost: "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(1, 46, 70,0.04)]",
     danger: "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] hover:bg-[rgba(200,30,74,0.08)]",
   };
   return (

@@ -8,8 +8,8 @@ const doc = new PDFDocument({ size: "A4", margin: 50, bufferPages: true });
 doc.pipe(fs.createWriteStream(OUT));
 
 // Paleta
-const AZUL = "#2563eb", ESCURO = "#0f172a", CINZA = "#475569",
-      VERDE = "#059669", ROXO = "#7c3aed", CLARO = "#f1f5f9", AMBAR = "#b45309";
+const AZUL = "#012e46", ESCURO = "#0f172a", CINZA = "#475569",
+      VERDE = "#059669", ROXO = "#7c3aed", CLARO = "#f1f5f9", AMBAR = "#012e46";
 
 const W = doc.page.width, M = doc.page.margins.left, CW = W - M * 2;
 
@@ -102,7 +102,7 @@ h2("Perfis de acesso");
   doc.fillColor(CINZA).font("Helvetica").text(d); doc.moveDown(0.15);
 });
 doc.moveDown(0.3);
-caixa("Dica: cada empresa gera comandas com suas próprias iniciais (ex.: PIZ-000001). O sistema valida a comanda — uma comanda de outra empresa é recusada automaticamente.", "#eff6ff", "#1e40af");
+caixa("Dica: cada empresa gera comandas com suas próprias iniciais (ex.: PIZ-000001). O sistema valida a comanda — uma comanda de outra empresa é recusada automaticamente.", "#eff6ff", "#012e46");
 
 // ---------- TELAS DO SISTEMA (galeria) ----------
 doc.addPage();

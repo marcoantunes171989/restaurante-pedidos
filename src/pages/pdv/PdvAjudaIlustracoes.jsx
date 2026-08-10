@@ -101,7 +101,7 @@ function IncluirProduto() {
       <div className="flex h-9 items-center justify-center gap-1 rounded-xl bg-[var(--pp-primary)] text-[11px] font-black text-white shadow-sm">
         + Incluir produto
       </div>
-      <div className="rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2 py-1.5 text-[9px] font-semibold text-[#8D6708]">
+      <div className="rounded-lg border border-[#F5DFA3] bg-[#FFFBEB] px-2 py-1.5 text-[9px] font-semibold text-[#012E46]">
         Comprovante emitido — informe a comanda do cliente.
       </div>
       <div className="rounded-lg border border-[var(--pp-border)] bg-[var(--pp-surface)] px-2 py-1.5">
@@ -170,7 +170,7 @@ function Cupom() {
         <span className="shrink-0 text-[10px] font-black text-[#1F7A3D]">−R$ 11,99</span>
       </div>
       <div className="grid grid-cols-2 gap-1">
-        <p className="rounded border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[8px] font-bold text-[#8D6708]">Fora do prazo</p>
+        <p className="rounded border border-[#F5DFA3] bg-[#FFFBEB] px-1.5 py-1 text-[8px] font-bold text-[#012E46]">Fora do prazo</p>
         <p className="rounded border border-[var(--pp-danger)]/25 bg-[var(--pp-danger-soft)] px-1.5 py-1 text-[8px] font-bold text-[var(--pp-danger)]">Quantidade esgotada</p>
       </div>
     </div>
