@@ -52,12 +52,12 @@ export default function PlanosSection() {
                   <Icone className="h-5 w-5" />
                 </span>
                 <h3 className="mt-4 text-xl font-bold text-[#012E46]">{p.nome}</h3>
-                <p className="mt-1 min-h-[3.25rem] text-sm leading-6 text-[#5B4F47]">{p.desc}</p>
+                <p className="mt-1 min-h-[3.25rem] text-sm leading-6 text-[#012E46]/70">{p.desc}</p>
                 <p className="mt-4 flex items-baseline gap-1">
                   {p.preco ? (
                     <>
                       <span className="text-3xl font-black text-[#012E46]">R$ {p.preco}</span>
-                      <span className="text-sm text-[#5B4F47]">{p.periodo}</span>
+                      <span className="text-sm text-[#012E46]/65">{p.periodo}</span>
                     </>
                   ) : (
                     <span className="text-2xl font-black text-[#012E46]">{p.precoTexto}</span>
@@ -70,7 +70,7 @@ export default function PlanosSection() {
                     </li>
                   ))}
                   {p.recursos.length > 5 ? (
-                    <li className="pl-6 text-xs font-semibold text-[#5B4F47]">
+                    <li className="pl-6 text-xs font-semibold text-[#012E46]/65">
                       + {p.recursos.length - 5} recurso(s)
                     </li>
                   ) : null}
@@ -86,7 +86,7 @@ export default function PlanosSection() {
             );
           })}
         </div>
-        <Reveal className="mt-8 text-center text-xs text-[#5B4F47]">
+        <Reveal className="mt-8 text-center text-xs text-[#012E46]/65">
           * Valores mensais de referência — recursos e condições podem variar conforme o plano e o porte da operação.
         </Reveal>
       </div>

@@ -11,7 +11,7 @@ const ICONS = {
 
 export default function DevicesSection() {
   return (
-    <section id="dispositivos" className="section scroll-mt-24 bg-[#F7F5F2]">
+    <section id="dispositivos" className="section scroll-mt-24 bg-[#EEEEEE]">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         <SectionHeading
           badge={DISPOSITIVOS.badge}

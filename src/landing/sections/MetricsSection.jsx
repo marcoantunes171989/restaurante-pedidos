@@ -11,7 +11,7 @@ const ICONS = {
 
 export default function MetricsSection() {
   return (
-    <section id="indicadores" className="section scroll-mt-24 bg-[#EEEEEE]/60">
+    <section id="indicadores" className="section scroll-mt-24 bg-[#EEEEEE]">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {METRICAS.itens.map((item, i) => {
@@ -27,7 +27,7 @@ export default function MetricsSection() {
                   <Icon className="h-6 w-6" strokeWidth={1.7} aria-hidden="true" />
                 </span>
                 <h3 className="mt-4 text-base font-bold text-[#012E46]">{item.titulo}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#5B4F47]">{item.desc}</p>
+                <p className="mt-2 text-sm leading-6 text-[#012E46]/70">{item.desc}</p>
               </Reveal>
             );
           })}

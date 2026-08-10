@@ -42,7 +42,7 @@ export default function SolutionsSection() {
                   <Icon className="h-7 w-7" strokeWidth={1.6} aria-hidden="true" />
                 </span>
                 <h3 className="mt-4 text-lg font-bold text-[#012E46]">{item.titulo}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#5B4F47]">{item.desc}</p>
+                <p className="mt-2 text-sm leading-6 text-[#012E46]/70">{item.desc}</p>
               </Reveal>
             );
           })}

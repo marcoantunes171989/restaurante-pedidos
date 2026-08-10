@@ -109,7 +109,7 @@ export function SectionHeading({
 }) {
   const alignCls = align === "left" ? "text-left" : "mx-auto text-center";
   const titleCls = claro ? "text-white" : "text-[#012E46]";
-  const descCls = claro ? "text-white/80" : "text-[#5B4F47]";
+  const descCls = claro ? "text-white/80" : "text-[#012E46]/70";
   return (
     <Reveal className={`max-w-3xl ${alignCls} ${className}`}>
       {badge ? <SectionEyebrow tom={claro ? "branco" : "laranja"}>{badge}</SectionEyebrow> : null}

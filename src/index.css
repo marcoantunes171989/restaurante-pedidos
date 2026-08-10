@@ -16,7 +16,14 @@
   --pp-landing-laranja: #F38525;
   --pp-landing-preto: #0F0C0A;
   --pp-landing-suave: #EEEEEE;
+  --pp-landing-branco: #FFFFFF;
   overflow-x: clip;
+}
+/* Landing: sem beges/cremes fora da paleta (ex.: #F7F5F2). */
+.pp-landing .bg-\[\#F7F5F2\],
+.pp-landing .bg-\[\#F5F4F0\],
+.pp-landing .bg-\[\#F3EDE4\] {
+  background-color: #EEEEEE !important;
 }
 .pp-landing-display,
 .pp-landing .pp-landing-display {
