@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Wallet,
 } from "lucide-react";
-import { Botao, Picture, Reveal, Wordmark } from "../ui";
+import { Botao, Picture, Reveal } from "../ui";
 import { goTo } from "../utils";
 import { HERO, NOME_SISTEMA } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
@@ -26,7 +26,7 @@ const KPI_ICONS = {
 
 /**
  * Hero comercial — benefício "Gestão em tempo real" em full-bleed.
- * Prova visual do painel fica na seção Dispositivos (salão → escritório).
+ * Marca fica só no header (sem wordmark duplicado acima do título).
  */
 export default function HeroSection() {
   return (
@@ -57,12 +57,7 @@ export default function HeroSection() {
       <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-16 pt-28 sm:pt-32 lg:px-8 lg:pb-20">
         <div className="relative z-10 max-w-3xl">
           <Reveal>
-            {/* Padrão wordmark: PEDIDO branco + PRIME laranja */}
-            <Wordmark escuro className="!text-[1.05rem] tracking-[0.12em]" />
-          </Reveal>
-
-          <Reveal delay={40}>
-            <h1 className="pp-landing-display mt-5 text-[clamp(2.75rem,1.4rem+5vw,5.25rem)] leading-[0.9] tracking-[0.01em]">
+            <h1 className="pp-landing-display text-[clamp(2.75rem,1.4rem+5vw,5.25rem)] leading-[0.9] tracking-[0.01em]">
               <span className="block text-[#F38525]">{HERO.destaqueLaranja}</span>
               <span className="mt-1 block text-white">{HERO.destaqueBranco}</span>
             </h1>
