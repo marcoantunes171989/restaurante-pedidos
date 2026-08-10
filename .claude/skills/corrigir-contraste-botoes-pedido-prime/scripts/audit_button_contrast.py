@@ -47,10 +47,11 @@ PATTERNS = [
         "msg": "bg-[#F38525] com text-white",
     },
     # var(--pp-primary) / --pp-laranja / --client-primary como fill + text-white
+    # NOTA: filter-chip-selected é PETRÓLEO oficial → text-white é CORRETO (não flagrar).
     {
         "id": "var-primary-text-white",
         "rx": re.compile(
-            r"(bg-\[var\(--(?:pp-primary(?:-hover)?|pp-laranja|client-primary(?:-hover)?|filter-chip-selected)\)\][^\n\"']{0,280}?)text-white\b"
+            r"(bg-\[var\(--(?:pp-primary(?:-hover)?|pp-laranja|client-primary(?:-hover)?)\)\][^\n\"']{0,280}?)text-white\b"
         ),
         "fix": lambda m: m.group(1) + "text-[#012E46]",
         "msg": "fill laranja via var() com text-white",

@@ -33,22 +33,25 @@ export const FilterChip = memo(function FilterChip({
     disabled
       ? "cursor-not-allowed border-[var(--filter-chip-border)] bg-[var(--filter-chip-disabled-bg)] font-medium text-[var(--filter-chip-disabled-text)]"
       : selected
-        ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)] shadow-[var(--filter-chip-selected-shadow,none)] hover:border-[var(--filter-chip-selected-hover)] hover:bg-[var(--filter-chip-selected-hover)]"
+        // pp-chip--on-petroleo: ancora CSS de texto branco (não depende só da var,
+        // que pode dessincronizar com remaps de tema/admin).
+        ? "pp-chip--on-petroleo border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-white shadow-[var(--filter-chip-selected-shadow,none)] hover:border-[var(--filter-chip-selected-hover)] hover:bg-[var(--filter-chip-selected-hover)]"
         : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:bg-[var(--filter-chip-hover-bg)] hover:text-[var(--filter-chip-selected)]",
     !disabled ? "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--filter-chip-selected)]" : "",
     className,
   ].filter(Boolean).join(" ");
   return (
     <button type="button" onClick={bloqueado ? undefined : onClick} disabled={disabled}
-      aria-pressed={selected} aria-selected={selected} title={tooltip} data-color={color} className={cls}>
+      aria-pressed={selected} aria-selected={selected} title={tooltip} data-color={color}
+      data-pp-fill={selected && !disabled ? "petroleo" : undefined} className={cls}>
       {loading ? <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" aria-label="Carregando" />
         : (icon && <span className="shrink-0 [&>svg]:h-3.5 [&>svg]:w-3.5" aria-hidden="true">{icon}</span>)}
       {tone && FILTER_CHIP_TONES[tone] && (
         <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: FILTER_CHIP_TONES[tone] }} aria-hidden="true" />
       )}
-      <span>{label}</span>
+      <span className={selected && !disabled ? "text-white" : undefined}>{label}</span>
       {badge != null && (
-        <span className={`ml-0.5 inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${selected ? "bg-black/10 text-[var(--filter-chip-text-selected)]" : "bg-[#F1F5F9] text-[#475569]"}`}>
+        <span className={`ml-0.5 inline-flex min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${selected ? "bg-white/20 text-white" : "bg-[#F1F5F9] text-[#475569]"}`}>
           {badge}
         </span>
       )}

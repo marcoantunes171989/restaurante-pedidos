@@ -27,9 +27,19 @@
   `text-[#012E46]` → petróleo
 - Componentes: `src/components/Prime.jsx` (`FilterChip`, `FilterGroup`)
 
-## Regressão conhecida
+## Regressões conhecidas (já corrigidas)
 
-`.pp-filter-panel` com `--filter-chip-selected: var(--pp-primary)` e
-`--filter-chip-text-selected: #012E46` → quando `--pp-primary` vira `#012E46`,
-rótulo some (só o ponto/ícone permanece). Correção: par fixo petróleo/branco
-no painel.
+1. `.pp-filter-panel` com `--filter-chip-selected: var(--pp-primary)` +
+   `--filter-chip-text-selected: #012E46` → rótulo some. **Correção:** par
+   fixo petróleo/branco em `:root` e no painel.
+2. Tema claro remapeava `bg-[#012E46]` → superfície e `text-white` → grafite,
+   apagando contraste. **Correção:** petróleo fora do remap de superfície;
+   bloco “ÚLTIMA PALAVRA” no fim de `src/index.css` força
+   `color` + `-webkit-text-fill-color: #FFFFFF` em fills petróleo.
+3. Admin: `bg-[var(--pp-primary)]` + `text-[#012E46]` com primary=petróleo.
+   **Correção:** regra admin no mesmo bloco final.
+
+## Âncora no componente
+
+`FilterChip` selecionado leva `pp-chip--on-petroleo`, `text-white` e
+`data-pp-fill="petroleo"` — o CSS não depende só da variável.

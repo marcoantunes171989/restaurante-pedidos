@@ -38,10 +38,12 @@ describe("FilterChip — contrato de contraste", () => {
     expect(chip.textContent).toContain("Todos");
     expect(chip.getAttribute("aria-selected")).toBe("true");
     expect(chip.className).toContain("bg-[var(--filter-chip-selected)]");
-    expect(chip.className).toContain("text-[var(--filter-chip-text-selected)]");
+    expect(chip.className).toContain("pp-chip--on-petroleo");
+    expect(chip.className).toContain("text-white");
+    expect(chip.getAttribute("data-pp-fill")).toBe("petroleo");
   });
 
-  it("preserva o contraste petróleo sobre laranja fora do admin", () => {
+  it("preserva rótulo no selecionado fora do admin (fill petróleo)", () => {
     document.documentElement.className = "";
     document.documentElement.dataset.theme = "light";
     const chip = renderChip(
@@ -50,28 +52,33 @@ describe("FilterChip — contrato de contraste", () => {
     );
 
     expect(chip.textContent).toContain("Novos");
+    expect(chip.className).toContain("pp-chip--on-petroleo");
+    expect(chip.className).toContain("text-white");
   });
 
-  it("mantém uma única regra semântica acima do remapeamento genérico", () => {
+  it("mantém regra semântica e última palavra de texto branco no CSS", () => {
     const css = readFileSync("src/index.css", "utf8");
     expect(css).toContain('.filter-chip[aria-selected="true"]:not(:disabled)');
-    expect(css).toContain("color: var(--filter-chip-text-selected) !important");
-    expect(css).toContain('.filter-chip[aria-selected="true"]:not(:disabled) > *');
+    expect(css).toContain("pp-chip--on-petroleo");
+    expect(css).toContain("ÚLTIMA PALAVRA — texto branco em fill petróleo");
+    expect(css).toContain("-webkit-text-fill-color: #FFFFFF !important");
   });
 
-  it("pp-filter-panel usa par fixo petróleo + branco (não primary+petróleo)", () => {
+  it("pp-filter-panel e :root usam par fixo petróleo + branco", () => {
     const css = readFileSync("src/index.css", "utf8");
-    const block = css.match(/\.pp-filter-panel\s*\{[^}]+\}/);
-    expect(block).toBeTruthy();
-    expect(block[0]).toContain("--filter-chip-selected: #012E46");
-    expect(block[0]).toContain("--filter-chip-text-selected: #FFFFFF");
-    expect(block[0]).not.toContain("--filter-chip-selected: var(--pp-primary)");
-    expect(block[0]).not.toContain("--filter-chip-text-selected: #012E46");
+    expect(css).toMatch(/--filter-chip-selected:\s*#012E46/);
+    expect(css).toMatch(/--filter-chip-text-selected:\s*#FFFFFF/);
+    const rootBlock = css.match(/:root\s*\{[\s\S]*?--filter-chip-text-selected:\s*([^;]+);/);
+    expect(rootBlock).toBeTruthy();
+    expect(rootBlock[1].trim()).toBe("#FFFFFF");
+    expect(css).not.toMatch(/\.pp-filter-panel\s*\{[^}]*--filter-chip-selected:\s*var\(--pp-primary\)/);
   });
 
-  it("expõe utilitários globais pp-fill-petroleo / pp-fill-laranja", () => {
+  it("não remapeia bg-[#012E46] para superfície no tema claro", () => {
     const css = readFileSync("src/index.css", "utf8");
-    expect(css).toContain(".pp-fill-petroleo");
-    expect(css).toContain(".pp-fill-laranja");
+    // O bloco de superfícies escuras→branco não pode mais incluir petróleo de ação
+    const surfaceBlock = css.match(/Superfícies escuras de TEMA[\s\S]*?background-color:\s*var\(--pp-surface\)\s*!important;/);
+    expect(surfaceBlock).toBeTruthy();
+    expect(surfaceBlock[0]).not.toContain("bg-\\[\\#012E46\\]");
   });
 });

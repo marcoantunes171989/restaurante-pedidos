@@ -160,18 +160,17 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   --prime-text-soft: #CBD5E1;
 
   /* ── FilterChip (componente oficial de filtros/chips/segment-buttons) ──
-     Único ponto de verdade para as cores do FilterChip — nunca repetir
-     estes hex diretamente nas telas. Ver src/components/Prime.jsx.
-     Selecionado usa a variante escura --pp-primary-text (não --pp-primary
-     puro) como fundo em repouso — só ela atinge 4.5:1 com texto branco. */
+     Único ponto de verdade — ver src/components/Prime.jsx.
+     ATIVO = sempre petróleo + texto branco (skill texto-claro-botao-escuro).
+     Par fixo evita dessincronizar fill/texto quando --pp-primary muda. */
   --filter-chip-bg: #FFFFFF;
-  --filter-chip-selected: #F38525;
-  --filter-chip-selected-hover: #F38525;
-  --filter-chip-hover-bg: #FCEFE1;
+  --filter-chip-selected: #012E46;
+  --filter-chip-selected-hover: #012E46;
+  --filter-chip-hover-bg: rgba(1, 46, 70, 0.06);
   --filter-chip-border: #E5E7EB;
   --filter-chip-text: #012E46;
-  /* Texto sobre laranja oficial = petróleo (não branco). */
-  --filter-chip-text-selected: #012E46;
+  --filter-chip-text-selected: #FFFFFF;
+  --filter-chip-selected-shadow: 0 2px 6px rgba(1, 46, 70, 0.22);
   --filter-chip-disabled-bg: #F1F5F9;
   --filter-chip-disabled-text: #94A3B8;
 
@@ -897,10 +896,13 @@ a[class~="bg-[#012E46]"] > *,
 /* Superfícies sólidas escuras → branco (cards/painéis) */
 [data-theme="light"] .tema-claro-area.bg-black,
 [data-theme="light"] .tema-claro-area .bg-black,
+/* Superfícies escuras de TEMA (slate/navy legado) → branco.
+   NÃO incluir bg-[#012E46]: petróleo é fill de AÇÃO/filtro — remapear
+   para superfície apagava o botão escuro e o texto (text-white→grafite)
+   virava escuro-sobre-escuro ou destruía o contraste intencional. */
 [data-theme="light"] .tema-claro-area .bg-slate-950,
 [data-theme="light"] .tema-claro-area .bg-slate-900,
 [data-theme="light"] .tema-claro-area .bg-blue-950,
-[data-theme="light"] .tema-claro-area .bg-\[\#012E46\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0A1424\],
 [data-theme="light"] .tema-claro-area .bg-\[\#0B0F1A\],
 [data-theme="light"] .tema-claro-area .bg-\[\#060912\],
@@ -1556,4 +1558,93 @@ textarea:-webkit-autofill {
   -webkit-box-shadow: 0 0 0 1000px rgba(2, 6, 23, 0.7) inset !important;
   box-shadow: 0 0 0 1000px rgba(2, 6, 23, 0.7) inset !important;
   transition: background-color 9999s ease-in-out 0s;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ÚLTIMA PALAVRA — texto branco em fill petróleo
+   (vence remap .text-white→grafite e text-[#012E46] do tema claro)
+   Qualquer regra nova de tema claro deve vir ANTES deste bloco.
+   ══════════════════════════════════════════════════════════════════ */
+.filter-chip.pp-chip--on-petroleo:not(:disabled),
+.filter-chip[aria-selected="true"]:not(:disabled),
+.filter-chip[aria-pressed="true"]:not(:disabled),
+.filter-chip[data-pp-fill="petroleo"]:not(:disabled),
+.pp-fill-petroleo,
+.btn-petroleo:not(:disabled),
+button[class~="bg-[#012E46]"]:not(:disabled),
+a[class~="bg-[#012E46]"],
+[role="tab"][class~="bg-[#012E46]"],
+[role="button"][class~="bg-[#012E46]"],
+[data-theme="light"] .tema-claro-area .filter-chip.pp-chip--on-petroleo:not(:disabled),
+[data-theme="light"] .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled),
+[data-theme="light"] .tema-claro-area .btn-petroleo:not(:disabled),
+[data-theme="light"] .tema-claro-area button[class~="bg-[#012E46]"]:not(:disabled),
+[data-theme="light"] .tema-claro-area [role="tab"][class~="bg-[#012E46]"],
+[data-theme="light"] .tema-claro-area .pp-fill-petroleo,
+[data-theme="light"].pp-admin-module .tema-claro-area .filter-chip.pp-chip--on-petroleo:not(:disabled),
+[data-theme="light"].pp-admin-module .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled),
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja:not(:disabled),
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro:not(:disabled),
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-petroleo:not(:disabled),
+[data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#012E46]"]:not(:disabled) {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+.filter-chip.pp-chip--on-petroleo:not(:disabled) > *,
+.filter-chip[aria-selected="true"]:not(:disabled) > *,
+.filter-chip[aria-pressed="true"]:not(:disabled) > *,
+.filter-chip[data-pp-fill="petroleo"]:not(:disabled) > *,
+.pp-fill-petroleo > *,
+.btn-petroleo:not(:disabled) > *,
+button[class~="bg-[#012E46]"]:not(:disabled) > *,
+a[class~="bg-[#012E46]"] > *,
+[role="tab"][class~="bg-[#012E46]"] > *,
+[role="button"][class~="bg-[#012E46]"] > *,
+[data-theme="light"] .tema-claro-area .filter-chip.pp-chip--on-petroleo:not(:disabled) > *,
+[data-theme="light"] .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled) > *,
+[data-theme="light"] .tema-claro-area .btn-petroleo:not(:disabled) > *,
+[data-theme="light"] .tema-claro-area button[class~="bg-[#012E46]"]:not(:disabled) > *,
+[data-theme="light"] .tema-claro-area .pp-fill-petroleo > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .filter-chip.pp-chip--on-petroleo:not(:disabled) > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled) > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja:not(:disabled) > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro:not(:disabled) > *,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-petroleo:not(:disabled) > *,
+[data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#012E46]"]:not(:disabled) > * {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+/* Remap .text-white→grafite NÃO aplica dentro de fills petróleo. */
+[data-theme="light"] .tema-claro-area .filter-chip.pp-chip--on-petroleo .text-white,
+[data-theme="light"] .tema-claro-area .filter-chip[aria-selected="true"] .text-white,
+[data-theme="light"] .tema-claro-area .btn-petroleo.text-white,
+[data-theme="light"] .tema-claro-area .btn-petroleo .text-white,
+[data-theme="light"] .tema-claro-area [class~="bg-[#012E46]"].text-white,
+[data-theme="light"] .tema-claro-area [class~="bg-[#012E46]"] .text-white,
+[data-theme="light"] .tema-claro-area .pp-fill-petroleo.text-white,
+[data-theme="light"] .tema-claro-area .pp-fill-petroleo .text-white,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja.text-white,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja .text-white,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja [class~="text-[#012E46]"],
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro [class~="text-[#012E46]"] {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+/* No admin --pp-primary é petróleo: bg-[var(--pp-primary)] + text-[#012E46]
+   ficava invisível. Força branco no fill sólido de primary/primary-hover. */
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary)]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary-hover)]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-petroleo)]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--filter-chip-selected)]"] {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary)]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary-hover)]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-petroleo)]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--filter-chip-selected)]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary)]"][class~="text-[#012E46]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary-hover)]"][class~="text-[#012E46]"] {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
 }

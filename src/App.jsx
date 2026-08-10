@@ -19854,8 +19854,9 @@ function CentralFiscalAdmin({ dados = null, api = null, regras = [], versoes = [
       <div className="flex flex-wrap items-center gap-2">
         {abas.map((t) => (
           <button key={t.id} type="button" onClick={() => setAba(t.id)}
-            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)]" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
-            {t.label}{t.badge != null && <span className="text-[11px] font-black opacity-70">{t.badge}</span>}
+            aria-selected={aba === t.id}
+            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "pp-chip--on-petroleo border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-white" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
+            {t.label}{t.badge != null && <span className={`text-[11px] font-black ${aba === t.id ? "text-white opacity-90" : "opacity-70"}`}>{t.badge}</span>}
           </button>
         ))}
       </div>
@@ -20350,8 +20351,9 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       <div className="flex flex-wrap items-center gap-2">
         {abas.map((t) => (
           <button key={t.id} type="button" onClick={() => setAba(t.id)}
-            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)]" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
-            {t.label}{t.badge != null && <span className="text-[11px] font-black opacity-70">{t.badge}</span>}
+            aria-selected={aba === t.id}
+            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "pp-chip--on-petroleo border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-white" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
+            {t.label}{t.badge != null && <span className={`text-[11px] font-black ${aba === t.id ? "text-white opacity-90" : "opacity-70"}`}>{t.badge}</span>}
           </button>
         ))}
       </div>
@@ -20652,8 +20654,9 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
       <div className="flex flex-wrap items-center gap-2">
         {abas.map((t) => (
           <button key={t.id} type="button" onClick={() => setAba(t.id)}
-            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-[var(--filter-chip-text-selected)]" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
-            {t.label}{t.badge != null && <span className="text-[11px] font-black opacity-70">{t.badge}</span>}
+            aria-selected={aba === t.id}
+            className={`filter-chip inline-flex shrink-0 items-center gap-2 rounded-full border min-h-11 sm:min-h-[36px] px-3.5 py-2 text-[13px] transition-all ${aba === t.id ? "pp-chip--on-petroleo border-[var(--filter-chip-selected)] bg-[var(--filter-chip-selected)] font-semibold text-white" : "border-[var(--filter-chip-border)] bg-[var(--filter-chip-bg)] font-medium text-[var(--filter-chip-text)] hover:border-[var(--filter-chip-selected)] hover:text-[var(--filter-chip-selected)]"}`}>
+            {t.label}{t.badge != null && <span className={`text-[11px] font-black ${aba === t.id ? "text-white opacity-90" : "opacity-70"}`}>{t.badge}</span>}
           </button>
         ))}
       </div>
