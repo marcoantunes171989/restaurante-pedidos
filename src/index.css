@@ -652,6 +652,18 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   box-shadow: 0 0 0 4px rgba(198, 63, 29, 0.25);
 }
 
+/* Contrato semântico do FilterChip: o estado selecionado governa a cor do
+   rótulo, ícone e contador pelo token resolvido no próprio contexto. Esta
+   regra deliberadamente vence remapeamentos genéricos de `.text-white` do
+   tema claro e elimina correções por tela/especificidade. O estado disabled
+   fica fora para conservar os tokens neutros de desabilitado. */
+.filter-chip[aria-selected="true"]:not(:disabled) {
+  color: var(--filter-chip-text-selected) !important;
+}
+.filter-chip[aria-selected="true"]:not(:disabled) > * {
+  color: inherit !important;
+}
+
 /* ══════════════════════════════════════════════════════════════
    Tema CLARO das áreas de conteúdo (admin, caixa, cozinha, painel)
    Aplicado só onde a classe .tema-claro-area está presente — os menus

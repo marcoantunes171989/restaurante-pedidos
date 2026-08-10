@@ -19,11 +19,14 @@ Aplicar esta skill junto de `$padronizar-cores-pedido-prime`. Tratar `references
 8. Procurar usos em CSS/SCSS, CSS Modules, CSS-in-JS, Tailwind, temas, JSX/TSX/Vue/Svelte, SVG e propriedades inline. Revisar todas as instâncias da variante corrigida.
 9. Conferir padrão, hover, focus-visible, active, selected, pressed, loading e disabled em viewport desktop e móvel. Garantir que texto, ícone, spinner, badge e contador permaneçam visíveis.
 10. Executar novamente a sonda em runtime, auditoria estática, lint, testes e build. Capturar o mesmo controle depois da correção e comparar rótulo, cores computadas e dimensões.
-11. Relatar causa raiz, seletor/regra vencedora, arquivo corrigido, alcance da variante, rotas verificadas e evidências antes/depois. Não declarar conclusão com base apenas em busca textual, script estático ou build aprovado.
+11. Adicionar um teste de regressão no componente compartilhado que renderize rótulo, ícone/marcador e contador nos contextos de tema que redefinem os tokens. O teste deve falhar se um remapeamento global voltar a vencer o contrato semântico.
+12. Ler o fluxo de publicação do repositório. Com a árvore contendo somente alterações da tarefa e todas as verificações relevantes aprovadas, criar commit explícito, publicar a branch prevista pelo projeto, acionar o deploy configurado e verificar o resultado. Nunca declarar deploy apenas porque o push terminou; registrar URL/status ou o bloqueio concreto da plataforma.
+13. Relatar causa raiz, seletor/regra vencedora, arquivo corrigido, alcance da variante, rotas verificadas, commit, deploy e evidências antes/depois. Não declarar conclusão com base apenas em busca textual, script estático ou build aprovado.
 
 ## Estratégia de manutenção em lote
 
 - Priorizar tokens semânticos e o componente-base; evitar correções repetidas em páginas consumidoras.
+- Quando o estado já estiver expresso por `aria-selected`, `aria-pressed`, `data-state` ou prop equivalente, criar um contrato semântico no componente-base. A cor resolvida do estado deve vencer remapeamentos genéricos de utilitários; não acumular exceções por página.
 - Para filtros ativos, exigir rótulo visível e conteúdo `#FFFFFF` sobre `#012E46`; um ponto isolado não é estado válido nem evidência de contraste correto.
 - Fundo `#012E46`: usar texto e ícones `#FFFFFF`.
 - Fundo `#F38525`: usar texto e ícones `#012E46`.
@@ -38,4 +41,4 @@ Aplicar esta skill junto de `$padronizar-cores-pedido-prime`. Tratar `references
 
 ## Critério de conclusão
 
-Concluir somente quando a mesma rota apresentar o rótulo correto, a inspeção computada confirmar primeiro plano/fundo válidos, a captura posterior comprovar a correção, a variante compartilhada tiver sido verificada nas demais rotas e os testes relevantes passarem. Auditoria estática limpa não basta. Se o projeto executável não estiver disponível, atualizar a skill, mas informar claramente que nenhuma tela real foi alterada.
+Concluir somente quando a mesma rota apresentar o rótulo correto, a inspeção computada confirmar primeiro plano/fundo válidos, a captura posterior comprovar a correção, a variante compartilhada tiver sido verificada nas demais rotas, os testes relevantes passarem e o commit/deploy solicitado estiver verificado. Auditoria estática limpa não basta. Se o navegador, credenciais ou plataforma de deploy estiverem indisponíveis, interromper a etapa afetada e informar o bloqueio; nunca substituir a evidência ausente por inferência. Se o projeto executável não estiver disponível, não alterar nem liberar a skill como solução validada.

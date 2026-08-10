@@ -33,6 +33,9 @@ Complementa `padronizar-cores-pedido-prime/references/paleta.md`.
 - `.btn-laranja`, `.btn-laranja-claro` → fundo laranja, foreground petróleo
 - `.btn-petroleo` e ação admin (`.pp-admin-module` com fill petróleo) → foreground branco
 - `PrimeButton`, `FilterChip` selecionado, chips/abas ativas, paginação ativa
+- Contrato semântico: `.filter-chip[aria-selected="true"]:not(:disabled)` usa
+  `color: var(--filter-chip-text-selected)` e descendentes diretos `color: inherit`
+  (vence remap genérico de `.text-white` no tema claro)
 - `CashierStatusFilters` e demais filtros de status do caixa
 - `bg-[#F38525]` / `bg-[var(--pp-primary)]` / `bg-[var(--pp-laranja)]` com `text-white`
 - `bg-[#012E46]` / `bg-[var(--pp-petroleo)]` / `bg-[var(--pp-info)]` com `text-[#012E46]`
