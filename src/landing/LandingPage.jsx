@@ -13,8 +13,8 @@ import FinalCTA from "./sections/FinalCTA";
 import LandingFooter from "./sections/LandingFooter";
 
 /**
- * Landing institucional Pedido Prime — hero com prova visual 3D
- * (gestão em tempo real) → soluções → dispositivos → benefícios →
+ * Landing institucional Pedido Prime — hero (gestão em tempo real) →
+ * soluções → dispositivos (prova visual do painel) → benefícios →
  * gastronomia → planos → CTA.
  */
 export default function LandingPage({ navigate }) {

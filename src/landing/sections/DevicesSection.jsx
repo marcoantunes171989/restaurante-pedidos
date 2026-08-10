@@ -45,13 +45,13 @@ export default function DevicesSection() {
           <Picture
             src={DISPOSITIVOS.imagem}
             fallback={DISPOSITIVOS.imagemFallback}
-            alt="Operação gastronômica conectada em múltiplos dispositivos"
+            alt="Gestor no escritório acompanhando o painel Pedido Prime — do salão à gestão"
             className="absolute inset-0 block h-full w-full"
-            imgClassName="h-full w-full object-cover"
+            imgClassName="h-full w-full object-cover object-center"
           />
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-tr from-[#012E46]/40 via-transparent to-transparent"
+            className="absolute inset-0 bg-gradient-to-tr from-[#012E46]/35 via-transparent to-transparent"
           />
         </Reveal>
       </div>

@@ -34,8 +34,6 @@ export const HERO = {
     { label: "Segurança total", icon: "shield" },
     { label: "Suporte humanizado", icon: "heartHandshake" },
   ],
-  showcase: "/img/landing/hero-gestao-tempo-real.webp",
-  showcaseFallback: "/img/landing/hero-gestao-tempo-real.jpg",
   bg: "/img/landing/hero-restaurante.webp",
   bgFallback: "/img/landing/hero-restaurante.jpg",
 };
@@ -89,8 +87,9 @@ export const DISPOSITIVOS = {
     { label: "Computador", icon: "laptop" },
     { label: "Painel de cozinha", icon: "chefHat" },
   ],
-  imagem: "/img/landing/restaurante-salao.webp",
-  imagemFallback: "/img/landing/restaurante-salao.jpg",
+  // Prova visual do painel (antes no hero) — salão → escritório.
+  imagem: "/img/landing/hero-gestao-tempo-real.webp",
+  imagemFallback: "/img/landing/hero-gestao-tempo-real.jpg",
 };
 
 export const BENEFICIOS = {

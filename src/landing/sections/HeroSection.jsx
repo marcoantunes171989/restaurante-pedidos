@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Wallet,
 } from "lucide-react";
-import { Botao, Picture, Reveal } from "../ui";
+import { Botao, Picture, Reveal, Wordmark } from "../ui";
 import { goTo } from "../utils";
 import { HERO, NOME_SISTEMA } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
@@ -25,9 +25,8 @@ const KPI_ICONS = {
 };
 
 /**
- * Hero comercial — benefício "Gestão em tempo real" + prova visual em
- * perspectiva 3D (gestor + dashboard). Valoriza o produto no primeiro
- * viewport sem mockups flutuantes genéricos: foto real com transform 3D.
+ * Hero comercial — benefício "Gestão em tempo real" em full-bleed.
+ * Prova visual do painel fica na seção Dispositivos (salão → escritório).
  */
 export default function HeroSection() {
   return (
@@ -51,32 +50,26 @@ export default function HeroSection() {
         className="absolute inset-0 -z-10"
         style={{
           background:
-            "radial-gradient(ellipse 70% 80% at 78% 55%, rgba(1,46,70,0.25) 0%, transparent 55%), linear-gradient(105deg, rgba(1,46,70,0.96) 0%, rgba(1,46,70,0.92) 42%, rgba(1,46,70,0.72) 68%, rgba(1,46,70,0.55) 100%)",
+            "linear-gradient(105deg, rgba(1,46,70,0.95) 0%, rgba(1,46,70,0.90) 42%, rgba(1,46,70,0.68) 72%, rgba(1,46,70,0.52) 100%)",
         }}
       />
-      <div
-        aria-hidden="true"
-        className="pp-glow-pulse pointer-events-none absolute -right-16 top-1/3 h-[28rem] w-[28rem] rounded-full blur-3xl"
-        style={{ background: "radial-gradient(closest-side, rgba(243,133,37,0.22), transparent)" }}
-      />
 
-      <div className="mx-auto grid min-h-[100svh] max-w-7xl items-center gap-10 px-5 pb-16 pt-28 sm:pt-32 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1.1fr)] lg:gap-8 lg:px-8 lg:pb-20 xl:gap-12">
-        <div className="relative z-10 max-w-xl">
+      <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-16 pt-28 sm:pt-32 lg:px-8 lg:pb-20">
+        <div className="relative z-10 max-w-3xl">
           <Reveal>
-            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#F38525]">
-              {NOME_SISTEMA}
-            </p>
+            {/* Padrão wordmark: PEDIDO branco + PRIME laranja */}
+            <Wordmark escuro className="!text-[1.05rem] tracking-[0.12em]" />
           </Reveal>
 
           <Reveal delay={40}>
-            <h1 className="pp-landing-display mt-4 text-[clamp(2.75rem,1.4rem+5vw,5.25rem)] leading-[0.9] tracking-[0.01em]">
+            <h1 className="pp-landing-display mt-5 text-[clamp(2.75rem,1.4rem+5vw,5.25rem)] leading-[0.9] tracking-[0.01em]">
               <span className="block text-[#F38525]">{HERO.destaqueLaranja}</span>
               <span className="mt-1 block text-white">{HERO.destaqueBranco}</span>
             </h1>
           </Reveal>
 
           <Reveal delay={90}>
-            <p className="mt-5 max-w-md text-base leading-7 text-white/90 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base leading-7 text-white/90 sm:text-lg">
               {HERO.subtitulo}
             </p>
           </Reveal>
@@ -86,7 +79,7 @@ export default function HeroSection() {
               {HERO.kpis.map((kpi, i) => {
                 const Icon = KPI_ICONS[kpi.icon] || BarChart3;
                 return (
-                  <li key={kpi.label} className="flex min-w-[10.5rem] flex-1 items-center gap-3">
+                  <li key={kpi.label} className="flex min-w-[10.5rem] items-center gap-3">
                     {i > 0 ? (
                       <span
                         aria-hidden="true"
@@ -111,7 +104,7 @@ export default function HeroSection() {
           </Reveal>
 
           <Reveal delay={170}>
-            <p className="mt-6 max-w-md text-sm leading-6 text-white/70">
+            <p className="mt-6 max-w-xl text-sm leading-6 text-white/70">
               {HERO.apoio}
             </p>
           </Reveal>
@@ -157,27 +150,6 @@ export default function HeroSection() {
             </ul>
           </Reveal>
         </div>
-
-        <Reveal delay={120} className="relative z-10 mx-auto w-full max-w-xl lg:max-w-none lg:justify-self-end">
-          <div className="pp-hero-3d-stage">
-            <div className="pp-hero-3d-glow" aria-hidden="true" />
-            <div className="pp-hero-3d-card">
-              <Picture
-                src={HERO.showcase}
-                fallback={HERO.showcaseFallback}
-                alt="Gestor acompanhando o painel Pedido Prime em tempo real no restaurante"
-                loading="eager"
-                fetchPriority="high"
-                className="block h-full w-full"
-                imgClassName="aspect-[3/2] h-full w-full object-cover object-center"
-              />
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#012E46]/25 via-transparent to-white/5"
-              />
-            </div>
-          </div>
-        </Reveal>
       </div>
     </section>
   );

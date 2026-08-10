@@ -77,7 +77,7 @@ export function Botao({
   );
 }
 
-/** Wordmark tipográfico — sem logo/monograma (briefing da landing). */
+/** Wordmark tipográfico — PEDIDO (branco/petróleo) + PRIME (laranja). */
 export function Wordmark({ escuro = false, className = "" }) {
   return (
     <span
