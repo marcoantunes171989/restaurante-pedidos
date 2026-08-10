@@ -70,3 +70,16 @@ describe("botões globais — contrato de contraste", () => {
     expect(regra).not.toContain("color: #FFFFFF");
   });
 });
+
+describe("Controle de Comandas — filtros de status", () => {
+  it("usa o FilterChip compartilhado para o rótulo e estado selecionado", () => {
+    const app = readFileSync("src/App.jsx", "utf8");
+    const bloco = app.match(/\{\/\* Chips de status \*\/\}([\s\S]*?)\{\/\* Barra de filtros \*\/\}/)?.[1] ?? "";
+
+    expect(bloco).toContain('aria-label="Filtrar comandas por status"');
+    expect(bloco).toContain("<FilterChip");
+    expect(bloco).toContain("selected={filtro === c.id}");
+    expect(bloco).toContain("label={c.label}");
+    expect(bloco).not.toContain("<button");
+  });
+});

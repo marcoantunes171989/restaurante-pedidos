@@ -58,9 +58,9 @@ async function launchBrowser() {
         <head></head>
         <body>
           <main class="tema-claro-area pp-filter-panel" style="padding:24px;display:flex;gap:16px">
-            <button id="selected-chip" class="filter-chip" aria-selected="true"
+            <button id="selected-chip" class="filter-chip" aria-pressed="true" aria-selected="true"
               style="background:var(--filter-chip-selected);padding:10px 16px">
-              <span aria-hidden="true">•</span><span data-label>Todos</span><span>3</span>
+              <span data-label>Em andamento</span><span aria-hidden="true">•</span>
             </button>
             <button id="primary-button" class="button-primary" style="padding:10px 16px">
               <span data-label>Assumir</span>
@@ -76,7 +76,7 @@ async function launchBrowser() {
 
       if (chip.background !== expected.petroleum) failures.push(`fundo do filtro: ${chip.background}`);
       if (chip.color !== expected.white || chip.labelColor !== expected.white) failures.push(`texto do filtro: ${chip.color}/${chip.labelColor}`);
-      if (!chip.text.includes("Todos") || chip.labelWidth <= 0) failures.push("rótulo Todos ausente ou recortado");
+      if (!chip.text.includes("Em andamento") || chip.labelWidth <= 0) failures.push("rótulo Em andamento ausente ou recortado");
       if (primary.background !== expected.orange) failures.push(`fundo primário: ${primary.background}`);
       if (primary.color !== expected.petroleum || primary.labelColor !== expected.petroleum) failures.push(`texto primário: ${primary.color}/${primary.labelColor}`);
 
