@@ -6,74 +6,56 @@ description: Paleta de cores OFICIAL e regras de identidade visual do projeto re
 # Identidade visual — Paleta OFICIAL (Pedido Prime)
 
 Esta é a **paleta oficial vigente**. A partir de agora, **todo trabalho visual usa estas
-cores** — ao criar ou tocar em qualquer tela/componente, aplique-as e substitua cores
-divergentes de rebrands anteriores (namespaces legados `brand`, `gold`, `admin`, `pp`).
+cores**. Para auditoria e substituição em massa, use a skill
+**`padronizar-cores-pedido-prime`** (`references/paleta.md` +
+`scripts/audit_palette.py`).
 
 ## Posicionamento da marca
-Paleta desenvolvida para transmitir **confiança, praticidade e eficiência**, unindo
-**tecnologia** com o **universo da alimentação**. Cada cor carrega um atributo:
-- 🟧 **Apetite** → laranja `#E67E22`
-- 🟩 **Frescor** → verde `#5E8C31`
-- 🔵 **Confiança** → azul petróleo `#0F4C5C`
-- 📊 **Gestão / tecnologia** → azul petróleo `#0F4C5C` (dados, painéis)
-
-Sempre que desenhar algo, pergunte: "isto passa confiança, praticidade e eficiência?".
+Paleta para transmitir **confiança, praticidade e eficiência**, unindo
+**tecnologia** com o **universo da alimentação**:
+- 🟧 **Apetite / ação** → laranja `#F38525`
+- 🔵 **Confiança / gestão** → azul-petróleo `#012E46`
 
 ## Paleta
 
 | Cor | Hex | Papel | Uso |
 |---|---|---|---|
-| 🟧 **Laranja** | `#E67E22` | **Principal** | Energia, apetite e destaque → CTAs, botões primários, ações, ênfase, seleção ativa |
-| 🔵 **Azul petróleo** | `#0F4C5C` | **Secundária** | Tecnologia, confiança e estabilidade → cabeçalhos, navegação, barras, elementos institucionais |
-| 🟩 **Verde** | `#5E8C31` | **Destaque** | Frescor, naturalidade e equilíbrio → sucesso, confirmações, selos "fresco/ok", acentos pontuais |
-| ⬜ **Off-white** | `#F8F6F2` | **Fundo** | Leveza, limpeza e respiro visual → fundo geral das telas |
-| ▫️ **Cinza claro** | `#E6E6E6` | **Apoio** | Elementos de apoio e divisões → bordas, divisores, superfícies sutis, estados desabilitados |
-| ⬛ **Grafite** | `#2D3436` | **Texto** | Textos, títulos e ícones |
+| 🟧 **Laranja** | `#F38525` | **Principal / ação** | CTAs, item ativo, seleção, ênfase, séries de gráfico |
+| 🔵 **Azul-petróleo** | `#012E46` | **Institucional** | Navegação, cabeçalhos, dados, texto sobre laranja |
+| ⬜ **Branco** | `#FFFFFF` | **Fundo de tela** | Fundo geral das telas |
+| ▫️ **Cinzas neutros** | (funcionais) | **Apoio** | Bordas, muted, desabilitado — sem matiz de marca |
 
-## USO DAS CORES — onde aplicar cada cor
-- 🟧 **Laranja `#E67E22`** → **Ações principais**: botões primários, CTAs, links de destaque, item/aba ativa, ícones de ação.
-- 🔵 **Azul petróleo `#0F4C5C`** → **Barras, menus e elementos de navegação**: header, sidebar/menu lateral, abas, rodapé, blocos institucionais.
-- 🟩 **Verde `#5E8C31`** → **Confirmações, status positivos e destaques**: sucesso, "pago/entregue/pronto/fresco", badges e selos positivos. **Também é a cor de OFERTA/ECONOMIA** (promoção, desconto, combo, "-%", "Economize R$ X"): o verde comunica "vantagem" e — por não ser o laranja — faz a oferta CONTRASTAR com os CTAs em vez de se confundir com eles. No módulo cliente isso é o token `--client-offer` (mesmo `#5E8C31`). Nunca use dourado (legado, fora da paleta) para oferta.
-- ⬜ **Off-white `#F8F6F2`** (+ **branco** em cards) → **Fundos e superfícies neutras**.
-- ▫️ **Cinza claro `#E6E6E6`** → **apoio**: bordas, divisórias, superfícies sutis, estado desabilitado.
-- ⬛ **Grafite `#2D3436`** → **Textos e ícones** (títulos, corpo, ícones neutros).
+## Contraste (obrigatório)
+- Texto **branco** somente sobre `#012E46`.
+- Texto/ícone sobre `#F38525` → `#012E46` (não branco).
+- Fundo de tela → `#FFFFFF`.
+- Gráficos → só `#012E46` e `#F38525` nas séries.
 
-## Regras de aplicação
-- **Laranja `#E67E22`** é a cor de AÇÃO — use com parcimônia, só onde quer que o olho vá
-  (botão principal, link de destaque, item ativo). Não pinte áreas grandes de laranja.
-- **Azul petróleo `#0F4C5C`** ancora a marca — headers, navegação, rodapés, blocos institucionais.
-- **Verde `#5E8C31`** = feedback positivo/frescor. Não use verde para ação primária (isso é o laranja).
-- **Off-white `#F8F6F2`** é o fundo padrão; **branco puro `#FFFFFF`** só para cards/superfícies elevadas.
-- **Cinza claro `#E6E6E6`** para bordas e divisórias — nunca para texto.
-- **Grafite `#2D3436`** para todo texto/ícone. Para texto secundário, use grafite com opacidade
-  (~70%) ou um cinza médio derivado, mantendo contraste AA.
+## Estados (hover, foco, sucesso, alerta, erro)
+Não introduzir matiz nova. Preferir borda/sublinhado, opacidade das cores
+oficiais ou cinzas neutros. Exceções normativas (conteúdo do usuário, logos
+de terceiros, semântica regulatória) devem ser documentadas.
 
-## Contraste / acessibilidade (WCAG AA)
-- Texto grafite `#2D3436` sobre off-white/branco/cinza claro → OK.
-- Texto **branco** sobre **laranja `#E67E22`** e sobre **azul petróleo `#0F4C5C`** → OK (botões).
-- Evite texto verde/laranja sobre fundos claros para blocos de leitura (baixo contraste); use
-  essas cores em fundos/ícones/realces, não em corpo de texto longo.
+## Hexes legados (substituir)
+| Legado | Oficial |
+|---|---|
+| `#0F4C5C`, `#17667A`, `#2E5FA8` | `#012E46` |
+| `#E67E22`, `#D06E1A`, `#EC8B3E`, `#F2994A` | `#F38525` |
+| `#F8F6F2` como fundo de tela | `#FFFFFF` |
 
-## Como aplicar no código (Tailwind)
-O projeto usa Tailwind. Ao consolidar a paleta, registre estes tokens em
-`tailwind.config.js` (`theme.extend.colors`) para usar classes utilitárias e manter consistência:
-```js
-marca: {
-  laranja:   '#E67E22', // principal / ação
-  petroleo:  '#0F4C5C', // secundária / institucional
-  verde:     '#5E8C31', // destaque / sucesso
-  offwhite:  '#F8F6F2', // fundo
-  cinza:     '#E6E6E6', // apoio / bordas
-  grafite:   '#2D3436', // texto / ícones
-},
+## Tokens CSS sugeridos
+```css
+--pp-petroleo: #012E46;
+--pp-laranja: #F38525;
+--pp-fundo: #FFFFFF;
+--pp-on-petroleo: #FFFFFF;
+--pp-on-laranja: #012E46;
 ```
-Uso: `bg-marca-offwhite`, `text-marca-grafite`, `bg-marca-laranja`, `border-marca-cinza`, etc.
-Enquanto a migração dos namespaces legados não estiver completa, ao **editar uma tela**,
-troque as cores antigas daquela tela pelas equivalentes desta paleta.
+Aliases (`--pp-primary`, `--pp-info`, `--client-primary`, etc.) devem apontar
+para estes valores.
 
 ## Ao trabalhar
-1. Consulte esta paleta antes de escolher qualquer cor.
-2. Prefira os tokens `marca-*`; se precisar de hex, use os exatos acima.
-3. Mantenha hierarquia: fundo off-white → superfícies brancas → texto grafite → ação laranja →
-   apoio azul petróleo → feedback verde.
-4. Combine com a skill **designer-grafico-senior** para as decisões de layout/tipografia.
+1. Consulte esta paleta (e `padronizar-cores-pedido-prime/references/paleta.md`).
+2. Priorize tokens centrais em `src/index.css` / `tailwind.config.js`.
+3. Rode `python3 .claude/skills/padronizar-cores-pedido-prime/scripts/audit_palette.py .`
+4. Combine com **designer-grafico-senior** para layout/tipografia.
