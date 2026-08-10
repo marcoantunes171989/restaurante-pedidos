@@ -38,6 +38,10 @@
    `color` + `-webkit-text-fill-color: #FFFFFF` em fills petróleo.
 3. Admin: `bg-[var(--pp-primary)]` + `text-[#012E46]` com primary=petróleo.
    **Correção:** regra admin no mesmo bloco final.
+4. Admin: chips/botões `bg-[#F38525] text-[#012E46]` (válido no laranja) —
+   o remap troca o fill para petróleo e o texto ficava petróleo (rótulo
+   invisível; só o ponto claro). **Correção:** remap do fill sólido já
+   força branco; `text-[#012E46]` exclui esses fills; bloco final reforça.
 
 ## Âncora no componente
 

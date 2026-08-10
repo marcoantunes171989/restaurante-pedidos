@@ -64,6 +64,22 @@ describe("FilterChip — contrato de contraste", () => {
     expect(css).toContain("-webkit-text-fill-color: #FFFFFF !important");
   });
 
+  it("admin: bg-[#F38525] sólido remapeado força texto branco (não text-[#012E46])", () => {
+    const css = readFileSync("src/index.css", "utf8");
+    // Remap do fill laranja sólido no admin inclui cor branca
+    expect(css).toMatch(
+      /\[data-theme="light"\]\.pp-admin-module \.tema-claro-area \[class~="bg-\[#F38525\]"\]\s*\{[^}]*color:\s*#FFFFFF\s*!important/,
+    );
+    // text-[#012E46] não vence o fill laranja sólido remapeado
+    expect(css).toContain(
+      '[class~="text-[#012E46]"]:not([class~="bg-[#F38525]"])',
+    );
+    // Última palavra cobre o par bg laranja + text petróleo
+    expect(css).toContain(
+      '[class~="bg-[#F38525]"][class~="text-[#012E46]"]',
+    );
+  });
+
   it("pp-filter-panel e :root usam par fixo petróleo + branco", () => {
     const css = readFileSync("src/index.css", "utf8");
     expect(css).toMatch(/--filter-chip-selected:\s*#012E46/);

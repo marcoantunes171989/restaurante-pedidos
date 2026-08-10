@@ -776,13 +776,19 @@ a[class~="bg-[#012E46]"] > *,
 /* Preenchimento SÓLIDO laranja (botões de ação) → petróleo sólido. O `~=`
    casa a classe INTEIRA (token separado por espaço), então NÃO pega as
    variantes com opacidade (bg-[#F38525]/10) — fundos suaves, tratados
-   abaixo. O texto branco desses botões é preservado pela exceção já
-   existente ([class*="bg-[#"].text-white → mantém branco). */
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"],
+   abaixo.
+   CRÍTICO: muitos chips usam `bg-[#F38525] text-[#012E46]` (correto fora
+   do admin). Aqui o fill vira petróleo — o texto TAMBÉM precisa virar
+   branco, senão rótulo some e sobra só o ponto claro. */
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] {
   background-color: #012E46 !important;
   background-image: none !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] > * {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
 }
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="hover:bg-[#F38525]"]:hover,
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="hover:bg-[#F38525]"]:hover {
@@ -795,12 +801,15 @@ a[class~="bg-[#012E46]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area [class*="bg-[rgba(243, 133, 37"] {
   background-color: rgba(1, 46, 70, 0.10) !important;
 }
-/* Texto/ícone laranja → petróleo (família de laranjas de texto da marca). */
+/* Texto/ícone laranja → petróleo (família de laranjas de texto da marca).
+   text-[#012E46] NÃO aplica em fills sólidos que viram/são petróleo
+   (bg laranja sólido remapeado, bg petróleo, primary). */
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
 [data-theme="light"].pp-admin-module .tema-claro-area [class*="text-[#F38525]/"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"] {
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"] {
+  color: #012E46 !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"]:not([class~="bg-[#F38525]"]):not([class~="bg-[#012E46]"]):not([class~="bg-[var(--pp-primary)]"]):not([class~="bg-[var(--pp-primary-hover)]"]):not([class~="bg-[var(--pp-petroleo)]"]) {
   color: #012E46 !important;
 }
 /* Bordas laranja → petróleo (contorno de botões/tiles/chips). */
@@ -827,22 +836,25 @@ a[class~="bg-[#012E46]"] > *,
 }
 /* Família de laranjas de TEXTO adicionais (burnt orange de rótulos/chips/status)
    → petróleo, no repouso. Assim "Aguard. pagamento", "Aberta" etc. deixam de
-   sair em laranja. (Os pontos/selos semânticos verde/vermelho/âmbar seguem.) */
+   sair em laranja. (Os pontos/selos semânticos verde/vermelho/âmbar seguem.)
+   Exclui fills sólidos remapeados para petróleo (ver :not em bg-[#F38525]). */
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#F38525]"],
-[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"] {
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="text-[#012E46]"]:not([class~="bg-[#F38525]"]):not([class~="bg-[#012E46]"]):not([class~="bg-[var(--pp-primary)]"]):not([class~="bg-[var(--pp-primary-hover)]"]):not([class~="bg-[var(--pp-petroleo)]"]) {
   color: #012E46 !important;
 }
 /* CRÍTICO: o remap acima de text-[#012E46] NÃO pode vencer fills escuros
    (.btn-laranja admin, .btn-petroleo, .pp-fill-petroleo, bg sólido petróleo,
-   FilterChip selecionado). Reafirma texto branco DEPOIS do remap. */
+   bg-[#F38525] remapeado, FilterChip selecionado). Reafirma texto branco. */
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja,
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro,
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-petroleo,
 [data-theme="light"].pp-admin-module .tema-claro-area .pp-fill-petroleo,
 [data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#012E46]"],
 [data-theme="light"].pp-admin-module .tema-claro-area [role="tab"][class~="bg-[#012E46]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"],
 [data-theme="light"].pp-admin-module .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled) {
   color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
 }
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja > *,
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro > *,
@@ -850,8 +862,10 @@ a[class~="bg-[#012E46]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area .pp-fill-petroleo > *,
 [data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#012E46]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area [role="tab"][class~="bg-[#012E46]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area .filter-chip[aria-selected="true"]:not(:disabled) > * {
-  color: inherit !important;
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
 }
 /* Estados de HOVER laranja dentro do admin → petróleo — o hover NUNCA acende
    laranja (fundo, borda e texto). Fundo branco→texto petróleo; fundo petróleo
@@ -866,10 +880,11 @@ a[class~="bg-[#012E46]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:border-[rgba(243, 133, 37"]:hover {
   border-color: rgba(1, 46, 70, 0.35) !important;
 }
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover,
-[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#012E46]"]:hover {
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#F38525]"]:hover {
+  color: #012E46 !important;
+}
+/* Hover text petróleo NÃO pode escurecer rótulo de fill sólido remapeado. */
+[data-theme="light"].pp-admin-module .tema-claro-area [class*="hover:text-[#012E46]"]:hover:not([class~="bg-[#F38525]"]):not([class~="bg-[#012E46]"]):not([class~="bg-[var(--pp-primary)]"]) {
   color: #012E46 !important;
 }
 /* Painel de filtro (.pp-filter-panel) dentro do admin: a classe reescreve as
@@ -1645,6 +1660,24 @@ a[class~="bg-[#012E46]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--filter-chip-selected)]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary)]"][class~="text-[#012E46]"],
 [data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[var(--pp-primary-hover)]"][class~="text-[#012E46]"] {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+/* Admin: bg-[#F38525] sólido → petróleo. Pares `text-[#012E46]` (válidos
+   no laranja) ficavam invisíveis. Força branco no próprio controle e filhos.
+   Cobre chips de status/paginação/importar e PrimeButton blue/gold. */
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"][class~="text-[#012E46]"],
+[data-theme="light"].pp-admin-module .tema-claro-area button[class~="bg-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area a[class~="bg-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [role="button"][class~="bg-[#F38525]"],
+[data-theme="light"].pp-admin-module .tema-claro-area [role="tab"][class~="bg-[#F38525]"] {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] > *,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] .text-white,
+[data-theme="light"].pp-admin-module .tema-claro-area [class~="bg-[#F38525]"] [class~="text-[#012E46]"] {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
 }
