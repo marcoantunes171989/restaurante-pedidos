@@ -14,20 +14,28 @@ export const NAV = [
 ];
 
 export const HERO = {
-  linha1: "TECNOLOGIA",
-  linha2: "QUE ORGANIZA.",
-  linha3: "RESULTADOS",
-  linha4: "QUE TRANSFORMAM.",
+  // Headline de benefício (topo) — prova visual de gestão em tempo real.
+  destaqueLaranja: "GESTÃO EM",
+  destaqueBranco: "TEMPO REAL",
   subtitulo:
+    "Vendas, operação e desempenho em uma visão clara.",
+  apoio:
     "Sistema completo para restaurantes que simplifica operações, aumenta vendas e melhora a experiência do cliente.",
   ctaPrimario: "Conhecer soluções",
   ctaSecundario: "Ver demonstração",
+  // KPIs ilustrativos da visão do painel (composição de marketing).
+  kpis: [
+    { valor: "99%", label: "das entregas concluídas", icon: "barChart" },
+    { valor: "R$ 12.272,79", label: "recebidos", icon: "wallet" },
+  ],
   indicadores: [
     { label: "100% em nuvem", icon: "cloud" },
     { label: "Acesso de onde estiver", icon: "globe" },
     { label: "Segurança total", icon: "shield" },
     { label: "Suporte humanizado", icon: "heartHandshake" },
   ],
+  showcase: "/img/landing/hero-gestao-tempo-real.webp",
+  showcaseFallback: "/img/landing/hero-gestao-tempo-real.jpg",
   bg: "/img/landing/hero-restaurante.webp",
   bgFallback: "/img/landing/hero-restaurante.jpg",
 };

@@ -13,9 +13,9 @@ import FinalCTA from "./sections/FinalCTA";
 import LandingFooter from "./sections/LandingFooter";
 
 /**
- * Landing institucional Pedido Prime — layout alinhado à referência visual:
- * hero fotográfico → soluções → dispositivos → benefícios → gastronomia
- * (métricas institucionais) → planos → CTA. Sem mockups 3D flutuantes.
+ * Landing institucional Pedido Prime — hero com prova visual 3D
+ * (gestão em tempo real) → soluções → dispositivos → benefícios →
+ * gastronomia → planos → CTA.
  */
 export default function LandingPage({ navigate }) {
   const entrar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
