@@ -1,10 +1,8 @@
 import { CATEGORIA_ACCENT } from "./accountStatusColors";
 
-// Filtros do Caixa (Todas/Aguardando/Em aberto/Pagas) — segmented
-// chips, terracota na opção ativa (mesmo padrão de OrdersViewToggle),
-// com um ponto de cor semântica por status (âmbar/azul/verde) como
-// pista visual extra, mesmo quando inativo. "Todas" não tem cor
-// semântica própria (é a soma), fica neutra.
+// Filtros do Caixa (Todas/Aguardando/Em aberto/Pagas) — segmented chips.
+// Ativo = petróleo + texto branco (skill corrigir-contraste / filtros ativos).
+// Ponto semântico por status é pista EXTRA — o rótulo textual é obrigatório.
 const FILTROS = [
   { key: "todas", label: "Todas" },
   { key: "aguardando", label: "Aguardando" },
@@ -28,13 +26,13 @@ export default function CashierStatusFilters({ filtro, onFiltro, counts }) {
             onClick={() => onFiltro(f.key)}
             className={`flex min-h-[44px] shrink-0 items-center gap-2 rounded-2xl border px-3.5 text-sm font-bold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] ${
               ativo
-                ? "border-transparent btn-laranja text-[#012E46]"
+                ? "border-transparent btn-petroleo text-white"
                 : "border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"
             }`}
           >
-            {cor && <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: ativo ? "#fff" : cor }} />}
-            {f.label}
-            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums ${ativo ? "bg-white/25 text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`}>{cnt}</span>
+            {cor && <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: ativo ? "#FFFFFF" : cor }} />}
+            <span>{f.label}</span>
+            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black tabular-nums ${ativo ? "bg-white/20 text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`}>{cnt}</span>
           </button>
         );
       })}

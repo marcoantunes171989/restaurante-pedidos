@@ -1019,6 +1019,13 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
    grafite sobre ele some). Mesma especificidade do remap (0,3,0), depois → vence. */
 [data-theme="light"] .tema-claro-area .btn-laranja,
 [data-theme="light"] .tema-claro-area .btn-laranja-claro { color: #012E46 !important; }
+/* Descendentes com text-white dentro de .btn-laranja (badge/spinner/ícone)
+   herdavam o remap .text-white→grafite OU ficavam brancos sobre laranja.
+   Força petróleo no fill laranja; no admin o fill vira petróleo → branco. */
+[data-theme="light"] .tema-claro-area .btn-laranja .text-white,
+[data-theme="light"] .tema-claro-area .btn-laranja-claro .text-white {
+  color: #012E46 !important;
+}
 /* Fill laranja sólido (#F38525) → texto petróleo (paleta oficial). */
 [data-theme="light"] .tema-claro-area [class~="bg-[#F38525]"].text-white,
 [data-theme="light"] .tema-claro-area [class~="bg-[#F38525]"] .text-white {
@@ -1027,8 +1034,16 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
 
 [data-theme="light"] .tema-claro-area .btn-verde,
 [data-theme="light"] .tema-claro-area .btn-petroleo { color: #FFFFFF !important; }
+[data-theme="light"] .tema-claro-area .btn-petroleo .text-white,
+[data-theme="light"] .tema-claro-area .btn-verde .text-white {
+  color: #FFFFFF !important;
+}
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja,
 [data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro { color: #FFFFFF !important; }
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja .text-white,
+[data-theme="light"].pp-admin-module .tema-claro-area .btn-laranja-claro .text-white {
+  color: #FFFFFF !important;
+}
 /* Linha de mesa OCUPADA: fundo laranja sólido + texto branco. A classe
    .pp-mesa-ocupada eleva a especificidade (0,4,0) para o texto branco vencer
    o remap, inclusive em filhos que não têm bg-[#…]. */

@@ -32,7 +32,7 @@ export default function CheckoutFooterActions({ onFecharConta, podeFechar, fecha
       {SECUNDARIAS.map((a) => <BotaoSecundario key={a.id} {...a} onClick={a.id === "preconta" ? onImprimir : undefined} />)}
 
       <button type="button" onClick={onFecharConta} disabled={!podeFechar || fechando}
-        className="btn-laranja flex min-h-[62px] min-w-[130px] flex-[1.4] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-center text-xs font-black text-white transition active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60">
+        className="btn-laranja flex min-h-[62px] min-w-[130px] flex-[1.4] flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-center text-xs font-black text-[#012E46] transition active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60">
         {fechando ? <Loader2 aria-hidden="true" size={19} className="animate-spin" /> : <DoorClosed aria-hidden="true" size={19} />}
         {fechando ? "Registrando…" : "Fechar conta"}
       </button>

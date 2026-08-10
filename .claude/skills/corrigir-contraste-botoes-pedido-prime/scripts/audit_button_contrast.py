@@ -28,7 +28,8 @@ PATTERNS = [
     # btn-laranja + text-white
     {
         "id": "btn-laranja-text-white",
-        "rx": re.compile(r"(btn-laranja(?:-claro)?[^\n\"']{0,120})text-white\b"),
+        # Janela ampliada: classNames longos (flex/gap/min-w) escapavam de 120 chars.
+        "rx": re.compile(r"(btn-laranja(?:-claro)?[^\n\"']{0,280})text-white\b"),
         "fix": lambda m: m.group(1) + "text-[#012E46]",
         "msg": "btn-laranja com text-white (laranja exige texto petróleo)",
     },
@@ -36,8 +37,8 @@ PATTERNS = [
     {
         "id": "bg-laranja-text-white",
         "rx": re.compile(
-            r"(bg-\[#F38525\](?!/)[^\n\"']{0,160}?)text-white\b"
-            r"|(text-white\b)([^\n\"']{0,160}?bg-\[#F38525\](?!/))"
+            r"(bg-\[#F38525\](?!/)[^\n\"']{0,280}?)text-white\b"
+            r"|(text-white\b)([^\n\"']{0,280}?bg-\[#F38525\](?!/))"
         ),
         "fix": lambda m: (
             (m.group(1) + "text-[#012E46]") if m.group(1) is not None
@@ -49,7 +50,7 @@ PATTERNS = [
     {
         "id": "var-primary-text-white",
         "rx": re.compile(
-            r"(bg-\[var\(--(?:pp-primary(?:-hover)?|pp-laranja|client-primary(?:-hover)?|filter-chip-selected)\)\][^\n\"']{0,160}?)text-white\b"
+            r"(bg-\[var\(--(?:pp-primary(?:-hover)?|pp-laranja|client-primary(?:-hover)?|filter-chip-selected)\)\][^\n\"']{0,280}?)text-white\b"
         ),
         "fix": lambda m: m.group(1) + "text-[#012E46]",
         "msg": "fill laranja via var() com text-white",
@@ -58,8 +59,8 @@ PATTERNS = [
     {
         "id": "bg-petroleo-text-petroleo",
         "rx": re.compile(
-            r"(bg-\[#012E46\](?!/)[^\n\"']{0,160}?)text-\[#012E46\]"
-            r"|(text-\[#012E46\])([^\n\"']{0,160}?bg-\[#012E46\](?!/))"
+            r"(bg-\[#012E46\](?!/)[^\n\"']{0,280}?)text-\[#012E46\]"
+            r"|(text-\[#012E46\])([^\n\"']{0,280}?bg-\[#012E46\](?!/))"
         ),
         "fix": lambda m: (
             (m.group(1) + "text-white") if m.group(1) is not None
@@ -71,8 +72,8 @@ PATTERNS = [
     {
         "id": "bg-laranja-text-laranja",
         "rx": re.compile(
-            r"(bg-\[#F38525\](?!/)[^\n\"']{0,160}?)text-\[#F38525\]"
-            r"|(text-\[#F38525\])([^\n\"']{0,160}?bg-\[#F38525\](?!/))"
+            r"(bg-\[#F38525\](?!/)[^\n\"']{0,280}?)text-\[#F38525\]"
+            r"|(text-\[#F38525\])([^\n\"']{0,280}?bg-\[#F38525\](?!/))"
         ),
         "fix": lambda m: (
             (m.group(1) + "text-[#012E46]") if m.group(1) is not None
@@ -126,6 +127,10 @@ def audit_file(path: Path, fix: bool) -> list[dict]:
             ctx = text[max(0, m.start() - 280): m.end() + 80]
             if skip_if and skip_if(ctx):
                 continue
+            # Seletor CSS de descendente (`.btn-laranja .text-white`) — é a
+            # correção, não o conflito utilitário Tailwind na mesma className.
+            if re.search(r"btn-laranja(?:-claro)?\s+\.text-white\b", snippet):
+                continue
             if "pp-admin-module" in ctx and (
                 pat["id"].startswith("css-") or "btn-laranja" in pat["id"]
             ):
@@ -141,9 +146,14 @@ def audit_file(path: Path, fix: bool) -> list[dict]:
         if fix:
             def _sub(m, _pat=pat, _skip=skip_if, _src=text):
                 ctx = _src[max(0, m.start() - 280): m.end() + 80]
+                snippet = m.group(0)
                 if _skip and _skip(ctx):
                     return m.group(0)
-                if "pp-admin-module" in ctx and _pat["id"].startswith("css-"):
+                if re.search(r"btn-laranja(?:-claro)?\s+\.text-white\b", snippet):
+                    return m.group(0)
+                if "pp-admin-module" in ctx and (
+                    _pat["id"].startswith("css-") or "btn-laranja" in _pat["id"]
+                ):
                     return m.group(0)
                 return _pat["fix"](m)
             text = pat["rx"].sub(_sub, text)
