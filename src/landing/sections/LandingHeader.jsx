@@ -5,17 +5,29 @@ import { goTo } from "../utils";
 import { NAV, NOME_SISTEMA } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
 
+function scrollYAtual() {
+  const root = document.getElementById("root");
+  if (root && root.scrollHeight > root.clientHeight + 1) return root.scrollTop;
+  return window.scrollY || document.documentElement.scrollTop || 0;
+}
+
 export default function LandingHeader({ onEntrar, transparente = false }) {
   const [rolado, setRolado] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
 
   useEffect(() => {
+    const root = document.getElementById("root");
     function aoRolar() {
-      setRolado(window.scrollY > 12);
+      setRolado(scrollYAtual() > 16);
     }
     aoRolar();
+    // A SPA rola em #root (não em window) — ver src/index.css.
+    root?.addEventListener("scroll", aoRolar, { passive: true });
     window.addEventListener("scroll", aoRolar, { passive: true });
-    return () => window.removeEventListener("scroll", aoRolar);
+    return () => {
+      root?.removeEventListener("scroll", aoRolar);
+      window.removeEventListener("scroll", aoRolar);
+    };
   }, []);
 
   function irPara(id) {
@@ -23,19 +35,21 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
     goTo(id);
   }
 
+  // Transparente só no topo do hero; ao rolar (ou com menu mobile aberto)
+  // aplica barra petróleo full-width para o menu permanecer legível.
   const sobreHero = transparente && !rolado && !menuAberto;
   const barCls = sobreHero
-    ? "border-transparent bg-transparent text-white"
-    : "border-[#012E46]/10 bg-white/95 text-[#012E46] shadow-[0_8px_30px_rgba(1,46,70,0.08)] backdrop-blur-xl";
+    ? "border-transparent bg-transparent text-white shadow-none"
+    : "border-white/10 bg-[#012E46]/95 text-white shadow-[0_12px_40px_rgba(1,46,70,0.35)] backdrop-blur-xl";
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-50 border-b transition-all duration-300 ${barCls}`}
+      className={`fixed inset-x-0 top-0 z-50 w-full border-b transition-[background-color,box-shadow,border-color,backdrop-filter] duration-500 ease-out ${barCls}`}
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3.5 lg:px-8">
+      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-3.5 lg:px-8">
         <button type="button" onClick={() => irPara("topo")} className="cursor-pointer">
-          <Wordmark escuro={sobreHero} />
+          <Wordmark escuro />
         </button>
 
         <div className="hidden items-center gap-1 lg:flex">
@@ -44,9 +58,7 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
               key={n.id}
               type="button"
               onClick={() => irPara(n.id)}
-              className={`rounded-lg px-3 py-2 text-[13px] font-semibold uppercase tracking-[0.12em] transition ${
-                sobreHero ? "text-white/90 hover:bg-white/10 hover:text-white" : "text-[#012E46]/75 hover:bg-[#012E46]/5 hover:text-[#012E46]"
-              }`}
+              className="rounded-lg px-3 py-2 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/90 transition hover:bg-white/10 hover:text-white"
             >
               {n.label}
             </button>
@@ -58,9 +70,7 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
             <button
               type="button"
               onClick={onEntrar}
-              className={`rounded-xl px-3.5 py-2.5 text-sm font-bold transition ${
-                sobreHero ? "text-white/90 hover:bg-white/10" : "text-[#012E46]/80 hover:bg-[#EEEEEE]"
-              }`}
+              className="rounded-xl px-3.5 py-2.5 text-sm font-bold text-white/90 transition hover:bg-white/10"
             >
               Entrar
             </button>
@@ -79,23 +89,21 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
           onClick={() => setMenuAberto((a) => !a)}
           aria-label={menuAberto ? "Fechar menu" : "Abrir menu"}
           aria-expanded={menuAberto}
-          className={`flex h-11 w-11 items-center justify-center rounded-xl border lg:hidden ${
-            sobreHero ? "border-white/30 text-white" : "border-[#012E46]/15 text-[#012E46]"
-          }`}
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/30 text-white lg:hidden"
         >
           {menuAberto ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </nav>
 
       {menuAberto ? (
-        <div className="border-t border-[#012E46]/10 bg-white px-5 pb-5 pt-2 lg:hidden">
+        <div className="border-t border-white/10 bg-[#012E46] px-5 pb-5 pt-2 lg:hidden">
           <div className="grid gap-1">
             {NAV.map((n) => (
               <button
                 key={n.id}
                 type="button"
                 onClick={() => irPara(n.id)}
-                className="min-h-[44px] rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[#012E46] transition hover:bg-[#EEEEEE]"
+                className="min-h-[44px] rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 {n.label}
               </button>
@@ -106,7 +114,7 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
               <button
                 type="button"
                 onClick={onEntrar}
-                className="min-h-[44px] w-full rounded-xl border border-[#012E46]/15 px-4 py-2.5 text-sm font-bold text-[#012E46]"
+                className="min-h-[44px] w-full rounded-xl border border-white/20 px-4 py-2.5 text-sm font-bold text-white"
               >
                 Entrar
               </button>

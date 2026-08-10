@@ -9,7 +9,6 @@ import { Botao, Picture, Reveal } from "../ui";
 import { goTo } from "../utils";
 import { HERO, NOME_SISTEMA } from "../content";
 import { linkWhatsappConsultor } from "../../config/contato";
-import HeroDeviceScene from "../components/HeroDeviceScene";
 
 const ICONS = {
   cloud: Cloud,
@@ -40,16 +39,16 @@ export default function HeroSection() {
         className="absolute inset-0 -z-10"
         style={{
           background:
-            "linear-gradient(105deg, rgba(1,46,70,0.94) 0%, rgba(1,46,70,0.82) 42%, rgba(1,46,70,0.55) 68%, rgba(1,46,70,0.35) 100%)",
+            "linear-gradient(120deg, rgba(1,46,70,0.94) 0%, rgba(1,46,70,0.88) 45%, rgba(1,46,70,0.72) 72%, rgba(1,46,70,0.58) 100%)",
         }}
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-[#012E46]/40 to-transparent"
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-[#012E46]/50 to-transparent"
       />
 
-      <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 pb-16 pt-28 sm:pt-32 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8 lg:px-8 lg:pb-20 lg:pt-36">
-        <div className="min-w-0">
+      <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-16 pt-28 sm:pt-32 lg:px-8 lg:pb-20 lg:pt-36">
+        <div className="min-w-0 max-w-3xl">
           <Reveal>
             <p className="pp-landing-display text-[clamp(0.95rem,0.7rem+0.9vw,1.15rem)] tracking-[0.28em] text-[#F38525]">
               {NOME_SISTEMA.toUpperCase()}
@@ -112,10 +111,6 @@ export default function HeroSection() {
             </ul>
           </Reveal>
         </div>
-
-        <Reveal delay={140} className="relative min-w-0 px-2 sm:px-6 lg:px-0">
-          <HeroDeviceScene />
-        </Reveal>
       </div>
     </section>
   );
