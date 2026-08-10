@@ -112,6 +112,7 @@ export default function CashierPdv({
   notify = () => {},
   validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
   consumirCupom = async () => ({ ok: true }),
+  onSair,
 }) {
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
@@ -1520,6 +1521,7 @@ export default function CashierPdv({
         temaClaro={temaClaro}
         onToggleTema={() => setTemaClaro((t) => !t)}
         onAbrirAjuda={() => setAjudaAberta(true)}
+        onSair={onSair}
       />
 
       <PdvStatsBar

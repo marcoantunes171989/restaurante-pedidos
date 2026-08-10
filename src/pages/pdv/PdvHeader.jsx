@@ -1,4 +1,4 @@
-import { Sun, Moon, Search, X, HelpCircle } from "lucide-react";
+import { Sun, Moon, Search, X, HelpCircle, LogOut } from "lucide-react";
 import { LogoPP } from "../../components/BrandLogo";
 import NotificationBell from "../../components/NotificationBell";
 import { CANAIS_PDV } from "./pdvHelpers";
@@ -6,6 +6,7 @@ import { CANAIS_PDV } from "./pdvHelpers";
 /**
  * Cabeçalho do PDV — marca + canais (Mesa/Delivery/Comanda/Cliente/Pedido) + busca.
  * O ícone ? abre a Central de Ajuda (documentação viva da tela).
+ * Sair encerra a sessão e volta para o login.
  */
 export default function PdvHeader({
   canal = "mesa",
@@ -17,6 +18,7 @@ export default function PdvHeader({
   temaClaro = true,
   onToggleTema,
   onAbrirAjuda,
+  onSair,
 }) {
   return (
     <header
@@ -113,6 +115,17 @@ export default function PdvHeader({
               <p className="text-[9px] font-semibold text-[var(--pp-text-muted)]">Operador</p>
             </div>
           </div>
+          {typeof onSair === "function" && (
+            <button
+              type="button"
+              onClick={onSair}
+              aria-label="Sair e voltar ao login"
+              title="Sair"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)] transition hover:border-[var(--pp-danger)]/40 hover:bg-[var(--pp-danger-soft)] hover:text-[var(--pp-danger)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)] active:scale-[0.97]"
+            >
+              <LogOut size={15} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     </header>
