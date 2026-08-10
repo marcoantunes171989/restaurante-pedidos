@@ -1,7 +1,6 @@
 // ════════════════════════════════════════════════════════════
-//  Conteúdo centralizado da landing page — Pedido Prime.
-//  Textos e listas ficam aqui. Preços: ../config/pricing.js
-//  Contato: ../config/contato.js. Sem números comerciais inventados.
+//  Conteúdo da landing — Pedido Prime (layout referência visual).
+//  Sem números comerciais inventados. Preços: ../config/pricing.js
 // ════════════════════════════════════════════════════════════
 
 export const NOME_SISTEMA = "Pedido Prime";
@@ -19,15 +18,14 @@ export const HERO = {
   linha2: "QUE ORGANIZA.",
   linha3: "RESULTADOS",
   linha4: "QUE TRANSFORMAM.",
-  destaque: ["QUE ORGANIZA.", "QUE TRANSFORMAM."],
   subtitulo:
     "Sistema completo para restaurantes que simplifica operações, aumenta vendas e melhora a experiência do cliente.",
   ctaPrimario: "Conhecer soluções",
   ctaSecundario: "Ver demonstração",
   indicadores: [
     { label: "100% em nuvem", icon: "cloud" },
-    { label: "Acesse de onde estiver", icon: "globe" },
-    { label: "Segurança", icon: "shield" },
+    { label: "Acesso de onde estiver", icon: "globe" },
+    { label: "Segurança total", icon: "shield" },
     { label: "Suporte humanizado", icon: "heartHandshake" },
   ],
   bg: "/img/landing/hero-restaurante.webp",
@@ -40,7 +38,7 @@ export const SOLUCOES = {
   tituloAccent: "em um só sistema.",
   itens: [
     {
-      icon: "monitorSmartphone",
+      icon: "shoppingCart",
       titulo: "PDV Inteligente",
       desc: "Vendas rápidas no balcão, mesa e delivery com controle total do caixa.",
     },
@@ -65,7 +63,7 @@ export const SOLUCOES = {
       desc: "Baixa por venda, alertas de reposição e menos desperdício na operação.",
     },
     {
-      icon: "puzzle",
+      icon: "settings",
       titulo: "Integrações",
       desc: "Conecte meios de pagamento, impressoras e canais sem complicar o dia a dia.",
     },
@@ -80,36 +78,40 @@ export const DISPOSITIVOS = {
   itens: [
     { label: "Smartphone", icon: "smartphone" },
     { label: "Tablet", icon: "tablet" },
-    { label: "Notebook", icon: "laptop" },
+    { label: "Computador", icon: "laptop" },
     { label: "Painel de cozinha", icon: "chefHat" },
   ],
+  imagem: "/img/landing/restaurante-salao.webp",
+  imagemFallback: "/img/landing/restaurante-salao.jpg",
 };
 
 export const BENEFICIOS = {
+  eyebrow: "Mais controle. Mais lucro.",
   titulo: "Menos rotina,",
   tituloAccent: "mais resultado.",
+  desc: "Automatize processos, reduza erros e acompanhe a operação em tempo real — do salão à gestão.",
   imagem: "/img/landing/equipe-tablet.webp",
   imagemFallback: "/img/landing/equipe-tablet.jpg",
   itens: [
     {
       icon: "zap",
-      titulo: "Atendimento mais rápido e organizado",
-      desc: "Pedidos chegam ao setor certo na hora — menos fila, menos erro.",
+      titulo: "Atendimento mais rápido",
+      desc: "Pedidos no setor certo na hora — menos fila e menos erro.",
     },
     {
       icon: "trendingDown",
-      titulo: "Redução de custos e desperdícios",
-      desc: "Estoque e produção sob controle, com menos perda no dia a dia.",
+      titulo: "Redução de custos",
+      desc: "Estoque e produção sob controle, com menos desperdício.",
     },
     {
       icon: "trendingUp",
-      titulo: "Aumento de vendas e ticket médio",
-      desc: "Cardápio claro, upsell e operação fluida que favorecem a conversão.",
+      titulo: "Aumento de vendas",
+      desc: "Operação fluida que favorece ticket médio e conversão.",
     },
     {
       icon: "lineChart",
-      titulo: "Decisões baseadas em dados reais",
-      desc: "Indicadores da sua operação, não achismo — para agir com precisão.",
+      titulo: "Decisões com dados",
+      desc: "Indicadores reais da sua operação para agir com precisão.",
     },
   ],
 };
@@ -120,37 +122,21 @@ export const SEGMENTOS = {
   tituloAccent: "escolhem eficiência.",
   fotos: [
     { src: "/img/landing/restaurante-salao.webp", fallback: "/img/landing/restaurante-salao.jpg", alt: "Salão de restaurante em operação", rotulo: "Restaurante" },
-    { src: "/img/landing/hamburgueria.webp", fallback: "/img/landing/hamburgueria.jpg", alt: "Hambúrguer artesanal preparado na cozinha", rotulo: "Hamburgueria" },
-    { src: "/img/landing/cozinha.webp", fallback: "/img/landing/cozinha.jpg", alt: "Equipe em cozinha profissional", rotulo: "Cozinha" },
-    { src: "/img/landing/bar.webp", fallback: "/img/landing/bar.jpg", alt: "Balcão de bar com atendimento", rotulo: "Bar" },
-    { src: "/img/landing/cafe.webp", fallback: "/img/landing/cafe.jpg", alt: "Ambiente de cafeteria", rotulo: "Café" },
-    { src: "/img/landing/pizzaria.webp", fallback: "/img/landing/pizzaria.jpg", alt: "Pizza saindo do forno", rotulo: "Pizzaria" },
+    { src: "/img/landing/cozinha.webp", fallback: "/img/landing/cozinha.jpg", alt: "Cozinha profissional em operação", rotulo: "Cozinha" },
+    { src: "/img/landing/bar.webp", fallback: "/img/landing/bar.jpg", alt: "Balcão de bar", rotulo: "Bar" },
+    { src: "/img/landing/hamburgueria.webp", fallback: "/img/landing/hamburgueria.jpg", alt: "Hamburgueria", rotulo: "Hamburgueria" },
+    { src: "/img/landing/cafe.webp", fallback: "/img/landing/cafe.jpg", alt: "Cafeteria", rotulo: "Café" },
+    { src: "/img/landing/pizzaria.webp", fallback: "/img/landing/pizzaria.jpg", alt: "Pizzaria", rotulo: "Pizzaria" },
   ],
 };
 
 // Indicadores institucionais — sem números comerciais inventados.
 export const METRICAS = {
   itens: [
-    {
-      icon: "store",
-      titulo: "Operações atendidas",
-      desc: "Restaurantes, bares e operações gastronômicas em digitalização contínua.",
-    },
-    {
-      icon: "receipt",
-      titulo: "Pedidos processados",
-      desc: "Fluxo do pedido à produção, com rastreio em tempo real na plataforma.",
-    },
-    {
-      icon: "activity",
-      titulo: "Disponibilidade da plataforma",
-      desc: "Infraestrutura em nuvem pensada para o ritmo do salão e da gestão.",
-    },
-    {
-      icon: "headset",
-      titulo: "Suporte especializado",
-      desc: "Atendimento humano para implantação, dúvidas e evolução da operação.",
-    },
+    { icon: "store", titulo: "Operações atendidas", desc: "Restaurantes e bares em digitalização contínua." },
+    { icon: "receipt", titulo: "Pedidos processados", desc: "Do pedido à produção, com rastreio em tempo real." },
+    { icon: "activity", titulo: "Alta disponibilidade", desc: "Plataforma em nuvem para o ritmo do salão." },
+    { icon: "headset", titulo: "Suporte especializado", desc: "Atendimento humano todos os dias úteis." },
   ],
 };
 
@@ -159,7 +145,9 @@ export const CTA_FINAL = {
   tituloAccent: "a gestão do seu restaurante?",
   desc: "Conheça uma plataforma criada para simplificar sua operação e ajudar seu negócio a crescer.",
   ctaPrimario: "Fale com um especialista",
-  ctaSecundario: "Agende uma demonstração",
+  ctaSecundario: "ou agende uma demonstração",
+  imagem: "/img/landing/cta-operacao.webp",
+  imagemFallback: "/img/landing/cta-operacao.jpg",
 };
 
 export const LEAD_FORM = {
@@ -230,19 +218,7 @@ export const FOOTER = {
 };
 
 export const SEO_TERMOS = [
-  "sistema para restaurante",
-  "sistema gastronômico",
-  "cardápio digital",
-  "QR Code para restaurante",
-  "gestão de restaurantes",
-  "controle de mesas",
-  "controle de pedidos",
-  "PDV para restaurante",
-  "sistema para hamburgueria",
-  "sistema para pizzaria",
-  "software para bares",
-  "dashboard gastronômico",
-  "automação para restaurantes",
-  "plataforma gastronômica",
-  "ERP para restaurantes",
+  "sistema para restaurante", "sistema gastronômico", "cardápio digital",
+  "QR Code para restaurante", "gestão de restaurantes", "PDV para restaurante",
+  "plataforma gastronômica", "automação para restaurantes",
 ];

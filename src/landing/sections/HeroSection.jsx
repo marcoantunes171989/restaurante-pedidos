@@ -31,7 +31,7 @@ export default function HeroSection() {
           loading="eager"
           fetchPriority="high"
           className="block h-full w-full"
-          imgClassName="h-full w-full object-cover object-center"
+          imgClassName="h-full w-full scale-105 object-cover object-center"
         />
       </div>
       <div
@@ -39,44 +39,42 @@ export default function HeroSection() {
         className="absolute inset-0 -z-10"
         style={{
           background:
-            "linear-gradient(120deg, rgba(1,46,70,0.94) 0%, rgba(1,46,70,0.88) 45%, rgba(1,46,70,0.72) 72%, rgba(1,46,70,0.58) 100%)",
+            "linear-gradient(105deg, rgba(1,46,70,0.93) 0%, rgba(1,46,70,0.86) 38%, rgba(1,46,70,0.62) 70%, rgba(1,46,70,0.45) 100%)",
         }}
       />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-[#012E46]/50 to-transparent"
-      />
 
-      <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-16 pt-28 sm:pt-32 lg:px-8 lg:pb-20 lg:pt-36">
-        <div className="min-w-0 max-w-3xl">
+      <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-20 pt-32 sm:pt-36 lg:px-8">
+        <div className="max-w-3xl">
           <Reveal>
-            <p className="pp-landing-display text-[clamp(0.95rem,0.7rem+0.9vw,1.15rem)] tracking-[0.28em] text-[#F38525]">
-              {NOME_SISTEMA.toUpperCase()}
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-[#F38525]">
+              {NOME_SISTEMA}
             </p>
           </Reveal>
 
-          <Reveal delay={60}>
-            <h1 className="pp-landing-display mt-4 text-[clamp(2.4rem,1.4rem+4.2vw,4.6rem)] leading-[0.95] tracking-[0.02em]">
-              <span className="block text-white">{HERO.linha1}</span>
-              <span className="block text-[#F38525]">{HERO.linha2}</span>
-              <span className="mt-1 block text-white">{HERO.linha3}</span>
-              <span className="block text-[#F38525]">{HERO.linha4}</span>
+          <Reveal delay={50}>
+            <h1 className="pp-landing-display mt-5 text-[clamp(2.6rem,1.5rem+4.5vw,5rem)] leading-[0.92] tracking-[0.01em]">
+              <span className="block text-white">
+                {HERO.linha1} {HERO.linha2.replace(/\.$/, "")}.
+              </span>
+              <span className="mt-1 block text-[#F38525]">
+                {HERO.linha3} {HERO.linha4}
+              </span>
             </h1>
           </Reveal>
 
-          <Reveal delay={120}>
-            <p className="mt-6 max-w-xl text-base leading-7 text-white/85 sm:text-lg">
+          <Reveal delay={110}>
+            <p className="mt-6 max-w-xl text-base leading-7 text-white/88 sm:text-lg">
               {HERO.subtitulo}
             </p>
           </Reveal>
 
-          <Reveal delay={180}>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <Reveal delay={170}>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Botao
                 variant="primary"
                 showArrow
                 onClick={() => goTo("solucoes")}
-                className="!uppercase !tracking-[0.08em]"
+                className="!rounded-lg !px-7 !uppercase !tracking-[0.1em]"
               >
                 {HERO.ctaPrimario}
               </Botao>
@@ -85,7 +83,7 @@ export default function HeroSection() {
                 href={linkWhatsappConsultor(
                   `Olá! Gostaria de ver uma demonstração do ${NOME_SISTEMA}.`,
                 )}
-                className="!uppercase !tracking-[0.08em]"
+                className="!rounded-lg !uppercase !tracking-[0.1em]"
               >
                 <Play className="h-4 w-4 fill-current" aria-hidden="true" />
                 {HERO.ctaSecundario}
@@ -93,16 +91,16 @@ export default function HeroSection() {
             </div>
           </Reveal>
 
-          <Reveal delay={240}>
-            <ul className="mt-10 grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 lg:max-w-xl">
+          <Reveal delay={230}>
+            <ul className="mt-12 grid grid-cols-2 gap-5 border-t border-white/15 pt-8 sm:grid-cols-4">
               {HERO.indicadores.map((item) => {
                 const Icon = ICONS[item.icon] || Cloud;
                 return (
-                  <li key={item.label} className="flex flex-col gap-2">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/25 text-white">
-                      <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                  <li key={item.label} className="flex flex-col gap-2.5">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/30 text-white">
+                      <Icon className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
                     </span>
-                    <span className="text-[12px] font-semibold leading-snug text-white/90">
+                    <span className="text-[12px] font-semibold leading-snug text-white/92">
                       {item.label}
                     </span>
                   </li>

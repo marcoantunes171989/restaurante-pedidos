@@ -8,16 +8,15 @@ import SolutionsSection from "./sections/SolutionsSection";
 import DevicesSection from "./sections/DevicesSection";
 import BenefitsSection from "./sections/BenefitsSection";
 import SegmentsSection from "./sections/SegmentsSection";
-import MetricsSection from "./sections/MetricsSection";
 import PlanosSection from "./sections/PlanosSection";
 import FinalCTA from "./sections/FinalCTA";
 import LandingFooter from "./sections/LandingFooter";
 
-// ════════════════════════════════════════════════════════════
-//  Landing page comercial — Pedido Prime (layout referência 2026).
-//  Seções modulares em src/landing/sections/*. Conteúdo em content.js.
-//  Tipografia: Anton (display) + Inter (corpo) via .pp-landing.
-// ════════════════════════════════════════════════════════════
+/**
+ * Landing institucional Pedido Prime — layout alinhado à referência visual:
+ * hero fotográfico → soluções → dispositivos → benefícios → gastronomia
+ * (métricas institucionais) → planos → CTA. Sem mockups 3D flutuantes.
+ */
 export default function LandingPage({ navigate }) {
   const entrar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
 
@@ -30,14 +29,15 @@ export default function LandingPage({ navigate }) {
         <DevicesSection />
         <BenefitsSection />
         <SegmentsSection />
-        <MetricsSection />
         <PlanosSection />
         <FinalCTA />
       </main>
       <LandingFooter onEntrar={entrar} />
 
       <a
-        href={linkWhatsappConsultor(`Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`)}
+        href={linkWhatsappConsultor(
+          `Olá! Tenho interesse no ${NOME_SISTEMA} e gostaria de uma demonstração.`,
+        )}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Falar no WhatsApp"

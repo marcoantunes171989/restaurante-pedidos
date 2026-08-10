@@ -11,17 +11,34 @@ function scrollYAtual() {
   return window.scrollY || document.documentElement.scrollTop || 0;
 }
 
+function secaoAtiva(ids) {
+  const root = document.getElementById("root");
+  const y = scrollYAtual() + 120;
+  let atual = ids[0];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const top = root
+      ? el.getBoundingClientRect().top + root.scrollTop
+      : el.getBoundingClientRect().top + window.scrollY;
+    if (top <= y) atual = id;
+  }
+  return atual;
+}
+
 export default function LandingHeader({ onEntrar, transparente = false }) {
   const [rolado, setRolado] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [ativo, setAtivo] = useState("topo");
 
   useEffect(() => {
     const root = document.getElementById("root");
+    const ids = NAV.map((n) => n.id);
     function aoRolar() {
       setRolado(scrollYAtual() > 16);
+      setAtivo(secaoAtiva(ids));
     }
     aoRolar();
-    // A SPA rola em #root (não em window) — ver src/index.css.
     root?.addEventListener("scroll", aoRolar, { passive: true });
     window.addEventListener("scroll", aoRolar, { passive: true });
     return () => {
@@ -35,8 +52,6 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
     goTo(id);
   }
 
-  // Transparente só no topo do hero; ao rolar (ou com menu mobile aberto)
-  // aplica barra petróleo full-width para o menu permanecer legível.
   const sobreHero = transparente && !rolado && !menuAberto;
   const barCls = sobreHero
     ? "border-transparent bg-transparent text-white shadow-none"
@@ -53,16 +68,27 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
         </button>
 
         <div className="hidden items-center gap-1 lg:flex">
-          {NAV.map((n) => (
-            <button
-              key={n.id}
-              type="button"
-              onClick={() => irPara(n.id)}
-              className="rounded-lg px-3 py-2 text-[13px] font-semibold uppercase tracking-[0.12em] text-white/90 transition hover:bg-white/10 hover:text-white"
-            >
-              {n.label}
-            </button>
-          ))}
+          {NAV.map((n) => {
+            const on = ativo === n.id;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => irPara(n.id)}
+                className={`relative rounded-lg px-3 py-2 text-[13px] font-semibold uppercase tracking-[0.14em] transition ${
+                  on ? "text-[#F38525]" : "text-white/90 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {n.label}
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-[#F38525] transition-opacity duration-300 ${
+                    on ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+              </button>
+            );
+          })}
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
@@ -78,9 +104,9 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
           <Botao
             variant="primary"
             href={linkWhatsappConsultor(`Olá! Gostaria de falar com um especialista sobre o ${NOME_SISTEMA}.`)}
-            className="!min-h-[44px] !px-4 !py-2.5 !text-[13px] !uppercase !tracking-[0.06em]"
+            className="!min-h-[44px] !rounded-lg !px-5 !py-2.5 !text-[12px] !uppercase !tracking-[0.08em]"
           >
-            Fale com um especialista
+            Fale com especialista
           </Botao>
         </div>
 
@@ -103,7 +129,9 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
                 key={n.id}
                 type="button"
                 onClick={() => irPara(n.id)}
-                className="min-h-[44px] rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white transition hover:bg-white/10"
+                className={`min-h-[44px] rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
+                  ativo === n.id ? "bg-white/10 text-[#F38525]" : "text-white hover:bg-white/10"
+                }`}
               >
                 {n.label}
               </button>
@@ -124,7 +152,7 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
               href={linkWhatsappConsultor(`Olá! Gostaria de falar com um especialista sobre o ${NOME_SISTEMA}.`)}
               className="w-full !uppercase"
             >
-              Fale com um especialista
+              Fale com especialista
             </Botao>
           </div>
         </div>

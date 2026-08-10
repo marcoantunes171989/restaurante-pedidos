@@ -1,4 +1,4 @@
-import { Mail, MessageCircle, Share2 } from "lucide-react";
+import { MessageCircle, Share2, Mail } from "lucide-react";
 import { Wordmark } from "../ui";
 import { goTo } from "../utils";
 import { FOOTER, NOME_SISTEMA } from "../content";
@@ -18,7 +18,7 @@ export default function LandingFooter({ onEntrar }) {
 
           {FOOTER.colunas.map((col) => (
             <div key={col.titulo}>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/90">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#F38525]">
                 {col.titulo}
               </p>
               <ul className="mt-4 grid gap-2.5">
@@ -30,7 +30,7 @@ export default function LandingFooter({ onEntrar }) {
                           href={linkWhatsappConsultor(`Olá! Preciso de suporte do ${NOME_SISTEMA}.`)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-white/55 transition hover:text-[#F38525]"
+                          className="text-sm text-white/55 transition hover:text-white"
                         >
                           {link.label}
                         </a>
@@ -42,7 +42,7 @@ export default function LandingFooter({ onEntrar }) {
                       <li key={link.label}>
                         <a
                           href={link.href}
-                          className="text-sm text-white/55 transition hover:text-[#F38525]"
+                          className="text-sm text-white/55 transition hover:text-white"
                         >
                           {link.label}
                         </a>
@@ -54,7 +54,7 @@ export default function LandingFooter({ onEntrar }) {
                       <button
                         type="button"
                         onClick={() => goTo(link.id)}
-                        className="text-left text-sm text-white/55 transition hover:text-[#F38525]"
+                        className="text-left text-sm text-white/55 transition hover:text-white"
                       >
                         {link.label}
                       </button>

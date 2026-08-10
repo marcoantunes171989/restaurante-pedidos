@@ -112,7 +112,7 @@ export function SectionHeading({
   const descCls = claro ? "text-white/80" : "text-[#012E46]/70";
   return (
     <Reveal className={`max-w-3xl ${alignCls} ${className}`}>
-      {badge ? <SectionEyebrow tom={claro ? "branco" : "laranja"}>{badge}</SectionEyebrow> : null}
+      {badge ? <SectionEyebrow tom="laranja">{badge}</SectionEyebrow> : null}
       <h2 className={`pp-landing-display mt-3 text-[clamp(1.85rem,1.2rem+2.4vw,3rem)] leading-[1.05] tracking-[0.02em] ${titleCls}`}>
         {titulo}
         {tituloAccent ? (

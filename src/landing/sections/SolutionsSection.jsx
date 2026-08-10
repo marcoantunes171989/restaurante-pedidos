@@ -1,21 +1,21 @@
 import {
   BarChart3,
   ClipboardList,
-  MonitorSmartphone,
   Package,
-  Puzzle,
+  Settings,
+  ShoppingCart,
   Users,
 } from "lucide-react";
 import { Reveal, SectionHeading } from "../ui";
 import { SOLUCOES } from "../content";
 
 const ICONS = {
-  monitorSmartphone: MonitorSmartphone,
+  shoppingCart: ShoppingCart,
   clipboardList: ClipboardList,
   users: Users,
   barChart3: BarChart3,
   package: Package,
-  puzzle: Puzzle,
+  settings: Settings,
 };
 
 export default function SolutionsSection() {
@@ -28,21 +28,25 @@ export default function SolutionsSection() {
           tituloAccent={SOLUCOES.tituloAccent}
         />
 
-        <div className="mt-12 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
           {SOLUCOES.itens.map((item, i) => {
             const Icon = ICONS[item.icon] || Package;
             return (
               <Reveal
                 as="article"
                 key={item.titulo}
-                delay={i * 60}
-                className="group border-t border-[#012E46]/10 pt-6"
+                delay={i * 55}
+                className="group"
               >
-                <span className="inline-flex text-[#012E46] transition group-hover:text-[#F38525]">
-                  <Icon className="h-7 w-7" strokeWidth={1.6} aria-hidden="true" />
+                <span className="inline-flex text-[#012E46] transition duration-300 group-hover:text-[#F38525]">
+                  <Icon className="h-8 w-8" strokeWidth={1.45} aria-hidden="true" />
                 </span>
-                <h3 className="mt-4 text-lg font-bold text-[#012E46]">{item.titulo}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#012E46]/70">{item.desc}</p>
+                <h3 className="mt-5 text-lg font-bold tracking-tight text-[#012E46]">
+                  {item.titulo}
+                </h3>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-[#012E46]/68">
+                  {item.desc}
+                </p>
               </Reveal>
             );
           })}
