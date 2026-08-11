@@ -120,10 +120,8 @@ export default function DashboardGerencial({
   const taxaEntrega = naoCancel ? Math.round((entregues / naoCancel) * 100) : 100;
 
   const horaAgora = new Date().getHours();
-  const fatHoraAtual = porHora.find((h) => Number(h.label) === horaAgora || h.label === `${String(horaAgora).padStart(2, "0")}h` || String(h.label).startsWith(String(horaAgora)))
-    || porHora[horaAgora]
-    || null;
-  const ritmoHora = fatHoraAtual?.valor ?? 0;
+  const labelHora = `${String(horaAgora).padStart(2, "0")}h`;
+  const ritmoHora = porHora.find((h) => h.label === labelHora)?.valor ?? 0;
   const ticketGap = a.ticket > 0 ? META_TICKET - a.ticket : null;
 
   const catDonut = useMemo(
