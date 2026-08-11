@@ -1,5 +1,21 @@
 import { detectarPlataforma, ehStandalone } from "../pwaDetection.js";
 
+/** ID estável do aparelho (localStorage) — usado em bloqueio e sessões. */
+export function obterDeviceIdEstavel() {
+  try {
+    let id = localStorage.getItem("pp_device_id");
+    if (!id) {
+      id = (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem("pp_device_id", id);
+    }
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Extrai informações técnicas do ambiente para auditoria de sessão.
  * Função pura + leitura opcional de navigator (quando disponível).
@@ -44,6 +60,7 @@ export function coletarInfoDispositivo(ua = typeof navigator !== "undefined" ? n
   const isPwa = typeof window !== "undefined" ? ehStandalone() : false;
 
   return {
+    deviceId: obterDeviceIdEstavel(),
     deviceType,
     deviceName: deviceType,
     os: osMap[plat.so] || "Outro",

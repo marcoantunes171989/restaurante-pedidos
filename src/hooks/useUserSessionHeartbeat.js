@@ -4,13 +4,14 @@ import {
   heartbeatSessaoAcesso,
   iniciarSessaoAcesso,
   limparSessionToken,
+  escutarSessaoPropria,
 } from "../lib/accessControl/api.js";
 
 /**
  * Mantém a sessão de acesso viva enquanto o usuário está logado.
- * - inicia/reativa a sessão ao montar (após Auth disponível)
- * - heartbeat periódico (45s) + ao voltar o foco da aba
- * - se a sessão foi encerrada remotamente → limpa token e chama onSessionRevoked
+ * - inicia/reativa a sessão ao montar
+ * - realtime na própria sessão → logout IMEDIATO se admin encerrar/bloquear
+ * - heartbeat periódico como fallback
  *
  * @param {object|null} currentUser
  * @param {{ onSessionRevoked?: () => void }} [options]
@@ -30,11 +31,32 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
 
     let cancelled = false;
     let timer = null;
+    let stopRealtime = null;
+
+    function revogar(motivo) {
+      if (cancelled || revokedRef.current) return;
+      revokedRef.current = true;
+      limparSessionToken();
+      try { onRevokedRef.current?.(motivo); } catch { /* ignore */ }
+    }
 
     async function boot() {
       if (cancelled || revokedRef.current) return;
-      await iniciarSessaoAcesso({ loginMethod: "password" });
-      startedRef.current = true;
+      try {
+        const sessionId = await iniciarSessaoAcesso({ loginMethod: "password" });
+        startedRef.current = true;
+        if (cancelled || revokedRef.current) return;
+        if (sessionId) {
+          stopRealtime = escutarSessaoPropria(sessionId, () => {
+            revogar("remote");
+          });
+        }
+      } catch (e) {
+        if (e?.code === "DEVICE_BLOCKED") {
+          revogar("blocked");
+          return;
+        }
+      }
     }
 
     async function tick() {
@@ -42,9 +64,7 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
       const result = await heartbeatSessaoAcesso();
       if (cancelled || revokedRef.current) return;
       if (result?.status === "closed") {
-        revokedRef.current = true;
-        limparSessionToken();
-        try { onRevokedRef.current?.(); } catch { /* ignore */ }
+        revogar("heartbeat");
       }
     }
 
@@ -61,6 +81,7 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
+      if (stopRealtime) stopRealtime();
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };

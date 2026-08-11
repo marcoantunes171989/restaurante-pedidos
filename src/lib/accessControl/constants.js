@@ -19,7 +19,12 @@ export const ACCESS_EVENT = {
   UNUSUAL_HOUR: "UNUSUAL_HOUR",
   UNUSUAL_LOCATION: "UNUSUAL_LOCATION",
   ADMIN_SESSION_TERMINATED: "ADMIN_SESSION_TERMINATED",
+  DEVICE_BLOCKED: "DEVICE_BLOCKED",
+  DEVICE_UNBLOCKED: "DEVICE_UNBLOCKED",
 };
+
+export const MSG_DISPOSITIVO_BLOQUEADO =
+  "Este dispositivo está bloqueado. Procure o canal de suporte para auxiliar com o acesso.";
 
 /** Tipos exibidos na aba Segurança. */
 export const ACCESS_SECURITY_TYPES = [
@@ -31,6 +36,8 @@ export const ACCESS_SECURITY_TYPES = [
   ACCESS_EVENT.UNUSUAL_HOUR,
   ACCESS_EVENT.UNUSUAL_LOCATION,
   ACCESS_EVENT.ADMIN_SESSION_TERMINATED,
+  ACCESS_EVENT.DEVICE_BLOCKED,
+  ACCESS_EVENT.DEVICE_UNBLOCKED,
 ];
 
 /** Alertas “ao vivo” (banner) — novo dispositivo / horário / localização. */
@@ -51,6 +58,8 @@ const ROTULOS_EVENTO = {
   [ACCESS_EVENT.UNUSUAL_HOUR]: "Horário incomum",
   [ACCESS_EVENT.UNUSUAL_LOCATION]: "Localização incomum",
   [ACCESS_EVENT.ADMIN_SESSION_TERMINATED]: "Encerrada por admin",
+  [ACCESS_EVENT.DEVICE_BLOCKED]: "Dispositivo bloqueado",
+  [ACCESS_EVENT.DEVICE_UNBLOCKED]: "Dispositivo desbloqueado",
 };
 
 export function rotuloEventoAcesso(tipo) {

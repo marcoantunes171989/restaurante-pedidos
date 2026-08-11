@@ -77,8 +77,10 @@ import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
-import { encerrarSessaoAcesso, registrarLoginNegado } from "./lib/accessControl/api";
+import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
+import { MSG_DISPOSITIVO_BLOQUEADO } from "./lib/accessControl/constants";
 import { resolverTelaAcesso } from "./lib/accessControl/screens";
+import { obterDeviceIdEstavel } from "./lib/accessControl/deviceInfo";
 import { ACCESS_EVENT } from "./lib/accessControl/constants";
 import EstacaoImpressaoAuto from "./components/EstacaoImpressaoAuto";
 import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
@@ -373,13 +375,9 @@ function formatarDoc(s) {
   return d.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
 
-// ID único do aparelho (persistido no localStorage) — usado no controle de versões
+// ID único do aparelho (persistido no localStorage) — versões + bloqueio de acesso
 function obterDeviceId() {
-  try {
-    let id = localStorage.getItem("pp_device_id");
-    if (!id) { id = (crypto.randomUUID?.() || String(Date.now()) + Math.random().toString(36).slice(2)); localStorage.setItem("pp_device_id", id); }
-    return id;
-  } catch { return null; }
+  return obterDeviceIdEstavel();
 }
 
 function createCartItem(product) {
@@ -1233,6 +1231,15 @@ export default function RestaurantePedidoApp() {
     const email = (creds.email || "").trim().toLowerCase();
     const senha = creds.password != null ? String(creds.password) : "";
     if (!email || !senha) return notify("error", "Informe e-mail e senha.");
+
+    // Bloqueio de dispositivo (site/PWA) — antes de validar credenciais
+    try {
+      const blk = await verificarDispositivoBloqueado(obterDeviceId());
+      if (blk?.blocked) {
+        registrarLoginNegado({ email, motivo: "Dispositivo bloqueado" });
+        return notify("error", blk.mensagem || MSG_DISPOSITIVO_BLOQUEADO);
+      }
+    } catch { /* best-effort — segue para validação normal */ }
 
     // Fonte da verdade: tab_usuarios (e-mail + senha no banco).
     // Se existir e estiver ativo → libera o sistema. Auth/JWT é best-effort.
