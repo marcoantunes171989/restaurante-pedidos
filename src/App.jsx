@@ -1296,10 +1296,11 @@ export default function RestaurantePedidoApp() {
     if (!aplicarLogin(credOk)) return;
   }
 
-  function logout() {
+  async function logout() {
     // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
     // peça a seleção da mesa novamente (e libere a mesa para outros).
-    try { encerrarSessaoAcesso({ eventType: ACCESS_EVENT.LOGOUT }); } catch { /* best-effort */ }
+    // Encerra a sessão de acesso ANTES do signOut (precisa do JWT ainda válido).
+    try { await encerrarSessaoAcesso({ eventType: ACCESS_EVENT.LOGOUT }); } catch { /* best-effort */ }
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
     try { sessionStorage.removeItem("pp_restore_once"); } catch {}
     try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {}
