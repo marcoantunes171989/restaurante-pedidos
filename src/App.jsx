@@ -75,7 +75,9 @@ import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
+import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
 import { encerrarSessaoAcesso, registrarLoginNegado } from "./lib/accessControl/api";
+import { resolverTelaAcesso } from "./lib/accessControl/screens";
 import { ACCESS_EVENT } from "./lib/accessControl/constants";
 import EstacaoImpressaoAuto from "./components/EstacaoImpressaoAuto";
 import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
@@ -1072,7 +1074,19 @@ export default function RestaurantePedidoApp() {
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
   const lojaInfo = lojas.find((l) => Number(l.id) === Number(lojaAtual)) || null;
   // Controle de Acessos — heartbeat de presença (não confundir com tab_dispositivos)
-  useUserSessionHeartbeat(currentUser);
+  // Se admin encerrar a sessão remotamente, força logout local no próximo heartbeat.
+  useUserSessionHeartbeat(currentUser, {
+    onSessionRevoked: () => {
+      try { logoutRef.current(); } catch { /* ignore */ }
+    },
+  });
+  // Permanência por tela (usuário + dispositivo + rota atual)
+  useAccessPageTracking(
+    currentUser,
+    currentUser
+      ? resolverTelaAcesso({ activeTab, adminSection, opmobileTab })
+      : null,
+  );
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
   const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);

@@ -3,19 +3,28 @@ import { ACCESS_HEARTBEAT_MS } from "../lib/accessControl/constants.js";
 import {
   heartbeatSessaoAcesso,
   iniciarSessaoAcesso,
+  limparSessionToken,
 } from "../lib/accessControl/api.js";
 
 /**
  * Mantém a sessão de acesso viva enquanto o usuário está logado.
  * - inicia/reativa a sessão ao montar (após Auth disponível)
  * - heartbeat periódico (45s) + ao voltar o foco da aba
+ * - se a sessão foi encerrada remotamente → limpa token e chama onSessionRevoked
+ *
+ * @param {object|null} currentUser
+ * @param {{ onSessionRevoked?: () => void }} [options]
  */
-export function useUserSessionHeartbeat(currentUser) {
+export function useUserSessionHeartbeat(currentUser, options = {}) {
   const startedRef = useRef(false);
+  const revokedRef = useRef(false);
+  const onRevokedRef = useRef(options.onSessionRevoked);
+  onRevokedRef.current = options.onSessionRevoked;
 
   useEffect(() => {
     if (!currentUser?.id) {
       startedRef.current = false;
+      revokedRef.current = false;
       return undefined;
     }
 
@@ -23,14 +32,20 @@ export function useUserSessionHeartbeat(currentUser) {
     let timer = null;
 
     async function boot() {
-      if (cancelled) return;
+      if (cancelled || revokedRef.current) return;
       await iniciarSessaoAcesso({ loginMethod: "password" });
       startedRef.current = true;
     }
 
     async function tick() {
-      if (cancelled || document.visibilityState === "hidden") return;
-      await heartbeatSessaoAcesso();
+      if (cancelled || revokedRef.current || document.visibilityState === "hidden") return;
+      const result = await heartbeatSessaoAcesso();
+      if (cancelled || revokedRef.current) return;
+      if (result?.status === "closed") {
+        revokedRef.current = true;
+        limparSessionToken();
+        try { onRevokedRef.current?.(); } catch { /* ignore */ }
+      }
     }
 
     boot();

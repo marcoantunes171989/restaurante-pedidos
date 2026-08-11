@@ -67,19 +67,40 @@ export async function iniciarSessaoAcesso({ loginMethod = "password" } = {}) {
   return data;
 }
 
+/**
+ * Heartbeat de presença.
+ * @returns {Promise<{ status: 'active'|'closed'|'missing'|'error', alive: boolean }>}
+ */
 export async function heartbeatSessaoAcesso() {
-  if (!supabase) return false;
+  if (!supabase) return { status: "missing", alive: false };
   let token = null;
   try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
-  if (!token) return false;
+  if (!token) return { status: "missing", alive: false };
   const { data, error } = await supabase.rpc("app_sessao_heartbeat", {
     p_session_token: token,
   });
   if (error) {
     console.warn("[access-control] heartbeat:", error.message);
-    return false;
+    // Compat: migration 098 devolvia boolean — trata true/false
+    return { status: "error", alive: false };
   }
-  return !!data;
+  // Fase 2 (099): text active|closed|missing
+  // Fase 1 (098): boolean
+  if (data === true) return { status: "active", alive: true };
+  if (data === false) return { status: "missing", alive: false };
+  const status = typeof data === "string" ? data : "error";
+  return { status, alive: status === "active" };
+}
+
+/** Admin encerra sessão de outro usuário (ou a própria) remotamente. */
+export async function encerrarSessaoRemota(sessionId) {
+  if (!supabase) throw new Error("Supabase indisponível");
+  if (!sessionId) throw new Error("Sessão inválida");
+  const { data, error } = await supabase.rpc("app_sessao_encerrar_remota", {
+    p_session_id: sessionId,
+  });
+  if (error) throw error;
+  return data || { ok: true };
 }
 
 export async function encerrarSessaoAcesso({ eventType = ACCESS_EVENT.LOGOUT } = {}) {
@@ -175,6 +196,130 @@ export async function listarEventosAcesso(params = {}) {
     totalCount: Number(e.total_count) || 0,
   }));
   return { rows, total: rows[0]?.totalCount ?? rows.length };
+}
+
+/** Inicia registro de permanência na tela atual. */
+export async function iniciarPageStay({ route, screenKey, screenLabel } = {}) {
+  if (!supabase || !screenKey) return null;
+  let token = null;
+  try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
+  if (!token) return null;
+  const { data, error } = await supabase.rpc("app_page_stay_iniciar", {
+    p_session_token: token,
+    p_route: route || null,
+    p_screen_key: screenKey,
+    p_screen_label: screenLabel || screenKey,
+  });
+  if (error) {
+    console.warn("[access-control] page stay iniciar:", error.message);
+    return null;
+  }
+  return data;
+}
+
+export async function encerrarPageStay(stayId) {
+  if (!supabase || !stayId) return false;
+  const { data, error } = await supabase.rpc("app_page_stay_encerrar", {
+    p_stay_id: stayId,
+  });
+  if (error) {
+    console.warn("[access-control] page stay encerrar:", error.message);
+    return false;
+  }
+  return !!data;
+}
+
+export async function listarPageStaysSessao(sessionId, limit = 40) {
+  if (!supabase || !sessionId) return [];
+  const { data, error } = await supabase.rpc("app_listar_page_stays_sessao", {
+    p_session_id: sessionId,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data || []).map((r) => ({
+    id: r.id,
+    sessionId: r.session_id,
+    screenKey: r.screen_key,
+    screenLabel: r.screen_label,
+    route: r.route,
+    deviceType: r.device_type,
+    os: r.os,
+    browser: r.browser,
+    startedAt: r.started_at,
+    endedAt: r.ended_at,
+    durationMs: Number(r.duration_ms) || 0,
+  }));
+}
+
+export async function listarPermanenciaAcesso(params = {}) {
+  if (!supabase) return { rows: [], total: 0 };
+  const { data, error } = await supabase.rpc("app_listar_permanencia", {
+    p_agrupar: params.agrupar || "tela",
+    p_desde: params.desde || null,
+    p_ate: params.ate || null,
+    p_loja_id: params.lojaId != null ? Number(params.lojaId) : null,
+    p_limit: params.limit ?? 50,
+    p_offset: params.offset ?? 0,
+  });
+  if (error) throw error;
+  const rows = (data || []).map((r) => ({
+    chave: r.chave,
+    rotulo: r.rotulo,
+    tempoMs: Number(r.tempo_ms) || 0,
+    visitas: Number(r.visitas) || 0,
+    usuarios: Number(r.usuarios) || 0,
+    detalhe: r.detalhe || "",
+    totalCount: Number(r.total_count) || 0,
+  }));
+  return { rows, total: rows[0]?.totalCount ?? rows.length };
+}
+
+export async function excluirSessaoAcesso(sessionId) {
+  if (!supabase) throw new Error("Supabase indisponível");
+  const { data, error } = await supabase.rpc("app_sessao_excluir", {
+    p_session_id: sessionId,
+  });
+  if (error) throw error;
+  return data || { ok: true };
+}
+
+export async function excluirEventoAcesso(eventId) {
+  if (!supabase) throw new Error("Supabase indisponível");
+  const { data, error } = await supabase.rpc("app_evento_acesso_excluir", {
+    p_event_id: eventId,
+  });
+  if (error) throw error;
+  return data || { ok: true };
+}
+
+/** Inscreve em mudanças de sessões/eventos da loja (tela admin ao vivo). */
+export function escutarControleAcessos(onChange, { lojaId = null } = {}) {
+  if (!supabase || typeof onChange !== "function") {
+    return () => {};
+  }
+  const nome = `ch_controle_acessos_${Math.random().toString(36).slice(2)}`;
+  const filtroLoja = lojaId != null ? `loja_id=eq.${Number(lojaId)}` : undefined;
+  let canal = supabase.channel(nome)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "tab_user_sessions", ...(filtroLoja ? { filter: filtroLoja } : {}) },
+      () => onChange("session"),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "tab_access_events", ...(filtroLoja ? { filter: filtroLoja } : {}) },
+      () => onChange("event"),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "tab_access_page_stays", ...(filtroLoja ? { filter: filtroLoja } : {}) },
+      () => onChange("stay"),
+    );
+  canal.subscribe();
+  return () => {
+    try { supabase.removeChannel(canal); } catch { /* ignore */ }
+    canal = null;
+  };
 }
 
 /** Best-effort: registra login negado via API (service role no servidor). */
