@@ -28,6 +28,8 @@ import {
   serieDiaria,
   scoreSaudeOperacao,
   prioridadesDecisao,
+  metricasFila,
+  melhorMesVendas,
 } from "../../lib/dashboard/analiseDashboard.js";
 import { formatCurrency } from "../pdv/pdvHelpers.js";
 
@@ -47,11 +49,10 @@ function fmtHora(d) {
   return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-/** Card branco padrão — borda + sombra (compatível com tema claro admin). */
 function DashCard({ children, className = "", as: Tag = "section" }) {
   return (
     <Tag
-      className={`rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_0_rgba(1,46,70,0.04)] ${className}`}
+      className={`rounded-2xl border border-[#E5E7EB] bg-white p-3.5 shadow-[0_1px_0_rgba(1,46,70,0.04)] sm:p-4 ${className}`}
     >
       {children}
     </Tag>
@@ -72,7 +73,15 @@ function ChartHeader({ titulo, descricao, acao = null }) {
   );
 }
 
-function LiveKpi({ titulo, valor, sub, variacao, spark, cor = PETROLEO, pulseKey }) {
+function SectionLabel({ children }) {
+  return (
+    <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
+      {children}
+    </p>
+  );
+}
+
+function LiveKpi({ titulo, valor, sub, variacao, spark, cor = PETROLEO, pulseKey, destaque = false }) {
   const reduce = useReducedMotion();
   const up = (variacao || 0) >= 0;
   return (
@@ -82,9 +91,18 @@ function LiveKpi({ titulo, valor, sub, variacao, spark, cor = PETROLEO, pulseKey
       initial={reduce ? false : { opacity: 0.55, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
-      className="relative min-w-0 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white px-3.5 py-3 shadow-[0_1px_0_rgba(1,46,70,0.04)]"
+      className={`relative min-w-0 overflow-hidden rounded-2xl border bg-white px-3 py-3 shadow-[0_1px_0_rgba(1,46,70,0.04)] sm:px-3.5 ${
+        destaque ? "border-[#F38525]/45" : "border-[#E5E7EB]"
+      }`}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[#012E46] via-[#F38525] to-transparent opacity-80" />
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-0.5 opacity-90"
+        style={{
+          background: destaque
+            ? `linear-gradient(90deg, ${LARANJA}, transparent)`
+            : `linear-gradient(90deg, ${PETROLEO}, ${LARANJA}, transparent)`,
+        }}
+      />
       <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6B7280]">{titulo}</p>
       <p className="mt-0.5 text-xl font-black tabular-nums tracking-tight text-[#012E46] sm:text-2xl">{valor}</p>
       {variacao != null ? (
@@ -94,9 +112,11 @@ function LiveKpi({ titulo, valor, sub, variacao, spark, cor = PETROLEO, pulseKey
       ) : (
         <p className="text-[11px] font-semibold text-[#6B7280]">{sub}</p>
       )}
-      <div className="mt-1">
-        <Sparkline valores={spark} cor={cor} pulseKey={pulseKey} height={28} />
-      </div>
+      {spark ? (
+        <div className="mt-1">
+          <Sparkline valores={spark} cor={cor} pulseKey={pulseKey} height={26} />
+        </div>
+      ) : null}
     </motion.article>
   );
 }
@@ -113,8 +133,8 @@ function MiniStat({ rotulo, valor, destaque = false }) {
 }
 
 /**
- * Dashboard Gerencial — Central de Decisão ao vivo.
- * Cards com identificação clara + decisões do trilho na tela principal.
+ * Dashboard Gerencial — Central de Decisão.
+ * KPIs críticos no topo · dados reais da loja · responsivo.
  */
 export default function DashboardGerencial({
   orders = [],
@@ -134,6 +154,8 @@ export default function DashboardGerencial({
     [orders, periodo],
   );
   const a = useMemo(() => analisarVendas(filtrados, products), [filtrados, products]);
+  const fila = useMemo(() => metricasFila(filtrados), [filtrados]);
+  const mesTopo = useMemo(() => melhorMesVendas(a.pagos), [a.pagos]);
   const { sequencia: porHora, melhor: melhorHora } = useMemo(() => vendasPorHora(a.pagos), [a.pagos]);
   const canalDonut = useMemo(() => faturamentoPorCanal(a.pagos), [a.pagos]);
   const statusDonut = useMemo(() => statusPedidos(filtrados), [filtrados]);
@@ -146,8 +168,6 @@ export default function DashboardGerencial({
 
   const mesasAbertas = useMemo(() => mesasAbertasAgora(orders), [orders]);
   const clientesPeriodo = useMemo(() => clientesNoPeriodo(filtrados), [filtrados]);
-  const abertos = filtrados.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled");
-  const cancelados = filtrados.filter((o) => o.status === "cancelled").length;
   const semEstoque = products.filter(
     (p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 5),
   ).length;
@@ -155,11 +175,6 @@ export default function DashboardGerencial({
   const entregues = filtrados.filter((o) => o.status === "delivered").length;
   const naoCancel = filtrados.filter((o) => o.status !== "cancelled").length;
   const taxaEntrega = naoCancel ? Math.round((entregues / naoCancel) * 100) : 100;
-
-  const horaAgora = new Date().getHours();
-  const labelHora = `${String(horaAgora).padStart(2, "0")}h`;
-  const ritmoHora = porHora.find((h) => h.label === labelHora)?.valor ?? 0;
-  const ticketGap = a.ticket > 0 ? META_TICKET - a.ticket : null;
 
   const catDonut = useMemo(
     () => a.categorias.slice(0, 5).map((c, i) => ({
@@ -173,27 +188,27 @@ export default function DashboardGerencial({
   const saude = useMemo(
     () => scoreSaudeOperacao({
       ticket: a.ticket,
-      abertos: abertos.length,
-      cancelados,
-      totalPedidos: a.totalPedidos,
+      abertos: fila.emAberto + fila.aguardandoPagamento,
+      cancelados: fila.cancelados,
+      totalPedidos: a.totalPedidos + fila.cancelados,
       semEstoque,
       mesasAbertas,
       variacaoFat: comparativo?.faturamento,
     }),
-    [a.ticket, abertos.length, cancelados, a.totalPedidos, semEstoque, mesasAbertas, comparativo],
+    [a.ticket, fila, semEstoque, mesasAbertas, comparativo, a.totalPedidos],
   );
 
   const prioridades = useMemo(
     () => prioridadesDecisao({
-      abertos: abertos.length,
-      emAbertoValor: a.emAberto,
+      abertos: fila.emAberto + fila.aguardandoPagamento,
+      emAbertoValor: fila.emAbertoValor + fila.aguardandoValor,
       semEstoque,
       melhorHora,
       produtoTop,
       ticket: a.ticket,
       taxaEntrega,
     }),
-    [abertos.length, a.emAberto, semEstoque, melhorHora, produtoTop, a.ticket, taxaEntrega],
+    [fila, semEstoque, melhorHora, produtoTop, a.ticket, taxaEntrega],
   );
 
   useEffect(() => {
@@ -237,8 +252,7 @@ export default function DashboardGerencial({
 
   return (
     <div className="-mx-1 min-h-[calc(100dvh-5.5rem)] space-y-4 lg:-mx-2">
-      {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 shadow-[0_1px_0_rgba(1,46,70,0.04)] sm:px-5">
+      <header className="flex flex-col gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-3 py-3 shadow-[0_1px_0_rgba(1,46,70,0.04)] sm:px-5 sm:py-3.5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-black tracking-tight text-[#012E46] sm:text-xl">
@@ -250,11 +264,11 @@ export default function DashboardGerencial({
             </span>
           </div>
           <p className="mt-0.5 text-xs font-semibold text-[#6B7280]">
-            Análise assertiva · sync {fmtHora(atualizadoEm)} · pulso {PULSE_MS / 1000}s
+            Dados reais da loja · sync {fmtHora(atualizadoEm)} · pulso {PULSE_MS / 1000}s
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap gap-1">
+          <div className="flex max-w-full flex-wrap gap-1">
             {PERIODOS.map((p) => (
               <FilterChip
                 key={p.id}
@@ -272,32 +286,94 @@ export default function DashboardGerencial({
         </div>
       </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-5">
-        <LiveKpi
-          titulo="Faturamento"
-          valor={formatCurrency(a.faturamento)}
-          variacao={comparativo?.faturamento}
-          spark={spark}
-          cor={PETROLEO}
-          pulseKey={pulseKey}
-        />
-        <LiveKpi
-          titulo="Ticket médio"
-          valor={formatCurrency(a.ticket)}
-          variacao={comparativo?.ticket}
-          spark={spark}
-          cor={LARANJA}
-          pulseKey={pulseKey}
-        />
-        <LiveKpi
-          titulo="Pedidos"
-          valor={a.totalPedidos}
-          variacao={comparativo?.pedidos}
-          spark={porHora.map((h) => h.qtd)}
-          cor={PETROLEO}
-          pulseKey={pulseKey}
-        />
+      {/* 1) Fila crítica — mais importante no topo */}
+      <div>
+        <SectionLabel>Fila e atenção imediata</SectionLabel>
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <LiveKpi
+            titulo="Em aberto"
+            valor={fila.emAberto}
+            sub={fila.emAberto ? formatCurrency(fila.emAbertoValor) : "nenhuma comanda"}
+            cor={LARANJA}
+            pulseKey={pulseKey}
+            destaque={fila.emAberto > 0}
+          />
+          <LiveKpi
+            titulo="Aguardando pagamento"
+            valor={fila.aguardandoPagamento}
+            sub={fila.aguardandoPagamento ? formatCurrency(fila.aguardandoValor) : "nenhuma conta"}
+            cor={LARANJA}
+            pulseKey={pulseKey}
+            destaque={fila.aguardandoPagamento > 0}
+          />
+          <LiveKpi
+            titulo="Cancelados"
+            valor={fila.cancelados}
+            sub={filtrados.length ? `${Math.round((fila.cancelados / Math.max(filtrados.length, 1)) * 100)}% do período` : "no período"}
+            cor={PETROLEO}
+            pulseKey={pulseKey}
+            destaque={fila.cancelados > 0}
+          />
+          <LiveKpi
+            titulo="Pedidos externos"
+            valor={fila.externos}
+            sub={
+              fila.externosPagos
+                ? `${fila.externosPagos} pagos · ${formatCurrency(fila.externosValor)}`
+                : "retirada / entrega / local"
+            }
+            cor={LARANJA}
+            pulseKey={pulseKey}
+            destaque={fila.externos > 0}
+          />
+        </div>
+      </div>
+
+      {/* 2) Resultado */}
+      <div>
+        <SectionLabel>Resultado do período</SectionLabel>
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          <LiveKpi
+            titulo="Faturamento"
+            valor={formatCurrency(a.faturamento)}
+            variacao={comparativo?.faturamento}
+            spark={spark}
+            cor={PETROLEO}
+            pulseKey={pulseKey}
+          />
+          <LiveKpi
+            titulo="Ticket médio"
+            valor={formatCurrency(a.ticket)}
+            variacao={comparativo?.ticket}
+            spark={spark}
+            cor={LARANJA}
+            pulseKey={pulseKey}
+          />
+          <LiveKpi
+            titulo="Pedidos"
+            valor={a.totalPedidos}
+            variacao={comparativo?.pedidos}
+            spark={porHora.map((h) => h.qtd)}
+            cor={PETROLEO}
+            pulseKey={pulseKey}
+          />
+          <LiveKpi
+            titulo="Mês que mais vendeu"
+            valor={mesTopo.label}
+            sub={
+              mesTopo.valor > 0
+                ? `${formatCurrency(mesTopo.valor)} · ${mesTopo.qtd} ped.`
+                : "sem vendas no período"
+            }
+            cor={LARANJA}
+            pulseKey={pulseKey}
+            destaque={mesTopo.valor > 0}
+          />
+        </div>
+      </div>
+
+      {/* 3) Contexto */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <LiveKpi
           titulo="Mesas abertas"
           valor={mesasAbertas}
@@ -314,34 +390,37 @@ export default function DashboardGerencial({
           cor={PETROLEO}
           pulseKey={pulseKey}
         />
+        <LiveKpi
+          titulo="Conclusão"
+          valor={`${taxaEntrega}%`}
+          sub={`${entregues} entregues no período`}
+          cor={PETROLEO}
+          pulseKey={pulseKey}
+        />
       </div>
 
-      {/* Trilho do gestor — na tela principal (cards legíveis) */}
+      {/* Trilho do gestor */}
       <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">
-          Trilho do gestor · o que fazer agora
-        </p>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <SectionLabel>Trilho do gestor · o que fazer agora</SectionLabel>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <DashCard>
             <ChartHeader
               titulo="Saúde da operação"
-              descricao="Índice 0–100 para priorizar o turno com base em ticket, fila, estoque e tendência."
+              descricao="Índice 0–100 com base em ticket, fila, estoque e tendência."
             />
             <HealthScore score={saude.score} nivel={saude.nivel} escuro={false} />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <MiniStat
-                rotulo={`Ritmo ${horaAgora}h`}
-                valor={ritmoHora > 0 ? formatCurrency(ritmoHora) : "—"}
+                rotulo="Externos pagos"
+                valor={fila.externosPagos}
                 destaque
               />
               <MiniStat
-                rotulo={ticketGap == null ? "Meta ticket" : ticketGap > 0 ? "Falta p/ meta" : "Meta ok"}
+                rotulo={a.ticket > 0 && a.ticket < META_TICKET ? "Falta p/ meta" : "Meta ticket"}
                 valor={
-                  ticketGap == null
-                    ? formatCurrency(META_TICKET)
-                    : ticketGap > 0
-                      ? formatCurrency(ticketGap)
-                      : formatCurrency(META_TICKET)
+                  a.ticket > 0 && a.ticket < META_TICKET
+                    ? formatCurrency(META_TICKET - a.ticket)
+                    : formatCurrency(META_TICKET)
                 }
               />
             </div>
@@ -350,7 +429,7 @@ export default function DashboardGerencial({
           <DashCard>
             <ChartHeader
               titulo="Prioridades de decisão"
-              descricao="Ações ordenadas por urgência — foque no que move o resultado agora."
+              descricao="Ações por urgência — foque no que move o resultado agora."
             />
             <ul className="space-y-2">
               <AnimatePresence mode="popLayout">
@@ -381,38 +460,34 @@ export default function DashboardGerencial({
             </ul>
           </DashCard>
 
-          <DashCard>
+          <DashCard className="md:col-span-2 xl:col-span-1">
             <ChartHeader
               titulo="Snapshot operacional"
-              descricao="Fila, cancelamentos, estoque e horário de pico — leitura rápida do salão."
+              descricao="Fila, cancelamentos, estoque e mês de pico no período filtrado."
             />
             <div className="grid grid-cols-2 gap-2">
-              <MiniStat rotulo="Em aberto" valor={abertos.length} destaque />
-              <MiniStat rotulo="Cancelados" valor={cancelados} />
-              <MiniStat rotulo="Estoque ↓" valor={semEstoque} />
-              <MiniStat
-                rotulo="Melhor hora"
-                valor={melhorHora.valor > 0 ? melhorHora.label : "—"}
-                destaque
-              />
+              <MiniStat rotulo="Em aberto" valor={fila.emAberto} destaque={fila.emAberto > 0} />
+              <MiniStat rotulo="Aguard. pag." valor={fila.aguardandoPagamento} destaque={fila.aguardandoPagamento > 0} />
+              <MiniStat rotulo="Cancelados" valor={fila.cancelados} />
+              <MiniStat rotulo="Melhor mês" valor={mesTopo.label} destaque={mesTopo.valor > 0} />
             </div>
             <p className="mt-3 text-[11px] font-semibold leading-relaxed text-[#6B7280]">
               {produtoTop
                 ? `Destaque: ${produtoTop.nome} (${produtoTop.qtd} un). `
                 : "Aguardando vendas no período. "}
-              Em aberto: <span className="font-black text-[#012E46]">{formatCurrency(a.emAberto)}</span>
+              Externos: <span className="font-black text-[#012E46]">{fila.externos}</span>
               {" · "}
-              Conclusão: <span className="font-black text-[#012E46]">{taxaEntrega}%</span>
+              Em aberto: <span className="font-black text-[#012E46]">{formatCurrency(fila.emAbertoValor + fila.aguardandoValor)}</span>
             </p>
           </DashCard>
         </div>
       </div>
 
-      {/* Gráfico protagonista */}
+      {/* Fluxo */}
       <DashCard>
         <ChartHeader
           titulo="Fluxo de faturamento"
-          descricao="Evolução do faturamento no período — identifica picos e quedas para agir no horário certo."
+          descricao="Evolução real do faturamento no período — picos e quedas para agir no horário certo."
         />
         <AreaWaveChart
           serie={serie}
@@ -422,11 +497,11 @@ export default function DashboardGerencial({
       </DashCard>
 
       {/* Ritmo + comparativo */}
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <DashCard>
           <ChartHeader
             titulo="Ritmo por horário"
-            descricao="Barras = faturamento · linha = pedidos. Use para dimensionar equipe no pico."
+            descricao="Barras = faturamento · linha = pedidos. Dimensiona equipe no pico."
           />
           <ComposedBarLineChart
             dados={porHora}
@@ -437,11 +512,11 @@ export default function DashboardGerencial({
         <DashCard>
           <ChartHeader
             titulo="Versus período anterior"
-            descricao="Variação de faturamento, pedidos e ticket — sinaliza se o dia está acima ou abaixo."
+            descricao="Variação de faturamento, pedidos e ticket com dados da loja."
           />
           {comparativo ? (
             <div className="space-y-2">
-              <div className="flex justify-around">
+              <div className="flex flex-wrap justify-around gap-2">
                 <RadialDelta valor={comparativo.faturamento} rotulo="Fat." />
                 <RadialDelta valor={comparativo.pedidos} rotulo="Pedidos" />
                 <RadialDelta valor={comparativo.ticket} rotulo="Ticket" />
@@ -460,12 +535,12 @@ export default function DashboardGerencial({
         </DashCard>
       </div>
 
-      {/* Mix + top produtos */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {/* Mix — empilha no mobile, 2x2 no tablet, 4 no desktop */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <DashCard>
           <ChartHeader
             titulo="Canais de venda"
-            descricao="Participação mesa/QR vs balcão/delivery no faturamento."
+            descricao="Mesa/QR, externo/delivery e balcão — participação real no faturamento."
           />
           <DonutChart
             dados={canalDonut}
@@ -477,7 +552,7 @@ export default function DashboardGerencial({
         <DashCard>
           <ChartHeader
             titulo="Status dos pedidos"
-            descricao="Fila atual: pagos, em aberto e cancelados — saúde da operação."
+            descricao="Pagos, em aberto, aguardando pagamento e cancelados."
           />
           <DonutChart
             dados={statusDonut}
@@ -505,7 +580,7 @@ export default function DashboardGerencial({
         <DashCard>
           <ChartHeader
             titulo="Top produtos"
-            descricao="Itens mais vendidos — empurre no caixa e no cardápio."
+            descricao="Itens mais vendidos com base nos pedidos pagos do período."
             acao={(
               <button
                 type="button"
@@ -521,7 +596,7 @@ export default function DashboardGerencial({
       </div>
 
       <p className="pb-2 text-center text-[10px] font-semibold text-[#9CA3AF]">
-        Atualização automática a cada 15s · pedidos em tempo real
+        Atualização automática a cada 15s · pedidos em tempo real da loja
       </p>
     </div>
   );

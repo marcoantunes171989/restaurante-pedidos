@@ -1,10 +1,12 @@
-import { orderTotal } from "../../pages/pdv/pdvHelpers.js";
+import { ehPedidoExterno, orderTotal } from "../../pages/pdv/pdvHelpers.js";
 
 export const PETROLEO = "#012E46";
 export const LARANJA = "#F38525";
 export const VERDE = "#5E8C31";
 export const CINZA = "#9CA3AF";
 export const VERMELHO = "#C81E4A";
+
+export { ehPedidoExterno };
 
 export function intervaloPeriodo(periodo, ini, fim) {
   const hoje = new Date();
@@ -112,10 +114,104 @@ export function filtrarOperacional(orders, { turno = "todos", canal = "todos", s
     if (statusF === "pago" && !(o.paymentStatus === "paid" && o.status !== "cancelled")) return false;
     if (statusF === "aberto" && !(o.paymentStatus !== "paid" && o.status !== "cancelled")) return false;
     if (statusF === "cancelado" && o.status !== "cancelled") return false;
-    if (canal === "mesa_qr" && !o.command) return false;
-    if (canal === "balcao_delivery" && o.command) return false;
+    if (canal === "mesa_qr" && (ehPedidoExterno(o) || !o.command)) return false;
+    if (canal === "externo" && !ehPedidoExterno(o)) return false;
+    if (canal === "balcao_delivery" && (ehPedidoExterno(o) || o.command)) return false;
     return true;
   });
+}
+
+/**
+ * KPIs de fila operacional a partir dos pedidos reais do período.
+ * - emAberto: não pagos (exceto "requested") e não cancelados
+ * - aguardandoPagamento: paymentStatus === "requested"
+ * - cancelados / externos: contagens diretas
+ */
+export function metricasFila(orders = []) {
+  const list = orders || [];
+  let emAberto = 0;
+  let emAbertoValor = 0;
+  let aguardandoPagamento = 0;
+  let aguardandoValor = 0;
+  let cancelados = 0;
+  let externos = 0;
+  let externosPagos = 0;
+  let externosValor = 0;
+
+  list.forEach((o) => {
+    const cancelado = o.status === "cancelled";
+    const pago = o.paymentStatus === "paid";
+    const solicitado = o.paymentStatus === "requested";
+    const externo = ehPedidoExterno(o);
+    const valor = valorPedidoComTaxa(o);
+
+    if (externo) {
+      externos += 1;
+      if (pago && !cancelado) {
+        externosPagos += 1;
+        externosValor += valor;
+      }
+    }
+    if (cancelado) {
+      cancelados += 1;
+      return;
+    }
+    if (solicitado) {
+      aguardandoPagamento += 1;
+      aguardandoValor += valor;
+      return;
+    }
+    if (!pago) {
+      emAberto += 1;
+      emAbertoValor += valor;
+    }
+  });
+
+  return {
+    emAberto,
+    emAbertoValor,
+    aguardandoPagamento,
+    aguardandoValor,
+    cancelados,
+    externos,
+    externosPagos,
+    externosValor,
+  };
+}
+
+/** Mês com maior faturamento (pedidos pagos) dentro do conjunto informado. */
+export function melhorMesVendas(pagos = []) {
+  const map = new Map();
+  (pagos || []).forEach((o) => {
+    if (!o.createdAtISO) return;
+    const d = new Date(o.createdAtISO);
+    if (Number.isNaN(d.getTime())) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const cur = map.get(key) || {
+      key,
+      ano: d.getFullYear(),
+      mes: d.getMonth(),
+      valor: 0,
+      qtd: 0,
+    };
+    cur.valor += valorPedidoComTaxa(o);
+    cur.qtd += 1;
+    map.set(key, cur);
+  });
+  if (map.size === 0) {
+    return { label: "—", valor: 0, qtd: 0, key: null };
+  }
+  const best = [...map.values()].sort((a, b) => b.valor - a.valor)[0];
+  const label = new Date(best.ano, best.mes, 1).toLocaleDateString("pt-BR", {
+    month: "short",
+    year: "numeric",
+  });
+  return {
+    label: label.replace(".", ""),
+    valor: best.valor,
+    qtd: best.qtd,
+    key: best.key,
+  };
 }
 
 export function vendasPorHora(pagos) {
@@ -139,26 +235,35 @@ export function vendasPorHora(pagos) {
 
 export function faturamentoPorCanal(pagos) {
   let mesa = 0;
+  let externo = 0;
   let balcao = 0;
   (pagos || []).forEach((o) => {
     const v = valorPedidoComTaxa(o);
-    if (o.command) mesa += v;
+    if (ehPedidoExterno(o)) externo += v;
+    else if (o.command || (o.table && !/^balc[aã]o$/i.test(String(o.table)))) mesa += v;
     else balcao += v;
   });
   return [
     { label: "Mesa / QR Code", valor: mesa, cor: PETROLEO },
-    { label: "Balcão / Delivery", valor: balcao, cor: LARANJA },
+    { label: "Externo / Delivery", valor: externo, cor: LARANJA },
+    { label: "Balcão", valor: balcao, cor: "#3D5A6C" },
   ].filter((d) => d.valor > 0);
 }
 
 export function statusPedidos(orders) {
   const list = orders || [];
   const pagos = list.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled").length;
-  const abertos = list.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled").length;
+  const aguardando = list.filter((o) => o.paymentStatus === "requested" && o.status !== "cancelled").length;
+  const abertos = list.filter((o) => (
+    o.status !== "cancelled"
+    && o.paymentStatus !== "paid"
+    && o.paymentStatus !== "requested"
+  )).length;
   const cancelados = list.filter((o) => o.status === "cancelled").length;
   return [
     { label: "Pago", valor: pagos, cor: VERDE },
     { label: "Em aberto", valor: abertos, cor: LARANJA },
+    { label: "Aguardando pag.", valor: aguardando, cor: "#F5A54A" },
     { label: "Cancelado", valor: cancelados, cor: VERMELHO },
   ].filter((d) => d.valor > 0);
 }
