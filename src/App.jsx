@@ -74,6 +74,7 @@ import CashierPdv from "./pages/pdv/CashierPdv";
 import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
+import DashboardGerencial from "./pages/admin/DashboardGerencial";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
 import { encerrarSessaoAcesso, registrarLoginNegado } from "./lib/accessControl/api";
@@ -6797,7 +6798,14 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
-          {ativo === "dashboard"  && <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} irParaMesas={() => setAdminSection("mesas")} />}
+          {ativo === "dashboard"  && (
+            <DashboardGerencial
+              orders={orders}
+              products={products}
+              clientes={clientes}
+              irParaProdutos={() => setAdminSection("products")}
+            />
+          )}
           {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
