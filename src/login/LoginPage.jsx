@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { QRScannerModal } from "../components/QRScanner";
 import { lerLoginQRTexto } from "../lib/loginQr";
+import { logoutSupabaseAuth } from "../lib/supabase";
+import { usandoSupabaseAuth } from "../lib/authMode";
 import LoginBrandPanel from "./LoginBrandPanel";
 import LoginForm from "./LoginForm";
 import LoginFooter from "./LoginFooter";
@@ -15,13 +17,17 @@ import LoginFooter from "./LoginFooter";
 export default function LoginPage({ loginForm, setLoginForm, login, message, dbReady = true }) {
   const [scanLogin, setScanLogin] = useState(false);
 
-  function voltarAoSite() {
-    // Limpa o marcador de sessão para que "/" renderize a landing pública.
+  async function voltarAoSite() {
+    // Limpa sessão local + JWT para "/" não auto-restaurar a tela anterior.
     try {
       sessionStorage.removeItem("pp_sessao_ativa");
       sessionStorage.removeItem("pp_sessao_email");
       sessionStorage.removeItem("pp_restore_once");
-    } catch {}
+      sessionStorage.removeItem("pp_pos_login_redirect");
+    } catch { /* ignore */ }
+    if (usandoSupabaseAuth()) {
+      try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+    }
     window.location.href = "/";
   }
 

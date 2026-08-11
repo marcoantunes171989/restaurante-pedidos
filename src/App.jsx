@@ -532,8 +532,26 @@ function Metric({ label, value }) {
 // inicial do perfil (abaInicialDoUsuario). F5 com sessão ativa continua
 // na URL atual. Mantemos só a limpeza da chave antiga (sessões legadas).
 const CHAVE_REDIRECT_POS_LOGIN = "pp_pos_login_redirect";
+const CHAVE_SESSAO_ATIVA = "pp_sessao_ativa";
+const CHAVE_SESSAO_EMAIL = "pp_sessao_email";
+const CHAVE_RESTORE_ONCE = "pp_restore_once";
 function limparRedirectPosLogin() {
   try { sessionStorage.removeItem(CHAVE_REDIRECT_POS_LOGIN); } catch { /* sessionStorage indisponível */ }
+}
+function limparMarcadoresSessaoLocal() {
+  try {
+    sessionStorage.removeItem(CHAVE_SESSAO_ATIVA);
+    sessionStorage.removeItem(CHAVE_SESSAO_EMAIL);
+    sessionStorage.removeItem(CHAVE_RESTORE_ONCE);
+  } catch { /* sessionStorage indisponível */ }
+  limparRedirectPosLogin();
+}
+function forcarUrlLogin() {
+  try {
+    if (window.location.pathname !== "/login") {
+      window.history.replaceState({ ppApp: true }, "", "/login");
+    }
+  } catch { /* ignore */ }
 }
 
 // Rótulos de acompanhamento exibidos no TABLET (mesmos nomes dos estágios da
@@ -750,9 +768,10 @@ export default function RestaurantePedidoApp() {
   }, []);
 
   // ── Restaura sessão no F5 / atualizar ───────────────────────────
-  // Com `pp_sessao_ativa` (e e-mail da sessão), o F5 RECARREGA os dados e
-  // mantém o mesmo login na MESMA tela (URL). Não pede login de novo.
-  // Voltar do navegador → logout (ver popstate abaixo).
+  // Só restaura com marcador explícito da aba (`pp_sessao_ativa` ou
+  // `pp_restore_once` pós-credenciais). JWT sozinho NÃO reabre a tela
+  // anterior — isso fazia o 2º login carregar dados da sessão velha.
+  // F5 com sessão ativa: mesma URL. Pós-credenciais (`restore_once`): home.
   // `authResolved` evita piscar a tela de login enquanto a sessão é checada.
   const restaurouSessaoRef = useRef(false);
   const [authResolved, setAuthResolved] = useState(false);
@@ -763,44 +782,58 @@ export default function RestaurantePedidoApp() {
       try {
         let sessaoAtiva = false;
         let emailSalvo = "";
+        let pousoHomePosLogin = false;
         try {
-          sessaoAtiva = sessionStorage.getItem("pp_sessao_ativa") === "1";
-          emailSalvo = String(sessionStorage.getItem("pp_sessao_email") || "").trim().toLowerCase();
-          if (sessionStorage.getItem("pp_restore_once") === "1") {
-            sessionStorage.removeItem("pp_restore_once");
+          sessaoAtiva = sessionStorage.getItem(CHAVE_SESSAO_ATIVA) === "1";
+          emailSalvo = String(sessionStorage.getItem(CHAVE_SESSAO_EMAIL) || "").trim().toLowerCase();
+          if (sessionStorage.getItem(CHAVE_RESTORE_ONCE) === "1") {
+            sessionStorage.removeItem(CHAVE_RESTORE_ONCE);
             sessaoAtiva = true;
+            // Reload imediatamente após preencher credenciais → home do perfil,
+            // nunca a URL/histórico da tela anterior.
+            pousoHomePosLogin = true;
           }
         } catch { /* sessionStorage indisponível */ }
 
-        let email = null;
+        let emailJwt = null;
         if (dbReady && usandoSupabaseAuth()) {
-          try { email = await getSessionEmail(); } catch { email = null; }
+          try { emailJwt = await getSessionEmail(); } catch { emailJwt = null; }
         }
-        if (!email && emailSalvo) email = emailSalvo;
 
-        if (!sessaoAtiva && !email) {
+        // Sem marcador de sessão da aba: fica no login. Se sobrou JWT de um
+        // logout incompleto, encerra para não auto-entrar na tela anterior.
+        if (!sessaoAtiva) {
+          if (emailJwt && usandoSupabaseAuth()) {
+            try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+          }
+          limparMarcadoresSessaoLocal();
+          forcarUrlLogin();
           setAuthResolved(true);
           return;
         }
 
-        if (email && dbReady) {
-          let u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
-          if (!u) {
-            try { u = await fetchUsuarioPorEmail(email); } catch { u = null; }
-            if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
-          }
-          if (u && u.active !== false) {
-            // F5: mantém a URL/tela atual. Limpa redirect legado para não
-            // interferir se o usuário sair e logar de novo depois.
-            limparRedirectPosLogin();
-            aplicarLogin(u, { silencioso: true });
-          } else {
-            try {
-              sessionStorage.removeItem("pp_sessao_ativa");
-              sessionStorage.removeItem("pp_sessao_email");
-            } catch { /* ignore */ }
-            if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
-          }
+        const email = emailJwt || emailSalvo || null;
+        if (!email || !dbReady) {
+          limparMarcadoresSessaoLocal();
+          if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+          forcarUrlLogin();
+          setAuthResolved(true);
+          return;
+        }
+
+        let u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
+        if (!u) {
+          try { u = await fetchUsuarioPorEmail(email); } catch { u = null; }
+          if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
+        }
+        if (u && u.active !== false) {
+          limparRedirectPosLogin();
+          if (pousoHomePosLogin) forcarUrlLogin();
+          aplicarLogin(u, { silencioso: true, forcarHome: pousoHomePosLogin });
+        } else {
+          limparMarcadoresSessaoLocal();
+          if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+          forcarUrlLogin();
         }
       } finally {
         setAuthResolved(true);
@@ -809,18 +842,18 @@ export default function RestaurantePedidoApp() {
   }, [loading, dbReady, users, currentUser]);
 
   // ── Sincroniza a URL com a tela de login ────────────────────────
-  // Enquanto a sessão ainda está sendo verificada (authResolved=false), nada
-  // é redirecionado — evita trocar a URL e depois "voltar atrás" se a sessão
-  // for restaurada com sucesso. Sem usuário autenticado em rota protegida
-  // (/admin, /app, /operacional): só mostra o login e aguarda credenciais.
-  // NÃO guarda a página anterior — após o login o pouso é a tela inicial
-  // do perfil (não a última tela aberta). Substitui o histórico (não empilha).
+  // Sem usuário autenticado: URL sempre `/login`. Também reage a popstate
+  // (Voltar com login já aberto), senão a barra fica em /admin/... e o
+  // reload pós-credenciais restaurava a tela anterior pela URL.
   useEffect(() => {
     if (!authResolved || currentUser) return;
-    const { pathname } = window.location;
-    if (!/^\/(admin|app|operacional)(\/|$)/.test(pathname)) return;
-    limparRedirectPosLogin();
-    window.history.replaceState({}, "", "/login");
+    const prenderLogin = () => {
+      limparRedirectPosLogin();
+      forcarUrlLogin();
+    };
+    prenderLogin();
+    window.addEventListener("popstate", prenderLogin);
+    return () => window.removeEventListener("popstate", prenderLogin);
   }, [authResolved, currentUser]);
 
   // ── Atualização quase imediata: cozinha, painel e PDV ────────
@@ -939,15 +972,16 @@ export default function RestaurantePedidoApp() {
     // /login ou rota não reconhecida → mantém a tela atual
   }
   // Deep-link / F5: aplica a rota da URL UMA vez após autenticar (ex.: F5 em
-  // /app/caixa). Login com credenciais chega em "/login" — nesse caso NÃO
-  // reabre página anterior; mantém o pouso de aplicarLogin (tela inicial).
+  // /app/caixa). Em "/login" (pós-credenciais) mantém o pouso de aplicarLogin.
   const rotaInicialRef = useRef(false);
   useEffect(() => {
     if (!currentUser || rotaInicialRef.current) return;
     rotaInicialRef.current = true;
-    limparRedirectPosLogin(); // descarta legado; nunca retoma página anterior
+    limparRedirectPosLogin();
     const pathname = window.location.pathname;
     const search = window.location.search;
+    // Pós-credenciais / login limpo: não aplica rota protegida residual.
+    if (pathname === "/login" || pathname === "/") return;
     // /operacional na URL NÃO sobrescreve o pouso natural de quem tem menu
     // principal (admin/PDV/cozinha…).
     if (/^\/operacional(\/|$)/.test(pathname) && !perfilExclusivoOperacional(currentUser)) {
@@ -957,9 +991,6 @@ export default function RestaurantePedidoApp() {
     if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) {
       popstateRef.current = true;
       aplicarRota(pathname, search, currentUser);
-      // Se o estado já bater com a URL (ex.: aplicarLogin já aplicou o mesmo
-      // deep-link), nenhum setState novo dispara o efeito que consome a flag
-      // — reseta de forma assíncrona para não deixá-la presa em "true".
       setTimeout(() => { popstateRef.current = false; }, 0);
     }
   }, [currentUser]);
@@ -989,12 +1020,16 @@ export default function RestaurantePedidoApp() {
   useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; });
   // Voltar do navegador → SEMPRE tela de login (encerra sessão). Nunca troca
   // para outra tela do sistema (caixa→cozinha, admin→app, etc.).
+  // Se já estiver no login, só prende a URL em /login (histórico antigo).
   useEffect(() => {
     const onPop = () => {
-      if (!currentUserRef.current) return;
+      if (!currentUserRef.current) {
+        forcarUrlLogin();
+        return;
+      }
       popstateRef.current = true;
       try { logoutRef.current(); } catch { /* ignore */ }
-      try { window.history.replaceState({}, "", "/login"); } catch { /* ignore */ }
+      forcarUrlLogin();
       setTimeout(() => { popstateRef.current = false; }, 0);
     };
     window.addEventListener("popstate", onPop);
@@ -1004,8 +1039,8 @@ export default function RestaurantePedidoApp() {
   useEffect(() => {
     if (!currentUser) return;
     try {
-      sessionStorage.setItem("pp_sessao_ativa", "1");
-      if (currentUser.email) sessionStorage.setItem("pp_sessao_email", String(currentUser.email).toLowerCase());
+      sessionStorage.setItem(CHAVE_SESSAO_ATIVA, "1");
+      if (currentUser.email) sessionStorage.setItem(CHAVE_SESSAO_EMAIL, String(currentUser.email).toLowerCase());
     } catch { /* ignore */ }
   }, [currentUser]);
 
@@ -1170,7 +1205,7 @@ export default function RestaurantePedidoApp() {
 
   // Aplica o usuário autenticado: checa licença/atividade, define currentUser e
   // a aba inicial. Usado pelo login legacy e pela restauração de sessão (supabase).
-  function aplicarLogin(credOk, { silencioso = false } = {}) {
+  function aplicarLogin(credOk, { silencioso = false, forcarHome = false } = {}) {
     const lojaDoUser = lojas.find((l) => l.id === credOk.lojaId);
     if (!credOk.superAdmin && lojaDoUser && lojaDoUser.licencaBloqueada === true) {
       notify("error", "Licença suspensa, entre em contato com o administrador do sistema."); return false;
@@ -1180,10 +1215,10 @@ export default function RestaurantePedidoApp() {
     }
     setCurrentUser(credOk);
     auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
-    // Login com credenciais (!silencioso): SEMPRE pouso natural do perfil —
-    // não reabre a página que estava aberta antes de pedir login de novo.
-    // F5 / restauração (silencioso): respeita a URL atual (mesma tela).
-    if (silencioso) {
+    // Credenciais / pós-reload de login: SEMPRE home do perfil.
+    // F5 silencioso (sem forcarHome): respeita a URL atual (mesma tela).
+    const usarUrlAtual = silencioso && !forcarHome;
+    if (usarUrlAtual) {
       const pathnameAlvo = window.location.pathname;
       const deepAdmin = pathnameAlvo.match(/^\/admin\/([^/?]+)/);
       const redirectOperacional = /^\/operacional(\/|$)/.test(pathnameAlvo);
@@ -1195,16 +1230,16 @@ export default function RestaurantePedidoApp() {
       } else if (redirectOperacional && perfilExclusivoOperacional(credOk)) {
         setActiveTab("opmobile");
       } else {
-        // URL /login ou sem match fino — home do perfil; F5 em rota
-        // protegida é completado por rotaInicialRef/aplicarRota.
         const home = abaInicialDoUsuario(credOk);
         if (home === "admin") setAdminSection("dashboard");
         setActiveTab(home);
       }
     } else {
       limparRedirectPosLogin();
+      setAdminSection("dashboard");
+      setOpmobileTab("central");
+      setCozinhaSetorInicial(null);
       const home = abaInicialDoUsuario(credOk);
-      if (home === "admin") setAdminSection("dashboard");
       setActiveTab(home);
     }
     if (!silencioso) notify("success", `Acesso liberado para ${credOk.name}.`);
@@ -1273,11 +1308,13 @@ export default function RestaurantePedidoApp() {
 
     setUsers((cur) => (cur.some((u) => u.id === credOk.id) ? cur : [credOk, ...cur]));
 
-    // Persiste sessão da aba (F5 mantém login + tela).
+    // Persiste sessão da aba. Antes do reload Auth, prende URL em /login para
+    // o histórico da tela anterior NÃO virar destino do restore silencioso.
     try {
-      sessionStorage.setItem("pp_sessao_ativa", "1");
-      sessionStorage.setItem("pp_sessao_email", email);
+      sessionStorage.setItem(CHAVE_SESSAO_ATIVA, "1");
+      sessionStorage.setItem(CHAVE_SESSAO_EMAIL, email);
     } catch { /* ignore */ }
+    forcarUrlLogin();
 
     // Sessão Supabase Auth (JWT) é necessária para RLS ler o banco na tela.
     // Se o 1º signIn falhar, tenta alinhar Auth via API e repetir uma vez.
@@ -1294,13 +1331,14 @@ export default function RestaurantePedidoApp() {
         r = await loginSupabaseAuth(email, senha);
       }
       if (r.ok) {
-        try { sessionStorage.setItem("pp_restore_once", "1"); } catch {}
-        window.location.reload();
+        try { sessionStorage.setItem(CHAVE_RESTORE_ONCE, "1"); } catch {}
+        forcarUrlLogin();
+        window.location.replace(`${window.location.origin}/login`);
         return;
       }
     }
 
-    if (!aplicarLogin(credOk)) return;
+    if (!aplicarLogin(credOk, { forcarHome: true })) return;
   }
 
   async function logout() {
@@ -1309,18 +1347,22 @@ export default function RestaurantePedidoApp() {
     // Encerra a sessão de acesso ANTES do signOut (precisa do JWT ainda válido).
     try { await encerrarSessaoAcesso({ eventType: ACCESS_EVENT.LOGOUT }); } catch { /* best-effort */ }
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
-    try { sessionStorage.removeItem("pp_restore_once"); } catch {}
-    try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {}
-    try { sessionStorage.removeItem("pp_sessao_email"); } catch {}
-    limparRedirectPosLogin(); // nunca retomar página anterior no próximo login
-    try { window.history.replaceState({}, "", "/login"); } catch {}
+    limparMarcadoresSessaoLocal();
+    forcarUrlLogin();
     primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
     rotaInicialRef.current = false; // permite reaplicar rota no próximo login/F5
-    if (usandoSupabaseAuth()) logoutSupabaseAuth();
+    // Aguarda signOut: JWT residual auto-restaurava a tela anterior no 2º login.
+    if (usandoSupabaseAuth()) {
+      try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+    }
     setTableNumber("");
-    setLoginForm({ email: "", password: "" }); // exige preencher credenciais de novo
+    setLoginForm({ email: "", password: "" });
     setAdminSection("dashboard");
-    setCurrentUser(null); setActiveTab("tablet"); setMessage({ type: "", text: "" });
+    setOpmobileTab("central");
+    setCozinhaSetorInicial(null);
+    setCurrentUser(null);
+    setActiveTab("tablet");
+    setMessage({ type: "", text: "" });
   }
   logoutRef.current = logout;
 
@@ -1332,15 +1374,16 @@ export default function RestaurantePedidoApp() {
     if (!currentUser || currentUser.superAdmin) return;
     const lojaDoUser = lojas.find((l) => Number(l.id) === Number(currentUser.lojaId));
     if (!lojaDoUser) return;
-    if (lojaDoUser.licencaBloqueada === true) {
-      setCurrentUser(null);
-      setActiveTab("tablet");
-      setMessage({ type: "error", text: "Licença suspensa, entre em contato com o administrador do sistema." });
-    } else if (lojaDoUser.active === false) {
-      setCurrentUser(null);
-      setActiveTab("tablet");
-      setMessage({ type: "error", text: "Empresa inativa, entre em contato com o administrador do sistema." });
-    }
+    const motivo = lojaDoUser.licencaBloqueada === true
+      ? "Licença suspensa, entre em contato com o administrador do sistema."
+      : lojaDoUser.active === false
+        ? "Empresa inativa, entre em contato com o administrador do sistema."
+        : "";
+    if (!motivo) return;
+    (async () => {
+      try { await logoutRef.current(); } catch { /* ignore */ }
+      setMessage({ type: "error", text: motivo });
+    })();
   }, [lojas, currentUser]);
 
   // Revalida a licença ao voltar para a página/app (foreground) — rede pode
