@@ -255,3 +255,95 @@ export function insightsGestao({ produtoTop, melhorHora, semEstoque, abertos, ti
       : null,
   ].filter(Boolean);
 }
+
+/** Score 0–100 para o trilho de decisões do gestor. */
+export function scoreSaudeOperacao({
+  ticket = 0,
+  abertos = 0,
+  cancelados = 0,
+  totalPedidos = 0,
+  semEstoque = 0,
+  mesasAbertas = 0,
+  variacaoFat = null,
+}) {
+  let score = 72;
+  if (ticket >= 45) score += 8;
+  else if (ticket > 0 && ticket < 30) score -= 10;
+  if (abertos === 0) score += 6;
+  else if (abertos >= 5) score -= 8;
+  const taxaCancel = totalPedidos > 0 ? cancelados / totalPedidos : 0;
+  if (taxaCancel > 0.12) score -= 12;
+  else if (taxaCancel < 0.04) score += 5;
+  if (semEstoque === 0) score += 5;
+  else score -= Math.min(12, semEstoque * 3);
+  if (mesasAbertas > 8) score -= 4;
+  if (variacaoFat != null) {
+    if (variacaoFat >= 10) score += 8;
+    else if (variacaoFat <= -15) score -= 10;
+  }
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const nivel = score >= 80 ? "Excelente" : score >= 65 ? "Saudável" : score >= 45 ? "Atenção" : "Crítico";
+  return { score, nivel };
+}
+
+export function prioridadesDecisao({
+  abertos = 0,
+  emAbertoValor = 0,
+  semEstoque = 0,
+  melhorHora,
+  produtoTop,
+  ticket = 0,
+  taxaEntrega = 100,
+}) {
+  const lista = [];
+  if (abertos > 0) {
+    lista.push({
+      prio: "alta",
+      titulo: "Fechar comandas em aberto",
+      texto: `${abertos} comanda(s) · ${emAbertoValor > 0 ? `risco de ${emAbertoValor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : "pendentes"}`,
+    });
+  }
+  if (semEstoque > 0) {
+    lista.push({
+      prio: "alta",
+      titulo: "Reposição de estoque",
+      texto: `${semEstoque} produto(s) abaixo do mínimo`,
+    });
+  }
+  if (ticket > 0 && ticket < 45) {
+    lista.push({
+      prio: "media",
+      titulo: "Elevar ticket médio",
+      texto: `Atual ${ticket.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} — sugerir combos e adicionais`,
+    });
+  }
+  if (melhorHora?.valor > 0) {
+    lista.push({
+      prio: "media",
+      titulo: `Reforçar equipe às ${melhorHora.label}`,
+      texto: "Horário de maior faturamento no período",
+    });
+  }
+  if (produtoTop) {
+    lista.push({
+      prio: "baixa",
+      titulo: `Empurrar ${produtoTop.nome}`,
+      texto: `${produtoTop.qtd} un. — destaque em cardápio e sugestão no caixa`,
+    });
+  }
+  if (taxaEntrega < 90) {
+    lista.push({
+      prio: "alta",
+      titulo: "Acelerar entregas",
+      texto: `Taxa de conclusão em ${taxaEntrega}% — revisar fila da cozinha`,
+    });
+  }
+  if (lista.length === 0) {
+    lista.push({
+      prio: "baixa",
+      titulo: "Operação estável",
+      texto: "Sem alertas críticos — monitore o próximo pico de movimento",
+    });
+  }
+  return lista.slice(0, 5);
+}
