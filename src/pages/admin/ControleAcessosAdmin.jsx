@@ -281,8 +281,16 @@ function SessionDetailsDrawer({
 
 /**
  * Administração → Controle de Acessos
+ * Fonte da verdade da loja: "Empresa em foco" (sidebar). Trocar a empresa
+ * recarrega sessões/usuários/dispositivos e reinscreve o realtime da loja.
  */
-export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSuperAdmin = false }) {
+export default function ControleAcessosAdmin({
+  lojaInfo = null,
+  lojas = [],
+  isSuperAdmin = false,
+  lojaContexto = null,
+  onLojaContextoChange = null,
+}) {
   const [aba, setAba] = useState("online");
   const [agruparPermanencia, setAgruparPermanencia] = useState("tela");
   const [periodo, setPeriodo] = useState("hoje");
@@ -290,7 +298,6 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("");
   const [deviceFiltro, setDeviceFiltro] = useState("");
-  const [lojaFiltro, setLojaFiltro] = useState("");
   const [pagina, setPagina] = useState(0);
   const [pageSize, setPageSize] = useState(10);
 
@@ -313,6 +320,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   const [agora, setAgora] = useState(Date.now());
   const reloadTimerRef = useRef(null);
   const carregarRef = useRef(async () => {});
+  const lojaIdAnteriorRef = useRef(lojaInfo?.id ?? null);
 
   useEffect(() => {
     const t = setTimeout(() => setBuscaDebounced(busca.trim()), 350);
@@ -331,9 +339,24 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   }, [aviso]);
 
   const range = useMemo(() => rangePeriodo(periodo), [periodo]);
-  const lojaIdEfetiva = isSuperAdmin
-    ? (lojaFiltro ? Number(lojaFiltro) : (lojaInfo?.id ?? null))
-    : (lojaInfo?.id ?? null);
+  // Sempre a empresa em foco (sidebar). Sem foco = todas as empresas.
+  const lojaIdEfetiva = lojaInfo?.id != null ? Number(lojaInfo.id) : null;
+  const nomeEmpresaFoco = lojaInfo?.nome || (isSuperAdmin ? "Todas as empresas" : "Empresa");
+
+  // Troca de empresa em foco: limpa detalhe/página e força reload visível.
+  useEffect(() => {
+    const atual = lojaInfo?.id ?? null;
+    if (lojaIdAnteriorRef.current === atual) return;
+    lojaIdAnteriorRef.current = atual;
+    setPagina(0);
+    setDetalhe(null);
+    setEventosDetalhe([]);
+    setPageStaysDetalhe([]);
+    setAoVivo(false);
+    setRows([]);
+    setTotal(0);
+    setAlertasRecentes([]);
+  }, [lojaInfo?.id]);
 
   const carregar = useCallback(async ({ silencioso = false } = {}) => {
     if (!silencioso) {
@@ -355,6 +378,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           tipos: ACCESS_SECURITY_TYPES,
           desde: range.desde,
           ate: range.ate,
+          lojaId: lojaIdEfetiva,
           limit: pageSize,
           offset: pagina * pageSize,
         });
@@ -398,6 +422,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         tipos: ACCESS_ALERT_TYPES,
         desde: desde24h,
         ate: new Date().toISOString(),
+        lojaId: lojaIdEfetiva,
         limit: 8,
         offset: 0,
       });
@@ -405,7 +430,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     } catch (e) {
       const msg = e?.message || String(e);
       if (/function .* does not exist|relation .* does not exist|forbidden/i.test(msg)) {
-        setErro("Módulo ainda não disponível. Aplique as migrations 098–101 no Supabase.");
+        setErro("Módulo ainda não disponível. Aplique as migrations 098–103 no Supabase.");
       } else if (!silencioso) {
         setErro(msg || "Falha ao carregar sessões.");
       }
@@ -429,10 +454,10 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     const t = window.setTimeout(() => setPagina(0), 0);
     return () => clearTimeout(t);
   }, [
-    aba, agruparPermanencia, buscaDebounced, statusFiltro, deviceFiltro, periodo, lojaFiltro, pageSize,
+    aba, agruparPermanencia, buscaDebounced, statusFiltro, deviceFiltro, periodo, lojaIdEfetiva, pageSize,
   ]);
 
-  // Tempo real: novo login / mudança na loja → recarrega (debounce)
+  // Tempo real por empresa: login/logout/heartbeat/bloqueio da loja em foco
   useEffect(() => {
     const stop = escutarControleAcessos(() => {
       setAoVivo(true);
@@ -716,10 +741,13 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     setBusca("");
     setStatusFiltro("");
     setDeviceFiltro("");
-    setLojaFiltro("");
     setPeriodo("hoje");
     setPageSize(10);
   };
+
+  const valorEstabelecimento = lojaContexto != null && lojaContexto !== ""
+    ? String(lojaContexto)
+    : (lojaInfo?.id != null ? String(lojaInfo.id) : "");
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8">
@@ -730,7 +758,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           </svg>
         )}
         titulo="Controle de Acessos"
-        descricao="Sessões, localização do dispositivo, marca/modelo e permanência — atualização em tempo real."
+        descricao={`Sessões, dispositivos e usuários de ${nomeEmpresaFoco} — atualização em tempo real.`}
       />
 
       {/* Grupo: indicadores */}
@@ -891,13 +919,18 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
 
             {isSuperAdmin ? (
               <label className="block text-xs font-bold text-[#6B7280]">
-                Estabelecimento
+                Estabelecimento (empresa em foco)
                 <select
-                  value={lojaFiltro}
-                  onChange={(e) => setLojaFiltro(e.target.value)}
+                  value={valorEstabelecimento}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (typeof onLojaContextoChange === "function") {
+                      onLojaContextoChange(v ? Number(v) : null);
+                    }
+                  }}
                   className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
                 >
-                  <option value="">Empresa em foco / todas</option>
+                  <option value="">Todas as empresas</option>
                   {lojas.map((l) => (
                     <option key={l.id} value={l.id}>{l.nome}</option>
                   ))}
@@ -944,8 +977,12 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         </div>
       ) : rows.length === 0 ? (
         <EmptyState
-          titulo="Nenhum acesso encontrado para os filtros selecionados."
-          dica="Ajuste o período ou a busca, ou aguarde novos logins no sistema."
+          titulo={`Nenhum acesso encontrado para ${nomeEmpresaFoco}.`}
+          dica={
+            aba === "online"
+              ? "Ninguém online nesta empresa agora. Veja a aba Histórico ou aguarde novos logins — a lista atualiza em tempo real."
+              : "Ajuste o período ou a busca, ou aguarde novos logins nesta empresa."
+          }
         />
       ) : aba === "bloqueados" ? (
         <div className="overflow-x-auto rounded-2xl border border-[#D1D5DB] bg-white">

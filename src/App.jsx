@@ -6869,7 +6869,15 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           />}
           {ativo === "controle-acessos" && (
             isSuperAdmin
-              ? <ControleAcessosAdmin lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />
+              ? (
+                <ControleAcessosAdmin
+                  lojaInfo={lojaInfo}
+                  lojas={lojas}
+                  isSuperAdmin={isSuperAdmin}
+                  lojaContexto={lojaContexto}
+                  onLojaContextoChange={setLojaContexto}
+                />
+              )
               : (
                 <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
                   <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>

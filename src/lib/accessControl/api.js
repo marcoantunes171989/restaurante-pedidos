@@ -305,14 +305,26 @@ export async function metricasSessoesAcesso(params = {}) {
 
 export async function listarEventosAcesso(params = {}) {
   if (!supabase) return { rows: [], total: 0 };
-  const { data, error } = await supabase.rpc("app_listar_eventos_acesso", {
+  const payload = {
     p_session_id: params.sessionId || null,
     p_tipos: params.tipos || (params.seguranca ? ACCESS_SECURITY_TYPES : null),
     p_desde: params.desde || null,
     p_ate: params.ate || null,
     p_limit: params.limit ?? 50,
     p_offset: params.offset ?? 0,
-  });
+    // Empresa em foco (alertas / Segurança). Detalhe por sessionId ignora no SQL (migration 103).
+    p_loja_id: params.lojaId != null ? Number(params.lojaId) : null,
+  };
+  let { data, error } = await supabase.rpc("app_listar_eventos_acesso", payload);
+  // Antes da migration 103 a assinatura antiga não tem p_loja_id — fallback + filtro local.
+  if (error && /p_loja_id|Could not find the function|schema cache/i.test(error.message || "")) {
+    const { p_loja_id: _omit, ...legacy } = payload;
+    ({ data, error } = await supabase.rpc("app_listar_eventos_acesso", legacy));
+    if (!error && params.lojaId != null && !params.sessionId) {
+      const alvo = Number(params.lojaId);
+      data = (data || []).filter((e) => Number(e.loja_id) === alvo);
+    }
+  }
   if (error) throw error;
   const rows = (data || []).map((e) => ({
     id: e.id,
@@ -424,28 +436,34 @@ export async function excluirEventoAcesso(eventId) {
   return data || { ok: true };
 }
 
-/** Inscreve em mudanças de sessões/eventos da loja (tela admin ao vivo). */
+/** Inscreve em mudanças de sessões/eventos/bloqueios da loja (tela admin ao vivo). */
 export function escutarControleAcessos(onChange, { lojaId = null } = {}) {
   if (!supabase || typeof onChange !== "function") {
     return () => {};
   }
   const nome = `ch_controle_acessos_${Math.random().toString(36).slice(2)}`;
   const filtroLoja = lojaId != null ? `loja_id=eq.${Number(lojaId)}` : undefined;
+  const filtroOpt = filtroLoja ? { filter: filtroLoja } : {};
   let canal = supabase.channel(nome)
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "tab_user_sessions", ...(filtroLoja ? { filter: filtroLoja } : {}) },
+      { event: "*", schema: "public", table: "tab_user_sessions", ...filtroOpt },
       () => onChange("session"),
     )
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "tab_access_events", ...(filtroLoja ? { filter: filtroLoja } : {}) },
+      { event: "*", schema: "public", table: "tab_access_events", ...filtroOpt },
       () => onChange("event"),
     )
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "tab_access_page_stays", ...(filtroLoja ? { filter: filtroLoja } : {}) },
+      { event: "*", schema: "public", table: "tab_access_page_stays", ...filtroOpt },
       () => onChange("stay"),
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "tab_dispositivos_bloqueados", ...filtroOpt },
+      () => onChange("block"),
     );
   canal.subscribe();
   return () => {
