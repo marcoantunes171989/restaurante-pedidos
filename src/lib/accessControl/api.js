@@ -1,6 +1,11 @@
 import { supabase } from "../supabase.js";
-import { ACCESS_EVENT, ACCESS_SECURITY_TYPES, ACCESS_SESSION_KEY } from "./constants.js";
-import { coletarInfoDispositivo } from "./deviceInfo.js";
+import {
+  ACCESS_EVENT,
+  ACCESS_SECURITY_TYPES,
+  ACCESS_SESSION_KEY,
+  MSG_DISPOSITIVO_BLOQUEADO,
+} from "./constants.js";
+import { coletarInfoDispositivo, obterDeviceIdEstavel } from "./deviceInfo.js";
 
 function novoToken() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -38,6 +43,37 @@ async function buscarMetaIp() {
   }
 }
 
+/** Verifica se o aparelho atual está bloqueado (antes do login). */
+export async function verificarDispositivoBloqueado(deviceId = obterDeviceIdEstavel()) {
+  if (!deviceId) return { blocked: false };
+  if (!supabase) {
+    try {
+      const r = await fetch("/api/device-block-check", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ deviceId }),
+      });
+      if (!r.ok) return { blocked: false };
+      return await r.json();
+    } catch {
+      return { blocked: false };
+    }
+  }
+  const { data, error } = await supabase.rpc("app_dispositivo_esta_bloqueado", {
+    p_device_id: deviceId,
+  });
+  if (error) {
+    console.warn("[access-control] check bloqueio:", error.message);
+    return { blocked: false };
+  }
+  const blocked = !!(data && (data.blocked === true || data.blocked === "true"));
+  return {
+    blocked,
+    motivo: data?.motivo || null,
+    mensagem: data?.mensagem || MSG_DISPOSITIVO_BLOQUEADO,
+  };
+}
+
 /** Inicia (ou reativa) a sessão de acesso do usuário autenticado. */
 export async function iniciarSessaoAcesso({ loginMethod = "password" } = {}) {
   if (!supabase) return null;
@@ -59,8 +95,14 @@ export async function iniciarSessaoAcesso({ loginMethod = "password" } = {}) {
     p_is_pwa: !!device.isPwa,
     p_user_agent: device.userAgent,
     p_login_method: loginMethod,
+    p_device_id: device.deviceId || obterDeviceIdEstavel(),
   });
   if (error) {
+    if (/device_blocked/i.test(error.message || "")) {
+      const err = new Error(MSG_DISPOSITIVO_BLOQUEADO);
+      err.code = "DEVICE_BLOCKED";
+      throw err;
+    }
     console.warn("[access-control] iniciar sessão:", error.message);
     return null;
   }
@@ -101,6 +143,96 @@ export async function encerrarSessaoRemota(sessionId) {
   });
   if (error) throw error;
   return data || { ok: true };
+}
+
+/** Admin bloqueia aparelho (derruba sessões ativas na hora). */
+export async function bloquearDispositivoAcesso(params = {}) {
+  if (!supabase) throw new Error("Supabase indisponível");
+  const deviceId = params.deviceId || null;
+  if (!deviceId && !params.sessionId) throw new Error("Dispositivo inválido");
+  const { data, error } = await supabase.rpc("app_dispositivo_bloquear", {
+    p_device_id: deviceId || "",
+    p_motivo: params.motivo || null,
+    p_session_id: params.sessionId || null,
+    p_user_id: params.userId != null ? Number(params.userId) : null,
+    p_loja_id: params.lojaId != null ? Number(params.lojaId) : null,
+    p_device_label: params.deviceLabel || null,
+    p_os: params.os || null,
+    p_browser: params.browser || null,
+    p_ip: params.ip || null,
+  });
+  if (error) throw error;
+  return data || { ok: true };
+}
+
+export async function desbloquearDispositivoAcesso(blockId) {
+  if (!supabase) throw new Error("Supabase indisponível");
+  const { data, error } = await supabase.rpc("app_dispositivo_desbloquear", {
+    p_block_id: blockId,
+  });
+  if (error) throw error;
+  return data || { ok: true };
+}
+
+export async function listarDispositivosBloqueados(params = {}) {
+  if (!supabase) return { rows: [], total: 0 };
+  const { data, error } = await supabase.rpc("app_listar_dispositivos_bloqueados", {
+    p_loja_id: params.lojaId != null ? Number(params.lojaId) : null,
+    p_somente_ativos: params.somenteAtivos !== false,
+    p_limit: params.limit ?? 50,
+    p_offset: params.offset ?? 0,
+  });
+  if (error) throw error;
+  const rows = (data || []).map((r) => ({
+    id: r.id,
+    deviceId: r.device_id,
+    lojaId: r.loja_id,
+    userId: r.user_id,
+    motivo: r.motivo,
+    deviceLabel: r.device_label,
+    os: r.os,
+    browser: r.browser,
+    ipAddress: r.ip_address,
+    blockedBy: r.blocked_by,
+    blockedAt: r.blocked_at,
+    unblockedAt: r.unblocked_at,
+    ativo: !!r.ativo,
+    usuarioNome: r.usuario_nome,
+    bloqueadoPorNome: r.bloqueado_por_nome,
+    lojaNome: r.loja_nome,
+    totalCount: Number(r.total_count) || 0,
+  }));
+  return { rows, total: rows[0]?.totalCount ?? rows.length };
+}
+
+/**
+ * Escuta a própria sessão — logout imediato quando admin encerra/bloqueia.
+ * @returns {() => void} cleanup
+ */
+export function escutarSessaoPropria(sessionId, onClosed) {
+  if (!supabase || !sessionId || typeof onClosed !== "function") {
+    return () => {};
+  }
+  const nome = `ch_sessao_propria_${Math.random().toString(36).slice(2)}`;
+  let canal = supabase
+    .channel(nome)
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "tab_user_sessions",
+        filter: `id=eq.${sessionId}`,
+      },
+      (payload) => {
+        if (payload?.new?.status === "closed") onClosed(payload.new);
+      },
+    )
+    .subscribe();
+  return () => {
+    try { supabase.removeChannel(canal); } catch { /* ignore */ }
+    canal = null;
+  };
 }
 
 export async function encerrarSessaoAcesso({ eventType = ACCESS_EVENT.LOGOUT } = {}) {
@@ -363,6 +495,7 @@ function mapSessaoRow(r) {
     isPwa: !!r.is_pwa,
     userAgent: r.user_agent,
     loginMethod: r.login_method,
+    deviceId: r.device_id || null,
     usuarioNome: r.usuario_nome,
     usuarioEmail: r.usuario_email,
     usuarioPerfil: r.usuario_perfil,

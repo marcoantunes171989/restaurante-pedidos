@@ -10,6 +10,9 @@ import {
   listarPageStaysSessao,
   listarPermanenciaAcesso,
   escutarControleAcessos,
+  bloquearDispositivoAcesso,
+  desbloquearDispositivoAcesso,
+  listarDispositivosBloqueados,
 } from "../../lib/accessControl/api.js";
 import {
   ACCESS_ALERT_TYPES,
@@ -105,6 +108,24 @@ function MetricCard({ titulo, valor, sub }) {
   );
 }
 
+function InfoGroup({ titulo, children }) {
+  return (
+    <section className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] p-3.5">
+      <h4 className="mb-2.5 text-[11px] font-black uppercase tracking-wider text-[#012E46]">{titulo}</h4>
+      <dl className="space-y-2">{children}</dl>
+    </section>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="grid grid-cols-[7.5rem_1fr] items-start gap-2 border-b border-[#E5E7EB]/80 pb-2 last:border-0 last:pb-0">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-[#6B7280]">{label}</dt>
+      <dd className="break-all text-sm font-semibold text-[#111111]">{value ?? "—"}</dd>
+    </div>
+  );
+}
+
 function SessionDetailsDrawer({
   sessao,
   aberto,
@@ -113,12 +134,16 @@ function SessionDetailsDrawer({
   pageStays,
   encerrando,
   excluindo,
+  bloqueando,
   onEncerrar,
+  onBloquear,
   onExcluir,
 }) {
   if (!aberto || !sessao) return null;
   const presence = classificarPresenca(sessao);
   const podeEncerrar = sessao.status === "active";
+  const podeBloquear = !!sessao.deviceId;
+  const busy = encerrando || excluindo || bloqueando;
   return (
     <div className="fixed inset-0 z-[120] flex justify-end bg-[#012E46]/40" onClick={onFechar}>
       <aside
@@ -140,38 +165,38 @@ function SessionDetailsDrawer({
             Fechar
           </button>
         </header>
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
-          {[
-            ["Perfil", sessao.usuarioPerfil || "—"],
-            ["Estabelecimento", sessao.lojaNome || "—"],
-            ["E-mail", sessao.usuarioEmail || "—"],
-            ["Login", formatarDataHora(sessao.loginAt)],
-            ["Tempo conectado", formatarDuracao(duracaoSessaoMs(sessao))],
-            ["Última atividade", formatarTempoRelativo(sessao.lastActivityAt)],
-            ["Saída", sessao.logoutAt ? formatarDataHora(sessao.logoutAt) : "—"],
-            ["Dispositivo", sessao.deviceType || "—"],
-            ["Sistema", sessao.os || "—"],
-            ["Navegador", [sessao.browser, sessao.browserVersion].filter(Boolean).join(" ") || "—"],
-            ["Aplicação", sessao.isPwa ? "PWA" : "Navegador"],
-            ["IP", sessao.ipAddress || "—"],
-            ["Localização aproximada", formatarLocalizacao(sessao)],
-          ].map(([k, v]) => (
-            <div key={k} className="grid grid-cols-[8.5rem_1fr] gap-2 border-b border-[#F3F4F6] pb-2">
-              <dt className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">{k}</dt>
-              <dd className="break-all font-semibold text-[#111111]">{v}</dd>
-            </div>
-          ))}
 
-          <div className="pt-2">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B7280]">
-              Permanência por tela
-            </p>
+        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <InfoGroup titulo="Identificação">
+            <InfoRow label="Perfil" value={sessao.usuarioPerfil} />
+            <InfoRow label="Estabelecimento" value={sessao.lojaNome} />
+            <InfoRow label="E-mail" value={sessao.usuarioEmail} />
+          </InfoGroup>
+
+          <InfoGroup titulo="Atividade da sessão">
+            <InfoRow label="Login" value={formatarDataHora(sessao.loginAt)} />
+            <InfoRow label="Tempo conectado" value={formatarDuracao(duracaoSessaoMs(sessao))} />
+            <InfoRow label="Última atividade" value={formatarTempoRelativo(sessao.lastActivityAt)} />
+            <InfoRow label="Saída" value={sessao.logoutAt ? formatarDataHora(sessao.logoutAt) : "—"} />
+          </InfoGroup>
+
+          <InfoGroup titulo="Dispositivo e rede">
+            <InfoRow label="Tipo" value={sessao.deviceType} />
+            <InfoRow label="Sistema" value={sessao.os} />
+            <InfoRow label="Navegador" value={[sessao.browser, sessao.browserVersion].filter(Boolean).join(" ") || "—"} />
+            <InfoRow label="Aplicação" value={sessao.isPwa ? "PWA" : "Navegador"} />
+            <InfoRow label="IP" value={sessao.ipAddress || "—"} />
+            <InfoRow label="Localização" value={formatarLocalizacao(sessao)} />
+            <InfoRow label="ID aparelho" value={sessao.deviceId ? `${String(sessao.deviceId).slice(0, 18)}…` : "—"} />
+          </InfoGroup>
+
+          <InfoGroup titulo="Permanência por tela">
             {pageStays.length === 0 ? (
               <p className="text-sm text-[#6B7280]">Nenhuma permanência registrada nesta sessão.</p>
             ) : (
               <ul className="space-y-2">
                 {pageStays.map((ps) => (
-                  <li key={ps.id} className="rounded-xl border border-[#D1D5DB] bg-[#FAFAFA] px-3 py-2">
+                  <li key={ps.id} className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm font-semibold text-[#111111]">{ps.screenLabel || ps.screenKey}</p>
                       <p className="shrink-0 text-xs font-bold tabular-nums text-[#012E46]">
@@ -181,22 +206,20 @@ function SessionDetailsDrawer({
                     <p className="mt-0.5 text-[11px] text-[#6B7280]">
                       {formatarHora(ps.startedAt)}
                       {ps.endedAt ? ` → ${formatarHora(ps.endedAt)}` : " · em andamento"}
-                      {ps.route ? ` · ${ps.route}` : ""}
                     </p>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </InfoGroup>
 
-          <div className="pt-2">
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B7280]">Eventos da sessão</p>
+          <InfoGroup titulo="Eventos da sessão">
             {eventos.length === 0 ? (
               <p className="text-sm text-[#6B7280]">Nenhum evento registrado.</p>
             ) : (
               <ul className="space-y-2">
                 {eventos.map((ev) => (
-                  <li key={ev.id} className="rounded-xl border border-[#D1D5DB] bg-[#FAFAFA] px-3 py-2">
+                  <li key={ev.id} className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2">
                     <p className="text-xs font-bold text-[#F38525]">{formatarHora(ev.createdAt)}</p>
                     <p className="text-sm font-semibold text-[#111111]">
                       {rotuloEventoAcesso(ev.eventType)}
@@ -206,29 +229,38 @@ function SessionDetailsDrawer({
                 ))}
               </ul>
             )}
-          </div>
+          </InfoGroup>
         </div>
 
         <footer className="space-y-2 border-t border-[#D1D5DB] px-5 py-4">
           {podeEncerrar ? (
             <>
-              <PrimeButton
-                variante="danger"
-                className="w-full"
-                disabled={encerrando || excluindo}
-                onClick={onEncerrar}
-              >
+              <PrimeButton variante="danger" className="w-full" disabled={busy} onClick={onEncerrar}>
                 {encerrando ? "Encerrando…" : "Encerrar sessão remotamente"}
               </PrimeButton>
               <p className="text-[11px] text-[#6B7280]">
-                O usuário será desconectado no próximo heartbeat (até ~45s).
+                A sessão é derrubada imediatamente no dispositivo (tempo real).
               </p>
             </>
           ) : null}
+          {podeBloquear ? (
+            <PrimeButton
+              variante="danger"
+              className="w-full"
+              disabled={busy}
+              onClick={onBloquear}
+            >
+              {bloqueando ? "Bloqueando…" : "Bloquear este dispositivo"}
+            </PrimeButton>
+          ) : (
+            <p className="text-[11px] text-[#6B7280]">
+              Sem ID de aparelho nesta sessão — bloqueio indisponível (usuário precisa relogar após a migration 101).
+            </p>
+          )}
           <PrimeButton
             variante="ghost"
             className="w-full !border-[#C81E4A]/30 !text-[#C81E4A]"
-            disabled={excluindo || encerrando}
+            disabled={busy}
             onClick={onExcluir}
           >
             {excluindo ? "Excluindo…" : "Excluir registro"}
@@ -269,6 +301,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   const [pageStaysDetalhe, setPageStaysDetalhe] = useState([]);
   const [encerrando, setEncerrando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [bloqueando, setBloqueando] = useState(false);
   const [agora, setAgora] = useState(Date.now());
   const reloadTimerRef = useRef(null);
   const carregarRef = useRef(async () => {});
@@ -300,7 +333,16 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
       setErro("");
     }
     try {
-      if (aba === "seguranca") {
+      if (aba === "bloqueados") {
+        const { rows: blks, total: tot } = await listarDispositivosBloqueados({
+          lojaId: lojaIdEfetiva,
+          somenteAtivos: true,
+          limit: pageSize,
+          offset: pagina * pageSize,
+        });
+        setRows(blks);
+        setTotal(tot);
+      } else if (aba === "seguranca") {
         const { rows: evs, total: tot } = await listarEventosAcesso({
           tipos: ACCESS_SECURITY_TYPES,
           desde: range.desde,
@@ -355,7 +397,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     } catch (e) {
       const msg = e?.message || String(e);
       if (/function .* does not exist|relation .* does not exist|forbidden/i.test(msg)) {
-        setErro("Módulo ainda não disponível. Aplique as migrations 098–100 no Supabase.");
+        setErro("Módulo ainda não disponível. Aplique as migrations 098–101 no Supabase.");
       } else if (!silencioso) {
         setErro(msg || "Falha ao carregar sessões.");
       }
@@ -413,13 +455,13 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     if (!detalhe?.id) return;
     const nome = detalhe.usuarioNome || "este usuário";
     if (typeof window !== "undefined"
-      && !window.confirm(`Encerrar remotamente a sessão de ${nome}?`)) {
+      && !window.confirm(`Encerrar remotamente a sessão de ${nome}? O acesso será derrubado imediatamente.`)) {
       return;
     }
     setEncerrando(true);
     try {
       await encerrarSessaoRemota(detalhe.id);
-      setAviso("Sessão encerrada. O usuário será desconectado em breve.");
+      setAviso("Sessão encerrada. O dispositivo foi desconectado imediatamente.");
       setDetalhe(null);
       setEventosDetalhe([]);
       setPageStaysDetalhe([]);
@@ -433,6 +475,68 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
       }
     } finally {
       setEncerrando(false);
+    }
+  }
+
+  async function handleBloquearDispositivo() {
+    if (!detalhe?.deviceId) {
+      setErro("Esta sessão ainda não tem ID de aparelho. Peça um novo login após aplicar a migration 101.");
+      return;
+    }
+    const nome = detalhe.usuarioNome || "usuário";
+    const motivo = typeof window !== "undefined"
+      ? window.prompt(
+        `Bloquear o dispositivo de ${nome}?\nEle não conseguirá fazer login neste aparelho até ser desbloqueado.\n\nMotivo (opcional):`,
+        "Bloqueado pelo administrador",
+      )
+      : null;
+    if (motivo === null) return;
+    setBloqueando(true);
+    try {
+      await bloquearDispositivoAcesso({
+        deviceId: detalhe.deviceId,
+        sessionId: detalhe.id,
+        userId: detalhe.userId,
+        lojaId: detalhe.lojaId,
+        motivo: motivo || "Bloqueado pelo administrador",
+        deviceLabel: rotuloDispositivo(detalhe),
+        os: detalhe.os,
+        browser: detalhe.browser,
+        ip: detalhe.ipAddress,
+      });
+      setAviso("Dispositivo bloqueado. Sessões ativas foram encerradas imediatamente.");
+      setDetalhe(null);
+      setEventosDetalhe([]);
+      setPageStaysDetalhe([]);
+      setAba("bloqueados");
+      await carregar({ silencioso: true });
+    } catch (e) {
+      const msg = e?.message || String(e);
+      if (/function .* does not exist/i.test(msg)) {
+        setErro("Para bloquear dispositivos, aplique a migration 101 no Supabase.");
+      } else {
+        setErro(msg || "Não foi possível bloquear o dispositivo.");
+      }
+    } finally {
+      setBloqueando(false);
+    }
+  }
+
+  async function handleDesbloquear(row) {
+    if (!row?.id) return;
+    if (typeof window !== "undefined"
+      && !window.confirm("Desbloquear este dispositivo? O login voltará a ser permitido.")) {
+      return;
+    }
+    setBloqueando(true);
+    try {
+      await desbloquearDispositivoAcesso(row.id);
+      setAviso("Dispositivo desbloqueado.");
+      await carregar({ silencioso: true });
+    } catch (e) {
+      setErro(e?.message || "Falha ao desbloquear.");
+    } finally {
+      setBloqueando(false);
     }
   }
 
@@ -642,6 +746,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             { id: "online", label: "Online" },
             { id: "historico", label: "Histórico" },
             { id: "permanencia", label: "Permanência" },
+            { id: "bloqueados", label: "Bloqueados" },
             { id: "seguranca", label: "Segurança" },
           ].map((t) => (
             <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
@@ -675,7 +780,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
 
       <FiltersPanel>
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          {aba !== "permanencia" && aba !== "seguranca" ? (
+          {aba !== "permanencia" && aba !== "seguranca" && aba !== "bloqueados" ? (
             <label className="block min-w-[14rem] flex-1 text-xs font-bold text-[#6B7280]">
               Buscar usuário
               <input
@@ -687,13 +792,15 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             </label>
           ) : null}
 
+          {aba !== "bloqueados" ? (
           <div className="flex flex-wrap gap-1.5">
             {PERIODOS.map((p) => (
               <FilterChip key={p.id} size="sm" selected={periodo === p.id} label={p.label} onClick={() => setPeriodo(p.id)} />
             ))}
           </div>
+          ) : null}
 
-          {aba !== "seguranca" && aba !== "permanencia" && (
+          {aba !== "seguranca" && aba !== "permanencia" && aba !== "bloqueados" && (
             <label className="block text-xs font-bold text-[#6B7280]">
               Status
               <select
@@ -710,7 +817,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             </label>
           )}
 
-          {aba !== "seguranca" && aba !== "permanencia" && (
+          {aba !== "seguranca" && aba !== "permanencia" && aba !== "bloqueados" && (
             <label className="block text-xs font-bold text-[#6B7280]">
               Dispositivo
               <select
@@ -792,6 +899,45 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           titulo="Nenhum acesso encontrado para os filtros selecionados."
           dica="Ajuste o período ou a busca, ou aguarde novos logins no sistema."
         />
+      ) : aba === "bloqueados" ? (
+        <div className="overflow-x-auto rounded-2xl border border-[#D1D5DB] bg-white">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-[#F9FAFB] text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
+              <tr>
+                <th className="px-3 py-3">Quando</th>
+                <th className="px-3 py-3">Dispositivo</th>
+                <th className="px-3 py-3">Usuário</th>
+                <th className="px-3 py-3">Motivo</th>
+                <th className="px-3 py-3">Bloqueado por</th>
+                <th className="px-3 py-3">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => (
+                <tr key={b.id} className="border-t border-[#F3F4F6]">
+                  <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-[#111111]">{formatarDataHora(b.blockedAt)}</td>
+                  <td className="px-3 py-2.5 text-[#111111]">
+                    <p className="font-bold">{b.deviceLabel || [b.os, b.browser].filter(Boolean).join(" • ") || "Aparelho"}</p>
+                    <p className="font-mono text-[11px] text-[#6B7280]">{b.deviceId ? `${String(b.deviceId).slice(0, 22)}…` : "—"}</p>
+                  </td>
+                  <td className="px-3 py-2.5 text-[#111111]">{b.usuarioNome || "—"}</td>
+                  <td className="px-3 py-2.5 text-[#6B7280]">{b.motivo || "—"}</td>
+                  <td className="px-3 py-2.5 text-[#6B7280]">{b.bloqueadoPorNome || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    <button
+                      type="button"
+                      disabled={bloqueando}
+                      onClick={() => handleDesbloquear(b)}
+                      className="rounded-lg border border-[#012E46]/25 px-2.5 py-1 text-xs font-bold text-[#012E46] hover:bg-[#012E46]/5"
+                    >
+                      Desbloquear
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : aba === "seguranca" ? (
         <div className="overflow-x-auto rounded-2xl border border-[#D1D5DB] bg-white">
           <table className="min-w-full text-left text-sm">
@@ -989,7 +1135,9 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         pageStays={pageStaysDetalhe}
         encerrando={encerrando}
         excluindo={excluindo}
+        bloqueando={bloqueando}
         onEncerrar={handleEncerrarRemoto}
+        onBloquear={handleBloquearDispositivo}
         onExcluir={() => handleExcluirSessao(detalhe, { fecharDrawer: true })}
         onFechar={() => {
           setDetalhe(null);
