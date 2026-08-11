@@ -560,7 +560,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           <h1>Permanência de acesso — ${empresa}</h1>
           <p>Agrupado por ${agruparPermanencia} · ${dados.length} item(ns)</p>
           <table><thead><tr>${thead}</tr></thead><tbody>${rowsHtml}</tbody></table>
-          <script>window.onload=function(){window.print();}<\/script></body></html>`;
+          <script>window.onload=function(){window.print();}</${"script"}></body></html>`;
         const w = window.open("", "_blank", "width=1100,height=800");
         if (!w) { setErro("Permita pop-ups para gerar o PDF."); return; }
         w.document.write(html); w.document.close();
