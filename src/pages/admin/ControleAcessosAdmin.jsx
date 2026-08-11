@@ -4,8 +4,13 @@ import {
   listarSessoesAcesso,
   listarEventosAcesso,
   metricasSessoesAcesso,
+  encerrarSessaoRemota,
 } from "../../lib/accessControl/api.js";
-import { ACCESS_SECURITY_TYPES } from "../../lib/accessControl/constants.js";
+import {
+  ACCESS_ALERT_TYPES,
+  ACCESS_SECURITY_TYPES,
+  rotuloEventoAcesso,
+} from "../../lib/accessControl/constants.js";
 import {
   classificarPresenca,
   duracaoSessaoMs,
@@ -19,6 +24,12 @@ import {
   mascararIp,
   rotuloDispositivo,
 } from "../../lib/accessControl/deviceInfo.js";
+import {
+  exportarEventosExcel,
+  exportarEventosPdf,
+  exportarSessoesExcel,
+  exportarSessoesPdf,
+} from "../../lib/accessControl/export.js";
 
 const PERIODOS = [
   { id: "hoje", label: "Hoje" },
@@ -87,9 +98,17 @@ function MetricCard({ titulo, valor, sub }) {
   );
 }
 
-function SessionDetailsDrawer({ sessao, aberto, onFechar, eventos }) {
+function SessionDetailsDrawer({
+  sessao,
+  aberto,
+  onFechar,
+  eventos,
+  encerrando,
+  onEncerrar,
+}) {
   if (!aberto || !sessao) return null;
   const presence = classificarPresenca(sessao);
+  const podeEncerrar = sessao.status === "active";
   return (
     <div className="fixed inset-0 z-[120] flex justify-end bg-[#012E46]/40" onClick={onFechar}>
       <aside
@@ -124,12 +143,12 @@ function SessionDetailsDrawer({ sessao, aberto, onFechar, eventos }) {
             ["Sistema", sessao.os || "—"],
             ["Navegador", [sessao.browser, sessao.browserVersion].filter(Boolean).join(" ") || "—"],
             ["Aplicação", sessao.isPwa ? "PWA" : "Navegador"],
-            ["IP", mascararIp(sessao.ipAddress)],
+            ["IP", sessao.ipAddress || "—"],
             ["Localização aproximada", formatarLocalizacao(sessao)],
           ].map(([k, v]) => (
             <div key={k} className="grid grid-cols-[8.5rem_1fr] gap-2 border-b border-[#F3F4F6] pb-2">
               <dt className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">{k}</dt>
-              <dd className="font-semibold text-[#111111]">{v}</dd>
+              <dd className="font-semibold text-[#111111] break-all">{v}</dd>
             </div>
           ))}
 
@@ -142,13 +161,32 @@ function SessionDetailsDrawer({ sessao, aberto, onFechar, eventos }) {
                 {eventos.map((ev) => (
                   <li key={ev.id} className="rounded-xl border border-[#D1D5DB] bg-[#FAFAFA] px-3 py-2">
                     <p className="text-xs font-bold text-[#F38525]">{formatarHora(ev.createdAt)}</p>
-                    <p className="text-sm font-semibold text-[#111111]">{ev.description || ev.eventType}</p>
+                    <p className="text-sm font-semibold text-[#111111]">
+                      {rotuloEventoAcesso(ev.eventType)}
+                      {ev.description ? ` — ${ev.description}` : ""}
+                    </p>
                   </li>
                 ))}
               </ul>
             )}
           </div>
         </div>
+
+        {podeEncerrar ? (
+          <footer className="border-t border-[#D1D5DB] px-5 py-4">
+            <PrimeButton
+              variante="danger"
+              className="w-full"
+              disabled={encerrando}
+              onClick={onEncerrar}
+            >
+              {encerrando ? "Encerrando…" : "Encerrar sessão remotamente"}
+            </PrimeButton>
+            <p className="mt-2 text-[11px] text-[#6B7280]">
+              O usuário será desconectado no próximo heartbeat (até ~45s).
+            </p>
+          </footer>
+        ) : null}
       </aside>
     </div>
   );
@@ -156,7 +194,7 @@ function SessionDetailsDrawer({ sessao, aberto, onFechar, eventos }) {
 
 /**
  * Administração → Controle de Acessos
- * Consulta de sessões online, histórico e eventos de segurança.
+ * Consulta de sessões online, histórico, alertas e exportação.
  */
 export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSuperAdmin = false }) {
   const [aba, setAba] = useState("online");
@@ -171,13 +209,16 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
 
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState("");
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [metricas, setMetricas] = useState({
     online: 0, sessoesHoje: 0, tempoMedioSeg: 0, dispositivos: 0, acessosNegados: 0,
   });
+  const [alertasRecentes, setAlertasRecentes] = useState([]);
   const [detalhe, setDetalhe] = useState(null);
   const [eventosDetalhe, setEventosDetalhe] = useState([]);
+  const [encerrando, setEncerrando] = useState(false);
   const [agora, setAgora] = useState(Date.now());
 
   useEffect(() => {
@@ -189,6 +230,12 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     const t = setInterval(() => setAgora(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (!aviso) return undefined;
+    const t = setTimeout(() => setAviso(""), 3200);
+    return () => clearTimeout(t);
+  }, [aviso]);
 
   const range = useMemo(() => rangePeriodo(periodo), [periodo]);
   const lojaIdEfetiva = isSuperAdmin
@@ -230,15 +277,27 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         lojaId: lojaIdEfetiva,
       });
       setMetricas(m);
+
+      // Banner de alertas (últimas 24h)
+      const desde24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { rows: alertas } = await listarEventosAcesso({
+        tipos: ACCESS_ALERT_TYPES,
+        desde: desde24h,
+        ate: new Date().toISOString(),
+        limit: 8,
+        offset: 0,
+      });
+      setAlertasRecentes(alertas);
     } catch (e) {
       const msg = e?.message || String(e);
       if (/function .* does not exist|relation .* does not exist|forbidden/i.test(msg)) {
-        setErro("Módulo ainda não disponível neste ambiente. Aplique a migration 098 no Supabase.");
+        setErro("Módulo ainda não disponível neste ambiente. Aplique as migrations 098 e 099 no Supabase.");
       } else {
         setErro(msg || "Falha ao carregar sessões.");
       }
       setRows([]);
       setTotal(0);
+      setAlertasRecentes([]);
     } finally {
       setLoading(false);
     }
@@ -257,14 +316,91 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     }
   }
 
+  async function handleEncerrarRemoto() {
+    if (!detalhe?.id) return;
+    const nome = detalhe.usuarioNome || "este usuário";
+    if (typeof window !== "undefined"
+      && !window.confirm(`Encerrar remotamente a sessão de ${nome}?`)) {
+      return;
+    }
+    setEncerrando(true);
+    try {
+      await encerrarSessaoRemota(detalhe.id);
+      setAviso("Sessão encerrada. O usuário será desconectado em breve.");
+      setDetalhe(null);
+      setEventosDetalhe([]);
+      await carregar();
+    } catch (e) {
+      const msg = e?.message || String(e);
+      if (/function .* does not exist/i.test(msg)) {
+        setErro("Para encerrar remotamente, aplique a migration 099 no Supabase.");
+      } else {
+        setErro(msg || "Não foi possível encerrar a sessão.");
+      }
+    } finally {
+      setEncerrando(false);
+    }
+  }
+
+  async function buscarParaExport(limit = 500) {
+    if (aba === "seguranca") {
+      const { rows: evs } = await listarEventosAcesso({
+        tipos: ACCESS_SECURITY_TYPES,
+        desde: range.desde,
+        ate: range.ate,
+        limit,
+        offset: 0,
+      });
+      return evs;
+    }
+    const { rows: sessoes } = await listarSessoesAcesso({
+      modo: aba === "online" ? "online" : "historico",
+      busca: buscaDebounced || null,
+      status: statusFiltro || null,
+      lojaId: lojaIdEfetiva,
+      desde: aba === "historico" ? range.desde : null,
+      ate: aba === "historico" ? range.ate : null,
+      deviceType: deviceFiltro || null,
+      limit,
+      offset: 0,
+    });
+    return sessoes;
+  }
+
+  async function handleExportExcel() {
+    try {
+      const dados = await buscarParaExport(500);
+      if (aba === "seguranca") exportarEventosExcel(dados);
+      else exportarSessoesExcel(dados, { aba });
+      setAviso("Exportação Excel (CSV) gerada.");
+    } catch (e) {
+      setErro(e?.message || "Falha ao exportar.");
+    }
+  }
+
+  async function handleExportPdf() {
+    try {
+      const dados = await buscarParaExport(500);
+      const empresa = lojaInfo?.nome || "Pedido Prime";
+      const ok = aba === "seguranca"
+        ? exportarEventosPdf(dados, { empresa })
+        : exportarSessoesPdf(dados, { aba, empresa });
+      if (!ok) setErro("Permita pop-ups para gerar o PDF / impressão.");
+      else setAviso("Janela de PDF/impressão aberta.");
+    } catch (e) {
+      setErro(e?.message || "Falha ao gerar PDF.");
+    }
+  }
+
   const totalPaginas = Math.max(1, Math.ceil(total / pageSize));
+  const podeExportar = aba === "historico" || aba === "seguranca" || aba === "online";
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8">
       <PageHeader
         icone={<span className="text-lg">🛡️</span>}
         titulo="Controle de Acessos"
-        descricao="Acompanhe sessões, dispositivos e horários de utilização do sistema."
+        descricao="Acompanhe sessões, dispositivos, alertas e horários de utilização do sistema."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -275,14 +411,54 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         <MetricCard titulo="Acessos negados" valor={metricas.acessosNegados} sub="no período" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {[
-          { id: "online", label: "Online" },
-          { id: "historico", label: "Histórico" },
-          { id: "seguranca", label: "Segurança" },
-        ].map((t) => (
-          <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
-        ))}
+      {alertasRecentes.length > 0 ? (
+        <div className="rounded-2xl border border-[#F38525]/35 bg-[#FFF7ED] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-black text-[#012E46]">
+              Alertas recentes (24h) — {alertasRecentes.length}
+            </p>
+            <button
+              type="button"
+              onClick={() => setAba("seguranca")}
+              className="text-xs font-bold text-[#012E46] underline-offset-2 hover:underline"
+            >
+              Ver na aba Segurança
+            </button>
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {alertasRecentes.slice(0, 4).map((ev) => (
+              <li key={ev.id} className="text-sm text-[#111111]">
+                <span className="font-bold text-[#F38525]">{rotuloEventoAcesso(ev.eventType)}</span>
+                {" · "}
+                {ev.usuarioNome || "Usuário"}
+                {" · "}
+                <span className="text-[#6B7280]">{formatarDataHora(ev.createdAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { id: "online", label: "Online" },
+            { id: "historico", label: "Histórico" },
+            { id: "seguranca", label: "Segurança" },
+          ].map((t) => (
+            <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
+          ))}
+        </div>
+        {podeExportar ? (
+          <div className="flex flex-wrap gap-2">
+            <PrimeButton variante="ghost" onClick={handleExportExcel}>
+              Exportar Excel
+            </PrimeButton>
+            <PrimeButton variante="ghost" onClick={handleExportPdf}>
+              Exportar PDF
+            </PrimeButton>
+          </div>
+        ) : null}
       </div>
 
       <FiltersPanel>
@@ -373,6 +549,11 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           {erro}
         </div>
       ) : null}
+      {aviso ? (
+        <div className="rounded-2xl border border-[#5E8C31]/35 bg-[#F0FDF4] px-4 py-3 text-sm font-semibold text-[#012E46]">
+          {aviso}
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="rounded-2xl border border-[#D1D5DB] bg-white px-4 py-10 text-center text-sm font-semibold text-[#6B7280]">
@@ -398,7 +579,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
               {rows.map((ev) => (
                 <tr key={ev.id} className="border-t border-[#F3F4F6]">
                   <td className="px-3 py-2.5 whitespace-nowrap font-semibold text-[#111111]">{formatarDataHora(ev.createdAt)}</td>
-                  <td className="px-3 py-2.5 font-bold text-[#F38525]">{ev.eventType}</td>
+                  <td className="px-3 py-2.5 font-bold text-[#F38525]">{rotuloEventoAcesso(ev.eventType)}</td>
                   <td className="px-3 py-2.5 text-[#111111]">{ev.usuarioNome || ev.metadata?.email || "—"}</td>
                   <td className="px-3 py-2.5 text-[#6B7280]">{ev.description || "—"}</td>
                 </tr>
@@ -408,7 +589,6 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         </div>
       ) : (
         <>
-          {/* Desktop table */}
           <div className="hidden overflow-x-auto rounded-2xl border border-[#D1D5DB] bg-white md:block">
             <table className="min-w-full text-left text-sm">
               <thead className="bg-[#F9FAFB] text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
@@ -422,6 +602,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                   <th className="px-3 py-3">Tempo</th>
                   {aba === "online" ? <th className="px-3 py-3">Última atividade</th> : null}
                   <th className="px-3 py-3">Dispositivo</th>
+                  <th className="px-3 py-3">IP</th>
                   <th className="px-3 py-3">Localização</th>
                   <th className="px-3 py-3">Ação</th>
                 </tr>
@@ -450,6 +631,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                         <td className="px-3 py-2.5 text-[#6B7280]">{formatarTempoRelativo(s.lastActivityAt, agora)}</td>
                       ) : null}
                       <td className="px-3 py-2.5 text-[#111111]">{rotuloDispositivo(s)}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-[#6B7280]">{mascararIp(s.ipAddress)}</td>
                       <td className="px-3 py-2.5 text-[#6B7280]">{formatarLocalizacao(s)}</td>
                       <td className="px-3 py-2.5">
                         <button
@@ -467,7 +649,6 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             </table>
           </div>
 
-          {/* Mobile cards */}
           <div className="grid gap-3 md:hidden">
             {rows.map((s) => {
               const presence = classificarPresenca(s, agora);
@@ -484,6 +665,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                     <div><dt className="text-[#6B7280]">Login</dt><dd className="font-semibold">{formatarHora(s.loginAt)}</dd></div>
                     <div><dt className="text-[#6B7280]">Tempo</dt><dd className="font-semibold">{formatarDuracao(duracaoSessaoMs(s, agora))}</dd></div>
                     <div className="col-span-2"><dt className="text-[#6B7280]">Dispositivo</dt><dd className="font-semibold">{rotuloDispositivo(s)}</dd></div>
+                    <div className="col-span-2"><dt className="text-[#6B7280]">IP</dt><dd className="font-semibold font-mono">{mascararIp(s.ipAddress)}</dd></div>
                     <div className="col-span-2"><dt className="text-[#6B7280]">Local</dt><dd className="font-semibold">{formatarLocalizacao(s)}</dd></div>
                   </dl>
                   <button
@@ -518,6 +700,8 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         aberto={!!detalhe}
         sessao={detalhe}
         eventos={eventosDetalhe}
+        encerrando={encerrando}
+        onEncerrar={handleEncerrarRemoto}
         onFechar={() => { setDetalhe(null); setEventosDetalhe([]); }}
       />
     </div>

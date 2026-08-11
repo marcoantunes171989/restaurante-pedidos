@@ -1072,7 +1072,12 @@ export default function RestaurantePedidoApp() {
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
   const lojaInfo = lojas.find((l) => Number(l.id) === Number(lojaAtual)) || null;
   // Controle de Acessos — heartbeat de presença (não confundir com tab_dispositivos)
-  useUserSessionHeartbeat(currentUser);
+  // Se admin encerrar a sessão remotamente, força logout local no próximo heartbeat.
+  useUserSessionHeartbeat(currentUser, {
+    onSessionRevoked: () => {
+      try { logoutRef.current(); } catch { /* ignore */ }
+    },
+  });
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
   const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);

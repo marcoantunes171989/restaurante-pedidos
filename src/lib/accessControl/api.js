@@ -67,19 +67,40 @@ export async function iniciarSessaoAcesso({ loginMethod = "password" } = {}) {
   return data;
 }
 
+/**
+ * Heartbeat de presença.
+ * @returns {Promise<{ status: 'active'|'closed'|'missing'|'error', alive: boolean }>}
+ */
 export async function heartbeatSessaoAcesso() {
-  if (!supabase) return false;
+  if (!supabase) return { status: "missing", alive: false };
   let token = null;
   try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
-  if (!token) return false;
+  if (!token) return { status: "missing", alive: false };
   const { data, error } = await supabase.rpc("app_sessao_heartbeat", {
     p_session_token: token,
   });
   if (error) {
     console.warn("[access-control] heartbeat:", error.message);
-    return false;
+    // Compat: migration 098 devolvia boolean — trata true/false
+    return { status: "error", alive: false };
   }
-  return !!data;
+  // Fase 2 (099): text active|closed|missing
+  // Fase 1 (098): boolean
+  if (data === true) return { status: "active", alive: true };
+  if (data === false) return { status: "missing", alive: false };
+  const status = typeof data === "string" ? data : "error";
+  return { status, alive: status === "active" };
+}
+
+/** Admin encerra sessão de outro usuário (ou a própria) remotamente. */
+export async function encerrarSessaoRemota(sessionId) {
+  if (!supabase) throw new Error("Supabase indisponível");
+  if (!sessionId) throw new Error("Sessão inválida");
+  const { data, error } = await supabase.rpc("app_sessao_encerrar_remota", {
+    p_session_id: sessionId,
+  });
+  if (error) throw error;
+  return data || { ok: true };
 }
 
 export async function encerrarSessaoAcesso({ eventType = ACCESS_EVENT.LOGOUT } = {}) {
