@@ -914,6 +914,12 @@ export default function RestaurantePedidoApp() {
         setActiveTab("kitchen");
       } else {
         if (!canAccess(user, "admin")) { irParaFallbackSeguro(user); return; }
+        // Controle de Acessos: só administrador geral (superAdmin) — demais vão ao dashboard
+        if (seg === "controle-acessos" && !user?.superAdmin) {
+          setAdminSection("dashboard");
+          setActiveTab("admin");
+          return;
+        }
         setAdminSection(seg); setActiveTab("admin");
       }
       return;
@@ -6683,7 +6689,6 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Administração", itens: [
       { id: "config", icon: <IconConfig />, label: "Configurações" },
       { id: "plano", icon: <IconLicencas />, label: "Meu Plano" },
-      { id: "controle-acessos", icon: <IconPermissoes />, label: "Controle de Acessos" },
       // Empresa: super admin gerencia todas (grupo Plataforma); usuário comum vê a sua
       ...(!isSuperAdmin ? [
         { id: "minhaempresa", icon: <IconEmpresa />, label: "Minha Empresa" },
@@ -6696,6 +6701,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "cargos", icon: <IconCargos />, label: "Cargos / Perfis" },
         { id: "access", icon: <IconPermissoes />, label: "Permissões" },
         { id: "link", icon: <IconLink />, label: "Usuário x Acesso" },
+        // Controle de Acessos: exclusivo do administrador geral do projeto
+        { id: "controle-acessos", icon: <IconPermissoes />, label: "Controle de Acessos" },
         { id: "auditoria", icon: <IconPermissoes />, label: "Auditoria" },
       ]},
       { grupo: "Plataforma", itens: [
@@ -6837,12 +6844,14 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             }}
           />}
           {ativo === "controle-acessos" && (
-            canAccess(currentUser, "admin")
+            isSuperAdmin
               ? <ControleAcessosAdmin lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />
               : (
                 <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
                   <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>
-                  <p className="mt-2 text-sm text-[#6B7280]">Somente administradores autorizados podem consultar o Controle de Acessos.</p>
+                  <p className="mt-2 text-sm text-[#6B7280]">
+                    O Controle de Acessos é exclusivo do administrador geral do projeto.
+                  </p>
                 </main>
               )
           )}
