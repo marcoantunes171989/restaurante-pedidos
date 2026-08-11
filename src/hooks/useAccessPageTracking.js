@@ -66,7 +66,7 @@ export function useAccessPageTracking(currentUser, tela = {}) {
 
     return () => {
       cancelled = true;
-      document.removeEventListener("visibilitychange", onHide);
+      document.removeEventListener("visibilitychange", onVis);
       if (stayIdRef.current) {
         const id = stayIdRef.current;
         stayIdRef.current = null;
