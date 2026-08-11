@@ -483,18 +483,40 @@ export default function DashboardGerencial({
         </div>
       </div>
 
-      {/* Fluxo */}
-      <DashCard>
-        <ChartHeader
-          titulo="Fluxo de faturamento"
-          descricao="Evolução real do faturamento no período — picos e quedas para agir no horário certo."
-        />
-        <AreaWaveChart
-          serie={serie}
-          pulseKey={pulseKey}
-          tituloValor={formatCurrency(a.faturamento)}
-        />
-      </DashCard>
+      {/* Fluxo + Top produtos — metade / metade */}
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-stretch">
+        <DashCard className="flex h-full min-w-0 flex-col">
+          <ChartHeader
+            titulo="Fluxo de faturamento"
+            descricao="Evolução real do faturamento no período — picos e quedas para agir no horário certo."
+          />
+          <div className="min-h-0 flex-1">
+            <AreaWaveChart
+              serie={serie}
+              pulseKey={pulseKey}
+              tituloValor={formatCurrency(a.faturamento)}
+            />
+          </div>
+        </DashCard>
+        <DashCard className="flex h-full min-w-0 flex-col">
+          <ChartHeader
+            titulo="Top produtos"
+            descricao="Itens mais vendidos com base nos pedidos pagos do período."
+            acao={(
+              <button
+                type="button"
+                onClick={irParaProdutos}
+                className="shrink-0 text-[10px] font-bold text-[#012E46] underline-offset-2 hover:underline"
+              >
+                Ver cardápio
+              </button>
+            )}
+          />
+          <div className="min-h-0 flex-1">
+            <HorizontalRankBars itens={a.topProdutos} pulseKey={pulseKey} />
+          </div>
+        </DashCard>
+      </div>
 
       {/* Ritmo + comparativo */}
       <div className="grid gap-3 lg:grid-cols-2">
@@ -535,9 +557,9 @@ export default function DashboardGerencial({
         </DashCard>
       </div>
 
-      {/* Mix — empilha no mobile, 2x2 no tablet, 4 no desktop */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <DashCard>
+      {/* Mix — 3 cards confortáveis (1 col mobile · 3 no desktop) */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <DashCard className="sm:col-span-1">
           <ChartHeader
             titulo="Canais de venda"
             descricao="Mesa/QR, externo/delivery e balcão — participação real no faturamento."
@@ -549,7 +571,7 @@ export default function DashboardGerencial({
             pulseKey={pulseKey}
           />
         </DashCard>
-        <DashCard>
+        <DashCard className="sm:col-span-1">
           <ChartHeader
             titulo="Status dos pedidos"
             descricao="Pagos, em aberto, aguardando pagamento e cancelados."
@@ -565,7 +587,7 @@ export default function DashboardGerencial({
             Conclusão <span className="font-black text-[#012E46]">{taxaEntrega}%</span>
           </p>
         </DashCard>
-        <DashCard>
+        <DashCard className="sm:col-span-2 lg:col-span-1">
           <ChartHeader
             titulo="Categorias do cardápio"
             descricao="Onde o faturamento se concentra — ajuste destaque e promoção."
@@ -576,22 +598,6 @@ export default function DashboardGerencial({
             centroValor={String(catDonut.length || "—")}
             pulseKey={pulseKey}
           />
-        </DashCard>
-        <DashCard>
-          <ChartHeader
-            titulo="Top produtos"
-            descricao="Itens mais vendidos com base nos pedidos pagos do período."
-            acao={(
-              <button
-                type="button"
-                onClick={irParaProdutos}
-                className="shrink-0 text-[10px] font-bold text-[#012E46] underline-offset-2 hover:underline"
-              >
-                Ver cardápio
-              </button>
-            )}
-          />
-          <HorizontalRankBars itens={a.topProdutos} pulseKey={pulseKey} />
         </DashCard>
       </div>
 
