@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FiltersPanel } from "../../components/Prime";
 import {
   listarSessoesAcesso,
   listarEventosAcesso,
   metricasSessoesAcesso,
   encerrarSessaoRemota,
+  excluirSessaoAcesso,
+  excluirEventoAcesso,
+  listarPageStaysSessao,
+  listarPermanenciaAcesso,
+  escutarControleAcessos,
 } from "../../lib/accessControl/api.js";
 import {
   ACCESS_ALERT_TYPES,
@@ -38,6 +43,8 @@ const PERIODOS = [
   { id: "30d", label: "Últimos 30 dias" },
   { id: "mes", label: "Este mês" },
 ];
+
+const PAGE_SIZES = [10, 20, 30, 40, 50];
 
 function rangePeriodo(id) {
   const now = new Date();
@@ -103,8 +110,11 @@ function SessionDetailsDrawer({
   aberto,
   onFechar,
   eventos,
+  pageStays,
   encerrando,
+  excluindo,
   onEncerrar,
+  onExcluir,
 }) {
   if (!aberto || !sessao) return null;
   const presence = classificarPresenca(sessao);
@@ -148,9 +158,36 @@ function SessionDetailsDrawer({
           ].map(([k, v]) => (
             <div key={k} className="grid grid-cols-[8.5rem_1fr] gap-2 border-b border-[#F3F4F6] pb-2">
               <dt className="text-xs font-bold uppercase tracking-wide text-[#6B7280]">{k}</dt>
-              <dd className="font-semibold text-[#111111] break-all">{v}</dd>
+              <dd className="break-all font-semibold text-[#111111]">{v}</dd>
             </div>
           ))}
+
+          <div className="pt-2">
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B7280]">
+              Permanência por tela
+            </p>
+            {pageStays.length === 0 ? (
+              <p className="text-sm text-[#6B7280]">Nenhuma permanência registrada nesta sessão.</p>
+            ) : (
+              <ul className="space-y-2">
+                {pageStays.map((ps) => (
+                  <li key={ps.id} className="rounded-xl border border-[#D1D5DB] bg-[#FAFAFA] px-3 py-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-[#111111]">{ps.screenLabel || ps.screenKey}</p>
+                      <p className="shrink-0 text-xs font-bold tabular-nums text-[#012E46]">
+                        {formatarDuracao(ps.durationMs)}
+                      </p>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-[#6B7280]">
+                      {formatarHora(ps.startedAt)}
+                      {ps.endedAt ? ` → ${formatarHora(ps.endedAt)}` : " · em andamento"}
+                      {ps.route ? ` · ${ps.route}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div className="pt-2">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B7280]">Eventos da sessão</p>
@@ -172,21 +209,31 @@ function SessionDetailsDrawer({
           </div>
         </div>
 
-        {podeEncerrar ? (
-          <footer className="border-t border-[#D1D5DB] px-5 py-4">
-            <PrimeButton
-              variante="danger"
-              className="w-full"
-              disabled={encerrando}
-              onClick={onEncerrar}
-            >
-              {encerrando ? "Encerrando…" : "Encerrar sessão remotamente"}
-            </PrimeButton>
-            <p className="mt-2 text-[11px] text-[#6B7280]">
-              O usuário será desconectado no próximo heartbeat (até ~45s).
-            </p>
-          </footer>
-        ) : null}
+        <footer className="space-y-2 border-t border-[#D1D5DB] px-5 py-4">
+          {podeEncerrar ? (
+            <>
+              <PrimeButton
+                variante="danger"
+                className="w-full"
+                disabled={encerrando || excluindo}
+                onClick={onEncerrar}
+              >
+                {encerrando ? "Encerrando…" : "Encerrar sessão remotamente"}
+              </PrimeButton>
+              <p className="text-[11px] text-[#6B7280]">
+                O usuário será desconectado no próximo heartbeat (até ~45s).
+              </p>
+            </>
+          ) : null}
+          <PrimeButton
+            variante="ghost"
+            className="w-full !border-[#C81E4A]/30 !text-[#C81E4A]"
+            disabled={excluindo || encerrando}
+            onClick={onExcluir}
+          >
+            {excluindo ? "Excluindo…" : "Excluir registro"}
+          </PrimeButton>
+        </footer>
       </aside>
     </div>
   );
@@ -194,10 +241,10 @@ function SessionDetailsDrawer({
 
 /**
  * Administração → Controle de Acessos
- * Consulta de sessões online, histórico, alertas e exportação.
  */
 export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSuperAdmin = false }) {
   const [aba, setAba] = useState("online");
+  const [agruparPermanencia, setAgruparPermanencia] = useState("tela");
   const [periodo, setPeriodo] = useState("hoje");
   const [busca, setBusca] = useState("");
   const [buscaDebounced, setBuscaDebounced] = useState("");
@@ -205,11 +252,12 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   const [deviceFiltro, setDeviceFiltro] = useState("");
   const [lojaFiltro, setLojaFiltro] = useState("");
   const [pagina, setPagina] = useState(0);
-  const pageSize = 40;
+  const [pageSize, setPageSize] = useState(10);
 
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
+  const [aoVivo, setAoVivo] = useState(false);
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [metricas, setMetricas] = useState({
@@ -218,8 +266,12 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   const [alertasRecentes, setAlertasRecentes] = useState([]);
   const [detalhe, setDetalhe] = useState(null);
   const [eventosDetalhe, setEventosDetalhe] = useState([]);
+  const [pageStaysDetalhe, setPageStaysDetalhe] = useState([]);
   const [encerrando, setEncerrando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
   const [agora, setAgora] = useState(Date.now());
+  const reloadTimerRef = useRef(null);
+  const carregarRef = useRef(async () => {});
 
   useEffect(() => {
     const t = setTimeout(() => setBuscaDebounced(busca.trim()), 350);
@@ -242,9 +294,11 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     ? (lojaFiltro ? Number(lojaFiltro) : (lojaInfo?.id ?? null))
     : (lojaInfo?.id ?? null);
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
-    setErro("");
+  const carregar = useCallback(async ({ silencioso = false } = {}) => {
+    if (!silencioso) {
+      setLoading(true);
+      setErro("");
+    }
     try {
       if (aba === "seguranca") {
         const { rows: evs, total: tot } = await listarEventosAcesso({
@@ -255,6 +309,17 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           offset: pagina * pageSize,
         });
         setRows(evs);
+        setTotal(tot);
+      } else if (aba === "permanencia") {
+        const { rows: perm, total: tot } = await listarPermanenciaAcesso({
+          agrupar: agruparPermanencia,
+          desde: range.desde,
+          ate: range.ate,
+          lojaId: lojaIdEfetiva,
+          limit: pageSize,
+          offset: pagina * pageSize,
+        });
+        setRows(perm);
         setTotal(tot);
       } else {
         const { rows: sessoes, total: tot } = await listarSessoesAcesso({
@@ -278,7 +343,6 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
       });
       setMetricas(m);
 
-      // Banner de alertas (últimas 24h)
       const desde24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { rows: alertas } = await listarEventosAcesso({
         tipos: ACCESS_ALERT_TYPES,
@@ -291,28 +355,57 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     } catch (e) {
       const msg = e?.message || String(e);
       if (/function .* does not exist|relation .* does not exist|forbidden/i.test(msg)) {
-        setErro("Módulo ainda não disponível neste ambiente. Aplique as migrations 098 e 099 no Supabase.");
-      } else {
+        setErro("Módulo ainda não disponível. Aplique as migrations 098–100 no Supabase.");
+      } else if (!silencioso) {
         setErro(msg || "Falha ao carregar sessões.");
       }
-      setRows([]);
-      setTotal(0);
-      setAlertasRecentes([]);
+      if (!silencioso) {
+        setRows([]);
+        setTotal(0);
+        setAlertasRecentes([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
-  }, [aba, buscaDebounced, statusFiltro, deviceFiltro, lojaIdEfetiva, range.desde, range.ate, pagina]);
+  }, [
+    aba, agruparPermanencia, buscaDebounced, statusFiltro, deviceFiltro,
+    lojaIdEfetiva, range.desde, range.ate, pagina, pageSize,
+  ]);
+
+  carregarRef.current = carregar;
 
   useEffect(() => { carregar(); }, [carregar]);
-  useEffect(() => { setPagina(0); }, [aba, buscaDebounced, statusFiltro, deviceFiltro, periodo, lojaFiltro]);
+  useEffect(() => { setPagina(0); }, [
+    aba, agruparPermanencia, buscaDebounced, statusFiltro, deviceFiltro, periodo, lojaFiltro, pageSize,
+  ]);
+
+  // Tempo real: novo login / mudança na loja → recarrega (debounce)
+  useEffect(() => {
+    const stop = escutarControleAcessos(() => {
+      setAoVivo(true);
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = setTimeout(() => {
+        carregarRef.current({ silencioso: true });
+      }, 450);
+    }, { lojaId: lojaIdEfetiva });
+    return () => {
+      stop();
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+    };
+  }, [lojaIdEfetiva]);
 
   async function abrirDetalhe(sessao) {
     setDetalhe(sessao);
     try {
-      const { rows: evs } = await listarEventosAcesso({ sessionId: sessao.id, limit: 30 });
+      const [{ rows: evs }, stays] = await Promise.all([
+        listarEventosAcesso({ sessionId: sessao.id, limit: 30 }),
+        listarPageStaysSessao(sessao.id, 40).catch(() => []),
+      ]);
       setEventosDetalhe(evs);
+      setPageStaysDetalhe(stays);
     } catch {
       setEventosDetalhe([]);
+      setPageStaysDetalhe([]);
     }
   }
 
@@ -329,7 +422,8 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
       setAviso("Sessão encerrada. O usuário será desconectado em breve.");
       setDetalhe(null);
       setEventosDetalhe([]);
-      await carregar();
+      setPageStaysDetalhe([]);
+      await carregar({ silencioso: true });
     } catch (e) {
       const msg = e?.message || String(e);
       if (/function .* does not exist/i.test(msg)) {
@@ -339,6 +433,58 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
       }
     } finally {
       setEncerrando(false);
+    }
+  }
+
+  async function handleExcluirSessao(sessao, { fecharDrawer = false } = {}) {
+    if (!sessao?.id) return;
+    const nome = sessao.usuarioNome || "este registro";
+    if (typeof window !== "undefined"
+      && !window.confirm(`Excluir permanentemente o registro de acesso de ${nome}? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+    setExcluindo(true);
+    try {
+      await excluirSessaoAcesso(sessao.id);
+      setAviso("Registro de sessão excluído.");
+      if (fecharDrawer || detalhe?.id === sessao.id) {
+        setDetalhe(null);
+        setEventosDetalhe([]);
+        setPageStaysDetalhe([]);
+      }
+      await carregar({ silencioso: true });
+    } catch (e) {
+      const msg = e?.message || String(e);
+      if (/function .* does not exist/i.test(msg)) {
+        setErro("Para excluir, aplique a migration 100 no Supabase.");
+      } else {
+        setErro(msg || "Não foi possível excluir.");
+      }
+    } finally {
+      setExcluindo(false);
+    }
+  }
+
+  async function handleExcluirEvento(ev) {
+    if (!ev?.id) return;
+    if (typeof window !== "undefined"
+      && !window.confirm("Excluir este evento de segurança?")) {
+      return;
+    }
+    setExcluindo(true);
+    try {
+      await excluirEventoAcesso(ev.id);
+      setAviso("Evento excluído.");
+      await carregar({ silencioso: true });
+    } catch (e) {
+      const msg = e?.message || String(e);
+      if (/function .* does not exist/i.test(msg)) {
+        setErro("Para excluir eventos, aplique a migration 100 no Supabase.");
+      } else {
+        setErro(msg || "Não foi possível excluir o evento.");
+      }
+    } finally {
+      setExcluindo(false);
     }
   }
 
@@ -352,6 +498,17 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         offset: 0,
       });
       return evs;
+    }
+    if (aba === "permanencia") {
+      const { rows: perm } = await listarPermanenciaAcesso({
+        agrupar: agruparPermanencia,
+        desde: range.desde,
+        ate: range.ate,
+        lojaId: lojaIdEfetiva,
+        limit,
+        offset: 0,
+      });
+      return perm;
     }
     const { rows: sessoes } = await listarSessoesAcesso({
       modo: aba === "online" ? "online" : "historico",
@@ -369,6 +526,10 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
 
   async function handleExportExcel() {
     try {
+      if (aba === "permanencia") {
+        setAviso("Exportação de permanência: use PDF nesta aba por enquanto.");
+        return;
+      }
       const dados = await buscarParaExport(500);
       if (aba === "seguranca") exportarEventosExcel(dados);
       else exportarSessoesExcel(dados, { aba });
@@ -382,6 +543,30 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     try {
       const dados = await buscarParaExport(500);
       const empresa = lojaInfo?.nome || "Pedido Prime";
+      if (aba === "permanencia") {
+        const thead = ["Item", "Tempo", "Visitas", "Usuários", "Detalhe"]
+          .map((h) => `<th>${h}</th>`).join("");
+        const rowsHtml = dados.map((r) => `<tr>
+          <td>${(r.rotulo || "—").replace(/</g, "&lt;")}</td>
+          <td>${formatarDuracao(r.tempoMs)}</td>
+          <td>${r.visitas}</td>
+          <td>${r.usuarios}</td>
+          <td>${(r.detalhe || "—").replace(/</g, "&lt;")}</td>
+        </tr>`).join("");
+        const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Permanência</title>
+          <style>@page{size:A4 landscape;margin:12mm}body{font-family:Segoe UI,Arial,sans-serif;color:#012E46}
+          table{width:100%;border-collapse:collapse;font-size:11px}th{text-align:left;font-size:9px;color:#6B7280;border-bottom:2px solid #D1D5DB;padding:6px 8px}
+          td{padding:7px 8px;border-bottom:1px solid #F3F4F6}</style></head><body>
+          <h1>Permanência de acesso — ${empresa}</h1>
+          <p>Agrupado por ${agruparPermanencia} · ${dados.length} item(ns)</p>
+          <table><thead><tr>${thead}</tr></thead><tbody>${rowsHtml}</tbody></table>
+          <script>window.onload=function(){window.print();}<\/script></body></html>`;
+        const w = window.open("", "_blank", "width=1100,height=800");
+        if (!w) { setErro("Permita pop-ups para gerar o PDF."); return; }
+        w.document.write(html); w.document.close();
+        setAviso("Janela de PDF/impressão aberta.");
+        return;
+      }
       const ok = aba === "seguranca"
         ? exportarEventosPdf(dados, { empresa })
         : exportarSessoesPdf(dados, { aba, empresa });
@@ -393,14 +578,20 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   }
 
   const totalPaginas = Math.max(1, Math.ceil(total / pageSize));
-  const podeExportar = aba === "historico" || aba === "seguranca" || aba === "online";
+  const podeExportar = true;
+
+  const rotuloAgrupar = {
+    tela: "Tela",
+    dispositivo: "Dispositivo",
+    usuario: "Usuário",
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8">
       <PageHeader
         icone={<span className="text-lg">🛡️</span>}
         titulo="Controle de Acessos"
-        descricao="Acompanhe sessões, dispositivos, alertas e horários de utilização do sistema."
+        descricao="Acompanhe sessões, permanência por tela, dispositivos e horários — atualização em tempo real."
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -410,6 +601,12 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         <MetricCard titulo="Dispositivos" valor={metricas.dispositivos} />
         <MetricCard titulo="Acessos negados" valor={metricas.acessosNegados} sub="no período" />
       </div>
+
+      {aoVivo ? (
+        <p className="text-[11px] font-bold uppercase tracking-wide text-[#5E8C31]">
+          ● Ao vivo — novos logins atualizam esta tela automaticamente
+        </p>
+      ) : null}
 
       {alertasRecentes.length > 0 ? (
         <div className="rounded-2xl border border-[#F38525]/35 bg-[#FFF7ED] px-4 py-3">
@@ -444,6 +641,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
           {[
             { id: "online", label: "Online" },
             { id: "historico", label: "Histórico" },
+            { id: "permanencia", label: "Permanência" },
             { id: "seguranca", label: "Segurança" },
           ].map((t) => (
             <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
@@ -461,17 +659,33 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         ) : null}
       </div>
 
+      {aba === "permanencia" ? (
+        <div className="flex flex-wrap gap-2">
+          {["tela", "dispositivo", "usuario"].map((g) => (
+            <FilterChip
+              key={g}
+              size="sm"
+              selected={agruparPermanencia === g}
+              label={`Por ${rotuloAgrupar[g]}`}
+              onClick={() => setAgruparPermanencia(g)}
+            />
+          ))}
+        </div>
+      ) : null}
+
       <FiltersPanel>
         <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          <label className="block min-w-[14rem] flex-1 text-xs font-bold text-[#6B7280]">
-            Buscar usuário
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Nome ou e-mail"
-              className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111] outline-none focus:border-[#012E46]"
-            />
-          </label>
+          {aba !== "permanencia" && aba !== "seguranca" ? (
+            <label className="block min-w-[14rem] flex-1 text-xs font-bold text-[#6B7280]">
+              Buscar usuário
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Nome ou e-mail"
+                className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111] outline-none focus:border-[#012E46]"
+              />
+            </label>
+          ) : null}
 
           <div className="flex flex-wrap gap-1.5">
             {PERIODOS.map((p) => (
@@ -479,7 +693,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             ))}
           </div>
 
-          {aba !== "seguranca" && (
+          {aba !== "seguranca" && aba !== "permanencia" && (
             <label className="block text-xs font-bold text-[#6B7280]">
               Status
               <select
@@ -496,7 +710,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             </label>
           )}
 
-          {aba !== "seguranca" && (
+          {aba !== "seguranca" && aba !== "permanencia" && (
             <label className="block text-xs font-bold text-[#6B7280]">
               Dispositivo
               <select
@@ -529,6 +743,19 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
             </label>
           )}
 
+          <label className="block text-xs font-bold text-[#6B7280]">
+            Linhas por página
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="mt-1 h-10 rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
+
           <PrimeButton
             variante="ghost"
             onClick={() => {
@@ -537,6 +764,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
               setDeviceFiltro("");
               setLojaFiltro("");
               setPeriodo("hoje");
+              setPageSize(10);
             }}
           >
             Limpar filtros
@@ -573,6 +801,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                 <th className="px-3 py-3">Evento</th>
                 <th className="px-3 py-3">Usuário</th>
                 <th className="px-3 py-3">Descrição</th>
+                <th className="px-3 py-3">Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -582,6 +811,43 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                   <td className="px-3 py-2.5 font-bold text-[#F38525]">{rotuloEventoAcesso(ev.eventType)}</td>
                   <td className="px-3 py-2.5 text-[#111111]">{ev.usuarioNome || ev.metadata?.email || "—"}</td>
                   <td className="px-3 py-2.5 text-[#6B7280]">{ev.description || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    <button
+                      type="button"
+                      disabled={excluindo}
+                      onClick={() => handleExcluirEvento(ev)}
+                      className="rounded-lg border border-[#C81E4A]/25 px-2.5 py-1 text-xs font-bold text-[#C81E4A] hover:bg-[#C81E4A]/5"
+                    >
+                      Excluir
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : aba === "permanencia" ? (
+        <div className="overflow-x-auto rounded-2xl border border-[#D1D5DB] bg-white">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-[#F9FAFB] text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
+              <tr>
+                <th className="px-3 py-3">{rotuloAgrupar[agruparPermanencia]}</th>
+                <th className="px-3 py-3">Tempo total</th>
+                <th className="px-3 py-3">Visitas</th>
+                {agruparPermanencia !== "usuario" ? <th className="px-3 py-3">Usuários</th> : null}
+                <th className="px-3 py-3">Detalhe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.chave} className="border-t border-[#F3F4F6]">
+                  <td className="px-3 py-2.5 font-bold text-[#111111]">{r.rotulo || "—"}</td>
+                  <td className="px-3 py-2.5 font-semibold tabular-nums text-[#012E46]">{formatarDuracao(r.tempoMs)}</td>
+                  <td className="px-3 py-2.5 text-[#111111]">{r.visitas}</td>
+                  {agruparPermanencia !== "usuario" ? (
+                    <td className="px-3 py-2.5 text-[#6B7280]">{r.usuarios}</td>
+                  ) : null}
+                  <td className="px-3 py-2.5 text-[#6B7280]">{r.detalhe || "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -634,13 +900,23 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                       <td className="px-3 py-2.5 font-mono text-xs text-[#6B7280]">{mascararIp(s.ipAddress)}</td>
                       <td className="px-3 py-2.5 text-[#6B7280]">{formatarLocalizacao(s)}</td>
                       <td className="px-3 py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => abrirDetalhe(s)}
-                          className="rounded-lg border border-[#012E46]/20 px-2.5 py-1 text-xs font-bold text-[#012E46] hover:bg-[#012E46]/5"
-                        >
-                          Detalhes
-                        </button>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => abrirDetalhe(s)}
+                            className="rounded-lg border border-[#012E46]/20 px-2.5 py-1 text-xs font-bold text-[#012E46] hover:bg-[#012E46]/5"
+                          >
+                            Detalhes
+                          </button>
+                          <button
+                            type="button"
+                            disabled={excluindo}
+                            onClick={() => handleExcluirSessao(s)}
+                            className="rounded-lg border border-[#C81E4A]/25 px-2.5 py-1 text-xs font-bold text-[#C81E4A] hover:bg-[#C81E4A]/5"
+                          >
+                            Excluir
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -668,13 +944,23 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                     <div className="col-span-2"><dt className="text-[#6B7280]">IP</dt><dd className="font-semibold font-mono">{mascararIp(s.ipAddress)}</dd></div>
                     <div className="col-span-2"><dt className="text-[#6B7280]">Local</dt><dd className="font-semibold">{formatarLocalizacao(s)}</dd></div>
                   </dl>
-                  <button
-                    type="button"
-                    onClick={() => abrirDetalhe(s)}
-                    className="mt-3 w-full rounded-xl border border-[#012E46]/20 py-2 text-xs font-bold text-[#012E46]"
-                  >
-                    Ver detalhes
-                  </button>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => abrirDetalhe(s)}
+                      className="rounded-xl border border-[#012E46]/20 py-2 text-xs font-bold text-[#012E46]"
+                    >
+                      Ver detalhes
+                    </button>
+                    <button
+                      type="button"
+                      disabled={excluindo}
+                      onClick={() => handleExcluirSessao(s)}
+                      className="rounded-xl border border-[#C81E4A]/25 py-2 text-xs font-bold text-[#C81E4A]"
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </article>
               );
             })}
@@ -682,27 +968,34 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
         </>
       )}
 
-      {total > pageSize ? (
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <p className="text-[#6B7280]">{total} registro(s) · página {pagina + 1} de {totalPaginas}</p>
-          <div className="flex gap-2">
-            <PrimeButton variante="ghost" disabled={pagina <= 0} onClick={() => setPagina((p) => Math.max(0, p - 1))}>
-              Anterior
-            </PrimeButton>
-            <PrimeButton variante="ghost" disabled={pagina + 1 >= totalPaginas} onClick={() => setPagina((p) => p + 1)}>
-              Próxima
-            </PrimeButton>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p className="text-[#6B7280]">
+          {total} registro(s) · página {pagina + 1} de {totalPaginas} · {pageSize}/página
+        </p>
+        <div className="flex gap-2">
+          <PrimeButton variante="ghost" disabled={pagina <= 0} onClick={() => setPagina((p) => Math.max(0, p - 1))}>
+            Anterior
+          </PrimeButton>
+          <PrimeButton variante="ghost" disabled={pagina + 1 >= totalPaginas} onClick={() => setPagina((p) => p + 1)}>
+            Próxima
+          </PrimeButton>
         </div>
-      ) : null}
+      </div>
 
       <SessionDetailsDrawer
         aberto={!!detalhe}
         sessao={detalhe}
         eventos={eventosDetalhe}
+        pageStays={pageStaysDetalhe}
         encerrando={encerrando}
+        excluindo={excluindo}
         onEncerrar={handleEncerrarRemoto}
-        onFechar={() => { setDetalhe(null); setEventosDetalhe([]); }}
+        onExcluir={() => handleExcluirSessao(detalhe, { fecharDrawer: true })}
+        onFechar={() => {
+          setDetalhe(null);
+          setEventosDetalhe([]);
+          setPageStaysDetalhe([]);
+        }}
       />
     </div>
   );
