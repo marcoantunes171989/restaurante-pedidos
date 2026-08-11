@@ -160,14 +160,13 @@ export default function DashboardGerencial({
   );
 
   useEffect(() => {
-    setRestante(15);
     const tick = setInterval(() => {
       setRestante((s) => {
         if (s <= 1) {
           setPulseKey((k) => k + 1);
           setAtualizadoEm(new Date());
           setFlash(true);
-          setTimeout(() => setFlash(false), 900);
+          window.setTimeout(() => setFlash(false), 900);
           return 15;
         }
         return s - 1;
@@ -178,17 +177,23 @@ export default function DashboardGerencial({
 
   useEffect(() => {
     const sig = `${orders.length}|${orders.map((o) => `${o.id}:${o.paymentStatus || ""}:${o.status || ""}`).join("|")}`;
-    if (prevSig.current && prevSig.current !== sig) {
+    if (!prevSig.current) {
+      prevSig.current = sig;
+      return undefined;
+    }
+    if (prevSig.current === sig) return undefined;
+    prevSig.current = sig;
+    const tPulse = window.setTimeout(() => {
       setPulseKey((k) => k + 1);
       setAtualizadoEm(new Date());
       setRestante(15);
       setFlash(true);
-      const t = setTimeout(() => setFlash(false), 900);
-      prevSig.current = sig;
-      return () => clearTimeout(t);
-    }
-    prevSig.current = sig;
-    return undefined;
+    }, 0);
+    const tFlash = window.setTimeout(() => setFlash(false), 900);
+    return () => {
+      clearTimeout(tPulse);
+      clearTimeout(tFlash);
+    };
   }, [orders]);
 
   const prioCor = { alta: "#C81E4A", media: LARANJA, baixa: PETROLEO };
@@ -225,7 +230,10 @@ export default function DashboardGerencial({
                   size="sm"
                   selected={periodo === p.id}
                   label={p.label}
-                  onClick={() => setPeriodo(p.id)}
+                  onClick={() => {
+                    setPeriodo(p.id);
+                    setRestante(15);
+                  }}
                 />
               ))}
             </div>

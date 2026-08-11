@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { LARANJA, PETROLEO, CINZA, VERDE } from "../../lib/dashboard/analiseDashboard.js";
 import { formatCurrency } from "../../pages/pdv/pdvHelpers.js";
@@ -58,6 +58,7 @@ export function Sparkline({ valores = [], cor = PETROLEO, width = 140, height = 
 export function AreaWaveChart({ serie = [], pulseKey = 0, tituloValor = "" }) {
   const reduce = useReducedMotion();
   const [hover, setHover] = useState(null);
+  const gid = useId();
   const W = 640;
   const H = 260;
   const pad = { l: 8, r: 8, t: 36, b: 36 };
@@ -91,7 +92,6 @@ export function AreaWaveChart({ serie = [], pulseKey = 0, tituloValor = "" }) {
     line += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
   }
   const area = `${line} L ${coords[coords.length - 1].x} ${pad.t + innerH} L ${coords[0].x} ${pad.t + innerH} Z`;
-  const gid = useId();
   const last = coords[coords.length - 1];
 
   return (
@@ -266,15 +266,21 @@ export function DonutChart({ dados = [], centroTitulo = "", centroValor = "", ta
   }
   const r = 56;
   const c = 2 * Math.PI * r;
-  let acc = 0;
-  const fatias = dados.map((d) => {
+  const fatias = dados.reduce((list, d) => {
     const frac = d.valor / total;
     const dash = frac * c;
     const gap = c - dash;
-    const offset = -acc * c + c * 0.25;
-    acc += frac;
-    return { ...d, dash, gap, offset, pct: Math.round(frac * 100) };
-  });
+    const prev = list.reduce((s, x) => s + x.frac, 0);
+    list.push({
+      ...d,
+      frac,
+      dash,
+      gap,
+      offset: -prev * c + c * 0.25,
+      pct: Math.round(frac * 100),
+    });
+    return list;
+  }, []);
 
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
