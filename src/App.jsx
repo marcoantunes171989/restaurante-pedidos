@@ -73,6 +73,10 @@ import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CashierPdv from "./pages/pdv/CashierPdv";
 import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
+import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
+import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
+import { encerrarSessaoAcesso, registrarLoginNegado } from "./lib/accessControl/api";
+import { ACCESS_EVENT } from "./lib/accessControl/constants";
 import EstacaoImpressaoAuto from "./components/EstacaoImpressaoAuto";
 import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
 import {
@@ -1067,6 +1071,8 @@ export default function RestaurantePedidoApp() {
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
   const lojaInfo = lojas.find((l) => Number(l.id) === Number(lojaAtual)) || null;
+  // Controle de Acessos — heartbeat de presença (não confundir com tab_dispositivos)
+  useUserSessionHeartbeat(currentUser);
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
   const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);
@@ -1222,9 +1228,11 @@ export default function RestaurantePedidoApp() {
     } catch (e) {
       const code = e?.code || "";
       if (code === "INACTIVE") {
+        registrarLoginNegado({ email, motivo: "Usuário inativo" });
         return notify("error", e.message || "Usuário inativo, entre em contato com o administrador do sistema.");
       }
       if (code === "INVALID_CREDENTIALS" || e?.status === 401) {
+        registrarLoginNegado({ email, motivo: "Credenciais inválidas" });
         return notify("error", "E-mail ou senha incorretos.");
       }
       // Último recurso: lista já carregada em memória (mesmo critério do banco).
@@ -1247,8 +1255,12 @@ export default function RestaurantePedidoApp() {
         if (credOk && String(credOk.password ?? "") !== senha) credOk = null;
       }
     }
-    if (!credOk) return notify("error", "E-mail ou senha incorretos.");
+    if (!credOk) {
+      registrarLoginNegado({ email, motivo: "Credenciais inválidas" });
+      return notify("error", "E-mail ou senha incorretos.");
+    }
     if (credOk.active === false) {
+      registrarLoginNegado({ email, motivo: "Usuário inativo" });
       return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
     }
 
@@ -1287,6 +1299,7 @@ export default function RestaurantePedidoApp() {
   function logout() {
     // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
     // peça a seleção da mesa novamente (e libere a mesa para outros).
+    try { encerrarSessaoAcesso({ eventType: ACCESS_EVENT.LOGOUT }); } catch { /* best-effort */ }
     try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
     try { sessionStorage.removeItem("pp_restore_once"); } catch {}
     try { sessionStorage.removeItem("pp_sessao_ativa"); } catch {}
@@ -6647,6 +6660,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Administração", itens: [
       { id: "config", icon: <IconConfig />, label: "Configurações" },
       { id: "plano", icon: <IconLicencas />, label: "Meu Plano" },
+      { id: "controle-acessos", icon: <IconPermissoes />, label: "Controle de Acessos" },
       // Empresa: super admin gerencia todas (grupo Plataforma); usuário comum vê a sua
       ...(!isSuperAdmin ? [
         { id: "minhaempresa", icon: <IconEmpresa />, label: "Minha Empresa" },
@@ -6792,6 +6806,16 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               return ok;
             }}
           />}
+          {ativo === "controle-acessos" && (
+            canAccess(currentUser, "admin")
+              ? <ControleAcessosAdmin lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />
+              : (
+                <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
+                  <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>
+                  <p className="mt-2 text-sm text-[#6B7280]">Somente administradores autorizados podem consultar o Controle de Acessos.</p>
+                </main>
+              )
+          )}
           {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} fidRegra={fidRegra} fidTransacoes={fidTransacoes} />)}
           {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} />)}
           {ativo === "contas-receber" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="receber" />)}

@@ -12,7 +12,7 @@
 export const BLOQUEIO_PLANO_ATIVO = true;
 
 // Módulos que nunca são bloqueados (operação mínima + caminho de upgrade).
-export const MODULOS_SEMPRE_LIVRES = ["config", "plano", "minhaempresa", "operacaomobile", "cardapioqr", "acessosop"];
+export const MODULOS_SEMPRE_LIVRES = ["config", "plano", "minhaempresa", "operacaomobile", "cardapioqr", "acessosop", "controle-acessos"];
 
 // Rótulos amigáveis dos módulos (espelha o seed da migration 037).
 export const MODULOS_LABEL = {
@@ -24,7 +24,9 @@ export const MODULOS_LABEL = {
   users: "Usuários", cargos: "Cargos / Perfis", access: "Permissões", link: "Usuário x Acesso",
   lojas: "Empresas", licencas: "Licenças de Uso", versoes: "Controle de Versões",
   promocoes: "Promoções", caixa: "Fechamento de Caixa", fidelidade: "Fidelidade",
-  destaque: "Produtos em Destaque", auditoria: "Auditoria", chamados: "Chamados de Mesa",
+  destaque: "Produtos em Destaque", auditoria: "Auditoria",
+  "controle-acessos": "Controle de Acessos",
+  chamados: "Chamados de Mesa",
   setores: "Setores de Cozinha",
 };
 
