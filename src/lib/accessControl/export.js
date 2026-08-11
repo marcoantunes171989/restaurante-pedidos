@@ -4,7 +4,12 @@ import {
   duracaoSessaoMs,
   classificarPresenca,
 } from "./sessionDuration.js";
-import { formatarLocalizacao, mascararIp, rotuloDispositivo } from "./deviceInfo.js";
+import {
+  formatarLocalizacao,
+  formatarMarcaModelo,
+  mascararIp,
+  rotuloDispositivo,
+} from "./deviceInfo.js";
 import { rotuloEventoAcesso } from "./constants.js";
 
 function escCsv(v) {
@@ -36,7 +41,8 @@ export function exportarSessoesExcel(sessoes = [], { aba = "historico" } = {}) {
     "Login",
     "Saída",
     "Tempo",
-    "Dispositivo",
+    "Tipo",
+    "Marca e modelo",
     "SO",
     "Navegador",
     "IP (mascarado)",
@@ -54,6 +60,7 @@ export function exportarSessoesExcel(sessoes = [], { aba = "historico" } = {}) {
       s.logoutAt ? formatarDataHora(s.logoutAt) : "",
       formatarDuracao(duracaoSessaoMs(s)),
       s.deviceType || "",
+      formatarMarcaModelo(s),
       s.os || "",
       [s.browser, s.browserVersion].filter(Boolean).join(" "),
       mascararIp(s.ipAddress),
@@ -110,7 +117,7 @@ function escHtml(v) {
 
 /** PDF via janela de impressão (estrutura fase 2). */
 export function exportarSessoesPdf(sessoes = [], { aba = "historico", empresa = "Pedido Prime" } = {}) {
-  const thead = ["Status", "Usuário", "Perfil", "Loja", "Login", "Saída", "Tempo", "Dispositivo", "Local"]
+  const thead = ["Status", "Usuário", "Perfil", "Loja", "Login", "Saída", "Tempo", "Marca/modelo", "Dispositivo", "Local"]
     .map((h) => `<th>${h}</th>`).join("");
   const rows = sessoes.map((s) => {
     const presence = classificarPresenca(s);
@@ -122,6 +129,7 @@ export function exportarSessoesPdf(sessoes = [], { aba = "historico", empresa = 
       formatarDataHora(s.loginAt),
       s.logoutAt ? formatarDataHora(s.logoutAt) : "—",
       formatarDuracao(duracaoSessaoMs(s)),
+      formatarMarcaModelo(s),
       rotuloDispositivo(s),
       formatarLocalizacao(s),
     ].map((c) => `<td>${escHtml(c)}</td>`).join("");
@@ -131,7 +139,7 @@ export function exportarSessoesPdf(sessoes = [], { aba = "historico", empresa = 
     `Controle de Acessos — ${empresa}`,
     `${sessoes.length} sessão(ões) · aba ${aba} · gerado em ${formatarDataHora(new Date().toISOString())}`,
     thead,
-    rows || `<tr><td colspan="9">Nenhum registro</td></tr>`,
+    rows || `<tr><td colspan="10">Nenhum registro</td></tr>`,
   );
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageHeader, PrimeButton, EmptyState, FilterChip, FiltersPanel } from "../../components/Prime";
+import { PageHeader, PrimeButton, EmptyState, FilterChip, FiltersPanel, FilterGroup } from "../../components/Prime";
 import {
   listarSessoesAcesso,
   listarEventosAcesso,
@@ -29,6 +29,7 @@ import {
 } from "../../lib/accessControl/sessionDuration.js";
 import {
   formatarLocalizacao,
+  formatarMarcaModelo,
   mascararIp,
   rotuloDispositivo,
 } from "../../lib/accessControl/deviceInfo.js";
@@ -180,14 +181,21 @@ function SessionDetailsDrawer({
             <InfoRow label="Saída" value={sessao.logoutAt ? formatarDataHora(sessao.logoutAt) : "—"} />
           </InfoGroup>
 
-          <InfoGroup titulo="Dispositivo e rede">
+          <InfoGroup titulo="Dispositivo">
             <InfoRow label="Tipo" value={sessao.deviceType} />
+            <InfoRow label="Marca / modelo" value={formatarMarcaModelo(sessao)} />
             <InfoRow label="Sistema" value={sessao.os} />
             <InfoRow label="Navegador" value={[sessao.browser, sessao.browserVersion].filter(Boolean).join(" ") || "—"} />
             <InfoRow label="Aplicação" value={sessao.isPwa ? "PWA" : "Navegador"} />
-            <InfoRow label="IP" value={sessao.ipAddress || "—"} />
-            <InfoRow label="Localização" value={formatarLocalizacao(sessao)} />
             <InfoRow label="ID aparelho" value={sessao.deviceId ? `${String(sessao.deviceId).slice(0, 18)}…` : "—"} />
+          </InfoGroup>
+
+          <InfoGroup titulo="Rede e localização">
+            <InfoRow label="IP" value={sessao.ipAddress || "—"} />
+            <InfoRow label="Cidade" value={sessao.city || "—"} />
+            <InfoRow label="Estado / UF" value={sessao.state || "—"} />
+            <InfoRow label="País" value={sessao.country || "—"} />
+            <InfoRow label="Localização" value={formatarLocalizacao(sessao)} />
           </InfoGroup>
 
           <InfoGroup titulo="Permanência por tela">
@@ -417,7 +425,10 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
   carregarRef.current = carregar;
 
   useEffect(() => { carregar(); }, [carregar]);
-  useEffect(() => { setPagina(0); }, [
+  useEffect(() => {
+    const t = window.setTimeout(() => setPagina(0), 0);
+    return () => clearTimeout(t);
+  }, [
     aba, agruparPermanencia, buscaDebounced, statusFiltro, deviceFiltro, periodo, lojaFiltro, pageSize,
   ]);
 
@@ -690,30 +701,59 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
     usuario: "Usuário",
   };
 
+  const abasVisao = [
+    { id: "online", label: "Online" },
+    { id: "historico", label: "Histórico" },
+    { id: "permanencia", label: "Permanência" },
+    { id: "bloqueados", label: "Bloqueados" },
+    { id: "seguranca", label: "Segurança" },
+  ];
+  const mostraFiltrosSessao = aba === "online" || aba === "historico";
+  const mostraPeriodo = aba !== "bloqueados";
+  const mostraBusca = mostraFiltrosSessao;
+
+  const limparFiltros = () => {
+    setBusca("");
+    setStatusFiltro("");
+    setDeviceFiltro("");
+    setLojaFiltro("");
+    setPeriodo("hoje");
+    setPageSize(10);
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8">
       <PageHeader
-        icone={<span className="text-lg">🛡️</span>}
+        icone={(
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 3v5c0 4.5-2.8 8.4-7 10-4.2-1.6-7-5.5-7-10V6l7-3z" />
+          </svg>
+        )}
         titulo="Controle de Acessos"
-        descricao="Acompanhe sessões, permanência por tela, dispositivos e horários — atualização em tempo real."
+        descricao="Sessões, localização do dispositivo, marca/modelo e permanência — atualização em tempo real."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard titulo="Online agora" valor={metricas.online} />
-        <MetricCard titulo="Sessões hoje" valor={metricas.sessoesHoje} />
-        <MetricCard titulo="Tempo médio" valor={formatarDuracao(metricas.tempoMedioSeg, { emSegundos: true })} />
-        <MetricCard titulo="Dispositivos" valor={metricas.dispositivos} />
-        <MetricCard titulo="Acessos negados" valor={metricas.acessosNegados} sub="no período" />
-      </div>
-
-      {aoVivo ? (
-        <p className="text-[11px] font-bold uppercase tracking-wide text-[#5E8C31]">
-          ● Ao vivo — novos logins atualizam esta tela automaticamente
-        </p>
-      ) : null}
+      {/* Grupo: indicadores */}
+      <section aria-label="Indicadores">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Resumo operacional</p>
+          {aoVivo ? (
+            <p className="text-[11px] font-bold uppercase tracking-wide text-[#5E8C31]">
+              ● Ao vivo
+            </p>
+          ) : null}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard titulo="Online agora" valor={metricas.online} />
+          <MetricCard titulo="Sessões hoje" valor={metricas.sessoesHoje} />
+          <MetricCard titulo="Tempo médio" valor={formatarDuracao(metricas.tempoMedioSeg, { emSegundos: true })} />
+          <MetricCard titulo="Dispositivos" valor={metricas.dispositivos} />
+          <MetricCard titulo="Acessos negados" valor={metricas.acessosNegados} sub="no período" />
+        </div>
+      </section>
 
       {alertasRecentes.length > 0 ? (
-        <div className="rounded-2xl border border-[#F38525]/35 bg-[#FFF7ED] px-4 py-3">
+        <section className="rounded-2xl border border-[#F38525]/35 bg-[#FFF7ED] px-4 py-3" aria-label="Alertas">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-black text-[#012E46]">
               Alertas recentes (24h) — {alertasRecentes.length}
@@ -737,147 +777,155 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
               </li>
             ))}
           </ul>
-        </div>
+        </section>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {[
-            { id: "online", label: "Online" },
-            { id: "historico", label: "Histórico" },
-            { id: "permanencia", label: "Permanência" },
-            { id: "bloqueados", label: "Bloqueados" },
-            { id: "seguranca", label: "Segurança" },
-          ].map((t) => (
-            <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
-          ))}
-        </div>
-        {podeExportar ? (
-          <div className="flex flex-wrap gap-2">
-            <PrimeButton variante="ghost" onClick={handleExportExcel}>
-              Exportar Excel
-            </PrimeButton>
-            <PrimeButton variante="ghost" onClick={handleExportPdf}>
-              Exportar PDF
-            </PrimeButton>
+      {/* Grupo: visão + exportação */}
+      <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.05)]" aria-label="Visão e exportação">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--pp-text)]">Visão</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {abasVisao.map((t) => (
+                <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
+              ))}
+            </div>
           </div>
-        ) : null}
-      </div>
-
-      {aba === "permanencia" ? (
-        <div className="flex flex-wrap gap-2">
-          {["tela", "dispositivo", "usuario"].map((g) => (
-            <FilterChip
-              key={g}
-              size="sm"
-              selected={agruparPermanencia === g}
-              label={`Por ${rotuloAgrupar[g]}`}
-              onClick={() => setAgruparPermanencia(g)}
-            />
-          ))}
+          {podeExportar ? (
+            <div className="shrink-0">
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[var(--pp-text)]">Relatório</p>
+              <div className="flex flex-wrap gap-2">
+                <PrimeButton variante="ghost" onClick={handleExportExcel}>
+                  Exportar Excel
+                </PrimeButton>
+                <PrimeButton variante="ghost" onClick={handleExportPdf}>
+                  Exportar PDF
+                </PrimeButton>
+              </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </section>
 
-      <FiltersPanel>
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-          {aba !== "permanencia" && aba !== "seguranca" && aba !== "bloqueados" ? (
-            <label className="block min-w-[14rem] flex-1 text-xs font-bold text-[#6B7280]">
-              Buscar usuário
-              <input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Nome ou e-mail"
-                className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111] outline-none focus:border-[#012E46]"
+      {/* Grupo: filtros alinhados */}
+      <section aria-label="Filtros">
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-[#6B7280]">Filtros da análise</p>
+        {(mostraPeriodo || mostraFiltrosSessao || aba === "permanencia") ? (
+          <FiltersPanel className={mostraFiltrosSessao ? "lg:grid-cols-3" : "sm:grid-cols-1 lg:grid-cols-2"}>
+            {mostraPeriodo ? (
+              <FilterGroup
+                titulo="Período"
+                descricao="Janela de tempo do relatório"
+                opcoes={PERIODOS}
+                valor={periodo}
+                onChange={setPeriodo}
               />
-            </label>
-          ) : null}
+            ) : null}
 
-          {aba !== "bloqueados" ? (
-          <div className="flex flex-wrap gap-1.5">
-            {PERIODOS.map((p) => (
-              <FilterChip key={p.id} size="sm" selected={periodo === p.id} label={p.label} onClick={() => setPeriodo(p.id)} />
-            ))}
-          </div>
-          ) : null}
+            {mostraFiltrosSessao ? (
+              <FilterGroup
+                titulo="Status"
+                descricao="Presença da sessão"
+                opcoes={[
+                  { id: "todos", label: "Todos" },
+                  { id: "online", label: "Online" },
+                  { id: "inativo", label: "Inativo" },
+                  { id: "offline", label: "Offline" },
+                  { id: "closed", label: "Encerrada" },
+                ]}
+                valor={statusFiltro || "todos"}
+                onChange={(id) => setStatusFiltro(id === "todos" ? "" : id)}
+              />
+            ) : null}
 
-          {aba !== "seguranca" && aba !== "permanencia" && aba !== "bloqueados" && (
+            {mostraFiltrosSessao ? (
+              <FilterGroup
+                titulo="Dispositivo"
+                descricao="Tipo de aparelho"
+                opcoes={[
+                  { id: "todos", label: "Todos" },
+                  { id: "Desktop", label: "Desktop" },
+                  { id: "Notebook", label: "Notebook" },
+                  { id: "Tablet", label: "Tablet" },
+                  { id: "Smartphone", label: "Smartphone" },
+                ]}
+                valor={deviceFiltro || "todos"}
+                onChange={(id) => setDeviceFiltro(id === "todos" ? "" : id)}
+              />
+            ) : null}
+
+            {aba === "permanencia" ? (
+              <FilterGroup
+                titulo="Agrupar permanência"
+                descricao="Como consolidar o tempo na tela"
+                opcoes={[
+                  { id: "tela", label: "Por tela" },
+                  { id: "dispositivo", label: "Por dispositivo" },
+                  { id: "usuario", label: "Por usuário" },
+                ]}
+                valor={agruparPermanencia}
+                onChange={setAgruparPermanencia}
+              />
+            ) : null}
+          </FiltersPanel>
+        ) : null}
+
+        <div className="mt-3 rounded-[14px] border border-[#E2E8F0] bg-white p-4 shadow-[0_2px_8px_rgba(15,23,42,0.05)]">
+          <p className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-[var(--pp-text)]">
+            Busca e exibição
+          </p>
+          <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {mostraBusca ? (
+              <label className="block text-xs font-bold text-[#6B7280] sm:col-span-2 lg:col-span-1">
+                Buscar usuário
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Nome ou e-mail"
+                  className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111] outline-none focus:border-[#012E46]"
+                />
+              </label>
+            ) : (
+              <div className="hidden lg:block" />
+            )}
+
+            {isSuperAdmin ? (
+              <label className="block text-xs font-bold text-[#6B7280]">
+                Estabelecimento
+                <select
+                  value={lojaFiltro}
+                  onChange={(e) => setLojaFiltro(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
+                >
+                  <option value="">Empresa em foco / todas</option>
+                  {lojas.map((l) => (
+                    <option key={l.id} value={l.id}>{l.nome}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
             <label className="block text-xs font-bold text-[#6B7280]">
-              Status
+              Linhas por página
               <select
-                value={statusFiltro}
-                onChange={(e) => setStatusFiltro(e.target.value)}
-                className="mt-1 h-10 rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="mt-1 h-10 w-full rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
               >
-                <option value="">Todos</option>
-                <option value="online">Online</option>
-                <option value="inativo">Inativo</option>
-                <option value="offline">Offline</option>
-                <option value="closed">Encerrada</option>
-              </select>
-            </label>
-          )}
-
-          {aba !== "seguranca" && aba !== "permanencia" && aba !== "bloqueados" && (
-            <label className="block text-xs font-bold text-[#6B7280]">
-              Dispositivo
-              <select
-                value={deviceFiltro}
-                onChange={(e) => setDeviceFiltro(e.target.value)}
-                className="mt-1 h-10 rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
-              >
-                <option value="">Todos</option>
-                <option value="Desktop">Desktop</option>
-                <option value="Notebook">Notebook</option>
-                <option value="Tablet">Tablet</option>
-                <option value="Smartphone">Smartphone</option>
-              </select>
-            </label>
-          )}
-
-          {isSuperAdmin && (
-            <label className="block text-xs font-bold text-[#6B7280]">
-              Estabelecimento
-              <select
-                value={lojaFiltro}
-                onChange={(e) => setLojaFiltro(e.target.value)}
-                className="mt-1 h-10 min-w-[10rem] rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
-              >
-                <option value="">Empresa em foco / todas</option>
-                {lojas.map((l) => (
-                  <option key={l.id} value={l.id}>{l.nome}</option>
+                {PAGE_SIZES.map((n) => (
+                  <option key={n} value={n}>{n}</option>
                 ))}
               </select>
             </label>
-          )}
 
-          <label className="block text-xs font-bold text-[#6B7280]">
-            Linhas por página
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="mt-1 h-10 rounded-xl border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111111]"
-            >
-              {PAGE_SIZES.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </label>
-
-          <PrimeButton
-            variante="ghost"
-            onClick={() => {
-              setBusca("");
-              setStatusFiltro("");
-              setDeviceFiltro("");
-              setLojaFiltro("");
-              setPeriodo("hoje");
-              setPageSize(10);
-            }}
-          >
-            Limpar filtros
-          </PrimeButton>
+            <div className="flex items-end">
+              <PrimeButton variante="ghost" onClick={limparFiltros} className="w-full sm:w-auto">
+                Limpar filtros
+              </PrimeButton>
+            </div>
+          </div>
         </div>
-      </FiltersPanel>
+      </section>
 
       {erro ? (
         <div className="rounded-2xl border border-[#F38525]/40 bg-[#FFF7ED] px-4 py-3 text-sm font-semibold text-[#012E46]">
@@ -1013,6 +1061,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                   {aba === "historico" ? <th className="px-3 py-3">Saída</th> : null}
                   <th className="px-3 py-3">Tempo</th>
                   {aba === "online" ? <th className="px-3 py-3">Última atividade</th> : null}
+                  <th className="px-3 py-3">Marca / modelo</th>
                   <th className="px-3 py-3">Dispositivo</th>
                   <th className="px-3 py-3">IP</th>
                   <th className="px-3 py-3">Localização</th>
@@ -1022,6 +1071,7 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
               <tbody>
                 {rows.map((s) => {
                   const presence = classificarPresenca(s, agora);
+                  const soft = [s.os, s.browser].filter(Boolean).join(" • ");
                   return (
                     <tr key={s.id} className="border-t border-[#F3F4F6] hover:bg-[#FAFAFA]">
                       <td className="px-3 py-2.5"><PresenceDot presence={presence} /></td>
@@ -1042,9 +1092,16 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                       {aba === "online" ? (
                         <td className="px-3 py-2.5 text-[#6B7280]">{formatarTempoRelativo(s.lastActivityAt, agora)}</td>
                       ) : null}
-                      <td className="px-3 py-2.5 text-[#111111]">{rotuloDispositivo(s)}</td>
+                      <td className="px-3 py-2.5">
+                        <p className="font-bold text-[#111111]">{formatarMarcaModelo(s)}</p>
+                        <p className="text-[11px] font-semibold text-[#6B7280]">{s.deviceType || "—"}</p>
+                      </td>
+                      <td className="px-3 py-2.5 text-[#6B7280]">
+                        {soft || rotuloDispositivo(s)}
+                        {s.isPwa ? <span className="ml-1 font-bold text-[#012E46]">· PWA</span> : null}
+                      </td>
                       <td className="px-3 py-2.5 font-mono text-xs text-[#6B7280]">{mascararIp(s.ipAddress)}</td>
-                      <td className="px-3 py-2.5 text-[#6B7280]">{formatarLocalizacao(s)}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[#111111]">{formatarLocalizacao(s)}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex flex-wrap gap-1.5">
                           <button
@@ -1086,9 +1143,10 @@ export default function ControleAcessosAdmin({ lojaInfo = null, lojas = [], isSu
                   <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div><dt className="text-[#6B7280]">Login</dt><dd className="font-semibold">{formatarHora(s.loginAt)}</dd></div>
                     <div><dt className="text-[#6B7280]">Tempo</dt><dd className="font-semibold">{formatarDuracao(duracaoSessaoMs(s, agora))}</dd></div>
+                    <div className="col-span-2"><dt className="text-[#6B7280]">Marca / modelo</dt><dd className="font-semibold">{formatarMarcaModelo(s)}</dd></div>
                     <div className="col-span-2"><dt className="text-[#6B7280]">Dispositivo</dt><dd className="font-semibold">{rotuloDispositivo(s)}</dd></div>
                     <div className="col-span-2"><dt className="text-[#6B7280]">IP</dt><dd className="font-semibold font-mono">{mascararIp(s.ipAddress)}</dd></div>
-                    <div className="col-span-2"><dt className="text-[#6B7280]">Local</dt><dd className="font-semibold">{formatarLocalizacao(s)}</dd></div>
+                    <div className="col-span-2"><dt className="text-[#6B7280]">Localização</dt><dd className="font-semibold">{formatarLocalizacao(s)}</dd></div>
                   </dl>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
