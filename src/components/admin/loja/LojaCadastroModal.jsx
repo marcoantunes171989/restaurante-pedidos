@@ -75,11 +75,12 @@ function LojaCadastroModal({
   onSalvarOperacional = async () => {},
   lojasExistentes = [],
   operacaoEditavel = true,
+  initialTab = "empresa",
   onFechar = () => {},
 }) {
   const ehEdicao = mode === "edit";
   const precisaCarregar = ehEdicao && !!loja?.id && !!emitenteApi?.fetch;
-  const [aba, setAba] = useState("empresa");
+  const [aba, setAba] = useState(ABAS.some((t) => t.id === initialTab) ? initialTab : "empresa");
   const [form, setForm] = useState(() => estadoInicial(loja));
   const [carregando, setCarregando] = useState(precisaCarregar);
   const [salvando, setSalvando] = useState(false);
