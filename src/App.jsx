@@ -2700,6 +2700,18 @@ export default function RestaurantePedidoApp() {
     notify("success", `Atualização aplicada a ${ids.length} produto(s).`);
     return true;
   }
+  // Fase 5 — vincula produtos à configuração fiscal da loja (individual ou lote).
+  // configId null = desvincula. Mantém os campos fiscais atuais intactos.
+  async function vincularProdutosConfigFiscal(ids, configId) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Sem permissão administrativa.");
+    if (!ids?.length) return notify("error", "Selecione ao menos um produto.");
+    const idSet = new Set(ids.map(String));
+    setProducts((cur) => cur.map((p) => idSet.has(String(p.id)) ? { ...p, lojaFiscalRegraId: configId ?? null } : p));
+    if (dbReady) try { await atualizarProdutosFiscalLote(ids, { loja_fiscal_regra_id: configId ?? null }); } catch (e) { notify("error", "Erro ao vincular: " + (e.message || e)); return; }
+    auditar("vincular_fiscal", "produto", null, { qtd: ids.length, configId: configId ?? null });
+    notify("success", configId ? `${ids.length} produto(s) vinculado(s) à configuração fiscal.` : `${ids.length} produto(s) desvinculado(s).`);
+    return true;
+  }
   // Reverter: devolve os campos ao valor anterior registrado. `logs` = linhas do
   // histórico (de um lote inteiro ou uma só). Marca como revertido.
   async function reverterFiscalLote(logs) {
@@ -2836,7 +2848,7 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await excluirLojaFiscalRegra(id); } catch (e) { return notify("error", "Erro ao excluir: " + (e.message || e)); }
     await recarregarLojaRegras(); auditar("excluir", "loja_fiscal_regra", id); return true;
   }
-  const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra };
+  const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra, vincularProdutos: vincularProdutosConfigFiscal };
 
   // ── Templates fiscais por segmento (migration 104, super admin) ──
   const recarregarTemplates = async () => {
@@ -6891,9 +6903,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
-          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} />)}
+          {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} lojaInfo={lojaInfo} />)}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} lojaInfo={lojaInfo} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -20558,7 +20570,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], lojaInfo = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], lojaInfo = null }) {
   const [aba, setAba] = useState("minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
@@ -20574,6 +20586,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
 
   const abas = [
     { id: "minha", label: "🏪 Minha loja", badge: importadas.length || null },
+    { id: "produtos", label: "🍔 Produtos", badge: produtos.filter((p) => p.lojaFiscalRegraId).length || null },
     { id: "sugestoes", label: "📋 Sugestões por segmento", badge: templates.filter((t) => t.ativo !== false).length || null },
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
   ];
@@ -20608,6 +20621,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       </div>
 
       {aba === "minha" && <LojaFiscalMinhaLoja importadas={importadas} atualizacaoDe={atualizacaoDe} api={api} />}
+      {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} api={api} />}
       {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
     </main>
@@ -20941,6 +20955,84 @@ function LojaFiscalSugestoes({ templates = [], templateRegras = [], regras = [],
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Vínculo em lote produto ↔ configuração fiscal da loja (Fase 5, migration 105).
+function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
+  const [busca, setBusca] = useState("");
+  const [sel, setSel] = useState(() => new Set());
+  const [alvo, setAlvo] = useState(""); // id da config a aplicar ("" = sem/desvincular)
+  const [pag, setPag] = useState(1);
+  const POR = 10;
+  const configDe = (id) => importadas.find((c) => String(c.id) === String(id)) || null;
+  const nomeConfig = (id) => { const c = configDe(id); return c ? (c.regraNome || `Config #${c.id}`) : null; };
+
+  const filtrados = produtos.filter((p) => (p.name || "").toLowerCase().includes(busca.toLowerCase()));
+  const totalPag = Math.max(1, Math.ceil(filtrados.length / POR));
+  const pagAtual = Math.min(pag, totalPag);
+  const visiveis = filtrados.slice((pagAtual - 1) * POR, pagAtual * POR);
+  const idsVis = visiveis.map((p) => p.id);
+  const todosVis = idsVis.length > 0 && idsVis.every((id) => sel.has(id));
+  const toggle = (id) => setSel((s) => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
+  const marcarTodos = () => setSel((s) => { const x = new Set(s); todosVis ? idsVis.forEach((id) => x.delete(id)) : idsVis.forEach((id) => x.add(id)); return x; });
+  const buscarSet = (v) => { setBusca(v); setPag(1); };
+
+  async function aplicar() {
+    if (sel.size === 0) return;
+    const ok = await api.vincularProdutos([...sel], alvo ? Number(alvo) : null);
+    if (ok) setSel(new Set());
+  }
+
+  if (importadas.length === 0) {
+    return <EmptyState titulo="Importe uma configuração primeiro" dica="Vá em “Minha loja” / “Biblioteca” e importe uma regra para poder vinculá-la aos produtos." />;
+  }
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-3"><h3 className="page-title text-lg font-bold text-white">Vincular produtos à configuração fiscal</h3>
+        <p className="text-xs text-slate-400">Selecione os produtos e a configuração da loja a aplicar. O vínculo é em lote — não altera os campos fiscais legados.</p></div>
+      <div className="relative mb-3"><span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+        <input value={busca} onChange={(e) => buscarSet(e.target.value)} placeholder="Buscar produto..." className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" /></div>
+
+      {/* Barra de ação em lote */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[#0F4C5C]/30 bg-[rgba(15,76,92,0.08)] px-4 py-2.5">
+        <span className="text-xs font-black text-[#0F4C5C]">{sel.size} selecionado(s)</span>
+        <select value={alvo} onChange={(e) => setAlvo(e.target.value)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--pp-text-body)]">
+          <option value="">Desvincular (sem configuração)</option>
+          {importadas.map((c) => <option key={c.id} value={c.id}>{c.regraNome || `Config #${c.id}`}{c.versaoImportada ? ` (v${c.versaoImportada})` : ""}</option>)}
+        </select>
+        <button disabled={sel.size === 0} onClick={aplicar} className="ml-auto rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A] disabled:opacity-40">Aplicar aos selecionados</button>
+      </div>
+
+      {filtrados.length === 0 ? (
+        <EmptyState titulo="Nenhum produto" dica="Ajuste a busca." />
+      ) : (<>
+        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <input type="checkbox" checked={todosVis} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+        </label>
+        <div className="space-y-2">
+          {visiveis.map((p) => {
+            const nome = nomeConfig(p.lojaFiscalRegraId);
+            return (
+              <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+                <input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} className="h-4 w-4 shrink-0 accent-[#0F4C5C]" />
+                <img src={p.imageUrl || fallbackImage} alt="" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+                <div className="min-w-[160px] flex-1">
+                  <p className="text-sm font-semibold text-white">{p.name}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                    {p.category && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{p.category}</span>}
+                    {nome
+                      ? <span className="rounded-full bg-[rgba(15,76,92,0.15)] px-2 py-0.5 font-semibold text-[#0F4C5C]">🔗 {nome}</span>
+                      : <span className="text-slate-500">sem configuração fiscal</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Paginacao pagina={pagAtual} totalPaginas={totalPag} total={filtrados.length} porPagina={POR} onMudar={setPag} rotulo="produto(s)" />
+      </>)}
     </div>
   );
 }
@@ -22156,7 +22248,7 @@ function FiscalModalShell({ titulo, sub, icone, erro, salvando, onFechar, onSalv
   );
 }
 
-function ProductAdmin({ products, categories, categoriasDb = [], addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [], fiscalNcm = [], fiscalIcms = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [] }) {
+function ProductAdmin({ products, categories, categoriasDb = [], addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [], fiscalNcm = [], fiscalIcms = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], lojaFiscalRegras = [] }) {
   const fiscalVinc = { ncm: fiscalNcm, icms: fiscalIcms, cfop: fiscalCfop, pis: fiscalPis, cofins: fiscalCofins, ipi: fiscalIpi, cest: fiscalCest };
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
@@ -22289,10 +22381,10 @@ function ProductAdmin({ products, categories, categoriasDb = [], addProduct, tog
 
       {criando && (
         <ProdutoAdminModal modo="criar" categoriasAtivas={categoriasAtivas} lojaId={lojaId}
-          setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc}
+          setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} lojaFiscalRegras={lojaFiscalRegras}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
+      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} lojaFiscalRegras={lojaFiscalRegras} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
@@ -22389,7 +22481,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
 
 // Modal ÚNICO de produto (cadastro = edição), 5 abas — Geral · Comercial &
 // Estoque · Operação · Fiscal · NF-e/NFC-e. Padrão branco/petróleo do admin.
-function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null, fiscalNcm = [], fiscalIcms = [], fiscalVinc = null }) {
+function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null, fiscalNcm = [], fiscalIcms = [], fiscalVinc = null, lojaFiscalRegras = [] }) {
   const ehEdicao = modo === "editar";
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -22426,6 +22518,9 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   // Migration 082 — vínculos fiscais por FK (CFOP, PIS, COFINS, IPI, CEST).
   const [vinc, setVinc] = useState(() => ({ cfopId: produto?.cfopId ?? null, pisId: produto?.pisId ?? null, cofinsId: produto?.cofinsId ?? null, ipiId: produto?.ipiId ?? null, cestId: produto?.cestId ?? null }));
   const setV = (k, v) => setVinc((cur) => ({ ...cur, [k]: v ? Number(v) : null }));
+  // Migration 105 — vínculo com a configuração fiscal da loja (Fase 5).
+  const [lojaFiscalRegraId, setLojaFiscalRegraId] = useState(produto?.lojaFiscalRegraId ?? null);
+  const configFiscalSel = lojaFiscalRegras.find((c) => String(c.id) === String(lojaFiscalRegraId)) || null;
   const [arquivoImg, setArquivoImg] = useState(null);
   const [uploadando, setUploadando] = useState(false);
   const [erroUpload, setErroUpload] = useState("");
@@ -22516,6 +22611,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       disponivel: f.disponivel, active: f.active, setorId: f.setorId || null, impressoraId: f.impressoraId || null,
       fiscal: fis, operacao, ncmId: ncmId ?? null,
       cfopId: vinc.cfopId ?? null, pisId: vinc.pisId ?? null, cofinsId: vinc.cofinsId ?? null, ipiId: vinc.ipiId ?? null, cestId: vinc.cestId ?? null,
+      lojaFiscalRegraId: lojaFiscalRegraId ?? null,
       // Modo criar: grupos de opções montados na aba "Opções" (criados após o insert)
       ...(ehEdicao ? {} : { gruposNovos }),
     });
@@ -22790,6 +22886,27 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                       </div>
                     )}
                     <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">O NCM centraliza NCM + CEST + regra de ICMS. Os demais vínculos (CFOP, PIS, COFINS, IPI, CEST) estão logo abaixo.</p>
+                  </>)}
+            </>)}
+            {secao("📥", "Configuração fiscal da loja", "Vincule este produto a uma configuração fiscal importada da Central (Configuração Fiscal → Minha loja). A tributação passa a vir da regra, com origem, versão e status.", <>
+              {lojaFiscalRegras.length === 0
+                ? <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma configuração fiscal na loja. Importe uma regra em <b>Configuração Fiscal → Biblioteca Fiscal Prime</b>.</p>
+                : (<>
+                    <div className="min-w-[220px]"><label className={PP_LBL}>Configuração vinculada</label>
+                      <select value={lojaFiscalRegraId ?? ""} onChange={(e) => setLojaFiscalRegraId(e.target.value ? Number(e.target.value) : null)} className={PP_INP}>
+                        <option value="">Sem configuração fiscal</option>
+                        {lojaFiscalRegras.map((c) => <option key={c.id} value={c.id}>{c.regraNome || `Config #${c.id}`}{c.versaoImportada ? ` (v${c.versaoImportada})` : ""}</option>)}
+                      </select>
+                    </div>
+                    {configFiscalSel && (
+                      <div className="mt-3 rounded-xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
+                        <p className="flex flex-wrap items-center gap-2 font-semibold text-[#012E46]">🔗 {configFiscalSel.regraNome || "Configuração"}
+                          <span className="rounded-full bg-[rgba(1,46,70,0.1)] px-2 py-0.5 text-[11px] font-black">v{configFiscalSel.versaoImportada}</span>
+                          {configFiscalSel.customizada && <span className="rounded-full bg-[rgba(243,133,37,0.15)] px-2 py-0.5 text-[11px] font-black text-[#F38525]">Customizada</span>}
+                        </p>
+                        <p className="mt-1">{[configFiscalSel.cfopCodigo && `CFOP ${configFiscalSel.cfopCodigo}`, (configFiscalSel.cstIcms || configFiscalSel.csosn) && `ICMS ${configFiscalSel.cstIcms || configFiscalSel.csosn} · ${Number(configFiscalSel.icmsAliquota || 0).toFixed(2)}%`, configFiscalSel.ncmCodigo && `NCM ${configFiscalSel.ncmCodigo}`].filter(Boolean).join(" · ") || "Sem parâmetros preenchidos"}</p>
+                      </div>
+                    )}
                   </>)}
             </>)}
             {fiscalVinc && secao("🔗", "Vínculos fiscais", "Selecione os cadastros reutilizáveis do módulo Fiscal. Alterar a regra no cadastro reflete em todos os produtos vinculados.", <>

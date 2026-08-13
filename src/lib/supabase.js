@@ -117,7 +117,7 @@ export async function inserirProduto(p) {
 }
 
 // Colunas opcionais (migrations 029/034/068/079) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao', 'ncm_id', 'cfop_id', 'pis_id', 'cofins_id', 'ipi_id', 'cest_id'];
+const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao', 'ncm_id', 'cfop_id', 'pis_id', 'cofins_id', 'ipi_id', 'cest_id', 'loja_fiscal_regra_id'];
 export async function atualizarProduto(id, campos) {
   let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
   if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
@@ -2895,6 +2895,8 @@ function dbParaProduto(r) {
     cofinsId:         r.cofins_id ?? null,
     ipiId:            r.ipi_id ?? null,
     cestId:           r.cest_id ?? null,
+    // Migration 105 — vínculo com a configuração fiscal da loja (Fase 5).
+    lojaFiscalRegraId: r.loja_fiscal_regra_id ?? null,
     // Migration 079 — dados fiscais (NF-e/NFC-e) e config operacional nova,
     // guardados como JSONB flexível. Banco sem a 079: colunas não existem →
     // vêm undefined e caem no objeto vazio (tolerante).
@@ -3057,6 +3059,8 @@ function produtoParaDb(p) {
     ...(p.cofinsId !== undefined ? { cofins_id: p.cofinsId != null ? p.cofinsId : null } : {}),
     ...(p.ipiId !== undefined ? { ipi_id: p.ipiId != null ? p.ipiId : null } : {}),
     ...(p.cestId !== undefined ? { cest_id: p.cestId != null ? p.cestId : null } : {}),
+    // Migration 105 — vínculo com a configuração fiscal da loja (null desvincula).
+    ...(p.lojaFiscalRegraId !== undefined ? { loja_fiscal_regra_id: p.lojaFiscalRegraId != null ? p.lojaFiscalRegraId : null } : {}),
   }
 }
 
