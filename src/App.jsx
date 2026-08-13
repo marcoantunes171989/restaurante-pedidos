@@ -58,7 +58,9 @@ import {
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
-import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA } from "./lib/emitenteFiscalService";
+import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA, rotuloAmbienteNfce } from "./lib/emitenteFiscalService";
+import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } from "./lib/nfceService";
+import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
@@ -6933,7 +6935,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} lojaInfo={lojaInfo} />)}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -20798,7 +20800,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], lojaInfo = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null }) {
   const [aba, setAba] = useState("minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
@@ -20817,6 +20819,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     { id: "produtos", label: "🍔 Produtos", badge: produtos.filter((p) => p.lojaFiscalRegraId).length || null },
     { id: "sugestoes", label: "📋 Sugestões por segmento", badge: templates.filter((t) => t.ativo !== false).length || null },
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
+    ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (pré-validação)" }] : []),
   ];
 
   return (
@@ -20852,6 +20855,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} api={api} />}
       {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
+      {aba === "nfce" && <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={produtos} importadas={importadas} emitenteApi={emitenteFiscalApi} />}
     </main>
   );
 }
@@ -21261,6 +21265,90 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
         </div>
         <Paginacao pagina={pagAtual} totalPaginas={totalPag} total={filtrados.length} porPagina={POR} onMudar={setPag} rotulo="produto(s)" />
       </>)}
+    </div>
+  );
+}
+
+// Pré-validação NFC-e (VENDA → RESOLVER FISCAL PRODUTO → PRÉ-VALIDAÇÃO).
+// Simulação: não emite, não fala com a SEFAZ. Usa o emitente + a resolução
+// fiscal do produto para apontar a aptidão e uma chave de acesso de exemplo.
+function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emitenteApi = null }) {
+  const [emitente, setEmitente] = useState(undefined); // undefined=carregando, null=sem cadastro
+  useEffect(() => {
+    let vivo = true;
+    (async () => { let d = null; try { d = await emitenteApi.fetch(lojaInfo?.id); } catch { /* migration 107 pendente */ } if (vivo) setEmitente(d); })();
+    return () => { vivo = false; };
+  }, [emitenteApi, lojaInfo?.id]);
+
+  const documento = soDigitos(lojaInfo?.documento || "");
+  const ctxFiscal = { lojaFiscalRegras: importadas };
+  // Venda simulada: produtos vinculados a uma config fiscal (ou os primeiros).
+  const vinculados = produtos.filter((p) => p.lojaFiscalRegraId);
+  const amostra = (vinculados.length ? vinculados : produtos).slice(0, 15);
+  const venda = { itens: amostra.map((p) => ({ produto: p, quantidade: 1 })), numero: 1 };
+  const rascunho = montarRascunhoNfce({ emitente, documento, venda, ctxFiscal });
+  const pv = preValidarNfce(rascunho);
+  const chave = (emitente && documento.length === 14 && emitente.uf)
+    ? montarChaveAcessoNfce({ uf: emitente.uf, aamm: aammDe(), cnpj: documento, serie: emitente.nfceSerie || 1, numero: 1, cNF: "00000001" })
+    : { chave: null, erro: "Complete o emitente (UF e CNPJ) para simular a chave." };
+
+  if (emitente === undefined) return <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Carregando emitente…</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div><h3 className="page-title text-lg font-bold text-white">Pré-validação NFC-e</h3>
+            <p className="text-xs text-slate-400">Simulação da venda → resolução fiscal do produto → aptidão. Não emite nota nem contata a SEFAZ.</p></div>
+          <span className={`rounded-full border px-3 py-1 text-xs font-black ${pv.apto ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-600" : "border-amber-400/30 bg-amber-500/15 text-amber-600"}`}>{pv.apto ? "✔ Apto (simulação)" : "⚠ Pendências"}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+          <span className="rounded-full bg-[rgba(1,46,70,0.12)] px-2 py-0.5 font-semibold text-[#012E46]">Ambiente: {rotuloAmbienteNfce(pv.ambiente)}</span>
+          <span>Série {rascunho.serie}</span>
+          <span>{rascunho.totais.qtdItens} item(ns) · {formatCurrency(rascunho.totais.totalProdutos)}</span>
+        </div>
+        {!emitente && <p className="mt-3 rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#F38525]">Cadastro fiscal do emitente pendente — abra <b>Minha Empresa → Cadastro fiscal (NFC-e)</b>.</p>}
+        {pv.pendenciasEmitente.length > 0 && (
+          <div className="mt-3">
+            <p className="text-xs font-bold text-slate-300">Pendências do emitente</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">{pv.pendenciasEmitente.map((p) => <span key={p} className="rounded-full border border-red-400/25 bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-300">{p}</span>)}</div>
+          </div>
+        )}
+      </div>
+
+      {/* Itens da venda simulada */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h4 className="mb-3 text-sm font-bold text-white">Itens (amostra) — resolução fiscal</h4>
+        {rascunho.itens.length === 0 ? (
+          <EmptyState titulo="Sem produtos" dica="Cadastre produtos e vincule uma configuração fiscal (aba Produtos)." />
+        ) : (
+          <div className="space-y-2">
+            {rascunho.itens.map((it) => (
+              <div key={it.seq} className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2 text-[13px] text-slate-300">
+                <span className="min-w-[140px] flex-1 truncate font-semibold text-white">{it.nome}</span>
+                <span className="text-slate-400">{formatCurrency(it.valorTotal)}</span>
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px]">{rotuloFonteFiscal(it.fiscal.fonte)}</span>
+                {it.pendencias.length === 0
+                  ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-black text-emerald-600">OK</span>
+                  : <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-300">{it.pendencias.join(" · ")}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Chave de acesso (exemplo) */}
+      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+        <h4 className="mb-2 text-sm font-bold text-white">Chave de acesso (exemplo)</h4>
+        {chave.chave ? (
+          <>
+            <p className="break-all rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 font-mono text-[13px] text-emerald-300">{chave.chave}</p>
+            <p className="mt-1 text-[11px] text-slate-500">44 dígitos · modelo 65 · número/cNF simulados (a numeração real vem na fase de emissão).</p>
+          </>
+        ) : (
+          <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#F38525]">{chave.erro}</p>
+        )}
+      </div>
     </div>
   );
 }
