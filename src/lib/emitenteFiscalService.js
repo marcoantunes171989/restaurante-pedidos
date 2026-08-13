@@ -63,6 +63,54 @@ export function codigoUf(uf) {
   return COD_UF_IBGE[normalizarUf(uf)] || "";
 }
 
+// ── Documento fiscal (CNPJ/CPF) — preparado p/ CNPJ ALFANUMÉRICO ──
+// A evolução oficial do CNPJ passa a admitir LETRAS nas 12 primeiras posições
+// (os 2 dígitos verificadores finais continuam numéricos). Por isso o documento
+// FISCAL NÃO pode ser saneado com \D (soDigitos), que apagaria as letras de um
+// documento válido. Aqui só removemos a FORMATAÇÃO permitida (pontuação/espaço)
+// e normalizamos o caixa — as letras são preservadas.
+//
+// Camadas separadas de propósito:
+//   normalizarDocumentoFiscal  → saneamento (não valida)
+//   documentoFiscalPresente    → validação de PRESENÇA
+//   documentoNumericoValido    → validação ESTRUTURAL do formato numérico atual
+//   documentoEhAlfanumerico    → detecção do formato futuro
+//   documentoSuportadoParaChave→ o que o gerador de chave desta versão aceita
+const CHARS_FORMATACAO_DOC = /[.\-/\s]/g;
+export function normalizarDocumentoFiscal(doc) {
+  return String(doc ?? "").trim().toUpperCase().replace(CHARS_FORMATACAO_DOC, "");
+}
+export function documentoFiscalPresente(doc) {
+  return normalizarDocumentoFiscal(doc).length > 0;
+}
+export function documentoEhAlfanumerico(doc) {
+  return /[A-Z]/.test(normalizarDocumentoFiscal(doc));
+}
+// CPF (11) ou CNPJ (14) puramente numérico — mantém a compatibilidade atual.
+export function documentoNumericoValido(doc) {
+  const d = normalizarDocumentoFiscal(doc);
+  return /^\d{11}$/.test(d) || /^\d{14}$/.test(d);
+}
+// O gerador de chave desta versão só suporta CNPJ NUMÉRICO de 14 dígitos.
+export function documentoSuportadoParaChave(doc) {
+  return /^\d{14}$/.test(normalizarDocumentoFiscal(doc));
+}
+
+// ── Validações estruturais de endereço/numeração ───────────
+export const SERIE_NFCE_MIN = 1;
+export const SERIE_NFCE_MAX = 999; // leiaute NFC-e: série de 3 posições (0–999); 0 não é usado.
+export function serieNfceValida(serie) {
+  const n = parseInt(serie, 10);
+  return Number.isInteger(n) && n >= SERIE_NFCE_MIN && n <= SERIE_NFCE_MAX;
+}
+export function cepValido(cep) {
+  return /^\d{8}$/.test(String(cep ?? "").replace(/\D/g, ""));
+}
+// Código IBGE do município tem 7 dígitos — mantido como TEXTO (preserva zeros).
+export function codigoMunicipioIbgeValido(cod) {
+  return /^\d{7}$/.test(String(cod ?? "").replace(/\D/g, ""));
+}
+
 // ── helpers de saneamento ──────────────────────────────────
 const soDig = (v) => String(v ?? "").replace(/\D/g, "");
 const t = (v) => { const s = String(v ?? "").trim(); return s === "" ? null : s; };
@@ -143,7 +191,8 @@ const OBRIGATORIOS_NFCE = [
 ];
 
 function valorCampo(emitente, documento, chave, externo) {
-  if (externo && chave === "documento") return soDig(documento);
+  // Documento fiscal: normaliza SEM apagar letras (compatível com CNPJ alfanumérico).
+  if (externo && chave === "documento") return normalizarDocumentoFiscal(documento);
   const v = emitente?.[chave];
   return v == null ? "" : String(v).trim();
 }
@@ -159,6 +208,9 @@ export function pendenciasEmitenteNfce(emitente, documento = "") {
     let ok = !!valorCampo(emitente, documento, c.chave, c.externo);
     if (ok && c.chave === "crt") ok = crtValido(emitente.crt);
     if (ok && c.chave === "uf") ok = ufValida(emitente.uf);
+    if (ok && c.chave === "cep") ok = cepValido(emitente.cep);
+    if (ok && c.chave === "codigoMunicipioIbge") ok = codigoMunicipioIbgeValido(emitente.codigoMunicipioIbge);
+    if (ok && c.chave === "nfceSerie") ok = serieNfceValida(emitente.nfceSerie);
     if (!ok) pend.push(c.rotulo);
   }
   return pend;
@@ -189,6 +241,11 @@ export function validarEmitenteFiscal(emitente, documento = "") {
   const amb = String(emitente?.nfceAmbiente ?? "simulacao");
   if (emitente?.crt && !crtValido(emitente.crt)) erros.push("CRT inválido.");
   if (emitente?.uf && !ufValida(emitente.uf)) erros.push("UF inválida.");
+  if (emitente?.cep && !cepValido(emitente.cep)) erros.push("CEP deve ter 8 dígitos.");
+  if (emitente?.codigoMunicipioIbge && !codigoMunicipioIbgeValido(emitente.codigoMunicipioIbge)) erros.push("Código IBGE do município deve ter 7 dígitos.");
+  if (emitente?.nfceSerie != null && String(emitente.nfceSerie) !== "" && !serieNfceValida(emitente.nfceSerie)) {
+    erros.push(`Série NFC-e deve estar entre ${SERIE_NFCE_MIN} e ${SERIE_NFCE_MAX}.`);
+  }
   if (amb === "producao") erros.push("Produção indisponível nesta fase.");
   if (amb === "homologacao" && !podeUsarHomologacao(emitente, documento)) {
     erros.push("Homologação exige o cadastro fiscal mínimo completo.");

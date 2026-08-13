@@ -2323,8 +2323,14 @@ export async function fetchLojaFiscalEmitente(lojaId) {
   if (lojaId == null) return null
   const { data, error } = await supabase
     .from('loja_fiscal_emitente').select('*').eq('loja_id', lojaId).maybeSingle()
-  // Loja legada / migration 107 pendente / sem permissão → trata como "sem cadastro".
-  if (error) return null
+  if (error) {
+    // A RLS de leitura FILTRA linhas (não gera erro): registro de outra loja
+    // simplesmente não aparece. Aqui só chega erro de INFRA. "Tabela ausente"
+    // (42P01) = migration 107 pendente → trata como "sem cadastro" em silêncio;
+    // qualquer outro erro é logado (não é escondido), mas a UI segue sem quebrar.
+    if (error.code !== '42P01') console.warn('fetchLojaFiscalEmitente:', error.message)
+    return null
+  }
   return dbParaEmitente(data)
 }
 // UPSERT por loja_id: cria ou atualiza o registro da própria loja. O loja_id é

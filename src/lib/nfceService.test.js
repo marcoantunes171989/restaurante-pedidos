@@ -42,11 +42,24 @@ describe("chave de acesso NFC-e (44 dígitos)", () => {
     const { chave } = montarChaveAcessoNfce(base);
     expect(digitoVerificadorChave(chave.slice(0, 43))).toBe(Number(chave[43]));
   });
-  it("valida entradas: UF/CNPJ/AAMM/número", () => {
+  it("valida entradas: UF/CNPJ/AAMM/número/série", () => {
     expect(montarChaveAcessoNfce({ ...base, uf: "ZZ" }).erro).toMatch(/UF/);
     expect(montarChaveAcessoNfce({ ...base, cnpj: "123" }).erro).toMatch(/CNPJ/);
     expect(montarChaveAcessoNfce({ ...base, aamm: "1" }).erro).toMatch(/AAMM/);
     expect(montarChaveAcessoNfce({ ...base, numero: 0 }).erro).toMatch(/[Nn]úmero/);
+    expect(montarChaveAcessoNfce({ ...base, serie: 0 }).erro).toMatch(/[Ss]érie/);
+    expect(montarChaveAcessoNfce({ ...base, serie: 1000 }).erro).toMatch(/[Ss]érie/);
+  });
+  it("aceita CNPJ numérico com pontuação (normaliza sem corromper)", () => {
+    const r = montarChaveAcessoNfce({ ...base, cnpj: "12.345.678/0001-99" });
+    expect(r.erro).toBeNull();
+    expect(r.chave.slice(6, 20)).toBe("12345678000199");
+  });
+  it("CNPJ ALFANUMÉRICO: erro controlado, nunca chave incorreta (letras preservadas)", () => {
+    const r = montarChaveAcessoNfce({ ...base, cnpj: "AB12CD340001EF" });
+    expect(r.chave).toBeNull();
+    expect(r.dv).toBeNull();
+    expect(r.erro).toMatch(/alfanum/i);
   });
   it("aammDe formata ano/mês", () => {
     expect(aammDe(new Date("2024-03-15T10:00:00Z"))).toBe("2403");
@@ -106,5 +119,13 @@ describe("rascunho + pré-validação da venda", () => {
   it("venda sem itens não é apta", () => {
     const r = montarRascunhoNfce({ emitente: emitenteOk, documento: DOC, venda: { itens: [] }, ctxFiscal });
     expect(preValidarNfce(r).apto).toBe(false);
+  });
+
+  it("sem emitente (null) não é apta e ambiente cai para simulação", () => {
+    const r = montarRascunhoNfce({ emitente: null, documento: "", venda, ctxFiscal });
+    const v = preValidarNfce(r);
+    expect(v.apto).toBe(false);
+    expect(v.ambiente).toBe("simulacao");
+    expect(v.pendenciasEmitente.length).toBeGreaterThan(0);
   });
 });

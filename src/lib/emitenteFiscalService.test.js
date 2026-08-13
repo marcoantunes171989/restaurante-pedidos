@@ -6,6 +6,9 @@ import {
   pendenciasEmitenteNfce, percentualCadastroFiscal,
   podeUsarHomologacao, podeUsarProducao, PRODUCAO_BLOQUEADA,
   validarEmitenteFiscal, rotuloAmbienteNfce,
+  normalizarDocumentoFiscal, documentoFiscalPresente, documentoEhAlfanumerico,
+  documentoNumericoValido, documentoSuportadoParaChave,
+  cepValido, codigoMunicipioIbgeValido, serieNfceValida, SERIE_NFCE_MAX,
 } from "./emitenteFiscalService";
 
 // Emitente completo (mínimo para NFC-e), sem documento (vem à parte).
@@ -133,6 +136,64 @@ describe("ambientes NFC-e", () => {
   it("rótulo do ambiente", () => {
     expect(rotuloAmbienteNfce("homologacao")).toBe("Homologação");
     expect(rotuloAmbienteNfce("qualquer")).toBe("Simulação");
+  });
+});
+
+describe("documento fiscal (CNPJ numérico e alfanumérico)", () => {
+  it("normaliza CNPJ numérico com pontuação tradicional", () => {
+    expect(normalizarDocumentoFiscal("12.345.678/0001-99")).toBe("12345678000199");
+    expect(normalizarDocumentoFiscal("  123.456.789-09 ")).toBe("12345678909");
+  });
+  it("PRESERVA letras de um documento alfanumérico (não sanitiza com \\D)", () => {
+    // Não pode virar "12340001" por saneamento incorreto.
+    expect(normalizarDocumentoFiscal("AB12CD340001EF")).toBe("AB12CD340001EF");
+    expect(normalizarDocumentoFiscal("ab.12c.d34/0001-ef")).toBe("AB12CD340001EF");
+    expect(documentoEhAlfanumerico("AB12CD340001EF")).toBe(true);
+    expect(documentoEhAlfanumerico("12345678000199")).toBe(false);
+  });
+  it("presença e validação estrutural numérica", () => {
+    expect(documentoFiscalPresente("")).toBe(false);
+    expect(documentoFiscalPresente("12.345.678/0001-99")).toBe(true);
+    expect(documentoNumericoValido("12345678000199")).toBe(true); // CNPJ
+    expect(documentoNumericoValido("12345678909")).toBe(true);     // CPF
+    expect(documentoNumericoValido("123")).toBe(false);
+    expect(documentoNumericoValido("AB12CD340001EF")).toBe(false);
+  });
+  it("suporte à chave: só CNPJ numérico de 14 dígitos", () => {
+    expect(documentoSuportadoParaChave("12345678000199")).toBe(true);
+    expect(documentoSuportadoParaChave("AB12CD340001EF")).toBe(false);
+    expect(documentoSuportadoParaChave("12345678909")).toBe(false); // CPF não gera chave NFC-e
+  });
+  it("integra com pendências/percentual sem corromper o documento", () => {
+    // Alfanumérico conta como PRESENTE (não vira pendência de CNPJ ausente).
+    expect(pendenciasEmitenteNfce(completo, "AB12CD340001EF")).not.toContain("CNPJ/CPF");
+    expect(pendenciasEmitenteNfce(completo, "")).toContain("CNPJ/CPF");
+    expect(percentualCadastroFiscal(completo, "12.345.678/0001-99")).toBe(100);
+  });
+});
+
+describe("validações estruturais (CEP, IBGE, série)", () => {
+  it("CEP exige 8 dígitos quando preenchido", () => {
+    expect(cepValido("01310100")).toBe(true);
+    expect(cepValido("01310-100")).toBe(true);
+    expect(cepValido("1234")).toBe(false);
+  });
+  it("código IBGE exige 7 dígitos (texto, preserva zeros)", () => {
+    expect(codigoMunicipioIbgeValido("3550308")).toBe(true);
+    expect(codigoMunicipioIbgeValido("0150010")).toBe(true);
+    expect(codigoMunicipioIbgeValido("355030")).toBe(false);
+  });
+  it("série NFC-e válida entre 1 e limite do leiaute", () => {
+    expect(serieNfceValida(1)).toBe(true);
+    expect(serieNfceValida(SERIE_NFCE_MAX)).toBe(true);
+    expect(serieNfceValida(0)).toBe(false);
+    expect(serieNfceValida(-1)).toBe(false);
+    expect(serieNfceValida(1000)).toBe(false);
+  });
+  it("validarEmitenteFiscal reprova CEP/IBGE/série estruturalmente inválidos", () => {
+    expect(validarEmitenteFiscal({ ...completo, cep: "12" }, DOC).ok).toBe(false);
+    expect(validarEmitenteFiscal({ ...completo, codigoMunicipioIbge: "12" }, DOC).ok).toBe(false);
+    expect(validarEmitenteFiscal({ ...completo, nfceSerie: 5000 }, DOC).ok).toBe(false);
   });
 });
 

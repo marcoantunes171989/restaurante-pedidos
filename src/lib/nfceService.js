@@ -12,7 +12,11 @@
 // ════════════════════════════════════════════════════════════
 
 import { resolverFiscalProduto, pendenciasFiscais } from "./fiscalService";
-import { pendenciasEmitenteNfce, codigoUf } from "./emitenteFiscalService";
+import {
+  pendenciasEmitenteNfce, codigoUf,
+  normalizarDocumentoFiscal, documentoEhAlfanumerico, documentoSuportadoParaChave,
+  serieNfceValida,
+} from "./emitenteFiscalService";
 
 const soDig = (v) => String(v ?? "").replace(/\D/g, "");
 const pad = (v, n) => soDig(v).padStart(n, "0").slice(-n);
@@ -52,15 +56,22 @@ export function digitoVerificadorChave(chave43) {
  */
 export function montarChaveAcessoNfce({ uf, aamm, cnpj, serie = 1, numero, tpEmis = 1, cNF }) {
   const cUF = codigoUf(uf);
-  const cnpjD = soDig(cnpj);
+  // Documento fiscal: normaliza SEM apagar letras. Um CNPJ alfanumérico NÃO é
+  // corrompido para forçar uma chave — retorna erro controlado (leiaute em
+  // evolução; o gerador atual só compõe chave a partir de CNPJ numérico).
+  const docN = normalizarDocumentoFiscal(cnpj);
   const aammD = soDig(aamm);
   const nNF = soDig(numero);
   if (!cUF) return { chave: null, dv: null, erro: "UF inválida (sem código IBGE)." };
-  if (cnpjD.length !== 14) return { chave: null, dv: null, erro: "CNPJ do emitente deve ter 14 dígitos." };
+  if (documentoEhAlfanumerico(docN)) {
+    return { chave: null, dv: null, erro: "Formato de CNPJ alfanumérico ainda não suportado pelo gerador de chave desta versão." };
+  }
+  if (!documentoSuportadoParaChave(docN)) return { chave: null, dv: null, erro: "CNPJ do emitente deve ter 14 dígitos." };
   if (aammD.length !== 4) return { chave: null, dv: null, erro: "AAMM (ano/mês) inválido." };
   if (!nNF || parseInt(nNF, 10) <= 0) return { chave: null, dv: null, erro: "Número da nota inválido." };
+  if (!serieNfceValida(serie)) return { chave: null, dv: null, erro: "Série NFC-e inválida (1–999)." };
   const base =
-    pad(cUF, 2) + pad(aammD, 4) + pad(cnpjD, 14) + "65" +
+    pad(cUF, 2) + pad(aammD, 4) + pad(docN, 14) + "65" +
     pad(serie, 3) + pad(nNF, 9) + pad(tpEmis, 1) + cnfDeSemente(cNF);
   const dv = digitoVerificadorChave(base);
   if (dv == null) return { chave: null, dv: null, erro: "Falha ao calcular o dígito verificador." };
@@ -96,7 +107,7 @@ export function montarRascunhoNfce({ emitente = null, documento = "", venda = {}
   });
   const totalProdutos = +itens.reduce((s, x) => s + x.valorTotal, 0).toFixed(2);
   return {
-    emitente, documento: soDig(documento),
+    emitente, documento: normalizarDocumentoFiscal(documento),
     ambiente: emitente?.nfceAmbiente || "simulacao",
     serie: emitente?.nfceSerie || 1,
     numero: venda.numero ?? null,

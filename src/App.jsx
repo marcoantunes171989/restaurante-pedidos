@@ -58,7 +58,7 @@ import {
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
-import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA, rotuloAmbienteNfce } from "./lib/emitenteFiscalService";
+import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA, rotuloAmbienteNfce, normalizarDocumentoFiscal, documentoEhAlfanumerico } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
@@ -378,6 +378,13 @@ function formatarDoc(s) {
     return d.replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
   }
   return d.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+// Máscara do documento FISCAL: aplica a pontuação numérica tradicional apenas
+// quando o documento é 100% dígitos; um documento alfanumérico (CNPJ futuro) é
+// exibido em caixa alta sem máscara, sem perder as letras.
+function mascararDocumentoFiscal(s) {
+  const d = normalizarDocumentoFiscal(s).slice(0, 14);
+  return /^\d*$/.test(d) ? formatarDoc(d) : d;
 }
 
 // ID único do aparelho (persistido no localStorage) — versões + bloqueio de acesso
@@ -2960,6 +2967,8 @@ export default function RestaurantePedidoApp() {
     let saved;
     try { saved = await salvarLojaFiscalEmitente(lojaId, dados); }
     catch (e) { notify("error", "Erro ao salvar cadastro fiscal: " + (e.message || e)); return; }
+    // Auditoria: registra APENAS metadado operacional (ambiente). Nunca grava o
+    // documento completo, e futuramente jamais certificado/CSC/senha (fora desta tabela).
     auditar("editar", "loja_fiscal_emitente", lojaId, { ambiente: dados?.nfceAmbiente });
     notify("success", "Cadastro fiscal do emitente salvo.");
     return saved || true;
@@ -16326,10 +16335,11 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
     return () => { vivo = false; };
   }, [api, loja.id]);
 
-  const docDig = soDigitos(documento);
-  const pendencias = pendenciasEmitenteNfce(e, docDig);
-  const pct = percentualCadastroFiscal(e, docDig);
-  const homologLiberada = podeUsarHomologacao(e, docDig);
+  const docNorm = normalizarDocumentoFiscal(documento);
+  const docAlfanumerico = documentoEhAlfanumerico(docNorm);
+  const pendencias = pendenciasEmitenteNfce(e, docNorm);
+  const pct = percentualCadastroFiscal(e, docNorm);
+  const homologLiberada = podeUsarHomologacao(e, docNorm);
   const ambiente = e.nfceAmbiente || "simulacao";
 
   function escolherAmbiente(v) {
@@ -16341,7 +16351,7 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
   async function salvar() {
     setErro(""); setSalvando(true);
     try {
-      const okId = await api.salvarIdentidade(loja.id, { nome, documento: docDig });
+      const okId = await api.salvarIdentidade(loja.id, { nome, documento: docNorm });
       const okEmi = await api.salvar(loja.id, e);
       if (okId && okEmi) onFechar();
       else setErro("Não foi possível salvar. Verifique se a migration 107 foi aplicada.");
@@ -16385,7 +16395,8 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
             {/* Identificação */}
             <EmiSecao titulo="Identificação da empresa" icone="🏢">
               <div><label className={EMI_LBL}>Nome no Pedido Prime</label><input value={nome} onChange={(ev) => setNome(ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>CNPJ / CPF</label><input inputMode="numeric" value={formatarDoc(documento)} onChange={(ev) => setDocumento(soDigitos(ev.target.value).slice(0, 14))} placeholder="00.000.000/0000-00" className={`${EMI_INP} font-mono`} /></div>
+              <div><label className={EMI_LBL} htmlFor="emi-doc">CNPJ / CPF</label><input id="emi-doc" value={mascararDocumentoFiscal(documento)} onChange={(ev) => setDocumento(normalizarDocumentoFiscal(ev.target.value).slice(0, 14))} placeholder="00.000.000/0000-00" className={`${EMI_INP} font-mono`} />
+                {docAlfanumerico && <p className="mt-1 text-[11px] text-[#F38525]">Documento alfanumérico detectado — letras preservadas. A geração de chave (simulação) só é suportada para CNPJ numérico nesta versão.</p>}</div>
               <div><label className={EMI_LBL}>Razão Social</label><input value={e.razaoSocial || ""} onChange={(ev) => set("razaoSocial", ev.target.value)} placeholder="Razão social do emitente" className={EMI_INP} /></div>
               <div><label className={EMI_LBL}>Nome Fantasia</label><input value={e.nomeFantasia || ""} onChange={(ev) => set("nomeFantasia", ev.target.value)} placeholder={loja?.nome || ""} className={EMI_INP} /></div>
               <div><label className={EMI_LBL}>Inscrição Estadual</label><input value={e.inscricaoEstadual || ""} onChange={(ev) => set("inscricaoEstadual", ev.target.value)} className={EMI_INP} /></div>
@@ -16395,8 +16406,8 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
 
             {/* Tributação */}
             <EmiSecao titulo="Tributação" icone="⚖️" aux="Utilizado na identificação tributária do emitente NF-e/NFC-e.">
-              <div className="sm:col-span-2"><label className={EMI_LBL}>Regime Tributário (CRT)</label>
-                <select value={e.crt || ""} onChange={(ev) => set("crt", ev.target.value)} className={EMI_INP}>
+              <div className="sm:col-span-2"><label className={EMI_LBL} htmlFor="emi-crt">Regime Tributário (CRT)</label>
+                <select id="emi-crt" value={e.crt || ""} onChange={(ev) => set("crt", ev.target.value)} className={EMI_INP}>
                   <option value="">Selecione o regime…</option>
                   {CRT_OPCOES.map((o) => <option key={o.codigo} value={o.codigo}>{o.codigo} — {o.descricao}</option>)}
                 </select>
@@ -16407,8 +16418,8 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
             {/* Endereço fiscal */}
             <EmiSecao titulo="Endereço fiscal" icone="📍">
               <div><label className={EMI_LBL}>CEP</label><input inputMode="numeric" value={e.cep || ""} onChange={(ev) => set("cep", soDigitos(ev.target.value).slice(0, 8))} placeholder="00000000" className={`${EMI_INP} font-mono`} /></div>
-              <div><label className={EMI_LBL}>UF</label>
-                <select value={e.uf || ""} onChange={(ev) => set("uf", ev.target.value)} className={EMI_INP}>
+              <div><label className={EMI_LBL} htmlFor="emi-uf">UF</label>
+                <select id="emi-uf" value={e.uf || ""} onChange={(ev) => set("uf", ev.target.value)} className={EMI_INP}>
                   <option value="">—</option>{UFS_EMITENTE.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
                 {e.uf && codigoUf(e.uf) && <p className="mt-1 text-[11px] text-[#6B7280]">Código UF (derivado): {codigoUf(e.uf)}</p>}
@@ -16446,7 +16457,7 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
                     })}
                   </div>
                 </div>
-                <div><label className={EMI_LBL}>Série NFC-e</label><input inputMode="numeric" value={e.nfceSerie ?? 1} onChange={(ev) => set("nfceSerie", soDigitos(ev.target.value).slice(0, 3))} className={`${EMI_INP} font-mono`} /></div>
+                <div><label className={EMI_LBL} htmlFor="emi-serie">Série NFC-e</label><input id="emi-serie" inputMode="numeric" value={e.nfceSerie ?? 1} onChange={(ev) => set("nfceSerie", soDigitos(ev.target.value).slice(0, 3))} className={`${EMI_INP} font-mono`} /><p className="mt-1 text-[11px] text-[#6B7280]">1 a 999 (leiaute NFC-e).</p></div>
               </div>
               {ambiente === "homologacao" && !homologLiberada && (
                 <p className="mt-2 rounded-xl border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-[12px] font-semibold text-[#C81E4A]">Não é possível ativar homologação — complete os campos pendentes acima.</p>
@@ -21269,9 +21280,20 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
   );
 }
 
+// KPI da pré-validação (módulo — evita criar componente durante o render).
+function NfceKpi({ rotulo, valor, tom }) {
+  return (
+    <div className="rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5">
+      <p className="text-[11px] font-medium text-[#6B7280]">{rotulo}</p>
+      <p className="text-[15px] font-bold" style={{ color: tom || "#111111" }}>{valor}</p>
+    </div>
+  );
+}
+
 // Pré-validação NFC-e (VENDA → RESOLVER FISCAL PRODUTO → PRÉ-VALIDAÇÃO).
-// Simulação: não emite, não fala com a SEFAZ. Usa o emitente + a resolução
-// fiscal do produto para apontar a aptidão e uma chave de acesso de exemplo.
+// SIMULAÇÃO: não emite, não assina, não contata a SEFAZ. Usa o emitente + a
+// resolução fiscal do produto para apontar a aptidão e uma chave de EXEMPLO.
+// Paleta oficial light (petróleo/laranja sobre branco).
 function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emitenteApi = null }) {
   const [emitente, setEmitente] = useState(undefined); // undefined=carregando, null=sem cadastro
   useEffect(() => {
@@ -21280,7 +21302,7 @@ function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emiten
     return () => { vivo = false; };
   }, [emitenteApi, lojaInfo?.id]);
 
-  const documento = soDigitos(lojaInfo?.documento || "");
+  const documento = normalizarDocumentoFiscal(lojaInfo?.documento || "");
   const ctxFiscal = { lojaFiscalRegras: importadas };
   // Venda simulada: produtos vinculados a uma config fiscal (ou os primeiros).
   const vinculados = produtos.filter((p) => p.lojaFiscalRegraId);
@@ -21288,65 +21310,87 @@ function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emiten
   const venda = { itens: amostra.map((p) => ({ produto: p, quantidade: 1 })), numero: 1 };
   const rascunho = montarRascunhoNfce({ emitente, documento, venda, ctxFiscal });
   const pv = preValidarNfce(rascunho);
-  const chave = (emitente && documento.length === 14 && emitente.uf)
+  const pct = percentualCadastroFiscal(emitente, documento);
+  const itensOk = rascunho.itens.filter((it) => it.pendencias.length === 0).length;
+  const chave = (emitente && emitente.uf)
     ? montarChaveAcessoNfce({ uf: emitente.uf, aamm: aammDe(), cnpj: documento, serie: emitente.nfceSerie || 1, numero: 1, cNF: "00000001" })
     : { chave: null, erro: "Complete o emitente (UF e CNPJ) para simular a chave." };
 
-  if (emitente === undefined) return <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-center text-sm text-slate-400">Carregando emitente…</div>;
+  if (emitente === undefined) return <div className="rounded-2xl border border-[#D1D5DB] bg-white p-8 text-center text-sm text-[#6B7280]" style={{ fontFamily: "Inter, sans-serif" }}>Carregando emitente…</div>;
+
+  const barraPct = pct >= 100 ? "#2F9E52" : pct >= 60 ? "#F38525" : "#C81E4A";
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+    <div className="space-y-4" style={{ fontFamily: "Inter, sans-serif" }}>
+      {/* Aviso de simulação — nunca deve parecer autorização fiscal */}
+      <div className="rounded-2xl border border-[rgba(243,133,37,0.4)] bg-[rgba(243,133,37,0.08)] px-4 py-2.5">
+        <p className="text-[13px] font-bold text-[#B45309]">🧪 SIMULAÇÃO — SEM VALIDADE FISCAL</p>
+        <p className="text-[12px] text-[#6B7280]">Conferência estrutural interna. Não emite, não assina e não contata a SEFAZ.</p>
+      </div>
+
+      {/* Cabeçalho + situação */}
+      <div className="rounded-2xl border border-[#D1D5DB] bg-white p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div><h3 className="page-title text-lg font-bold text-white">Pré-validação NFC-e</h3>
-            <p className="text-xs text-slate-400">Simulação da venda → resolução fiscal do produto → aptidão. Não emite nota nem contata a SEFAZ.</p></div>
-          <span className={`rounded-full border px-3 py-1 text-xs font-black ${pv.apto ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-600" : "border-amber-400/30 bg-amber-500/15 text-amber-600"}`}>{pv.apto ? "✔ Apto (simulação)" : "⚠ Pendências"}</span>
+          <div><h3 className="text-[16px] font-bold text-[#012E46]">Pré-validação NFC-e</h3>
+            <p className="text-[12px] text-[#6B7280]">Venda simulada → resolução fiscal do produto → aptidão para emissão futura.</p></div>
+          <span className={`rounded-full border px-3 py-1 text-[12px] font-bold ${pv.apto ? "border-[rgba(47,158,82,0.35)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[rgba(243,133,37,0.4)] bg-[rgba(243,133,37,0.1)] text-[#F38525]"}`}>{pv.apto ? "✔ Apto (simulação)" : "⚠ Pendências"}</span>
         </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
-          <span className="rounded-full bg-[rgba(1,46,70,0.12)] px-2 py-0.5 font-semibold text-[#012E46]">Ambiente: {rotuloAmbienteNfce(pv.ambiente)}</span>
-          <span>Série {rascunho.serie}</span>
-          <span>{rascunho.totais.qtdItens} item(ns) · {formatCurrency(rascunho.totais.totalProdutos)}</span>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <NfceKpi rotulo="Ambiente" valor={rotuloAmbienteNfce(pv.ambiente)} tom="#012E46" />
+          <NfceKpi rotulo="Série NFC-e" valor={rascunho.serie} />
+          <NfceKpi rotulo="Cadastro fiscal" valor={`${pct}%`} tom={barraPct} />
+          <NfceKpi rotulo="Pendências emitente" valor={pv.pendenciasEmitente.length} tom={pv.pendenciasEmitente.length ? "#C81E4A" : "#2F9E52"} />
         </div>
-        {!emitente && <p className="mt-3 rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#F38525]">Cadastro fiscal do emitente pendente — abra <b>Minha Empresa → Cadastro fiscal (NFC-e)</b>.</p>}
+
+        {/* Barra de completude */}
+        <div className="mt-3">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-[#6B7280]"><span>Emitente {emitente ? (pv.pendenciasEmitente.length ? "incompleto" : "completo") : "não cadastrado"}</span><span>{itensOk}/{rascunho.totais.qtdItens} itens OK</span></div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-[#E5E7EB]"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barraPct }} /></div>
+        </div>
+
+        {!emitente && <p className="mt-3 rounded-xl border border-[rgba(243,133,37,0.35)] bg-[rgba(243,133,37,0.07)] px-3 py-2 text-[12px] font-semibold text-[#B45309]">Cadastro fiscal do emitente pendente — abra <b>Minha Empresa → Cadastro fiscal (NFC-e)</b>.</p>}
         {pv.pendenciasEmitente.length > 0 && (
           <div className="mt-3">
-            <p className="text-xs font-bold text-slate-300">Pendências do emitente</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">{pv.pendenciasEmitente.map((p) => <span key={p} className="rounded-full border border-red-400/25 bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-300">{p}</span>)}</div>
+            <p className="text-[12px] font-bold text-[#111111]">Pendências do emitente</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">{pv.pendenciasEmitente.map((p) => <span key={p} className="rounded-full border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[#C81E4A]">{p}</span>)}</div>
           </div>
         )}
       </div>
 
       {/* Itens da venda simulada */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h4 className="mb-3 text-sm font-bold text-white">Itens (amostra) — resolução fiscal</h4>
+      <div className="rounded-2xl border border-[#D1D5DB] bg-white p-5">
+        <h4 className="mb-3 text-[13px] font-bold uppercase tracking-wide text-[#012E46]">Itens (amostra) — resolução fiscal</h4>
         {rascunho.itens.length === 0 ? (
           <EmptyState titulo="Sem produtos" dica="Cadastre produtos e vincule uma configuração fiscal (aba Produtos)." />
         ) : (
           <div className="space-y-2">
             {rascunho.itens.map((it) => (
-              <div key={it.seq} className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/40 px-3 py-2 text-[13px] text-slate-300">
-                <span className="min-w-[140px] flex-1 truncate font-semibold text-white">{it.nome}</span>
-                <span className="text-slate-400">{formatCurrency(it.valorTotal)}</span>
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px]">{rotuloFonteFiscal(it.fiscal.fonte)}</span>
+              <div key={it.seq} className="flex flex-wrap items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-[13px] text-[#6B7280]">
+                <span className="min-w-[140px] flex-1 truncate font-semibold text-[#111111]">{it.nome}</span>
+                <span>{formatCurrency(it.valorTotal)}</span>
+                <span className="rounded-full border border-[#D1D5DB] bg-white px-2 py-0.5 text-[11px] text-[#012E46]">{rotuloFonteFiscal(it.fiscal.fonte)}</span>
                 {it.pendencias.length === 0
-                  ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-black text-emerald-600">OK</span>
-                  : <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-semibold text-red-300">{it.pendencias.join(" · ")}</span>}
+                  ? <span className="rounded-full bg-[rgba(47,158,82,0.12)] px-2 py-0.5 text-[11px] font-bold text-[#2F9E52]">OK</span>
+                  : <span className="rounded-full bg-[rgba(200,30,74,0.08)] px-2 py-0.5 text-[11px] font-semibold text-[#C81E4A]">{it.pendencias.join(" · ")}</span>}
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Chave de acesso (exemplo) */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h4 className="mb-2 text-sm font-bold text-white">Chave de acesso (exemplo)</h4>
+      {/* Chave de acesso (exemplo, simulada) */}
+      <div className="rounded-2xl border border-[#D1D5DB] bg-white p-5">
+        <h4 className="mb-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]">Chave de acesso (simulada)</h4>
         {chave.chave ? (
           <>
-            <p className="break-all rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 font-mono text-[13px] text-emerald-300">{chave.chave}</p>
-            <p className="mt-1 text-[11px] text-slate-500">44 dígitos · modelo 65 · número/cNF simulados (a numeração real vem na fase de emissão).</p>
+            <p className="break-all rounded-xl border border-[#D1D5DB] bg-[#F9FAFB] px-3 py-2 font-mono text-[13px] text-[#012E46]">{chave.chave}</p>
+            <p className="mt-1.5 text-[11px] font-semibold text-[#B45309]">Chave gerada apenas para validação estrutural interna. Não autorizada pela SEFAZ.</p>
+            <p className="mt-0.5 text-[11px] text-[#6B7280]">44 dígitos · modelo 65 · número/cNF simulados (a numeração real vem na fase de emissão).</p>
           </>
         ) : (
-          <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#F38525]">{chave.erro}</p>
+          <p className="rounded-xl border border-[rgba(243,133,37,0.35)] bg-[rgba(243,133,37,0.07)] px-3 py-2 text-[12px] font-semibold text-[#B45309]">{chave.erro}</p>
         )}
       </div>
     </div>
