@@ -3,6 +3,7 @@ import {
   gradeVazia, gradeDoLegado, normalizarFuncionamento, gradeDoCanal,
   validarGrade, avaliarFuncionamentoLoja, estaAbertoAgora, proximaAbertura,
   horaValida, TIMEZONE_PADRAO,
+  canaisHabilitadosPorModoUso, canalHabilitadoPorModoUso, avaliarDisponibilidadeCanal, MOTIVO,
 } from "./horarioFuncionamentoService";
 
 const tz = "America/Sao_Paulo"; // UTC-3 o ano todo (Brasil sem horário de verão)
@@ -126,5 +127,75 @@ describe("timezone altera o resultado", () => {
     const t = new Date("2024-03-12T00:30:00Z"); // SP: seg 21:30 (aberto) ; UTC: ter 00:30 (fechado seg)
     expect(estaAbertoAgora(func({ externo: grade, timezone: "America/Sao_Paulo" }), "externo", t)).toBe(true);
     expect(estaAbertoAgora(func({ externo: grade, timezone: "UTC" }), "externo", t)).toBe(false);
+  });
+});
+
+describe("regra de canal por modo de uso", () => {
+  it("canaisHabilitadosPorModoUso", () => {
+    expect(canaisHabilitadosPorModoUso("interno")).toEqual(["interno"]);
+    expect(canaisHabilitadosPorModoUso("externo")).toEqual(["externo"]);
+    expect(canaisHabilitadosPorModoUso("ambos")).toEqual(["interno", "externo"]);
+    expect(canaisHabilitadosPorModoUso("xyz")).toEqual([]); // desconhecido → nenhum canal
+    expect(canaisHabilitadosPorModoUso(null)).toEqual([]);
+  });
+  it("canalHabilitadoPorModoUso", () => {
+    expect(canalHabilitadoPorModoUso("interno", "interno")).toBe(true);
+    expect(canalHabilitadoPorModoUso("interno", "externo")).toBe(false);
+    expect(canalHabilitadoPorModoUso("externo", "interno")).toBe(false);
+    expect(canalHabilitadoPorModoUso("externo", "externo")).toBe(true);
+    expect(canalHabilitadoPorModoUso("ambos", "interno")).toBe(true);
+    expect(canalHabilitadoPorModoUso("ambos", "externo")).toBe(true);
+  });
+});
+
+describe("avaliarDisponibilidadeCanal", () => {
+  const gradeSeg = { seg: [{ abre: "18:00", fecha: "23:00" }] };
+
+  it("interno habilitado e aberto → disponível", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "interno", funcionamento: func({ interno: gradeSeg }), canal: "interno", agora: SEG_18H });
+    expect(r).toMatchObject({ disponivel: true, canalHabilitado: true, abertoPorHorario: true, motivo: MOTIVO.DISPONIVEL });
+  });
+
+  it("modo interno + canal externo → canal-desabilitado (mesmo com horário aberto)", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "interno", funcionamento: func({ externo: gradeSeg }), canal: "externo", agora: SEG_18H });
+    expect(r).toMatchObject({ disponivel: false, canalHabilitado: false, abertoPorHorario: false, motivo: MOTIVO.CANAL_DESABILITADO });
+  });
+
+  it("modo externo + canal interno → canal-desabilitado", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "externo", funcionamento: func({ interno: gradeSeg }), canal: "interno", agora: SEG_18H });
+    expect(r.disponivel).toBe(false);
+    expect(r.motivo).toBe(MOTIVO.CANAL_DESABILITADO);
+  });
+
+  it("modo ambos → canais avaliados independentemente", () => {
+    const f = func({ unificado: false, interno: { seg: [{ abre: "09:00", fecha: "18:00" }] }, externo: gradeSeg });
+    expect(avaliarDisponibilidadeCanal({ modoUso: "ambos", funcionamento: f, canal: "interno", agora: SEG_18H }).disponivel).toBe(false); // 18:00 fora de [09,18)
+    expect(avaliarDisponibilidadeCanal({ modoUso: "ambos", funcionamento: f, canal: "externo", agora: SEG_18H }).disponivel).toBe(true);
+  });
+
+  it("fora do horário + bloqueio ativo → fora-horario", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "externo", funcionamento: func({ externo: gradeSeg, bloquearForaHorario: true }), canal: "externo", agora: SEG_09H });
+    expect(r).toMatchObject({ disponivel: false, canalHabilitado: true, bloqueadoPorHorario: true, motivo: MOTIVO.FORA_HORARIO });
+    expect(r.proximaAbertura).toMatchObject({ dia: "seg", hora: "18:00" });
+  });
+
+  it("fora do horário + bloqueio DESLIGADO → disponível (bloqueio-horario-desativado)", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "externo", funcionamento: func({ externo: gradeSeg, bloquearForaHorario: false }), canal: "externo", agora: SEG_09H });
+    expect(r).toMatchObject({ disponivel: true, canalHabilitado: true, abertoPorHorario: false, motivo: MOTIVO.BLOQUEIO_DESATIVADO });
+  });
+
+  it("sem horário configurado (loja legada) → disponível (sem-horario), não bloqueia", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "externo", funcionamento: func({ externo: gradeVazia(), bloquearForaHorario: true }), canal: "externo", agora: SEG_18H });
+    expect(r).toMatchObject({ disponivel: true, canalHabilitado: true, motivo: MOTIVO.SEM_HORARIO });
+  });
+
+  it("externo fechado + permitirVisualizarForaHorario → podeVisualizar true, disponivel false", () => {
+    const r = avaliarDisponibilidadeCanal({ modoUso: "externo", funcionamento: func({ externo: gradeSeg, bloquearForaHorario: true, permitirVisualizarForaHorario: true }), canal: "externo", agora: SEG_09H });
+    expect(r.disponivel).toBe(false);
+    expect(r.podeVisualizar).toBe(true);
+  });
+
+  it("canal inválido → canal-desabilitado", () => {
+    expect(avaliarDisponibilidadeCanal({ modoUso: "ambos", funcionamento: func({}), canal: "xpto", agora: SEG_18H }).motivo).toBe(MOTIVO.CANAL_DESABILITADO);
   });
 });

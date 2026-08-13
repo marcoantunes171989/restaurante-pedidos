@@ -17,7 +17,7 @@ import {
   promocaoVigente, promoResumoDesconto, qrMesaEnabled, externalOrderingEnabled,
 } from "./App";
 import { LogoPP } from "./components/BrandLogo";
-import { normalizarFuncionamento, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
+import { normalizarFuncionamento, avaliarDisponibilidadeCanal, MOTIVO } from "./lib/horarioFuncionamentoService";
 
 // ════════════════════════════════════════════════════════════
 //  Cardápio digital PÚBLICO (cliente, externo) — ver + pedir + acompanhar
@@ -62,6 +62,20 @@ const SURVEY_PEND_KEY = "pp_survey_pend";
 const SURVEY_DONE_KEY = "pp_survey_done";
 function lerSetLS(k) { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } }
 function salvarSetLS(k, set) { try { localStorage.setItem(k, JSON.stringify([...set].slice(-200))); } catch {} }
+// Converte o código de motivo (regra central) em mensagem amigável (a UI traduz).
+function mensagemCanalIndisponivel(disp, modoExterno) {
+  if (!disp) return "Pedido indisponível no momento.";
+  if (disp.motivo === MOTIVO.CANAL_DESABILITADO) {
+    return modoExterno
+      ? "Cardápio externo desativado pelo Modo de Uso da empresa."
+      : "Atendimento interno está desativado para esta empresa.";
+  }
+  if (disp.motivo === MOTIVO.FORA_HORARIO) {
+    const p = disp.proximaAbertura;
+    return "Fechado para novos pedidos no momento." + (p ? ` Próxima abertura: ${p.emDias === 0 ? "hoje" : p.diaRotulo} às ${p.hora}.` : "");
+  }
+  return "Pedido indisponível no momento.";
+}
 // Respeita prefers-reduced-motion nas rolagens programáticas (clique em
 // categoria/"Todos"/oferta e centralização do chip) — usa "auto" (instantâneo)
 // em vez de "smooth" quando o usuário pediu menos movimento no sistema.
@@ -362,14 +376,12 @@ export default function CardapioPublico() {
   // fuso da loja pelo serviço de domínio (não recalcula aqui). QR de mesa é canal
   // INTERNO; link/divulgação é canal EXTERNO.
   const funcLoja = useMemo(() => normalizarFuncionamento(loja?.funcionamento, cfgExt.horarios), [loja?.funcionamento, cfgExt.horarios]);
-  const canalHorario = modoExterno ? "externo" : "interno";
-  const avalFunc = avaliarFuncionamentoLoja(funcLoja, canalHorario, agora);
-  const abertoAgora = avalFunc.aberto;
-  // Mesa (interno): bloqueia só quando há grade configurada e está fora dela.
-  // Externo: bloqueia quando a empresa liga "Bloquear pedidos fora do horário".
-  const bloqueioHorario = !modoExterno
-    ? (avalFunc.motivo === "fora-horario")
-    : (funcLoja.bloquearForaHorario === true && !abertoAgora);
+  const canalAtual = modoExterno ? "externo" : "interno";
+  // REGRA CENTRAL: modo de uso + horário + bloqueio numa única decisão de domínio.
+  const disp = useMemo(() => avaliarDisponibilidadeCanal({ modoUso: loja?.modoUso, funcionamento: funcLoja, canal: canalAtual, agora }), [loja?.modoUso, funcLoja, canalAtual, agora]);
+  const abertoAgora = disp.abertoPorHorario;
+  // Bloqueio de NOVO pedido = canal indisponível (canal-desabilitado, fora-horario…).
+  const bloqueioHorario = !disp.disponivel;
   // Promoções vigentes AGORA (reavaliado pelo relógio — happy hour ativa/desativa sozinho)
   const promosVigentes = useMemo(() => promocoes.filter((p) => promocaoVigente(p, agora)), [promocoes, agora]);
   const catNomePorId = useMemo(() => { const m = {}; categorias.forEach((c) => (m[c.id] = c.nome)); return m; }, [categorias]);
@@ -1134,7 +1146,7 @@ export default function CardapioPublico() {
     if (enviandoRef.current) return;
     enviandoRef.current = true;
     try {
-      if (bloqueioHorario) return setMsg({ t: "error", m: "O estabelecimento está fechado no momento. Consulte os horários de atendimento." });
+      if (bloqueioHorario) return setMsg({ t: "error", m: mensagemCanalIndisponivel(disp, modoExterno) });
       // Revalida a ocupação da mesa direto no backend antes de concluir — evita
       // cache/concorrência: se a mesa ficou ocupada durante a navegação e o
       // cliente ainda não confirmou essa ocupação, pede confirmação agora e
@@ -1499,8 +1511,8 @@ export default function CardapioPublico() {
   // Versão anterior (marca + mesa/estabelecimento + carrossel),
   // sem sombra azul na foto e sem sombra azul/laranja no CTA.
   if (etapa === "welcome") {
-    const lojaStatus = abertoAgora ? "aberto" : avalFunc.motivo === "fora-horario" ? "fechado" : null;
-    const fechaHoje = abertoAgora ? (avalFunc.intervaloAtual?.fecha || null) : null;
+    const lojaStatus = abertoAgora ? "aberto" : disp.motivo === MOTIVO.FORA_HORARIO ? "fechado" : null;
+    const fechaHoje = abertoAgora ? (disp.intervaloAtual?.fecha || null) : null;
     const versaoApp = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
     const partesNome = String(loja.nome || "").trim().split(/\s+/).filter(Boolean);
     const nomePrimario = partesNome[0] || loja.nome || "Estabelecimento";

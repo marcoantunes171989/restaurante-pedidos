@@ -19,6 +19,30 @@ export const DIAS_ROTULO = { dom: "Domingo", seg: "Segunda", ter: "Terça", qua:
 export const CANAIS = ["interno", "externo"];
 export const TIMEZONE_PADRAO = "America/Sao_Paulo";
 
+// ── Regra de canal por modo de uso ─────────────────────────
+//   interno → só canal interno; externo → só externo; ambos → os dois.
+//   Valor desconhecido → NENHUM canal (comportamento seguro; nunca abre tudo).
+export function canaisHabilitadosPorModoUso(modoUso) {
+  switch (String(modoUso || "").trim()) {
+    case "interno": return ["interno"];
+    case "externo": return ["externo"];
+    case "ambos": return ["interno", "externo"];
+    default: return [];
+  }
+}
+export function canalHabilitadoPorModoUso(modoUso, canal) {
+  return canaisHabilitadosPorModoUso(modoUso).includes(canal);
+}
+
+// Códigos de motivo (o serviço devolve códigos; a UI converte em mensagem).
+export const MOTIVO = {
+  DISPONIVEL: "disponivel",
+  CANAL_DESABILITADO: "canal-desabilitado",
+  FORA_HORARIO: "fora-horario",
+  SEM_HORARIO: "sem-horario",
+  BLOQUEIO_DESATIVADO: "bloqueio-horario-desativado",
+};
+
 const HHMM = /^\d{1,2}:\d{2}$/;
 export function horaValida(hm) {
   if (!HHMM.test(String(hm || ""))) return false;
@@ -180,4 +204,43 @@ export function proximaAbertura(func, canal = "externo", agora = new Date()) {
     }
   }
   return null;
+}
+
+// ════════════════════════════════════════════════════════════
+//  REGRA CENTRAL — disponibilidade de um canal para NOVOS pedidos.
+//  Combina, nesta ordem: canal válido → modo de uso → horário → bloqueio.
+//  Retorno padronizado (códigos, sem texto amigável). Só governa a CRIAÇÃO de
+//  novo atendimento — nunca afeta pedidos já existentes.
+//
+//  Decisões deliberadas (cobertas por teste):
+//   • canal desabilitado pelo modo → indisponível de imediato (não avalia horário).
+//   • SEM grade configurada (loja legada) → DISPONÍVEL (não bloqueia por horário
+//     que não existe); motivo "sem-horario".
+//   • fora do horário + bloquearForaHorario=true → indisponível ("fora-horario").
+//   • fora do horário + bloquearForaHorario=false → disponível ("bloqueio-horario-desativado").
+// ════════════════════════════════════════════════════════════
+export function avaliarDisponibilidadeCanal({ modoUso, funcionamento, canal, agora = new Date() } = {}) {
+  const f = normalizarFuncionamento(funcionamento);
+  const desabilitado = {
+    disponivel: false, canalHabilitado: false, abertoPorHorario: false,
+    bloqueadoPorHorario: false, podeVisualizar: false, motivo: MOTIVO.CANAL_DESABILITADO,
+    intervaloAtual: null, proximaAbertura: null, timezone: f.timezone,
+  };
+  // 1) canal válido  2) modo de uso
+  if (canal !== "interno" && canal !== "externo") return desabilitado;
+  if (!canalHabilitadoPorModoUso(modoUso, canal)) return desabilitado;
+
+  // 3) canal habilitado → avalia o horário do canal
+  const aval = avaliarFuncionamentoLoja(f, canal, agora);
+  const temHorario = aval.motivo !== "sem-configuracao";
+  const podeVisualizar = canal === "externo" ? f.permitirVisualizarForaHorario : true;
+  const comum = {
+    canalHabilitado: true, timezone: f.timezone,
+    intervaloAtual: aval.intervaloAtual, proximaAbertura: aval.proximaAbertura, podeVisualizar,
+  };
+
+  if (aval.aberto) return { ...comum, disponivel: true, abertoPorHorario: true, bloqueadoPorHorario: false, motivo: MOTIVO.DISPONIVEL };
+  if (!temHorario) return { ...comum, disponivel: true, abertoPorHorario: false, bloqueadoPorHorario: false, motivo: MOTIVO.SEM_HORARIO, intervaloAtual: null };
+  if (f.bloquearForaHorario) return { ...comum, disponivel: false, abertoPorHorario: false, bloqueadoPorHorario: true, motivo: MOTIVO.FORA_HORARIO, intervaloAtual: null };
+  return { ...comum, disponivel: true, abertoPorHorario: false, bloqueadoPorHorario: false, motivo: MOTIVO.BLOQUEIO_DESATIVADO, intervaloAtual: null };
 }
