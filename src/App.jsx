@@ -58,7 +58,7 @@ import {
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
-import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA, rotuloAmbienteNfce, normalizarDocumentoFiscal, documentoEhAlfanumerico, validarDocumentoFiscal, SEGMENTOS_LOJA } from "./lib/emitenteFiscalService";
+import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
@@ -80,6 +80,7 @@ import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
+import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
 import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
@@ -379,14 +380,6 @@ function formatarDoc(s) {
   }
   return d.replace(/(\d{2})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1.$2").replace(/(\d{3})(\d)/, "$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
 }
-// Máscara do documento FISCAL: aplica a pontuação numérica tradicional apenas
-// quando o documento é 100% dígitos; um documento alfanumérico (CNPJ futuro) é
-// exibido em caixa alta sem máscara, sem perder as letras.
-function mascararDocumentoFiscal(s) {
-  const d = normalizarDocumentoFiscal(s).slice(0, 14);
-  return /^\d*$/.test(d) ? formatarDoc(d) : d;
-}
-
 // ID único do aparelho (persistido no localStorage) — versões + bloqueio de acesso
 function obterDeviceId() {
   return obterDeviceIdEstavel();
@@ -1436,6 +1429,7 @@ export default function RestaurantePedidoApp() {
       } else {
         notify("success", `Empresa "${loja.nome}" criada. Comandas: ${loja.prefixo}-000001. Cadastre os usuários em "Usuários".`);
       }
+      return { ...loja, logoUrl: dados.logoUrl || null };
     } catch (err) {
       notify("error", err.message || "Erro ao cadastrar a empresa.");
       throw err;
@@ -15770,13 +15764,20 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
           </div>
           {emitenteFiscalApi && (
             <button onClick={() => setFiscalAberto(true)}
-              className="shrink-0 rounded-xl border border-[#F38525]/40 bg-[rgba(243,133,37,0.1)] px-4 py-2.5 text-xs font-black text-[#F38525] transition hover:bg-[rgba(243,133,37,0.18)]">🧾 Cadastro fiscal (NFC-e)</button>
+              className="shrink-0 rounded-xl border border-[#F38525]/40 bg-[rgba(243,133,37,0.1)] px-4 py-2.5 text-xs font-black text-[#F38525] transition hover:bg-[rgba(243,133,37,0.18)]">🧾 Cadastro fiscal da empresa</button>
           )}
         </div>
       </div>
 
       {fiscalAberto && emitenteFiscalApi && (
-        <EmitenteFiscalModal loja={lojaInfo} api={emitenteFiscalApi} onFechar={() => setFiscalAberto(false)} />
+        <LojaCadastroModal
+          mode="edit"
+          loja={lojaInfo}
+          emitenteApi={emitenteFiscalApi}
+          operacaoEditavel={false}
+          onSalvarOperacional={async (id, d) => { await emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento }); }}
+          onFechar={() => setFiscalAberto(false)}
+        />
       )}
 
       {/* ── Visão geral (métricas) ────────────────────────────── */}
@@ -15959,7 +15960,6 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
   const [editando, setEditando] = useState(null); // loja em edição
   const [inativar, setInativar] = useState(null); // loja a inativar (confirmação)
   const [criando, setCriando]   = useState(false); // modal de nova empresa
-  const [fiscal, setFiscal]     = useState(null);  // loja cujo emitente fiscal está em edição
   const [busca, setBusca]       = useState("");
 
   const termo = busca.trim().toLowerCase();
@@ -16024,24 +16024,29 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${l.active !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
                 {l.active !== false ? "Ativa" : "Inativa"}
               </button>
-              {emitenteFiscalApi && (
-                <button onClick={() => setFiscal(l)} title="Cadastro fiscal do emitente (NFC-e)"
-                  className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-[#F38525] hover:bg-white/10">🧾</button>
-              )}
-              <button onClick={() => setEditando(l)} title="Editar empresa"
-                className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
+              <button onClick={() => setEditando(l)} title="Editar empresa (dados + fiscal)"
+                className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️ Editar</button>
             </div>
           ))}
         </div>
       </div>
 
       {criando && (
-        <EmpresaCadastroModal criarEmpresa={criarEmpresa} onFechar={() => setCriando(false)} />
+        <LojaCadastroModal
+          mode="create"
+          emitenteApi={emitenteFiscalApi}
+          onCriarEmpresa={criarEmpresa}
+          lojasExistentes={lojas}
+          onFechar={() => setCriando(false)}
+        />
       )}
       {editando && (
-        <LojaEditModal
+        <LojaCadastroModal
+          mode="edit"
           loja={editando}
-          onSalvar={(d) => { editarLoja(editando.id, d); setEditando(null); }}
+          emitenteApi={emitenteFiscalApi}
+          onSalvarOperacional={async (id, d) => { await editarLoja(id, d); }}
+          lojasExistentes={lojas}
           onFechar={() => setEditando(null)}
         />
       )}
@@ -16054,459 +16059,10 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
           onCancelar={() => setInativar(null)}
         />
       )}
-      {fiscal && emitenteFiscalApi && (
-        <EmitenteFiscalModal loja={fiscal} api={emitenteFiscalApi} onFechar={() => setFiscal(null)} />
-      )}
     </main>
   );
 }
 
-// Modal de cadastro de empresa (empresa + gestor) — combo de cargo em chips elegantes
-function EmpresaCadastroModal({ criarEmpresa, onFechar }) {
-  const [form, setForm] = useState({ nomeLoja: "", prefixo: "", documento: "", modoUso: "interno", logoUrl: "" });
-  const [enviando, setEnviando] = useState(false);
-  const [uploadando, setUploadando] = useState(false);
-  const [erroLogo, setErroLogo] = useState("");
-  const fileLogoRef = React.useRef(null);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 transition";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
-
-  async function importarLogo(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setErroLogo("");
-    const erroVal = validarImagemProduto(f);
-    if (erroVal) { setErroLogo(erroVal); return; }
-    setUploadando(true);
-    try { setForm((s) => ({ ...s, logoUrl: "" })); const url = await uploadImagemProduto(f, "logos"); setForm((s) => ({ ...s, logoUrl: url })); }
-    catch (err) { setErroLogo(err.message || "Falha ao enviar a logo."); }
-    setUploadando(false);
-  }
-
-  const valido = form.nomeLoja.trim() && form.prefixo.length >= 2 && docValido(form.documento);
-
-  async function salvar() {
-    if (!valido || enviando) return;
-    setEnviando(true);
-    try { await criarEmpresa({ ...form, documento: soDigitos(form.documento) }); onFechar(); }
-    catch { /* erro já notificado */ }
-    finally { setEnviando(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconEmpresa /></span>
-            <h2 className="page-title text-lg font-bold tracking-tight text-white">Nova empresa</h2>
-          </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Dados da empresa */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <span className={lbl}>Nome da empresa *</span>
-              <input autoFocus value={form.nomeLoja} onChange={(e) => setForm({ ...form, nomeLoja: e.target.value })} placeholder="Ex.: Pizzaria Bella" className={inp} />
-            </div>
-            <div className="sm:col-span-2">
-              <span className={lbl}>Prefixo da comanda (2-5 letras) *</span>
-              <input value={form.prefixo} onChange={(e) => setForm({ ...form, prefixo: e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) })}
-                placeholder="Ex.: PZB" className={`${inp} font-mono font-black tracking-widest`} />
-              {form.prefixo.length >= 2 && <p className="mt-1 text-xs text-blue-300">Comandas: {form.prefixo}-000001, {form.prefixo}-000002…</p>}
-            </div>
-            <div className="sm:col-span-2">
-              <span className={lbl}>CNPJ ou CPF *</span>
-              <input inputMode="numeric" value={formatarDoc(form.documento)}
-                onChange={(e) => setForm({ ...form, documento: soDigitos(e.target.value).slice(0, 14) })}
-                placeholder="00.000.000/0000-00 ou 000.000.000-00" className={`${inp} font-mono`} />
-              {form.documento && !docValido(form.documento) && (
-                <p className="mt-1 text-xs text-amber-400">Informe um CNPJ (14 dígitos) ou CPF (11 dígitos) válido.</p>
-              )}
-            </div>
-            <div className="sm:col-span-2">
-              <span className={lbl}>Modo de uso</span>
-              <div className="grid grid-cols-3 gap-2">
-                {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
-                  <button key={v} type="button" onClick={() => setForm({ ...form, modoUso: v })}
-                    className={`rounded-2xl border px-2 py-2.5 text-center transition ${form.modoUso === v ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
-                    <p className={`text-xs font-black ${form.modoUso === v ? "text-gold-300" : "text-white"}`}>{t}</p>
-                    <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Logo do estabelecimento — exibida no tablet para o cliente */}
-            <div className="sm:col-span-2">
-              <span className={lbl}>Logo do estabelecimento</span>
-              <div className="flex gap-3">
-                <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gold-400/20 bg-slate-950/60">
-                  {form.logoUrl
-                    ? <img src={form.logoUrl} alt="logo" className="h-full w-full object-contain p-1" onError={() => {}} />
-                    : <span className="text-2xl opacity-40">🏷️</span>}
-                  {uploadando && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><div className="h-6 w-6 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" /></div>}
-                </div>
-                <div className="flex-1 space-y-2">
-                  <input ref={fileLogoRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={importarLogo} />
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => fileLogoRef.current?.click()} disabled={uploadando}
-                      className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-400/10 py-2.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition disabled:opacity-50">
-                      📁 Importar logo
-                    </button>
-                    {form.logoUrl && (
-                      <button type="button" onClick={() => setForm({ ...form, logoUrl: "" })}
-                        className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
-                    )}
-                  </div>
-                  <input value={form.logoUrl} onChange={(e) => setForm({ ...form, logoUrl: e.target.value })} placeholder="ou cole a URL da logo..."
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
-                </div>
-              </div>
-              <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
-                <li>• Formatos: <b className="text-slate-400">PNG, JPG ou WebP</b> (PNG com fundo transparente fica melhor).</li>
-                <li>• Tamanho máximo: <b className="text-slate-400">2 MB</b>. Proporção ideal: <b className="text-slate-400">quadrada (1:1)</b>, ex.: 512×512px.</li>
-                <li>• Aparece no <b className="text-slate-400">tablet do cliente</b> (tela de boas-vindas) em tamanho padrão e enquadramento elegante.</li>
-              </ul>
-              {erroLogo && <p className="mt-1 text-[11px] text-red-400">❌ {erroLogo}</p>}
-            </div>
-          </div>
-        </div>
-
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={salvar} disabled={!valido || enviando || uploadando}
-            className="font-display flex-[2] rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50 disabled:cursor-not-allowed">
-            {enviando ? "⏳ Criando empresa..." : "+ Cadastrar empresa"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Modal de edição de empresa
-function LojaEditModal({ loja, onSalvar, onFechar }) {
-  const [nome, setNome] = useState(loja.nome || "");
-  const [prefixo, setPrefixo] = useState(loja.prefixo || "");
-  const [doc, setDoc] = useState(loja.documento || "");
-  const [modoUso, setModoUso] = useState(loja.modoUso || "interno");
-  const [logoUrl, setLogoUrl] = useState(loja.logoUrl || "");
-  const [uploadando, setUploadando] = useState(false);
-  const [erroLogo, setErroLogo] = useState("");
-  const fileLogoRef = React.useRef(null);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const valido = nome.trim() && /^[A-Z]{2,5}$/.test(prefixo) && docValido(doc);
-
-  async function importarLogo(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setErroLogo("");
-    const erroVal = validarImagemProduto(f);
-    if (erroVal) { setErroLogo(erroVal); return; }
-    setUploadando(true);
-    try { setLogoUrl(await uploadImagemProduto(f, loja.id || "logos")); }
-    catch (err) { setErroLogo(err.message || "Falha ao enviar a logo."); }
-    setUploadando(false);
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onFechar}>
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconEmpresa /></span>
-          <h3 className="page-title text-lg font-bold tracking-tight text-white">Editar empresa</h3>
-        </div>
-        <div className="mt-5 space-y-3">
-          <div>
-            <span className={lbl}>Nome da empresa</span>
-            <input value={nome} onChange={(e) => setNome(e.target.value)} className={inp} autoFocus />
-          </div>
-          <div>
-            <span className={lbl}>Prefixo da comanda (2-5 letras)</span>
-            <input value={prefixo} onChange={(e) => setPrefixo(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5))}
-              className={`${inp} font-mono font-black tracking-widest`} />
-            {prefixo && <p className="mt-1 text-xs text-blue-300">Comandas: {prefixo}-000001...</p>}
-          </div>
-          <div>
-            <span className={lbl}>CNPJ ou CPF *</span>
-            <input inputMode="numeric" value={formatarDoc(doc)} onChange={(e) => setDoc(soDigitos(e.target.value).slice(0, 14))}
-              placeholder="00.000.000/0000-00 ou 000.000.000-00" className={`${inp} font-mono`} />
-            {doc && !docValido(doc) && <p className="mt-1 text-xs text-amber-400">Informe um CNPJ (14) ou CPF (11) válido.</p>}
-          </div>
-          <div>
-            <span className={lbl}>Modo de uso</span>
-            <div className="grid grid-cols-3 gap-2">
-              {[["interno", "🖥️ Interno", "Tablets"], ["externo", "📱 Externo", "Cardápio do cliente"], ["ambos", "🔀 Ambos", "Os dois"]].map(([v, t, d]) => (
-                <button key={v} type="button" onClick={() => setModoUso(v)}
-                  className={`rounded-2xl border px-2 py-2.5 text-center transition ${modoUso === v ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
-                  <p className={`text-xs font-black ${modoUso === v ? "text-gold-300" : "text-white"}`}>{t}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-500">{d}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Logo da empresa — exibida no tablet para o cliente */}
-          <div>
-            <span className={lbl}>Logo do estabelecimento</span>
-            <div className="flex gap-3">
-              {/* Miniatura (proporção quadrada, como aparece no tablet) */}
-              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-gold-400/20 bg-slate-950/60">
-                {logoUrl
-                  ? <img src={logoUrl} alt="logo" className="h-full w-full object-contain p-1" onError={() => {}} />
-                  : <span className="text-2xl opacity-40">🏷️</span>}
-                {uploadando && <div className="absolute inset-0 flex items-center justify-center bg-black/60"><div className="h-6 w-6 animate-spin rounded-full border-2 border-gold-400 border-t-transparent" /></div>}
-              </div>
-              <div className="flex-1 space-y-2">
-                <input ref={fileLogoRef} type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" className="hidden" onChange={importarLogo} />
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => fileLogoRef.current?.click()} disabled={uploadando}
-                    className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-400/10 py-2.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition disabled:opacity-50">
-                    📁 Importar logo
-                  </button>
-                  {logoUrl && (
-                    <button type="button" onClick={() => setLogoUrl("")}
-                      className="rounded-2xl border border-red-400/20 bg-red-500/10 px-3 py-2.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
-                  )}
-                </div>
-                <input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="ou cole a URL da logo..."
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-xs text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600" />
-              </div>
-            </div>
-            {/* Especificações da logo */}
-            <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-slate-500">
-              <li>• Formatos: <b className="text-slate-400">PNG, JPG ou WebP</b> (PNG com fundo transparente fica melhor).</li>
-              <li>• Tamanho máximo: <b className="text-slate-400">2 MB</b>. Proporção ideal: <b className="text-slate-400">quadrada (1:1)</b>, ex.: 512×512px.</li>
-              <li>• Aparece no <b className="text-slate-400">tablet do cliente</b> (tela de boas-vindas) em tamanho padrão e enquadramento elegante.</li>
-            </ul>
-            {erroLogo && <p className="mt-1 text-[11px] text-red-400">❌ {erroLogo}</p>}
-          </div>
-        </div>
-        <div className="mt-6 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc), modo_uso: modoUso, logo_url: logoUrl.trim() })} disabled={!valido || uploadando}
-            className="font-display flex-1 rounded-2xl bg-gold-400 px-5 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50">Salvar</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Cadastro do EMITENTE fiscal (NFC-e mod. 65) — migration 107
-//  Extensão privada de tab_lojas. Paleta oficial (petróleo/laranja/branco).
-//  Loja legada sem cadastro abre normalmente ("Cadastro fiscal pendente").
-// ════════════════════════════════════════════════════════════
-const EMI_LBL = "mb-1 block text-[12px] font-semibold text-[#111111]";
-const EMI_INP = "w-full rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#012E46] placeholder:text-[#9CA3AF]";
-function EmiSecao({ titulo, icone, aux, children }) {
-  return (
-    <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
-      <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]">{icone && <span>{icone}</span>}{titulo}</h4>
-      {aux && <p className="mt-0.5 text-[12px] text-[#6B7280]">{aux}</p>}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">{children}</div>
-    </section>
-  );
-}
-function EmitenteFiscalModal({ loja, api, onFechar }) {
-  const [carregando, setCarregando] = useState(true);
-  const [nome, setNome] = useState(loja?.nome || "");
-  const [documento, setDocumento] = useState(loja?.documento || "");
-  const [e, setE] = useState({});
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState("");
-  const [existia, setExistia] = useState(false);
-  const set = (k, v) => setE((c) => ({ ...c, [k]: v }));
-
-  useEffect(() => {
-    let vivo = true;
-    (async () => {
-      let dados = null;
-      try { dados = await api.fetch(loja.id); } catch { /* migration 107 pendente ou sem permissão */ }
-      if (!vivo) return;
-      setExistia(!!dados);
-      setE(dados || { nfceAmbiente: "simulacao", nfceSerie: 1 });
-      setCarregando(false);
-    })();
-    return () => { vivo = false; };
-  }, [api, loja.id]);
-
-  const docNorm = normalizarDocumentoFiscal(documento);
-  const docAlfanumerico = documentoEhAlfanumerico(docNorm);
-  const docValidacao = docNorm ? validarDocumentoFiscal(docNorm) : null; // {valido,tipo,motivo}
-  const pendencias = pendenciasEmitenteNfce(e, docNorm);
-  const pct = percentualCadastroFiscal(e, docNorm);
-  const homologLiberada = podeUsarHomologacao(e, docNorm);
-  const ambiente = e.nfceAmbiente || "simulacao";
-
-  function escolherAmbiente(v) {
-    if (v === "producao") return; // bloqueada nesta fase
-    if (v === "homologacao" && !homologLiberada) { setErro("Não é possível ativar homologação. Complete os campos pendentes abaixo."); return; }
-    setErro(""); set("nfceAmbiente", v);
-  }
-
-  async function salvar() {
-    setErro(""); setSalvando(true);
-    try {
-      const okId = await api.salvarIdentidade(loja.id, { nome, documento: docNorm });
-      const okEmi = await api.salvar(loja.id, e);
-      if (okId && okEmi) onFechar();
-      else setErro("Não foi possível salvar. Verifique se a migration 107 foi aplicada.");
-    } finally { setSalvando(false); }
-  }
-
-  const barra = pct >= 100 ? "#2F9E52" : pct >= 60 ? "#F38525" : "#C81E4A";
-
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ fontFamily: "Inter, sans-serif" }}>
-      <div className="relative flex h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#D1D5DB] bg-white shadow-2xl">
-        {/* Cabeçalho */}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#D1D5DB] px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(1,46,70,0.08)] text-lg text-[#012E46]">🧾</span>
-            <div><h2 className="text-[15px] font-bold text-[#111111]">Cadastro fiscal do emitente — NFC-e</h2>
-              <p className="text-[12px] text-[#6B7280]">{loja?.nome} · usado na identificação tributária do emitente</p></div>
-          </div>
-          <button onClick={onFechar} className="grid h-9 w-9 place-items-center rounded-lg border border-[#D1D5DB] bg-white text-lg text-[#6B7280] hover:bg-[#F3F4F6]">✕</button>
-        </div>
-
-        {/* Corpo */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {carregando ? (
-            <p className="py-16 text-center text-sm text-[#6B7280]">Carregando cadastro fiscal…</p>
-          ) : (<div className="space-y-4">
-            {/* Indicador de completude */}
-            <div className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[13px] font-bold text-[#111111]">Cadastro fiscal <span style={{ color: barra }}>{pct}%</span> concluído</p>
-                {!existia && <span className="rounded-full bg-[rgba(243,133,37,0.12)] px-2.5 py-0.5 text-[11px] font-bold text-[#F38525]">Cadastro fiscal pendente</span>}
-              </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#E5E7EB]"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barra }} /></div>
-              {pendencias.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {pendencias.map((p) => <span key={p} className="rounded-full border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[#C81E4A]">{p}</span>)}
-                </div>
-              )}
-            </div>
-
-            {/* Identificação */}
-            <EmiSecao titulo="Identificação da empresa" icone="🏢">
-              <div><label className={EMI_LBL}>Nome no Pedido Prime</label><input value={nome} onChange={(ev) => setNome(ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL} htmlFor="emi-doc">CNPJ / CPF</label><input id="emi-doc" value={mascararDocumentoFiscal(documento)} onChange={(ev) => setDocumento(normalizarDocumentoFiscal(ev.target.value).slice(0, 14))} placeholder="00.000.000/0000-00" aria-invalid={docValidacao ? !docValidacao.valido : undefined} className={`${EMI_INP} font-mono`} />
-                {docValidacao && (
-                  <p className={`mt-1 text-[11px] font-semibold ${docValidacao.valido ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>
-                    {docValidacao.valido ? "✓ " : "✕ "}{docValidacao.motivo}
-                  </p>
-                )}
-                {docAlfanumerico && <p className="mt-1 text-[11px] text-[#6B7280]">Documento alfanumérico — letras preservadas. A geração de chave (simulação) só é suportada para CNPJ numérico nesta versão.</p>}</div>
-              <div><label className={EMI_LBL}>Razão Social</label><input value={e.razaoSocial || ""} onChange={(ev) => set("razaoSocial", ev.target.value)} placeholder="Razão social do emitente" className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Nome Fantasia</label><input value={e.nomeFantasia || ""} onChange={(ev) => set("nomeFantasia", ev.target.value)} placeholder={loja?.nome || ""} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Inscrição Estadual</label><input value={e.inscricaoEstadual || ""} onChange={(ev) => set("inscricaoEstadual", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Inscrição Municipal</label><input value={e.inscricaoMunicipal || ""} onChange={(ev) => set("inscricaoMunicipal", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>CNAE Principal</label><input value={e.cnaePrincipal || ""} onChange={(ev) => set("cnaePrincipal", ev.target.value)} placeholder="Ex.: 5611201" className={EMI_INP} /></div>
-              <div><label className={EMI_LBL} htmlFor="emi-segmento">Segmento do estabelecimento</label>
-                <select id="emi-segmento" value={e.segmento || ""} onChange={(ev) => set("segmento", ev.target.value)} className={EMI_INP}>
-                  <option value="">Selecione…</option>
-                  {SEGMENTOS_LOJA.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <p className="mt-1 text-[11px] text-[#6B7280]">Usado para sugerir templates fiscais compatíveis (segmento + CRT + UF).</p>
-              </div>
-            </EmiSecao>
-
-            {/* Tributação */}
-            <EmiSecao titulo="Tributação" icone="⚖️" aux="Utilizado na identificação tributária do emitente NF-e/NFC-e.">
-              <div className="sm:col-span-2"><label className={EMI_LBL} htmlFor="emi-crt">Regime Tributário (CRT)</label>
-                <select id="emi-crt" value={e.crt || ""} onChange={(ev) => set("crt", ev.target.value)} className={EMI_INP}>
-                  <option value="">Selecione o regime…</option>
-                  {CRT_OPCOES.map((o) => <option key={o.codigo} value={o.codigo}>{o.codigo} — {o.descricao}</option>)}
-                </select>
-                {e.crt && <p className="mt-1 text-[11px] text-[#6B7280]">Selecionado: {rotuloCrt(e.crt)}</p>}
-              </div>
-            </EmiSecao>
-
-            {/* Endereço fiscal */}
-            <EmiSecao titulo="Endereço fiscal" icone="📍">
-              <div><label className={EMI_LBL}>CEP</label><input inputMode="numeric" value={e.cep || ""} onChange={(ev) => set("cep", soDigitos(ev.target.value).slice(0, 8))} placeholder="00000000" className={`${EMI_INP} font-mono`} /></div>
-              <div><label className={EMI_LBL} htmlFor="emi-uf">UF</label>
-                <select id="emi-uf" value={e.uf || ""} onChange={(ev) => set("uf", ev.target.value)} className={EMI_INP}>
-                  <option value="">—</option>{UFS_EMITENTE.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-                {e.uf && codigoUf(e.uf) && <p className="mt-1 text-[11px] text-[#6B7280]">Código UF (derivado): {codigoUf(e.uf)}</p>}
-              </div>
-              <div className="sm:col-span-2"><label className={EMI_LBL}>Logradouro</label><input value={e.logradouro || ""} onChange={(ev) => set("logradouro", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Número</label><input value={e.numero || ""} onChange={(ev) => set("numero", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Complemento</label><input value={e.complemento || ""} onChange={(ev) => set("complemento", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Bairro</label><input value={e.bairro || ""} onChange={(ev) => set("bairro", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Município</label><input value={e.municipio || ""} onChange={(ev) => set("municipio", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>Código IBGE do Município</label><input inputMode="numeric" value={e.codigoMunicipioIbge || ""} onChange={(ev) => set("codigoMunicipioIbge", soDigitos(ev.target.value).slice(0, 7))} placeholder="Ex.: 3550308" className={`${EMI_INP} font-mono`} /></div>
-            </EmiSecao>
-
-            {/* Contato fiscal */}
-            <EmiSecao titulo="Contato fiscal" icone="✉️">
-              <div><label className={EMI_LBL}>Telefone</label><input value={e.telefoneFiscal || ""} onChange={(ev) => set("telefoneFiscal", ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL}>E-mail</label><input type="email" value={e.emailFiscal || ""} onChange={(ev) => set("emailFiscal", ev.target.value)} className={EMI_INP} /></div>
-            </EmiSecao>
-
-            {/* NFC-e (mod. 65) */}
-            <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>🧾</span>NFC-e — Modelo 65</h4>
-                <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-[#111111]">
-                  <input type="checkbox" checked={e.nfceHabilitada === true} onChange={(ev) => set("nfceHabilitada", ev.target.checked)} className="h-4 w-4 accent-[#012E46]" />
-                  Habilitar NFC-e nesta loja
-                </label>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className={EMI_LBL}>Ambiente</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {AMBIENTES_NFCE.map((a) => {
-                      const bloq = a.valor === "producao" ? PRODUCAO_BLOQUEADA : (a.valor === "homologacao" && !homologLiberada);
-                      const sel = ambiente === a.valor;
-                      return (
-                        <button key={a.valor} type="button" disabled={bloq} onClick={() => escolherAmbiente(a.valor)}
-                          className={`rounded-xl border px-2 py-2 text-center text-[12px] font-bold transition ${sel ? "border-[#012E46] bg-[rgba(1,46,70,0.06)] text-[#012E46]" : "border-[#D1D5DB] bg-white text-[#111111] hover:bg-[#F9FAFB]"} ${bloq ? "cursor-not-allowed opacity-50" : ""}`}>
-                          {a.rotulo}{a.valor === "producao" && " 🔒"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div><label className={EMI_LBL} htmlFor="emi-serie">Série NFC-e</label><input id="emi-serie" inputMode="numeric" value={e.nfceSerie ?? 1} onChange={(ev) => set("nfceSerie", soDigitos(ev.target.value).slice(0, 3))} className={`${EMI_INP} font-mono`} /><p className="mt-1 text-[11px] text-[#6B7280]">1 a 999 (leiaute NFC-e).</p></div>
-              </div>
-              {ambiente === "homologacao" && !homologLiberada && (
-                <p className="mt-2 rounded-xl border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-[12px] font-semibold text-[#C81E4A]">Não é possível ativar homologação — complete os campos pendentes acima.</p>
-              )}
-              <p className="mt-2 text-[12px] text-[#6B7280]">Produção disponível após conclusão e validação da homologação fiscal. Certificado e CSC serão necessários antes da transmissão à SEFAZ.</p>
-            </section>
-
-            {/* NF-e (mod. 55) — em preparação */}
-            <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>📄</span>NF-e — Modelo 55</h4>
-                <span className="rounded-full bg-[rgba(243,133,37,0.12)] px-2.5 py-0.5 text-[11px] font-bold text-[#F38525]">Em preparação</span>
-              </div>
-              <p className="mt-2 text-[12px] text-[#6B7280]">Emissão de NF-e (modelo 55) ainda não configurada. A estrutura está preparada para uma fase futura — nenhuma emissão nesta versão.</p>
-            </section>
-          </div>)}
-        </div>
-
-        {/* Rodapé */}
-        <div className="shrink-0 space-y-2 border-t border-[#D1D5DB] px-5 py-3.5">
-          {erro && <p className="text-[12px] font-semibold text-[#C81E4A]">❌ {erro}</p>}
-          <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-xl border border-[#D1D5DB] bg-white px-5 py-2.5 text-sm font-semibold text-[#111111] hover:bg-[#F3F4F6]">Cancelar</button>
-            <button onClick={salvar} disabled={salvando || carregando} className="flex-1 rounded-xl bg-[#012E46] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#013a58] disabled:opacity-40">{salvando ? "Salvando…" : "Salvar cadastro fiscal"}</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ════════════════════════════════════════════════════════════
 //  Admin — Categorias
