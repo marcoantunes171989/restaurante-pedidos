@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { dbParaEmitente, emitenteParaDb } from './emitenteFiscalService'
 
 // Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
 // Em produção o ideal é vir do ambiente (VITE_SUPABASE_*), mas se faltar, usa estes valores.
@@ -2310,6 +2311,41 @@ export function escutarLojas(onMudanca) {
   const canal = supabase.channel('ch_lojas_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
+//  loja_fiscal_emitente (migration 107) — cadastro PRIVADO do emitente
+//  NFC-e. Extensão 1:1 de tab_lojas, protegida por RLS (só super/loja).
+//  fetchLojas() NÃO retorna esses dados; use as funções abaixo.
+// ════════════════════════════════════════════════════════════
+export async function fetchLojaFiscalEmitente(lojaId) {
+  if (lojaId == null) return null
+  const { data, error } = await supabase
+    .from('loja_fiscal_emitente').select('*').eq('loja_id', lojaId).maybeSingle()
+  // Loja legada / migration 107 pendente / sem permissão → trata como "sem cadastro".
+  if (error) return null
+  return dbParaEmitente(data)
+}
+// UPSERT por loja_id: cria ou atualiza o registro da própria loja. O loja_id é
+// definido AQUI (nunca vem do formulário), impedindo burlar o RLS de outra loja.
+// Só grava os campos enviados (normalizados) — não apaga dados fora do payload
+// além do que o próprio formulário controla.
+export async function salvarLojaFiscalEmitente(lojaId, dados) {
+  if (lojaId == null) throw new Error('loja_id obrigatório para salvar o emitente.')
+  const payload = { ...emitenteParaDb(dados), loja_id: lojaId, atualizado_em: new Date().toISOString() }
+  const { data, error } = await supabase
+    .from('loja_fiscal_emitente')
+    .upsert([payload], { onConflict: 'loja_id' })
+    .select().single()
+  if (error) throw error
+  return dbParaEmitente(data)
+}
+export function escutarLojaFiscalEmitente(onMudanca, lojaId = null) {
+  const reload = async () => { try { onMudanca(await fetchLojaFiscalEmitente(lojaId)) } catch { /* migration 107 pendente */ } }
+  const canal = supabase.channel('ch_loja_fiscal_emitente_'+Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_emitente' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED' && lojaId != null) reload() })
   return () => supabase.removeChannel(canal)
 }
 

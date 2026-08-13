@@ -41,6 +41,7 @@ import {
   publicarFiscalRegraVersao, novaVersaoFiscalRegra, inativarFiscalRegra, excluirFiscalRegra, escutarFiscalRegras, escutarFiscalRegraVersoes,
   fetchLojaFiscalRegras, importarLojaFiscalRegra, atualizarLojaFiscalRegra, aplicarVersaoLojaFiscalRegra, marcarChecadaLojaFiscalRegra, excluirLojaFiscalRegra, escutarLojaFiscalRegras,
   fetchFiscalTemplates, fetchFiscalTemplateRegras, inserirFiscalTemplate, atualizarFiscalTemplate, excluirFiscalTemplate, adicionarRegraTemplate, removerRegraTemplate, escutarFiscalTemplates, escutarFiscalTemplateRegras,
+  fetchLojaFiscalEmitente, salvarLojaFiscalEmitente,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
@@ -57,6 +58,7 @@ import {
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
+import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA } from "./lib/emitenteFiscalService";
 import { useScrollLock } from "./lib/scrollLock";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
@@ -2935,6 +2937,32 @@ export default function RestaurantePedidoApp() {
     }
     notify("success", `Empresa "${nome}" atualizada.`);
   }
+  // ── Emitente fiscal (NFC-e) — migration 107 ──────────────────
+  // Atualiza SÓ identidade operacional da loja (nome/documento) — sem exigir
+  // prefixo, para o editor fiscal não acoplar às regras de comanda.
+  async function salvarIdentidadeLoja(id, { nome, documento }) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const patch = {}; const local = {};
+    if (nome !== undefined) { const n = String(nome || "").trim(); if (n) { patch.nome = n; local.nome = n; } }
+    if (documento !== undefined) { patch.documento = documento || null; local.documento = documento || null; }
+    if (Object.keys(patch).length === 0) return true;
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, ...local } : x));
+    if (dbReady) try { await atualizarLoja(id, patch); } catch (err) { notify("error", "Erro ao salvar dados da empresa: " + (err.message || err)); return; }
+    return true;
+  }
+  // Upsert do cadastro fiscal do emitente (loja_fiscal_emitente).
+  async function salvarEmitenteFiscal(lojaId, dados) {
+    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (lojaId == null) return notify("error", "Selecione a empresa.");
+    if (!dbReady) return notify("error", "Banco indisponível. Aplique a migration 107.");
+    let saved;
+    try { saved = await salvarLojaFiscalEmitente(lojaId, dados); }
+    catch (e) { notify("error", "Erro ao salvar cadastro fiscal: " + (e.message || e)); return; }
+    auditar("editar", "loja_fiscal_emitente", lojaId, { ambiente: dados?.nfceAmbiente });
+    notify("success", "Cadastro fiscal do emitente salvo.");
+    return saved || true;
+  }
+  const emitenteFiscalApi = { fetch: fetchLojaFiscalEmitente, salvar: salvarEmitenteFiscal, salvarIdentidade: salvarIdentidadeLoja };
   async function addFormaPagamento(forma) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     if (!forma.nome.trim()) return notify("error", "Informe o nome da forma de pagamento.");
@@ -3707,7 +3735,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -6726,7 +6754,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6961,7 +6989,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
           {ativo === "central-fiscal" && <CentralFiscalAdmin dados={centralFiscal} api={centralFiscalApi} regras={fiscalRegras} versoes={fiscalRegraVersoes} regrasApi={regrasFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} templatesApi={templatesFiscalApi} ehSuper={isSuperAdmin} />}
-          {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
+          {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} emitenteFiscalApi={emitenteFiscalApi} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
           {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} mesas={mesas} />)}
@@ -6974,6 +7002,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               categoriasDb={categoriasDb}
               comandas={comandasRegistradas}
               orders={orders}
+              emitenteFiscalApi={emitenteFiscalApi}
             />
           )}
           </SecaoErrorBoundary>)}
@@ -15678,7 +15707,8 @@ function CardapioExternoAdmin({ lojaInfo, setModoUsoEmpresa = async () => {}, sa
   );
 }
 
-function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento = [], categoriasDb = [], comandas = [], orders = [] }) {
+function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento = [], categoriasDb = [], comandas = [], orders = [], emitenteFiscalApi = null }) {
+  const [fiscalAberto, setFiscalAberto] = useState(false);
   if (!lojaInfo) {
     return (
       <main className="mx-auto max-w-xl">
@@ -15727,8 +15757,16 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
               <span className="text-xs text-slate-500">ID #{lojaInfo.id}</span>
             </div>
           </div>
+          {emitenteFiscalApi && (
+            <button onClick={() => setFiscalAberto(true)}
+              className="shrink-0 rounded-xl border border-[#F38525]/40 bg-[rgba(243,133,37,0.1)] px-4 py-2.5 text-xs font-black text-[#F38525] transition hover:bg-[rgba(243,133,37,0.18)]">🧾 Cadastro fiscal (NFC-e)</button>
+          )}
         </div>
       </div>
+
+      {fiscalAberto && emitenteFiscalApi && (
+        <EmitenteFiscalModal loja={lojaInfo} api={emitenteFiscalApi} onFechar={() => setFiscalAberto(false)} />
+      )}
 
       {/* ── Visão geral (métricas) ────────────────────────────── */}
       <Secao titulo="📊 Visão geral">
@@ -15906,10 +15944,11 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
 // ════════════════════════════════════════════════════════════
 //  Admin — Lojas (multi-empresa) — somente super admin
 // ════════════════════════════════════════════════════════════
-function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa }) {
+function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emitenteFiscalApi = null }) {
   const [editando, setEditando] = useState(null); // loja em edição
   const [inativar, setInativar] = useState(null); // loja a inativar (confirmação)
   const [criando, setCriando]   = useState(false); // modal de nova empresa
+  const [fiscal, setFiscal]     = useState(null);  // loja cujo emitente fiscal está em edição
   const [busca, setBusca]       = useState("");
 
   const termo = busca.trim().toLowerCase();
@@ -15974,6 +16013,10 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa }) {
                 className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${l.active !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
                 {l.active !== false ? "Ativa" : "Inativa"}
               </button>
+              {emitenteFiscalApi && (
+                <button onClick={() => setFiscal(l)} title="Cadastro fiscal do emitente (NFC-e)"
+                  className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-[#F38525] hover:bg-white/10">🧾</button>
+              )}
               <button onClick={() => setEditando(l)} title="Editar empresa"
                 className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️</button>
             </div>
@@ -15999,6 +16042,9 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa }) {
           onConfirmar={() => { toggleLoja(inativar.id); setInativar(null); }}
           onCancelar={() => setInativar(null)}
         />
+      )}
+      {fiscal && emitenteFiscalApi && (
+        <EmitenteFiscalModal loja={fiscal} api={emitenteFiscalApi} onFechar={() => setFiscal(null)} />
       )}
     </main>
   );
@@ -16233,6 +16279,188 @@ function LojaEditModal({ loja, onSalvar, onFechar }) {
           <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
           <button onClick={() => valido && onSalvar({ nome: nome.trim(), prefixo, documento: soDigitos(doc), modo_uso: modoUso, logo_url: logoUrl.trim() })} disabled={!valido || uploadando}
             className="font-display flex-1 rounded-2xl bg-gold-400 px-5 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50">Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cadastro do EMITENTE fiscal (NFC-e mod. 65) — migration 107
+//  Extensão privada de tab_lojas. Paleta oficial (petróleo/laranja/branco).
+//  Loja legada sem cadastro abre normalmente ("Cadastro fiscal pendente").
+// ════════════════════════════════════════════════════════════
+const EMI_LBL = "mb-1 block text-[12px] font-semibold text-[#111111]";
+const EMI_INP = "w-full rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#012E46] placeholder:text-[#9CA3AF]";
+function EmiSecao({ titulo, icone, aux, children }) {
+  return (
+    <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
+      <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]">{icone && <span>{icone}</span>}{titulo}</h4>
+      {aux && <p className="mt-0.5 text-[12px] text-[#6B7280]">{aux}</p>}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">{children}</div>
+    </section>
+  );
+}
+function EmitenteFiscalModal({ loja, api, onFechar }) {
+  const [carregando, setCarregando] = useState(true);
+  const [nome, setNome] = useState(loja?.nome || "");
+  const [documento, setDocumento] = useState(loja?.documento || "");
+  const [e, setE] = useState({});
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [existia, setExistia] = useState(false);
+  const set = (k, v) => setE((c) => ({ ...c, [k]: v }));
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      let dados = null;
+      try { dados = await api.fetch(loja.id); } catch { /* migration 107 pendente ou sem permissão */ }
+      if (!vivo) return;
+      setExistia(!!dados);
+      setE(dados || { nfceAmbiente: "simulacao", nfceSerie: 1 });
+      setCarregando(false);
+    })();
+    return () => { vivo = false; };
+  }, [api, loja.id]);
+
+  const docDig = soDigitos(documento);
+  const pendencias = pendenciasEmitenteNfce(e, docDig);
+  const pct = percentualCadastroFiscal(e, docDig);
+  const homologLiberada = podeUsarHomologacao(e, docDig);
+  const ambiente = e.nfceAmbiente || "simulacao";
+
+  function escolherAmbiente(v) {
+    if (v === "producao") return; // bloqueada nesta fase
+    if (v === "homologacao" && !homologLiberada) { setErro("Não é possível ativar homologação. Complete os campos pendentes abaixo."); return; }
+    setErro(""); set("nfceAmbiente", v);
+  }
+
+  async function salvar() {
+    setErro(""); setSalvando(true);
+    try {
+      const okId = await api.salvarIdentidade(loja.id, { nome, documento: docDig });
+      const okEmi = await api.salvar(loja.id, e);
+      if (okId && okEmi) onFechar();
+      else setErro("Não foi possível salvar. Verifique se a migration 107 foi aplicada.");
+    } finally { setSalvando(false); }
+  }
+
+  const barra = pct >= 100 ? "#2F9E52" : pct >= 60 ? "#F38525" : "#C81E4A";
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ fontFamily: "Inter, sans-serif" }}>
+      <div className="relative flex h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[#D1D5DB] bg-white shadow-2xl">
+        {/* Cabeçalho */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#D1D5DB] px-5 py-3.5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(1,46,70,0.08)] text-lg text-[#012E46]">🧾</span>
+            <div><h2 className="text-[15px] font-bold text-[#111111]">Cadastro fiscal do emitente — NFC-e</h2>
+              <p className="text-[12px] text-[#6B7280]">{loja?.nome} · usado na identificação tributária do emitente</p></div>
+          </div>
+          <button onClick={onFechar} className="grid h-9 w-9 place-items-center rounded-lg border border-[#D1D5DB] bg-white text-lg text-[#6B7280] hover:bg-[#F3F4F6]">✕</button>
+        </div>
+
+        {/* Corpo */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {carregando ? (
+            <p className="py-16 text-center text-sm text-[#6B7280]">Carregando cadastro fiscal…</p>
+          ) : (<div className="space-y-4">
+            {/* Indicador de completude */}
+            <div className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[13px] font-bold text-[#111111]">Cadastro fiscal <span style={{ color: barra }}>{pct}%</span> concluído</p>
+                {!existia && <span className="rounded-full bg-[rgba(243,133,37,0.12)] px-2.5 py-0.5 text-[11px] font-bold text-[#F38525]">Cadastro fiscal pendente</span>}
+              </div>
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#E5E7EB]"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barra }} /></div>
+              {pendencias.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {pendencias.map((p) => <span key={p} className="rounded-full border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[#C81E4A]">{p}</span>)}
+                </div>
+              )}
+            </div>
+
+            {/* Identificação */}
+            <EmiSecao titulo="Identificação da empresa" icone="🏢">
+              <div><label className={EMI_LBL}>Nome no Pedido Prime</label><input value={nome} onChange={(ev) => setNome(ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>CNPJ / CPF</label><input inputMode="numeric" value={formatarDoc(documento)} onChange={(ev) => setDocumento(soDigitos(ev.target.value).slice(0, 14))} placeholder="00.000.000/0000-00" className={`${EMI_INP} font-mono`} /></div>
+              <div><label className={EMI_LBL}>Razão Social</label><input value={e.razaoSocial || ""} onChange={(ev) => set("razaoSocial", ev.target.value)} placeholder="Razão social do emitente" className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Nome Fantasia</label><input value={e.nomeFantasia || ""} onChange={(ev) => set("nomeFantasia", ev.target.value)} placeholder={loja?.nome || ""} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Inscrição Estadual</label><input value={e.inscricaoEstadual || ""} onChange={(ev) => set("inscricaoEstadual", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Inscrição Municipal</label><input value={e.inscricaoMunicipal || ""} onChange={(ev) => set("inscricaoMunicipal", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>CNAE Principal</label><input value={e.cnaePrincipal || ""} onChange={(ev) => set("cnaePrincipal", ev.target.value)} placeholder="Ex.: 5611201" className={EMI_INP} /></div>
+            </EmiSecao>
+
+            {/* Tributação */}
+            <EmiSecao titulo="Tributação" icone="⚖️" aux="Utilizado na identificação tributária do emitente NF-e/NFC-e.">
+              <div className="sm:col-span-2"><label className={EMI_LBL}>Regime Tributário (CRT)</label>
+                <select value={e.crt || ""} onChange={(ev) => set("crt", ev.target.value)} className={EMI_INP}>
+                  <option value="">Selecione o regime…</option>
+                  {CRT_OPCOES.map((o) => <option key={o.codigo} value={o.codigo}>{o.codigo} — {o.descricao}</option>)}
+                </select>
+                {e.crt && <p className="mt-1 text-[11px] text-[#6B7280]">Selecionado: {rotuloCrt(e.crt)}</p>}
+              </div>
+            </EmiSecao>
+
+            {/* Endereço fiscal */}
+            <EmiSecao titulo="Endereço fiscal" icone="📍">
+              <div><label className={EMI_LBL}>CEP</label><input inputMode="numeric" value={e.cep || ""} onChange={(ev) => set("cep", soDigitos(ev.target.value).slice(0, 8))} placeholder="00000000" className={`${EMI_INP} font-mono`} /></div>
+              <div><label className={EMI_LBL}>UF</label>
+                <select value={e.uf || ""} onChange={(ev) => set("uf", ev.target.value)} className={EMI_INP}>
+                  <option value="">—</option>{UFS_EMITENTE.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+                {e.uf && codigoUf(e.uf) && <p className="mt-1 text-[11px] text-[#6B7280]">Código UF (derivado): {codigoUf(e.uf)}</p>}
+              </div>
+              <div className="sm:col-span-2"><label className={EMI_LBL}>Logradouro</label><input value={e.logradouro || ""} onChange={(ev) => set("logradouro", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Número</label><input value={e.numero || ""} onChange={(ev) => set("numero", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Complemento</label><input value={e.complemento || ""} onChange={(ev) => set("complemento", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Bairro</label><input value={e.bairro || ""} onChange={(ev) => set("bairro", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Município</label><input value={e.municipio || ""} onChange={(ev) => set("municipio", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>Código IBGE do Município</label><input inputMode="numeric" value={e.codigoMunicipioIbge || ""} onChange={(ev) => set("codigoMunicipioIbge", soDigitos(ev.target.value).slice(0, 7))} placeholder="Ex.: 3550308" className={`${EMI_INP} font-mono`} /></div>
+            </EmiSecao>
+
+            {/* Contato fiscal */}
+            <EmiSecao titulo="Contato fiscal" icone="✉️">
+              <div><label className={EMI_LBL}>Telefone</label><input value={e.telefoneFiscal || ""} onChange={(ev) => set("telefoneFiscal", ev.target.value)} className={EMI_INP} /></div>
+              <div><label className={EMI_LBL}>E-mail</label><input type="email" value={e.emailFiscal || ""} onChange={(ev) => set("emailFiscal", ev.target.value)} className={EMI_INP} /></div>
+            </EmiSecao>
+
+            {/* NFC-e */}
+            <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
+              <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>🧾</span>NFC-e</h4>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className={EMI_LBL}>Ambiente</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {AMBIENTES_NFCE.map((a) => {
+                      const bloq = a.valor === "producao" ? PRODUCAO_BLOQUEADA : (a.valor === "homologacao" && !homologLiberada);
+                      const sel = ambiente === a.valor;
+                      return (
+                        <button key={a.valor} type="button" disabled={bloq} onClick={() => escolherAmbiente(a.valor)}
+                          className={`rounded-xl border px-2 py-2 text-center text-[12px] font-bold transition ${sel ? "border-[#012E46] bg-[rgba(1,46,70,0.06)] text-[#012E46]" : "border-[#D1D5DB] bg-white text-[#111111] hover:bg-[#F9FAFB]"} ${bloq ? "cursor-not-allowed opacity-50" : ""}`}>
+                          {a.rotulo}{a.valor === "producao" && " 🔒"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div><label className={EMI_LBL}>Série NFC-e</label><input inputMode="numeric" value={e.nfceSerie ?? 1} onChange={(ev) => set("nfceSerie", soDigitos(ev.target.value).slice(0, 3))} className={`${EMI_INP} font-mono`} /></div>
+              </div>
+              {ambiente === "homologacao" && !homologLiberada && (
+                <p className="mt-2 rounded-xl border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-[12px] font-semibold text-[#C81E4A]">Não é possível ativar homologação — complete os campos pendentes acima.</p>
+              )}
+              <p className="mt-2 text-[12px] text-[#6B7280]">Produção disponível após conclusão e validação da homologação fiscal.</p>
+            </section>
+          </div>)}
+        </div>
+
+        {/* Rodapé */}
+        <div className="shrink-0 space-y-2 border-t border-[#D1D5DB] px-5 py-3.5">
+          {erro && <p className="text-[12px] font-semibold text-[#C81E4A]">❌ {erro}</p>}
+          <div className="flex gap-2">
+            <button onClick={onFechar} className="rounded-xl border border-[#D1D5DB] bg-white px-5 py-2.5 text-sm font-semibold text-[#111111] hover:bg-[#F3F4F6]">Cancelar</button>
+            <button onClick={salvar} disabled={salvando || carregando} className="flex-1 rounded-xl bg-[#012E46] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#013a58] disabled:opacity-40">{salvando ? "Salvando…" : "Salvar cadastro fiscal"}</button>
+          </div>
         </div>
       </div>
     </div>
