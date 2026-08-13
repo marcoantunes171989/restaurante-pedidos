@@ -102,58 +102,78 @@ function LojaHorarioFuncionamento({ value, onChange, modoUso = "ambos", readOnly
     setConfirmarUnificar(false);
   }
 
+  // Regra de canal por modo de uso:
+  //   INTERNO → só Interno ativo (Externo desativado)
+  //   EXTERNO → só Externo ativo (Interno desativado)
+  //   AMBOS   → os dois ativos (permite iguais ou diferentes)
+  const soUmCanal = modoUso === "interno" || modoUso === "externo";
+  const canalUnico = modoUso === "externo" ? "externo" : "interno";
+
   return (
     <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
       <h4 className="text-[13px] font-bold uppercase tracking-wide text-[#012E46]">Horário de funcionamento</h4>
       <p className="mt-0.5 text-[12px] text-[#6B7280]">Fonte única do horário da empresa. O cardápio externo e o atendimento interno consultam esta configuração.</p>
 
-      {/* Unificado x separado */}
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row" role="radiogroup" aria-label="Modo dos horários">
-        {[["true", "Usar os mesmos horários para Interno e Externo"], ["false", "Configurar horários diferentes"]].map(([v, rot]) => {
-          const sel = String(f.unificado === true) === v;
-          return (
-            <button key={v} type="button" role="radio" aria-checked={sel} disabled={readOnly} onClick={() => escolherUnificado(v === "true")}
-              className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-[12px] font-semibold transition ${sel ? "border-[#012E46] bg-[rgba(1,46,70,0.06)] text-[#012E46]" : "border-[#D1D5DB] bg-white text-[#111111] hover:bg-[#F9FAFB]"} ${readOnly ? "opacity-60" : ""}`}>
-              <span className="mr-1">{sel ? "●" : "○"}</span>{rot}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Confirmação ao unificar grades divergentes (FASE 38) */}
-      {confirmarUnificar && (
-        <div className="mt-3 rounded-xl border border-[rgba(243,133,37,0.4)] bg-[rgba(243,133,37,0.08)] p-3">
-          <p className="text-[12px] font-bold text-[#B45309]">Qual horário deseja usar como padrão?</p>
-          <p className="text-[11px] text-[#6B7280]">As grades Interno e Externo estão diferentes. Escolha qual será aplicada aos dois.</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={() => aplicarUnificado("interno")} className="rounded-lg bg-[#012E46] px-3 py-1.5 text-[12px] font-bold text-white">Usar Interno</button>
-            <button type="button" onClick={() => aplicarUnificado("externo")} className="rounded-lg bg-[#012E46] px-3 py-1.5 text-[12px] font-bold text-white">Usar Externo</button>
-            <button type="button" onClick={() => setConfirmarUnificar(false)} className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#111111]">Cancelar</button>
-          </div>
-        </div>
-      )}
-
-      {/* Grades */}
-      {f.unificado ? (
+      {soUmCanal ? (
         <div className="mt-3">
-          <p className="mb-2 text-[12px] font-bold text-[#111111]">Funcionamento geral</p>
-          <GradeSemanal grade={f.interno || {}} erros={errInterno} readOnly={readOnly} canal="geral" onChange={(g) => setF({ interno: g, externo: g })} />
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <p className="text-[12px] font-bold text-[#111111]">{canalUnico === "externo" ? "Atendimento Externo" : "Atendimento Interno"}</p>
+            <span className="rounded-full bg-[rgba(47,158,82,0.12)] px-2 py-0.5 text-[11px] font-bold text-[#2F9E52]">Ativo</span>
+            <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-semibold text-[#6B7280]">{canalUnico === "externo" ? "Interno desativado" : "Externo desativado"}</span>
+          </div>
+          <p className="mb-2 text-[11px] text-[#6B7280]">No modo <b>{modoUso === "externo" ? "Externo" : "Interno"}</b>, apenas o atendimento {canalUnico} está ativo. Para configurar os dois canais, mude o Modo de uso para <b>Ambos</b>.</p>
+          {canalUnico === "externo"
+            ? <GradeSemanal grade={f.externo || {}} erros={errExterno} readOnly={readOnly} canal="externo" onChange={(g) => setF({ externo: g })} />
+            : <GradeSemanal grade={f.interno || {}} erros={errInterno} readOnly={readOnly} canal="interno" onChange={(g) => setF({ interno: g })} />}
         </div>
       ) : (
-        <div className="mt-3">
-          <div role="tablist" aria-label="Canais" className="mb-2 flex gap-1 border-b border-[#D1D5DB]">
-            {[["interno", "Atendimento Interno"], ["externo", "Atendimento Externo"]].map(([id, rot]) => (
-              <button key={id} role="tab" aria-selected={subaba === id} type="button" onClick={() => setSubaba(id)}
-                className={`border-b-2 px-3 py-2 text-[12px] font-semibold transition ${subaba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[#6B7280] hover:text-[#111111]"}`}>{rot}</button>
-            ))}
+        <>
+          {/* Unificado x separado — só no modo Ambos (os dois canais ativos) */}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row" role="radiogroup" aria-label="Modo dos horários">
+            {[["true", "Usar os mesmos horários para Interno e Externo"], ["false", "Configurar horários diferentes"]].map(([v, rot]) => {
+              const sel = String(f.unificado === true) === v;
+              return (
+                <button key={v} type="button" role="radio" aria-checked={sel} disabled={readOnly} onClick={() => escolherUnificado(v === "true")}
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-[12px] font-semibold transition ${sel ? "border-[#012E46] bg-[rgba(1,46,70,0.06)] text-[#012E46]" : "border-[#D1D5DB] bg-white text-[#111111] hover:bg-[#F9FAFB]"} ${readOnly ? "opacity-60" : ""}`}>
+                  <span className="mr-1">{sel ? "●" : "○"}</span>{rot}
+                </button>
+              );
+            })}
           </div>
-          {modoUso === "interno" && subaba === "externo" && (
-            <p className="mb-2 rounded-lg border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[11px] font-semibold text-[#B45309]">O horário externo ficará disponível quando o modo de uso for Externo ou Ambos.</p>
+
+          {/* Confirmação ao unificar grades divergentes (FASE 38) */}
+          {confirmarUnificar && (
+            <div className="mt-3 rounded-xl border border-[rgba(243,133,37,0.4)] bg-[rgba(243,133,37,0.08)] p-3">
+              <p className="text-[12px] font-bold text-[#B45309]">Qual horário deseja usar como padrão?</p>
+              <p className="text-[11px] text-[#6B7280]">As grades Interno e Externo estão diferentes. Escolha qual será aplicada aos dois.</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => aplicarUnificado("interno")} className="rounded-lg bg-[#012E46] px-3 py-1.5 text-[12px] font-bold text-white">Usar Interno</button>
+                <button type="button" onClick={() => aplicarUnificado("externo")} className="rounded-lg bg-[#012E46] px-3 py-1.5 text-[12px] font-bold text-white">Usar Externo</button>
+                <button type="button" onClick={() => setConfirmarUnificar(false)} className="rounded-lg border border-[#D1D5DB] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#111111]">Cancelar</button>
+              </div>
+            </div>
           )}
-          {subaba === "interno"
-            ? <GradeSemanal grade={f.interno || {}} erros={errInterno} readOnly={readOnly} canal="interno" onChange={(g) => setF({ interno: g })} />
-            : <GradeSemanal grade={f.externo || {}} erros={errExterno} readOnly={readOnly} canal="externo" onChange={(g) => setF({ externo: g })} />}
-        </div>
+
+          {/* Grades */}
+          {f.unificado ? (
+            <div className="mt-3">
+              <p className="mb-2 text-[12px] font-bold text-[#111111]">Funcionamento geral</p>
+              <GradeSemanal grade={f.interno || {}} erros={errInterno} readOnly={readOnly} canal="geral" onChange={(g) => setF({ interno: g, externo: g })} />
+            </div>
+          ) : (
+            <div className="mt-3">
+              <div role="tablist" aria-label="Canais" className="mb-2 flex gap-1 border-b border-[#D1D5DB]">
+                {[["interno", "Atendimento Interno"], ["externo", "Atendimento Externo"]].map(([id, rot]) => (
+                  <button key={id} role="tab" aria-selected={subaba === id} type="button" onClick={() => setSubaba(id)}
+                    className={`border-b-2 px-3 py-2 text-[12px] font-semibold transition ${subaba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[#6B7280] hover:text-[#111111]"}`}>{rot}</button>
+                ))}
+              </div>
+              {subaba === "interno"
+                ? <GradeSemanal grade={f.interno || {}} erros={errInterno} readOnly={readOnly} canal="interno" onChange={(g) => setF({ interno: g })} />
+                : <GradeSemanal grade={f.externo || {}} erros={errExterno} readOnly={readOnly} canal="externo" onChange={(g) => setF({ externo: g })} />}
+            </div>
+          )}
+        </>
       )}
       <p className="mt-2 text-[11px] text-[#6B7280]">Fuso: {f.timezone || "America/Sao_Paulo"}. Intervalos que viram a meia-noite (ex.: 18:00 às 02:00) são suportados.</p>
     </section>
