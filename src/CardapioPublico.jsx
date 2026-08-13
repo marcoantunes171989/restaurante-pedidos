@@ -17,6 +17,7 @@ import {
   promocaoVigente, promoResumoDesconto, qrMesaEnabled, externalOrderingEnabled,
 } from "./App";
 import { LogoPP } from "./components/BrandLogo";
+import { normalizarFuncionamento, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 
 // ════════════════════════════════════════════════════════════
 //  Cardápio digital PÚBLICO (cliente, externo) — ver + pedir + acompanhar
@@ -61,53 +62,6 @@ const SURVEY_PEND_KEY = "pp_survey_pend";
 const SURVEY_DONE_KEY = "pp_survey_done";
 function lerSetLS(k) { try { return new Set(JSON.parse(localStorage.getItem(k) || "[]")); } catch { return new Set(); } }
 function salvarSetLS(k, set) { try { localStorage.setItem(k, JSON.stringify([...set].slice(-200))); } catch {} }
-// Dia da semana + minutos-do-dia "agora", já convertidos para o fuso horário
-// do estabelecimento (não o fuso do navegador do cliente — um cliente
-// acessando de outro estado/fuso precisa ver o horário REAL da loja).
-// Sem fuso configurado, cai em America/Sao_Paulo (único fuso usado hoje em
-// todo o app — mesma referência da formatação pt-BR já usada no projeto).
-const DIAS_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
-function diaEHoraNoFuso(fuso, base = new Date()) {
-  try {
-    const fmt = new Intl.DateTimeFormat("en-US", {
-      timeZone: fuso || "America/Sao_Paulo", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false,
-    });
-    const partes = {}; fmt.formatToParts(base).forEach((p) => (partes[p.type] = p.value));
-    const idx = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[partes.weekday];
-    // Intl pode formatar meia-noite como "24:00" com hour12:false — normaliza para 0.
-    return { dia: DIAS_SEMANA[idx], minutos: (Number(partes.hour) % 24) * 60 + Number(partes.minute) };
-  } catch {
-    return { dia: DIAS_SEMANA[base.getDay()], minutos: base.getHours() * 60 + base.getMinutes() };
-  }
-}
-// Verdadeiro se a loja está aberta AGORA conforme os horários { seg..dom: "HH:MM–HH:MM" }.
-// Trata faixa que vira a meia-noite (ex.: "18:00–02:00"). Dia sem faixa = fechado.
-function lojaAbertaAgora(horarios, agora = new Date(), fuso) {
-  const { dia, minutos: nowMin } = diaEHoraNoFuso(fuso, agora);
-  const faixa = (horarios || {})[dia];
-  if (!faixa || !/\d/.test(String(faixa))) return false;
-  const [abre, fecha] = String(faixa).split("–").map((s) => (s || "").trim());
-  if (!/^\d{1,2}:\d{2}$/.test(abre || "") || !/^\d{1,2}:\d{2}$/.test(fecha || "")) return false;
-  const min = (hm) => { const [h, m] = hm.split(":").map(Number); return h * 60 + (m || 0); };
-  const aMin = min(abre), fMin = min(fecha);
-  return fMin > aMin ? (nowMin >= aMin && nowMin < fMin) : (nowMin >= aMin || nowMin < fMin);
-}
-// Verdadeiro se HÁ horário cadastrado para o dia de hoje (independente de
-// estar aberto ou fechado agora) — usado para só exigir o bloqueio de
-// horário da mesa quando a empresa realmente configurou os dias/horários
-// (não usa horário fixo/simulado; sem configuração, não há o que respeitar).
-function diaTemHorario(horarios, agora = new Date(), fuso) {
-  const { dia } = diaEHoraNoFuso(fuso, agora);
-  return /\d/.test(String((horarios || {})[dia] || ""));
-}
-/** Horário de fechamento de hoje (ex.: "23:00"), ou null se não cadastrado. */
-function horarioFechaHoje(horarios, agora = new Date(), fuso) {
-  const { dia } = diaEHoraNoFuso(fuso, agora);
-  const faixa = String((horarios || {})[dia] || "");
-  if (!/\d/.test(faixa)) return null;
-  const fecha = faixa.split("–").map((s) => (s || "").trim())[1] || "";
-  return /^\d{1,2}:\d{2}$/.test(fecha) ? fecha : null;
-}
 // Respeita prefers-reduced-motion nas rolagens programáticas (clique em
 // categoria/"Todos"/oferta e centralização do chip) — usa "auto" (instantâneo)
 // em vez de "smooth" quando o usuário pediu menos movimento no sistema.
@@ -403,16 +357,19 @@ export default function CardapioPublico() {
     cfgExt.entrega      === true  && { id: "entrega",  label: "Entrega (delivery)", icon: "🛵" },
   ].filter(Boolean);
   const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
-  // Horários de funcionamento (aba "Horários") — reavaliado ao vivo via `agora`,
-  // no fuso do estabelecimento (cfgExt.fusoHorario, padrão America/Sao_Paulo).
-  const abertoAgora = lojaAbertaAgora(cfgExt.horarios, agora, cfgExt.fusoHorario);
-  // QR por mesa: recurso local — respeita os horários cadastrados sempre que
-  // a empresa configurou o dia de hoje, independente do toggle abaixo (que é
-  // do fluxo externo). Pedido externo: comportamento preservado, só bloqueia
-  // fora do horário quando a empresa liga "Bloquear pedidos fora do horário".
+  // Horário de funcionamento — FONTE ÚNICA: loja.funcionamento (migration 110),
+  // com fallback do legado config_externo.horarios (canal externo). Avaliado no
+  // fuso da loja pelo serviço de domínio (não recalcula aqui). QR de mesa é canal
+  // INTERNO; link/divulgação é canal EXTERNO.
+  const funcLoja = useMemo(() => normalizarFuncionamento(loja?.funcionamento, cfgExt.horarios), [loja?.funcionamento, cfgExt.horarios]);
+  const canalHorario = modoExterno ? "externo" : "interno";
+  const avalFunc = avaliarFuncionamentoLoja(funcLoja, canalHorario, agora);
+  const abertoAgora = avalFunc.aberto;
+  // Mesa (interno): bloqueia só quando há grade configurada e está fora dela.
+  // Externo: bloqueia quando a empresa liga "Bloquear pedidos fora do horário".
   const bloqueioHorario = !modoExterno
-    ? (diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario) && !abertoAgora)
-    : (cfgExt.bloquearForaHorario === true && !abertoAgora);
+    ? (avalFunc.motivo === "fora-horario")
+    : (funcLoja.bloquearForaHorario === true && !abertoAgora);
   // Promoções vigentes AGORA (reavaliado pelo relógio — happy hour ativa/desativa sozinho)
   const promosVigentes = useMemo(() => promocoes.filter((p) => promocaoVigente(p, agora)), [promocoes, agora]);
   const catNomePorId = useMemo(() => { const m = {}; categorias.forEach((c) => (m[c.id] = c.nome)); return m; }, [categorias]);
@@ -1542,9 +1499,8 @@ export default function CardapioPublico() {
   // Versão anterior (marca + mesa/estabelecimento + carrossel),
   // sem sombra azul na foto e sem sombra azul/laranja no CTA.
   if (etapa === "welcome") {
-    const temHorarioHoje = diaTemHorario(cfgExt.horarios, agora, cfgExt.fusoHorario);
-    const lojaStatus = abertoAgora ? "aberto" : temHorarioHoje ? "fechado" : null;
-    const fechaHoje = horarioFechaHoje(cfgExt.horarios, agora, cfgExt.fusoHorario);
+    const lojaStatus = abertoAgora ? "aberto" : avalFunc.motivo === "fora-horario" ? "fechado" : null;
+    const fechaHoje = abertoAgora ? (avalFunc.intervaloAtual?.fecha || null) : null;
     const versaoApp = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
     const partesNome = String(loja.nome || "").trim().split(/\s+/).filter(Boolean);
     const nomePrimario = partesNome[0] || loja.nome || "Estabelecimento";

@@ -20,6 +20,8 @@ import {
 } from "../../../lib/emitenteFiscalService";
 import { mascaraDocumentoFiscal, mascaraCep, mascaraTelefone, mascaraCnae } from "../../../lib/masks";
 import { validarImagemProduto, uploadImagemProduto } from "../../../lib/supabase";
+import { normalizarFuncionamento } from "../../../lib/horarioFuncionamentoService";
+import LojaHorarioFuncionamento from "./LojaHorarioFuncionamento";
 
 const LBL = "mb-1 block text-[12px] font-semibold text-[#111111]";
 const INP = "w-full rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none transition focus:border-[#012E46] placeholder:text-[#9CA3AF]";
@@ -57,6 +59,8 @@ function estadoInicial(loja) {
     documento: normalizarDocumentoFiscal(loja?.documento || ""),
     modoUso: loja?.modoUso || "interno",
     logoUrl: loja?.logoUrl || "",
+    // Horário de funcionamento (migration 110) — normalizado com fallback do legado externo.
+    funcionamento: normalizarFuncionamento(loja?.funcionamento, loja?.configExterno?.horarios),
     // fiscal (loja_fiscal_emitente) — preenchido no fetch (edit)
     razaoSocial: "", nomeFantasia: "", inscricaoEstadual: "", inscricaoMunicipal: "",
     cnaePrincipal: "", crt: "", segmento: "",
@@ -181,7 +185,7 @@ function LojaCadastroModal({
     try {
       let lojaId = loja?.id;
       if (ehEdicao) {
-        await onSalvarOperacional(lojaId, { nome: form.nome.trim(), prefixo: pfx, documento: docNorm || null, modo_uso: form.modoUso, logo_url: form.logoUrl || null });
+        await onSalvarOperacional(lojaId, { nome: form.nome.trim(), prefixo: pfx, documento: docNorm || null, modo_uso: form.modoUso, logo_url: form.logoUrl || null, funcionamento: form.funcionamento });
       } else {
         const nova = await onCriarEmpresa({ nomeLoja: form.nome.trim(), prefixo: pfx, documento: docNorm, modoUso: form.modoUso, logoUrl: form.logoUrl });
         lojaId = nova?.id;
@@ -381,6 +385,9 @@ function LojaCadastroModal({
                     <input id="lc-pfx" value={form.prefixo} disabled={!operacaoEditavel} onChange={(e) => setField("prefixo", e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5))} aria-invalid={!!erros.prefixo} className={`${inpCls("prefixo")} font-mono tracking-widest ${!operacaoEditavel ? "opacity-60" : ""}`} placeholder="Ex.: PZB" />
                     {erros.prefixo ? <p className="mt-1 text-[11px] font-semibold text-[#C81E4A]">{erros.prefixo}</p>
                       : <p className="mt-1 text-[11px] text-[#6B7280]">Use de 2 a 5 letras (sem espaços). Comandas: {form.prefixo || "PFX"}-000001…</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <LojaHorarioFuncionamento value={form.funcionamento} onChange={(fn) => setField("funcionamento", fn)} modoUso={form.modoUso} readOnly={!operacaoEditavel} />
                   </div>
                   <div className="sm:col-span-2"><span className={LBL}>Modo de uso</span>
                     <div className="grid grid-cols-3 gap-2">

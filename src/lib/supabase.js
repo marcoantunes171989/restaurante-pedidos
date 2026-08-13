@@ -2236,7 +2236,7 @@ export async function registrarLicencaHistorico({ lojaId, acao, motivo = null, u
 export async function fetchLojas() {
   const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
   if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {} }))
+  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {}, funcionamento: r.funcionamento ?? null }))
 }
 export async function inserirLoja(loja) {
   const { data, error } = await supabase
@@ -2295,6 +2295,16 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = ''
 export async function atualizarLoja(id, campos) {
   const { error } = await supabase.from('tab_lojas').update(campos).eq('id', id)
   if (error) throw error
+}
+// Salva o horário de funcionamento (migration 110). Tolerante se a coluna ainda
+// não existir (42703/PGRST204) — o cadastro segue funcionando sem quebrar.
+export async function salvarFuncionamentoLoja(id, funcionamento) {
+  const { error } = await supabase.from('tab_lojas').update({ funcionamento }).eq('id', id)
+  if (error) {
+    if (error.code === '42703' || error.code === 'PGRST204') { console.warn('salvarFuncionamentoLoja: aplique a migration 110.'); return false }
+    throw error
+  }
+  return true
 }
 export async function excluirLoja(id) {
   const { error } = await supabase.from('tab_lojas').delete().eq('id', id)

@@ -9,7 +9,7 @@ import {
   fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
-  fetchLojas, atualizarLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
+  fetchLojas, atualizarLoja, salvarFuncionamentoLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
@@ -81,6 +81,7 @@ import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
 import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
+import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
 import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
@@ -2925,10 +2926,15 @@ export default function RestaurantePedidoApp() {
     if (dados.documento !== undefined) { extra.documento = dados.documento || null; extraLocal.documento = dados.documento || null; }
     if (dados.modo_uso !== undefined) { extra.modo_uso = dados.modo_uso; extraLocal.modoUso = dados.modo_uso; }
     if (dados.logo_url !== undefined) { extra.logo_url = dados.logo_url || null; extraLocal.logoUrl = dados.logo_url || null; }
+    // Horário de funcionamento (migration 110) — persistido à parte, de forma
+    // tolerante: se a coluna ainda não existir, o restante do cadastro não quebra.
+    const temFuncionamento = dados.funcionamento !== undefined;
+    if (temFuncionamento) extraLocal.funcionamento = dados.funcionamento;
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, nome, prefixo, ...extraLocal } : x));
     if (dbReady) {
       try { await atualizarLoja(id, { nome, prefixo, ...extra }); }
       catch (err) { return notify("error", "Erro ao salvar: " + (err.message || err)); }
+      if (temFuncionamento) { try { await salvarFuncionamentoLoja(id, dados.funcionamento); } catch (err) { return notify("error", "Erro ao salvar horários: " + (err.message || err)); } }
     }
     notify("success", `Empresa "${nome}" atualizada.`);
   }
@@ -15674,44 +15680,39 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
         </div>
       )}
 
-      {/* Aba: Horários */}
+      {/* Aba: Horários — SOMENTE LEITURA. Fonte única: Cadastro da Empresa → Operação. */}
       {aba === "horarios" && (() => {
-        const horarioParts = (s) => { const p = String(s || "").split("–"); return { abre: (p[0] || "").trim(), fecha: (p[1] || "").trim() }; };
-        const diaAberto = (s) => /\d/.test(String(s || ""));
-        const setDia = (k, abre, fecha) => setCfg((c) => ({ ...c, horarios: { ...c.horarios, [k]: `${abre}–${fecha}` } }));
-        const toggleDia = (k) => setCfg((c) => ({ ...c, horarios: { ...c.horarios, [k]: diaAberto(c.horarios[k]) ? "" : "18:00–23:00" } }));
-        const copiarParaTodos = (k) => setCfg((c) => { const v = c.horarios[k]; const h = {}; DIAS.forEach(([d]) => (h[d] = v)); return { ...c, horarios: h }; });
-        const inpHora = "rounded-xl border border-white/10 bg-slate-950/70 px-2.5 py-1.5 text-sm font-bold text-white outline-none focus:border-gold-400/60 [color-scheme:dark]";
+        const func = normalizarFuncionamento(lojaInfo?.funcionamento, cfg.horarios);
+        const grade = gradeDoCanal(func, "externo");
+        const aval = avaliarFuncionamentoLoja(func, "externo", new Date());
         return (
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5 space-y-3">
-          <h3 className="text-base font-black text-white">Horários de funcionamento</h3>
-          <p className="text-xs text-slate-500">Marque <span className="font-bold text-emerald-300">Aberto</span> e escolha os horários, ou deixe <span className="font-bold text-slate-300">Fechado</span> no dia em que não abre.</p>
-          <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-black text-white">Horário de pedidos externos</h3>
+              <p className="text-xs text-slate-500">Somente leitura. Configurado no Cadastro da Empresa → Operação.</p>
+            </div>
+            <button type="button" onClick={() => setEditarEmpresa(true)} className="shrink-0 rounded-xl bg-[#012E46] px-4 py-2.5 text-xs font-black text-white transition hover:bg-[#013a58]">✏️ Alterar horários</button>
+          </div>
+          <p className={`rounded-2xl border px-3 py-2 text-xs font-bold ${aval.aberto ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200" : "border-amber-400/20 bg-amber-500/10 text-amber-200"}`}>
+            {aval.aberto
+              ? `✓ Aberto agora${aval.intervaloAtual ? ` — fecha às ${aval.intervaloAtual.fecha}` : ""}`
+              : aval.proximaAbertura
+                ? `Fechado para novos pedidos. Próxima abertura: ${aval.proximaAbertura.emDias === 0 ? "hoje" : aval.proximaAbertura.diaRotulo} às ${aval.proximaAbertura.hora}`
+                : "Sem horário configurado."}
+          </p>
+          <div className="space-y-1.5">
             {DIAS.map(([k, label]) => {
-              const { abre, fecha } = horarioParts(cfg.horarios[k]);
-              const aberto = diaAberto(cfg.horarios[k]);
+              const ivs = grade[k] || [];
               return (
-                <div key={k} className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                  <span className="w-24 shrink-0 text-sm font-bold text-slate-200">{label}</span>
-                  <button type="button" onClick={() => toggleDia(k)}
-                    className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-black transition ${aberto ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300" : "border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/10"}`}>
-                    {aberto ? "● Aberto" : "Fechado"}
-                  </button>
-                  {aberto ? (
-                    <div className="flex flex-1 flex-wrap items-center gap-1.5">
-                      <input type="time" value={abre} onChange={(e) => setDia(k, e.target.value, fecha)} className={inpHora} />
-                      <span className="text-xs text-slate-500">às</span>
-                      <input type="time" value={fecha} onChange={(e) => setDia(k, abre, e.target.value)} className={inpHora} />
-                      <button type="button" onClick={() => copiarParaTodos(k)} title="Aplicar este horário a todos os dias"
-                        className="ml-auto rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-bold text-slate-300 transition hover:bg-white/10">⧉ Copiar p/ todos</button>
-                    </div>
-                  ) : <span className="text-xs text-slate-500">Não abre neste dia</span>}
+                <div key={k} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+                  <span className="w-24 shrink-0 font-bold text-slate-200">{label}</span>
+                  {ivs.length ? <span className="text-slate-300">{ivs.map((iv) => `${iv.abre}–${iv.fecha}`).join("  ·  ")}</span> : <span className="text-slate-500">Fechado</span>}
                 </div>
               );
             })}
           </div>
-          <Toggle on={cfg.bloquearForaHorario} onClick={() => setC("bloquearForaHorario", !cfg.bloquearForaHorario)} label="Bloquear pedidos fora do horário" hint="Impede o envio quando o estabelecimento está fechado" />
-          <BotaoSalvarCfg />
+          <p className="text-[11px] text-slate-500">Bloqueio de novos pedidos fora do horário: <b className="text-slate-300">{func.bloquearForaHorario ? "ligado" : "desligado"}</b> · Fuso: {func.timezone}</p>
         </div>
         );
       })()}
