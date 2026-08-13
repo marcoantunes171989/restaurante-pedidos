@@ -617,7 +617,7 @@ export default function RestaurantePedidoApp() {
   const [fiscalRegras, setFiscalRegras] = useState([]);        // regras fiscais (migration 086)
   const [fiscalRegraVersoes, setFiscalRegraVersoes] = useState([]); // versões das regras
   const [lojaFiscalRegras, setLojaFiscalRegras] = useState([]); // config fiscal importada por loja (migration 087)
-  const [fiscalTemplates, setFiscalTemplates] = useState([]);   // templates por segmento (migration 088)
+  const [fiscalTemplates, setFiscalTemplates] = useState([]);   // templates por segmento (migration 104)
   const [fiscalTemplateRegras, setFiscalTemplateRegras] = useState([]); // vínculos template×regra
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
@@ -696,8 +696,8 @@ export default function RestaurantePedidoApp() {
         try { setFiscalRegras(await fetchFiscalRegras()); } catch { /* migration 086 pendente */ }
         try { setFiscalRegraVersoes(await fetchFiscalRegraVersoes()); } catch { /* migration 086 pendente */ }
         try { setLojaFiscalRegras(await fetchLojaFiscalRegras()); } catch { /* migration 087 pendente */ }
-        try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 088 pendente */ }
-        try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 088 pendente */ }
+        try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 104 pendente */ }
+        try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 104 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
@@ -747,8 +747,8 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarFiscalRegras(setFiscalRegras)); } catch { /* migration 086 pendente */ }
         try { unsubs.push(escutarFiscalRegraVersoes(setFiscalRegraVersoes)); } catch { /* migration 086 pendente */ }
         try { unsubs.push(escutarLojaFiscalRegras(setLojaFiscalRegras)); } catch { /* migration 087 pendente */ }
-        try { unsubs.push(escutarFiscalTemplates(setFiscalTemplates)); } catch { /* migration 088 pendente */ }
-        try { unsubs.push(escutarFiscalTemplateRegras(setFiscalTemplateRegras)); } catch { /* migration 088 pendente */ }
+        try { unsubs.push(escutarFiscalTemplates(setFiscalTemplates)); } catch { /* migration 104 pendente */ }
+        try { unsubs.push(escutarFiscalTemplateRegras(setFiscalTemplateRegras)); } catch { /* migration 104 pendente */ }
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarImpressoras(setImpressoras, lojaAtual)); } catch {}
         try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
@@ -2838,15 +2838,15 @@ export default function RestaurantePedidoApp() {
   }
   const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra };
 
-  // ── Templates fiscais por segmento (migration 088, super admin) ──
+  // ── Templates fiscais por segmento (migration 104, super admin) ──
   const recarregarTemplates = async () => {
-    try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 088 pendente */ }
-    try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 088 pendente */ }
+    try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 104 pendente */ }
+    try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 104 pendente */ }
   };
   async function addTemplateFiscal(dados) {
     if (!isSuperAdmin) return notify("error", "Apenas o super administrador gerencia templates.");
     if (!String(dados?.nome || "").trim()) return notify("error", "Informe o nome do template.");
-    if (!dbReady) return notify("error", "Banco indisponível. Aplique a migration 088.");
+    if (!dbReady) return notify("error", "Banco indisponível. Aplique a migration 104.");
     try { await inserirFiscalTemplate({ ...dados, criadoPor: currentUser?.id ?? null }); }
     catch (e) { return notify("error", "Erro ao criar template: " + (e.message || e)); }
     await recarregarTemplates(); auditar("criar", "fiscal_template", null, { nome: dados.nome });
@@ -20446,7 +20446,7 @@ function FiscalRegraVersoes({ regras = [], versoes = [] }) {
   );
 }
 
-// ── Templates fiscais por segmento (migration 088, Central) ──────────
+// ── Templates fiscais por segmento (migration 104, Central) ──────────
 function FiscalTemplateLista({ templates = [], templateRegras = [], regras = [], api = null, ehSuper = false }) {
   const [criando, setCriando] = useState(false);
   const [editando, setEditando] = useState(null);
@@ -20469,7 +20469,7 @@ function FiscalTemplateLista({ templates = [], templateRegras = [], regras = [],
 
       {f.filtrados.length === 0 ? (
         <EmptyState titulo={templates.length === 0 ? "Nenhum template" : "Nenhum template encontrado"}
-          dica={templates.length === 0 ? "Crie um template por segmento e anexe regras publicadas. Requer a migration 088." : "Ajuste a busca."}
+          dica={templates.length === 0 ? "Crie um template por segmento e anexe regras publicadas. Requer a migration 104." : "Ajuste a busca."}
           acao={templates.length === 0 && ehSuper ? <PrimeButton onClick={() => setCriando(true)}>+ Novo template</PrimeButton> : null} />
       ) : (
         <div className="space-y-2">
@@ -20534,7 +20534,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
   async function salvar() {
     if (!d.nome.trim()) { setErro("Informe o nome do template."); return; }
     setErro(""); setSalvando(true);
-    try { const ok = ehEdicao ? await api.editar(template.id, d) : await api.add(d); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique a migration 088."); }
+    try { const ok = ehEdicao ? await api.editar(template.id, d) : await api.add(d); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique a migration 104."); }
     finally { setSalvando(false); }
   }
   return (

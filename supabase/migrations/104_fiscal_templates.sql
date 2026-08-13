@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
---  088 — CENTRAL FISCAL PRIME (Fase 4: Templates por segmento)
+--  104 — CENTRAL FISCAL PRIME (Fase 4: Templates por segmento)
 --
 --  Templates agrupam regras fiscais da Central por SEGMENTO (Restaurante,
 --  Pizzaria, Bar…), opcionalmente por UF e regime tributário. A loja

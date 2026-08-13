@@ -1063,7 +1063,7 @@ export function escutarLojaFiscalRegras(onMudanca, lojaId = null) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CENTRAL FISCAL PRIME — TEMPLATES POR SEGMENTO (migration 088)
+//  CENTRAL FISCAL PRIME — TEMPLATES POR SEGMENTO (migration 104)
 //  Agrupam regras da Central por segmento/UF/regime. A loja recebe
 //  sugestões compatíveis (referência, não enquadramento automático).
 //  Globais, escrita só super admin.
@@ -1111,14 +1111,14 @@ export async function removerRegraTemplate(vinculoId) {
   if (error) throw error
 }
 export function escutarFiscalTemplates(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchFiscalTemplates()) } catch { /* migration 088 pendente */ } }
+  const reload = async () => { try { onMudanca(await fetchFiscalTemplates()) } catch { /* migration 104 pendente */ } }
   const canal = supabase.channel('ch_fiscal_template_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
 export function escutarFiscalTemplateRegras(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchFiscalTemplateRegras()) } catch { /* migration 088 pendente */ } }
+  const reload = async () => { try { onMudanca(await fetchFiscalTemplateRegras()) } catch { /* migration 104 pendente */ } }
   const canal = supabase.channel('ch_fiscal_template_regra_' + Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template_regra' }, reload)
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
