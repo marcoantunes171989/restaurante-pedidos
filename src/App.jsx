@@ -40,6 +40,7 @@ import {
   fetchFiscalRegras, fetchFiscalRegraVersoes, inserirFiscalRegra, atualizarFiscalRegra, atualizarFiscalRegraVersao,
   publicarFiscalRegraVersao, novaVersaoFiscalRegra, inativarFiscalRegra, excluirFiscalRegra, escutarFiscalRegras, escutarFiscalRegraVersoes,
   fetchLojaFiscalRegras, importarLojaFiscalRegra, atualizarLojaFiscalRegra, aplicarVersaoLojaFiscalRegra, marcarChecadaLojaFiscalRegra, excluirLojaFiscalRegra, escutarLojaFiscalRegras,
+  fetchFiscalTemplates, fetchFiscalTemplateRegras, inserirFiscalTemplate, atualizarFiscalTemplate, excluirFiscalTemplate, adicionarRegraTemplate, removerRegraTemplate, escutarFiscalTemplates, escutarFiscalTemplateRegras,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
@@ -616,6 +617,8 @@ export default function RestaurantePedidoApp() {
   const [fiscalRegras, setFiscalRegras] = useState([]);        // regras fiscais (migration 086)
   const [fiscalRegraVersoes, setFiscalRegraVersoes] = useState([]); // versões das regras
   const [lojaFiscalRegras, setLojaFiscalRegras] = useState([]); // config fiscal importada por loja (migration 087)
+  const [fiscalTemplates, setFiscalTemplates] = useState([]);   // templates por segmento (migration 088)
+  const [fiscalTemplateRegras, setFiscalTemplateRegras] = useState([]); // vínculos template×regra
   const [setoresCozinha, setSetoresCozinha] = useState([]); // setores de cozinha (migration 041)
   const [impressoesCozinha, setImpressoesCozinha] = useState([]); // fila impressão por setor (077)
   const [impressoras, setImpressoras] = useState([]); // cadastro Setor Impressoras (078)
@@ -693,6 +696,8 @@ export default function RestaurantePedidoApp() {
         try { setFiscalRegras(await fetchFiscalRegras()); } catch { /* migration 086 pendente */ }
         try { setFiscalRegraVersoes(await fetchFiscalRegraVersoes()); } catch { /* migration 086 pendente */ }
         try { setLojaFiscalRegras(await fetchLojaFiscalRegras()); } catch { /* migration 087 pendente */ }
+        try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 088 pendente */ }
+        try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 088 pendente */ }
         try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
         try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
         try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
@@ -742,6 +747,8 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarFiscalRegras(setFiscalRegras)); } catch { /* migration 086 pendente */ }
         try { unsubs.push(escutarFiscalRegraVersoes(setFiscalRegraVersoes)); } catch { /* migration 086 pendente */ }
         try { unsubs.push(escutarLojaFiscalRegras(setLojaFiscalRegras)); } catch { /* migration 087 pendente */ }
+        try { unsubs.push(escutarFiscalTemplates(setFiscalTemplates)); } catch { /* migration 088 pendente */ }
+        try { unsubs.push(escutarFiscalTemplateRegras(setFiscalTemplateRegras)); } catch { /* migration 088 pendente */ }
         try { unsubs.push(escutarSetoresCozinha(setSetoresCozinha)); } catch {}
         try { unsubs.push(escutarImpressoras(setImpressoras, lojaAtual)); } catch {}
         try { unsubs.push(escutarImpressoesCozinha(setImpressoesCozinha, lojaAtual)); } catch {}
@@ -2831,6 +2838,42 @@ export default function RestaurantePedidoApp() {
   }
   const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra };
 
+  // ── Templates fiscais por segmento (migration 088, super admin) ──
+  const recarregarTemplates = async () => {
+    try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 088 pendente */ }
+    try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 088 pendente */ }
+  };
+  async function addTemplateFiscal(dados) {
+    if (!isSuperAdmin) return notify("error", "Apenas o super administrador gerencia templates.");
+    if (!String(dados?.nome || "").trim()) return notify("error", "Informe o nome do template.");
+    if (!dbReady) return notify("error", "Banco indisponível. Aplique a migration 088.");
+    try { await inserirFiscalTemplate({ ...dados, criadoPor: currentUser?.id ?? null }); }
+    catch (e) { return notify("error", "Erro ao criar template: " + (e.message || e)); }
+    await recarregarTemplates(); auditar("criar", "fiscal_template", null, { nome: dados.nome });
+    notify("success", "Template criado."); return true;
+  }
+  async function editarTemplateFiscal(id, dados) {
+    if (!isSuperAdmin) return notify("error", "Sem permissão.");
+    if (dbReady) try { await atualizarFiscalTemplate(id, { ...dados, atualizadoPor: currentUser?.id ?? null }); } catch (e) { return notify("error", "Erro ao salvar: " + (e.message || e)); }
+    await recarregarTemplates(); auditar("editar", "fiscal_template", id); return true;
+  }
+  async function removerTemplateFiscal(id) {
+    if (!isSuperAdmin) return notify("error", "Sem permissão.");
+    if (dbReady) try { await excluirFiscalTemplate(id); } catch (e) { return notify("error", "Erro ao excluir: " + (e.message || e)); }
+    await recarregarTemplates(); auditar("excluir", "fiscal_template", id); return true;
+  }
+  async function anexarRegraTemplate(templateId, regraId) {
+    if (!isSuperAdmin) return notify("error", "Sem permissão.");
+    if (dbReady) try { await adicionarRegraTemplate(templateId, regraId); } catch (e) { return notify("error", "Erro ao vincular: " + (e.message || e)); }
+    await recarregarTemplates(); return true;
+  }
+  async function desanexarRegraTemplate(vinculoId) {
+    if (!isSuperAdmin) return notify("error", "Sem permissão.");
+    if (dbReady) try { await removerRegraTemplate(vinculoId); } catch (e) { return notify("error", "Erro ao remover: " + (e.message || e)); }
+    await recarregarTemplates(); return true;
+  }
+  const templatesFiscalApi = { add: addTemplateFiscal, editar: editarTemplateFiscal, remover: removerTemplateFiscal, anexarRegra: anexarRegraTemplate, desanexarRegra: desanexarRegraTemplate };
+
   // ── Licença de uso por empresa (somente administrador geral) ──
   // Define/remove a validade da licença (migration 031) e registra no histórico
   async function setValidadeLicenca(id, dataISO) {
@@ -3652,7 +3695,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} setModoUsoEmpresa={setModoUsoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -6671,7 +6714,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, setModoUsoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -6850,7 +6893,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} lojaInfo={lojaInfo} />)}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} lojaInfo={lojaInfo} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -6905,7 +6948,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
           {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
-          {ativo === "central-fiscal" && <CentralFiscalAdmin dados={centralFiscal} api={centralFiscalApi} regras={fiscalRegras} versoes={fiscalRegraVersoes} regrasApi={regrasFiscalApi} ehSuper={isSuperAdmin} />}
+          {ativo === "central-fiscal" && <CentralFiscalAdmin dados={centralFiscal} api={centralFiscalApi} regras={fiscalRegras} versoes={fiscalRegraVersoes} regrasApi={regrasFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} templatesApi={templatesFiscalApi} ehSuper={isSuperAdmin} />}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
@@ -19899,7 +19942,7 @@ const CATALOGOS_FISCAIS = {
 };
 
 // Tela principal da Central Fiscal Prime (super admin). Visão geral + catálogos + regras.
-function CentralFiscalAdmin({ dados = null, api = null, regras = [], versoes = [], regrasApi = null, ehSuper = false }) {
+function CentralFiscalAdmin({ dados = null, api = null, regras = [], versoes = [], regrasApi = null, templates = [], templateRegras = [], templatesApi = null, ehSuper = false }) {
   const [aba, setAba] = useState("geral");
   const d = dados || {};
   const contagem = {
@@ -19914,6 +19957,7 @@ function CentralFiscalAdmin({ dados = null, api = null, regras = [], versoes = [
   const abas = [
     { id: "geral", label: "🧭 Visão geral" },
     { id: "regras", label: "⚖️ Regras fiscais", badge: contagem.regras || null },
+    { id: "templates", label: "📋 Templates", badge: templates.length || null },
     { id: "versoes", label: "🕘 Versões" },
     { id: "ncm", label: "NCM", badge: contagem.ncm },
     { id: "cest", label: "CEST", badge: contagem.cest },
@@ -19958,6 +20002,7 @@ function CentralFiscalAdmin({ dados = null, api = null, regras = [], versoes = [
 
       {aba === "geral" && <CentralFiscalVisaoGeral contagem={contagem} totalCst={totalCst} onIr={setAba} />}
       {aba === "regras" && <FiscalRegraLista regras={regras} versoes={versoes} api={regrasApi} catalogos={CATALOGOS} ehSuper={ehSuper} />}
+      {aba === "templates" && <FiscalTemplateLista templates={templates} templateRegras={templateRegras} regras={regras} api={templatesApi} ehSuper={ehSuper} />}
       {aba === "versoes" && <FiscalRegraVersoes regras={regras} versoes={versoes} />}
       {CATALOGOS[aba] && api && (
         <CatalogoFiscalLista tipo={aba} itens={CATALOGOS[aba]} api={api[aba]} ehSuper={ehSuper} />
@@ -20401,11 +20446,119 @@ function FiscalRegraVersoes({ regras = [], versoes = [] }) {
   );
 }
 
+// ── Templates fiscais por segmento (migration 088, Central) ──────────
+function FiscalTemplateLista({ templates = [], templateRegras = [], regras = [], api = null, ehSuper = false }) {
+  const [criando, setCriando] = useState(false);
+  const [editando, setEditando] = useState(null);
+  const [excluir, setExcluir] = useState(null);
+  const [aberto, setAberto] = useState(() => new Set());
+  const f = useFiltroLista(templates, (t) => `${t.nome} ${t.segmento || ""} ${t.regime || ""} ${t.uf || ""}`);
+  const publicadas = regras.filter((r) => r.status === "publicada");
+  const vinculosDe = (tplId) => templateRegras.filter((tr) => tr.templateId === tplId);
+  const vinculoDe = (tplId, regraId) => templateRegras.find((tr) => tr.templateId === tplId && tr.regraId === regraId) || null;
+  const toggle = (id) => setAberto((s) => { const x = new Set(s); x.has(id) ? x.delete(id) : x.add(id); return x; });
+
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div><h3 className="page-title text-lg font-bold text-white">Templates por segmento</h3>
+          <p className="text-xs text-slate-400">Agrupe regras publicadas por segmento (Restaurante, Pizzaria, Bar…), UF e regime. A loja recebe estas sugestões — como referência, nunca enquadramento automático.</p></div>
+        {ehSuper && <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Novo template</PrimeButton>}
+      </div>
+      <FiltroSituacaoBusca f={f} placeholder="Buscar template por nome, segmento ou UF..." />
+
+      {f.filtrados.length === 0 ? (
+        <EmptyState titulo={templates.length === 0 ? "Nenhum template" : "Nenhum template encontrado"}
+          dica={templates.length === 0 ? "Crie um template por segmento e anexe regras publicadas. Requer a migration 088." : "Ajuste a busca."}
+          acao={templates.length === 0 && ehSuper ? <PrimeButton onClick={() => setCriando(true)}>+ Novo template</PrimeButton> : null} />
+      ) : (
+        <div className="space-y-2">
+          {f.visiveis.map((t) => {
+            const vins = vinculosDe(t.id); const exp = aberto.has(t.id);
+            return (
+              <div key={t.id} className={`rounded-3xl border border-white/10 bg-slate-950/40 p-4 ${t.ativo === false ? "opacity-60" : ""}`}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">📋</span>
+                  <div className="min-w-[180px] flex-1">
+                    <p className="text-base font-semibold text-white">{t.nome}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                      {t.segmento && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{t.segmento}</span>}
+                      {t.regime && <span>{t.regime}</span>}
+                      {t.uf && <span className="rounded-full bg-[rgba(15,76,92,0.12)] px-2 py-0.5 font-semibold text-[#0F4C5C]">{t.uf}</span>}
+                      <span className="text-emerald-300">{vins.length} regra(s)</span>
+                    </div>
+                  </div>
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <button onClick={() => toggle(t.id)} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-black text-[var(--pp-text-body)] transition hover:bg-[rgba(15,76,92,0.04)]">{exp ? "▾ Regras" : "▸ Regras"}</button>
+                    {ehSuper && <button onClick={() => setEditando(t)} className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>}
+                    {ehSuper && <button onClick={() => setExcluir(t)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>}
+                  </div>
+                </div>
+                {exp && (
+                  <div className="mt-3 space-y-1.5">
+                    {publicadas.length === 0 && <p className="text-xs text-slate-500">Publique regras fiscais para poder anexá-las a este template.</p>}
+                    {publicadas.map((r) => {
+                      const v = vinculoDe(t.id, r.id);
+                      return (
+                        <label key={r.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-[13px] text-slate-300">
+                          <input type="checkbox" disabled={!ehSuper} checked={!!v} onChange={() => v ? api.desanexarRegra(v.id) : api.anexarRegra(t.id, r.id)} className="h-4 w-4 accent-[#0F4C5C]" />
+                          <span className="flex-1 font-semibold text-white">{r.nome}</span>
+                          {r.segmento && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px]">{r.segmento}</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="template(s)" />
+        </div>
+      )}
+
+      {criando && <FiscalTemplateModal template={null} api={api} onFechar={() => setCriando(false)} />}
+      {editando && <FiscalTemplateModal template={editando} api={api} onFechar={() => setEditando(null)} />}
+      {excluir && (
+        <ConfirmModal titulo="Excluir template?" mensagem={`Excluir "${excluir.nome}"? Os vínculos com regras são removidos; as regras em si permanecem.`}
+          confirmar="Sim, excluir" onConfirmar={() => { api.remover(excluir.id); setExcluir(null); }} onCancelar={() => setExcluir(null)} />
+      )}
+    </div>
+  );
+}
+
+function FiscalTemplateModal({ template = null, api, onFechar }) {
+  const ehEdicao = !!template;
+  const [d, setD] = useState(() => ({ nome: template?.nome || "", segmento: template?.segmento || "", regime: template?.regime || "", uf: template?.uf || "", descricao: template?.descricao || "", fonte: template?.fonte || "", ativo: template?.ativo !== false }));
+  const set = (k, v) => setD((c) => ({ ...c, [k]: v }));
+  const [erro, setErro] = useState(""); const [salvando, setSalvando] = useState(false);
+  async function salvar() {
+    if (!d.nome.trim()) { setErro("Informe o nome do template."); return; }
+    setErro(""); setSalvando(true);
+    try { const ok = ehEdicao ? await api.editar(template.id, d) : await api.add(d); if (ok) onFechar(); else setErro("Não foi possível salvar. Verifique a migration 088."); }
+    finally { setSalvando(false); }
+  }
+  return (
+    <FiscalModalShell titulo={ehEdicao ? "Editar template" : "Novo template"} sub="Agrupa regras por segmento/UF/regime para sugerir às lojas." icone="📋"
+      erro={erro} salvando={salvando} onFechar={onFechar} onSalvar={salvar} podeSalvar={!!d.nome.trim()} rotulo={ehEdicao ? "Salvar alterações" : "Criar template"}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2"><label className={PP_LBL}>Nome do template *</label><input autoFocus value={d.nome} onChange={(e) => set("nome", e.target.value)} placeholder="Ex.: Hamburgueria — Simples Nacional — SP" className={PP_INP} /></div>
+        <div><label className={PP_LBL}>Segmento</label><select value={d.segmento} onChange={(e) => set("segmento", e.target.value)} className={PP_INP}><option value="">Selecione...</option>{SEGMENTOS_FISCAIS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className={PP_LBL}>Regime</label><select value={d.regime} onChange={(e) => set("regime", e.target.value)} className={PP_INP}><option value="">Qualquer</option>{REGIMES_FISCAIS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className={PP_LBL}>UF</label><select value={d.uf} onChange={(e) => set("uf", e.target.value)} className={PP_INP}><option value="">Qualquer</option>{UFS_BR.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className={PP_LBL}>Fonte</label><select value={d.fonte} onChange={(e) => set("fonte", e.target.value)} className={PP_INP}><option value="">Selecione...</option>{FONTES_FISCAIS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div className="sm:col-span-2"><label className={PP_LBL}>Descrição</label><input value={d.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Para que serve este template" className={PP_INP} /></div>
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]"><input type="checkbox" checked={d.ativo} onChange={(e) => set("ativo", e.target.checked)} className="h-4 w-4 accent-[#0F4C5C]" /> Template ativo</label>
+      {!ehEdicao && <p className="mt-3 rounded-xl border border-[rgba(15,76,92,0.15)] bg-[rgba(15,76,92,0.04)] px-3 py-2 text-[12px] font-semibold text-[#0F4C5C]">Depois de criar, use “▸ Regras” na lista para anexar as regras publicadas a este template.</p>}
+    </FiscalModalShell>
+  );
+}
+
 // ════════════════════════════════════════════════════════════
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, lojaInfo = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], lojaInfo = null }) {
   const [aba, setAba] = useState("minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
@@ -20421,6 +20574,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
 
   const abas = [
     { id: "minha", label: "🏪 Minha loja", badge: importadas.length || null },
+    { id: "sugestoes", label: "📋 Sugestões por segmento", badge: templates.filter((t) => t.ativo !== false).length || null },
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
   ];
 
@@ -20454,6 +20608,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       </div>
 
       {aba === "minha" && <LojaFiscalMinhaLoja importadas={importadas} atualizacaoDe={atualizacaoDe} api={api} />}
+      {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
     </main>
   );
@@ -20696,6 +20851,97 @@ function EditarLojaRegraModal({ imp, api, onFechar }) {
       </div>
       <div className="mt-3"><label className={PP_LBL}>Observação</label><input value={v.observacao} onChange={(e) => set("observacao", e.target.value)} className={PP_INP} /></div>
     </FiscalModalShell>
+  );
+}
+
+// Sugestões por segmento (Fase 4): a loja informa segmento/UF/regime e vê
+// templates compatíveis da Central para importar de uma vez. Referência.
+function LojaFiscalSugestoes({ templates = [], templateRegras = [], regras = [], publicadaDe, importadaDe, api, lojaId = null }) {
+  const chave = `pp_perfil_fiscal_${lojaId || "x"}`;
+  const [perfil, setPerfil] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(chave)) || { segmento: "", uf: "", regime: "" }; }
+    catch { return { segmento: "", uf: "", regime: "" }; } // localStorage indisponível
+  });
+  const setP = (k, v) => {
+    const n = { ...perfil, [k]: v };
+    try { localStorage.setItem(chave, JSON.stringify(n)); } catch { /* localStorage indisponível */ }
+    setPerfil(n);
+  };
+  // Um template é compatível quando cada campo informado do perfil casa (ou o
+  // template não restringe aquele campo).
+  const combina = (t) => t.ativo !== false
+    && (!perfil.segmento || !t.segmento || t.segmento === perfil.segmento)
+    && (!perfil.uf || !t.uf || t.uf === perfil.uf)
+    && (!perfil.regime || !t.regime || t.regime === perfil.regime);
+  const compativeis = templates.filter(combina);
+  const regrasDoTemplate = (tplId) => templateRegras.filter((tr) => tr.templateId === tplId)
+    .map((tr) => regras.find((r) => r.id === tr.regraId)).filter((r) => r && r.status === "publicada");
+
+  async function importarTemplate(tpl) {
+    for (const r of regrasDoTemplate(tpl.id)) {
+      const pub = publicadaDe(r.id); if (!pub) continue;
+      await api.importar({ regraGlobalId: r.id, regraNome: r.nome, versao: pub.versao, snapshot: pub });
+    }
+  }
+  const selCls = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-white outline-none focus:border-gold-400/60";
+
+  return (
+    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="mb-3"><h3 className="page-title text-lg font-bold text-white">Sugestões por segmento</h3>
+        <p className="text-xs text-slate-400">Informe o perfil da sua loja e veja templates fiscais compatíveis para importar de uma vez.</p></div>
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <div><label className="mb-1 block text-xs font-semibold text-slate-400">Segmento</label>
+          <select value={perfil.segmento} onChange={(e) => setP("segmento", e.target.value)} className={selCls}><option value="">Todos</option>{SEGMENTOS_FISCAIS.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className="mb-1 block text-xs font-semibold text-slate-400">UF</label>
+          <select value={perfil.uf} onChange={(e) => setP("uf", e.target.value)} className={selCls}><option value="">Todas</option>{UFS_BR.map((s) => <option key={s}>{s}</option>)}</select></div>
+        <div><label className="mb-1 block text-xs font-semibold text-slate-400">Regime tributário</label>
+          <select value={perfil.regime} onChange={(e) => setP("regime", e.target.value)} className={selCls}><option value="">Todos</option>{REGIMES_FISCAIS.map((s) => <option key={s}>{s}</option>)}</select></div>
+      </div>
+
+      <p className="mb-3 rounded-xl border border-[rgba(230,126,34,0.3)] bg-[rgba(230,126,34,0.06)] px-3 py-2 text-[12px] font-semibold text-[#B4611A]">As sugestões são referência e não garantem o enquadramento tributário — confirme com o seu contador antes de emitir.</p>
+
+      {compativeis.length === 0 ? (
+        <EmptyState titulo="Nenhum template compatível" dica="Ajuste o perfil acima ou aguarde a Central publicar templates para o seu segmento." />
+      ) : (
+        <div className="space-y-2">
+          {compativeis.map((t) => {
+            const rs = regrasDoTemplate(t.id);
+            return (
+              <div key={t.id} className="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(15,76,92,0.12)] text-lg text-[#0F4C5C]">📋</span>
+                  <div className="min-w-[180px] flex-1">
+                    <p className="text-base font-semibold text-white">{t.nome}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                      {t.segmento && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{t.segmento}</span>}
+                      {t.regime && <span>{t.regime}</span>}{t.uf && <span>{t.uf}</span>}
+                      <span className="text-emerald-300">{rs.length} regra(s)</span>
+                    </div>
+                  </div>
+                  {rs.length > 0 && <button onClick={() => importarTemplate(t)} className="ml-auto rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A]">＋ Importar template</button>}
+                </div>
+                {rs.length > 0 && (
+                  <div className="mt-3 space-y-1.5">
+                    {rs.map((r) => {
+                      const imp = importadaDe(r.id); const pub = publicadaDe(r.id);
+                      return (
+                        <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 text-[13px] text-slate-300">
+                          <span className="flex-1 font-semibold text-white">{r.nome}</span>
+                          {imp
+                            ? <span className="rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-black text-emerald-600">Importada</span>
+                            : <button onClick={() => pub && api.importar({ regraGlobalId: r.id, regraNome: r.nome, versao: pub.versao, snapshot: pub })} className="rounded-lg border border-[#E67E22]/40 bg-[rgba(230,126,34,0.1)] px-2 py-0.5 text-[11px] font-black text-[#E67E22]">Importar</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

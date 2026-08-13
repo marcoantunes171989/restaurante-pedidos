@@ -1063,6 +1063,69 @@ export function escutarLojaFiscalRegras(onMudanca, lojaId = null) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  CENTRAL FISCAL PRIME — TEMPLATES POR SEGMENTO (migration 088)
+//  Agrupam regras da Central por segmento/UF/regime. A loja recebe
+//  sugestões compatíveis (referência, não enquadramento automático).
+//  Globais, escrita só super admin.
+// ════════════════════════════════════════════════════════════
+const dbParaTemplate = (r) => ({
+  id: r.id, nome: r.nome, segmento: r.segmento ?? '', regime: r.regime ?? '', uf: r.uf ?? '',
+  descricao: r.descricao ?? '', fonte: r.fonte ?? '', ativo: r.ativo !== false, criadoEmISO: r.criado_em ?? null,
+})
+const templateParaDb = (p) => ({
+  nome: p.nome, segmento: p.segmento || null, regime: p.regime || null, uf: p.uf || null,
+  descricao: p.descricao || null, fonte: p.fonte || null, ativo: p.ativo !== false,
+})
+export async function fetchFiscalTemplates() {
+  const { data, error } = await supabase.from('fiscal_template').select('*').order('nome', { ascending: true })
+  if (error) return []
+  return (data || []).map(dbParaTemplate)
+}
+export async function fetchFiscalTemplateRegras() {
+  const { data, error } = await supabase.from('fiscal_template_regra').select('*').order('ordem', { ascending: true })
+  if (error) return []
+  return (data || []).map((r) => ({ id: r.id, templateId: r.template_id, regraId: r.regra_id, ordem: r.ordem ?? 0 }))
+}
+export async function inserirFiscalTemplate(p) {
+  const linha = templateParaDb(p); if (p.criadoPor != null) linha.criado_por = p.criadoPor
+  const { data, error } = await supabase.from('fiscal_template').insert([linha]).select().single()
+  if (error) throw error
+  return dbParaTemplate(data)
+}
+export async function atualizarFiscalTemplate(id, campos) {
+  const patch = templateParaDb(campos); patch.atualizado_em = new Date().toISOString()
+  if (campos.atualizadoPor != null) patch.atualizado_por = campos.atualizadoPor
+  const { error } = await supabase.from('fiscal_template').update(patch).eq('id', id)
+  if (error) throw error
+}
+export async function excluirFiscalTemplate(id) {
+  const { error } = await supabase.from('fiscal_template').delete().eq('id', id)
+  if (error) throw error
+}
+export async function adicionarRegraTemplate(templateId, regraId, ordem = 0) {
+  const { error } = await supabase.from('fiscal_template_regra').insert([{ template_id: templateId, regra_id: regraId, ordem }])
+  if (error && !/duplicate|unique/i.test(error.message || '')) throw error
+}
+export async function removerRegraTemplate(vinculoId) {
+  const { error } = await supabase.from('fiscal_template_regra').delete().eq('id', vinculoId)
+  if (error) throw error
+}
+export function escutarFiscalTemplates(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalTemplates()) } catch { /* migration 088 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_template_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+export function escutarFiscalTemplateRegras(onMudanca) {
+  const reload = async () => { try { onMudanca(await fetchFiscalTemplateRegras()) } catch { /* migration 088 pendente */ } }
+  const canal = supabase.channel('ch_fiscal_template_regra_' + Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template_regra' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  Setores de cozinha (migration 041) — CRUD + Realtime (tolerante)
 // ════════════════════════════════════════════════════════════
 function dbParaSetor(r) {
