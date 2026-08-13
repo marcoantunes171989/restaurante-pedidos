@@ -9,6 +9,8 @@ import {
   normalizarDocumentoFiscal, documentoFiscalPresente, documentoEhAlfanumerico,
   documentoNumericoValido, documentoSuportadoParaChave,
   cepValido, codigoMunicipioIbgeValido, serieNfceValida, SERIE_NFCE_MAX,
+  validarCpf, validarCnpjNumerico, validarCnpjAlfanumerico, validarDocumentoFiscal,
+  SEGMENTOS_LOJA,
 } from "./emitenteFiscalService";
 
 // Emitente completo (mínimo para NFC-e), sem documento (vem à parte).
@@ -169,6 +171,83 @@ describe("documento fiscal (CNPJ numérico e alfanumérico)", () => {
     expect(pendenciasEmitenteNfce(completo, "AB12CD340001EF")).not.toContain("CNPJ/CPF");
     expect(pendenciasEmitenteNfce(completo, "")).toContain("CNPJ/CPF");
     expect(percentualCadastroFiscal(completo, "12.345.678/0001-99")).toBe(100);
+  });
+});
+
+describe("validação de CPF (dígitos verificadores)", () => {
+  it("aceita CPF válido (formatado ou não)", () => {
+    expect(validarCpf("111.444.777-35")).toBe(true);
+    expect(validarCpf("11144477735")).toBe(true);
+  });
+  it("rejeita DV incorreto", () => {
+    expect(validarCpf("11144477700")).toBe(false);
+  });
+  it("rejeita sequência repetida e tamanho errado", () => {
+    expect(validarCpf("11111111111")).toBe(false);
+    expect(validarCpf("00000000000")).toBe(false);
+    expect(validarCpf("123")).toBe(false);
+  });
+});
+
+describe("validação de CNPJ numérico", () => {
+  it("aceita CNPJ válido (formatado ou não)", () => {
+    expect(validarCnpjNumerico("11.222.333/0001-81")).toBe(true);
+    expect(validarCnpjNumerico("11222333000181")).toBe(true);
+  });
+  it("rejeita DV incorreto, sequência repetida e tamanho errado", () => {
+    expect(validarCnpjNumerico("11222333000100")).toBe(false);
+    expect(validarCnpjNumerico("11111111111111")).toBe(false);
+    expect(validarCnpjNumerico("112223330001")).toBe(false);
+  });
+});
+
+describe("validação de CNPJ alfanumérico (algoritmo oficial RF)", () => {
+  // Fixture oficial: 12ABC34501DE + DV 35 (calculado pelo algoritmo da Receita).
+  it("aceita o CNPJ alfanumérico oficial e preserva as letras", () => {
+    expect(normalizarDocumentoFiscal("12.ABC.345/01DE-35")).toBe("12ABC34501DE35");
+    expect(validarCnpjAlfanumerico("12ABC34501DE35")).toBe(true);
+    expect(validarCnpjAlfanumerico("12.ABC.345/01DE-35")).toBe(true);
+  });
+  it("rejeita DV incorreto", () => {
+    expect(validarCnpjAlfanumerico("12ABC34501DE00")).toBe(false);
+    expect(validarCnpjAlfanumerico("12ABC34501DE34")).toBe(false);
+  });
+  it("um CNPJ numérico válido também passa pelo validador alfanumérico (superset)", () => {
+    expect(validarCnpjAlfanumerico("11222333000181")).toBe(true);
+  });
+});
+
+describe("validarDocumentoFiscal (roteia por tipo)", () => {
+  it("classifica CPF/CNPJ/CNPJ alfanumérico", () => {
+    expect(validarDocumentoFiscal("111.444.777-35")).toMatchObject({ valido: true, tipo: "cpf" });
+    expect(validarDocumentoFiscal("11.222.333/0001-81")).toMatchObject({ valido: true, tipo: "cnpj" });
+    expect(validarDocumentoFiscal("12ABC34501DE35")).toMatchObject({ valido: true, tipo: "cnpj-alfanumerico" });
+  });
+  it("retorna motivo em inválidos e documento vazio", () => {
+    expect(validarDocumentoFiscal("11222333000100").valido).toBe(false);
+    expect(validarDocumentoFiscal("").valido).toBe(false);
+    expect(validarDocumentoFiscal("123").tipo).toBe("desconhecido");
+  });
+  it("não comprova existência (mensagem é 'válido', nunca 'autenticado')", () => {
+    expect(validarDocumentoFiscal("11.222.333/0001-81").motivo).toMatch(/válido/i);
+    expect(validarDocumentoFiscal("11.222.333/0001-81").motivo).not.toMatch(/autenticad|receita|verificad/i);
+  });
+});
+
+describe("segmento + flags de documento (migration 109)", () => {
+  it("SEGMENTOS_LOJA traz os tipos esperados", () => {
+    expect(SEGMENTOS_LOJA).toContain("Restaurante");
+    expect(SEGMENTOS_LOJA).toContain("Pizzaria");
+  });
+  it("normaliza segmento e flags (default seguro desligado)", () => {
+    const p = emitenteParaDb({ segmento: "  Restaurante  ", nfceHabilitada: true });
+    expect(p.segmento).toBe("Restaurante");
+    expect(p.nfce_habilitada).toBe(true);
+    expect(p.nfe_habilitada).toBe(false);
+  });
+  it("dbParaEmitente lê segmento/flags (tolerante se ausentes)", () => {
+    expect(dbParaEmitente({ id: 1, loja_id: 2 })).toMatchObject({ segmento: "", nfceHabilitada: false, nfeHabilitada: false });
+    expect(dbParaEmitente({ id: 1, loja_id: 2, segmento: "Bar", nfce_habilitada: true })).toMatchObject({ segmento: "Bar", nfceHabilitada: true });
   });
 });
 

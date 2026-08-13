@@ -58,7 +58,7 @@ import {
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
-import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA, rotuloAmbienteNfce, normalizarDocumentoFiscal, documentoEhAlfanumerico } from "./lib/emitenteFiscalService";
+import { CRT_OPCOES, rotuloCrt, AMBIENTES_NFCE, UFS as UFS_EMITENTE, codigoUf, pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA, rotuloAmbienteNfce, normalizarDocumentoFiscal, documentoEhAlfanumerico, validarDocumentoFiscal, SEGMENTOS_LOJA } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
@@ -16337,6 +16337,7 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
 
   const docNorm = normalizarDocumentoFiscal(documento);
   const docAlfanumerico = documentoEhAlfanumerico(docNorm);
+  const docValidacao = docNorm ? validarDocumentoFiscal(docNorm) : null; // {valido,tipo,motivo}
   const pendencias = pendenciasEmitenteNfce(e, docNorm);
   const pct = percentualCadastroFiscal(e, docNorm);
   const homologLiberada = podeUsarHomologacao(e, docNorm);
@@ -16395,13 +16396,25 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
             {/* Identificação */}
             <EmiSecao titulo="Identificação da empresa" icone="🏢">
               <div><label className={EMI_LBL}>Nome no Pedido Prime</label><input value={nome} onChange={(ev) => setNome(ev.target.value)} className={EMI_INP} /></div>
-              <div><label className={EMI_LBL} htmlFor="emi-doc">CNPJ / CPF</label><input id="emi-doc" value={mascararDocumentoFiscal(documento)} onChange={(ev) => setDocumento(normalizarDocumentoFiscal(ev.target.value).slice(0, 14))} placeholder="00.000.000/0000-00" className={`${EMI_INP} font-mono`} />
-                {docAlfanumerico && <p className="mt-1 text-[11px] text-[#F38525]">Documento alfanumérico detectado — letras preservadas. A geração de chave (simulação) só é suportada para CNPJ numérico nesta versão.</p>}</div>
+              <div><label className={EMI_LBL} htmlFor="emi-doc">CNPJ / CPF</label><input id="emi-doc" value={mascararDocumentoFiscal(documento)} onChange={(ev) => setDocumento(normalizarDocumentoFiscal(ev.target.value).slice(0, 14))} placeholder="00.000.000/0000-00" aria-invalid={docValidacao ? !docValidacao.valido : undefined} className={`${EMI_INP} font-mono`} />
+                {docValidacao && (
+                  <p className={`mt-1 text-[11px] font-semibold ${docValidacao.valido ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>
+                    {docValidacao.valido ? "✓ " : "✕ "}{docValidacao.motivo}
+                  </p>
+                )}
+                {docAlfanumerico && <p className="mt-1 text-[11px] text-[#6B7280]">Documento alfanumérico — letras preservadas. A geração de chave (simulação) só é suportada para CNPJ numérico nesta versão.</p>}</div>
               <div><label className={EMI_LBL}>Razão Social</label><input value={e.razaoSocial || ""} onChange={(ev) => set("razaoSocial", ev.target.value)} placeholder="Razão social do emitente" className={EMI_INP} /></div>
               <div><label className={EMI_LBL}>Nome Fantasia</label><input value={e.nomeFantasia || ""} onChange={(ev) => set("nomeFantasia", ev.target.value)} placeholder={loja?.nome || ""} className={EMI_INP} /></div>
               <div><label className={EMI_LBL}>Inscrição Estadual</label><input value={e.inscricaoEstadual || ""} onChange={(ev) => set("inscricaoEstadual", ev.target.value)} className={EMI_INP} /></div>
               <div><label className={EMI_LBL}>Inscrição Municipal</label><input value={e.inscricaoMunicipal || ""} onChange={(ev) => set("inscricaoMunicipal", ev.target.value)} className={EMI_INP} /></div>
               <div><label className={EMI_LBL}>CNAE Principal</label><input value={e.cnaePrincipal || ""} onChange={(ev) => set("cnaePrincipal", ev.target.value)} placeholder="Ex.: 5611201" className={EMI_INP} /></div>
+              <div><label className={EMI_LBL} htmlFor="emi-segmento">Segmento do estabelecimento</label>
+                <select id="emi-segmento" value={e.segmento || ""} onChange={(ev) => set("segmento", ev.target.value)} className={EMI_INP}>
+                  <option value="">Selecione…</option>
+                  {SEGMENTOS_LOJA.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <p className="mt-1 text-[11px] text-[#6B7280]">Usado para sugerir templates fiscais compatíveis (segmento + CRT + UF).</p>
+              </div>
             </EmiSecao>
 
             {/* Tributação */}
@@ -16438,9 +16451,15 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
               <div><label className={EMI_LBL}>E-mail</label><input type="email" value={e.emailFiscal || ""} onChange={(ev) => set("emailFiscal", ev.target.value)} className={EMI_INP} /></div>
             </EmiSecao>
 
-            {/* NFC-e */}
+            {/* NFC-e (mod. 65) */}
             <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
-              <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>🧾</span>NFC-e</h4>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>🧾</span>NFC-e — Modelo 65</h4>
+                <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-[#111111]">
+                  <input type="checkbox" checked={e.nfceHabilitada === true} onChange={(ev) => set("nfceHabilitada", ev.target.checked)} className="h-4 w-4 accent-[#012E46]" />
+                  Habilitar NFC-e nesta loja
+                </label>
+              </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={EMI_LBL}>Ambiente</label>
@@ -16462,7 +16481,16 @@ function EmitenteFiscalModal({ loja, api, onFechar }) {
               {ambiente === "homologacao" && !homologLiberada && (
                 <p className="mt-2 rounded-xl border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-[12px] font-semibold text-[#C81E4A]">Não é possível ativar homologação — complete os campos pendentes acima.</p>
               )}
-              <p className="mt-2 text-[12px] text-[#6B7280]">Produção disponível após conclusão e validação da homologação fiscal.</p>
+              <p className="mt-2 text-[12px] text-[#6B7280]">Produção disponível após conclusão e validação da homologação fiscal. Certificado e CSC serão necessários antes da transmissão à SEFAZ.</p>
+            </section>
+
+            {/* NF-e (mod. 55) — em preparação */}
+            <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>📄</span>NF-e — Modelo 55</h4>
+                <span className="rounded-full bg-[rgba(243,133,37,0.12)] px-2.5 py-0.5 text-[11px] font-bold text-[#F38525]">Em preparação</span>
+              </div>
+              <p className="mt-2 text-[12px] text-[#6B7280]">Emissão de NF-e (modelo 55) ainda não configurada. A estrutura está preparada para uma fase futura — nenhuma emissão nesta versão.</p>
             </section>
           </div>)}
         </div>
@@ -23289,7 +23317,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 ))}
               </div>
             </>)}
-            {secao("🧾", "Informações fiscais do produto", "Campos complementares para emissão de NF-e/NFC-e (guardados no próprio produto).", <>
+            {secao("🧾", "Dados fiscais do item (inerentes à mercadoria)", "Só o que pertence ao PRODUTO. A tributação (CFOP, CST, alíquotas) vem da Configuração/Regra Fiscal da loja — não se repete por produto.", <>
               <div className="grid gap-3 sm:grid-cols-4">
                 {fIn("sku", "Código interno / SKU", "Ex.: XSALADA")}
                 {fIn("gtin", "GTIN / EAN", "Ex.: 7891234567890")}
@@ -23298,26 +23326,28 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 {fSel("unidadeComercial", "Unidade comercial", ["UN - Unidade", "KG - Quilograma", "L - Litro", "PC - Pacote"])}
                 {fSel("unidadeTributavel", "Unidade tributável", ["UN - Unidade", "KG - Quilograma", "L - Litro", "PC - Pacote"])}
                 {fSel("origem", "Origem da mercadoria", ["0 - Nacional", "1 - Estrangeira (importação direta)", "2 - Estrangeira (mercado interno)"], true)}
-                {fSel("cfopInterno", "CFOP padrão — interno", ["5.102 - Venda de mercadoria", "5.101 - Venda de produção do estabelecimento", "5.405 - Venda ST"])}
-                {fSel("cfopInterestadual", "CFOP padrão — interestadual", ["6.102 - Venda de mercadoria", "6.101 - Venda de produção do estabelecimento", "6.405 - Venda ST"])}
-                {fSel("cstIcms", "CST / CSOSN ICMS", ["102 - Tributada pelo Simples", "101 - Tributada com permissão de crédito", "500 - ICMS cobrado por ST", "00 - Tributada integralmente"])}
-                {fIn("aliquotaIcms", "Alíquota ICMS (%)", "18,00")}
-                {fSel("cstPis", "CST PIS", ["01 - Operação Tributável", "07 - Isenta", "49 - Outras"])}
-                {fIn("aliquotaPis", "Alíquota PIS (%)", "1,65")}
-                {fSel("cstCofins", "CST COFINS", ["01 - Operação Tributável", "07 - Isenta", "49 - Outras"])}
-                {fIn("aliquotaCofins", "Alíquota COFINS (%)", "7,60")}
-                {fSel("cstIpi", "CST IPI", ["53 - Saída não tributada", "50 - Saída tributada", "99 - Outras saídas"])}
-                {fIn("aliquotaIpi", "Alíquota IPI (%)", "0,00")}
-                {fIn("cBenef", "cBenef", "Ex.: 123456")}
-                {fSel("cstIbsCbs", "CST IBS/CBS", ["200 - Tributada pelo regime regular", "400 - Isenta", "000 - Tributada integralmente"])}
-                {fIn("cClassTrib", "cClassTrib", "Ex.: 001")}
-                {fIn("cCredPres", "cCredPres", "Ex.: 001")}
               </div>
               <div className="mt-3"><label className={PP_LBL}>Observações fiscais</label><textarea value={fis.observacoesFiscais || ""} onChange={(e) => setF2("observacoesFiscais", e.target.value.slice(0, 500))} rows={2} placeholder="Informações complementares para fiscais e integração com ERP…" className={`${PP_INP} resize-none`} /></div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#012E46]">ⓘ CRT / regime tributário é definido nas configurações da empresa.</p><p className="mt-0.5">As informações fiscais do produto seguirão o regime da empresa.</p></div>
-                <div className="rounded-xl border border-[rgba(243, 133, 37,0.25)] bg-[rgba(243, 133, 37,0.06)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#F38525]">⚖ Reforma Tributária — IBS / CBS</p><p className="mt-0.5">Os campos CST IBS/CBS, cClassTrib e cCredPres serão utilizados quando a Reforma Tributária estiver em vigor.</p></div>
-              </div>
+              <div className="mt-3 rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#012E46]">ⓘ Tributação centralizada</p><p className="mt-0.5">CRT/regime, CFOP, CST e alíquotas são resolvidos pela <b>Regra Fiscal</b> da loja e pela <b>operação</b> da venda — não pelo produto. Vincule o produto a uma configuração fiscal acima.</p></div>
+              {/* Tributação manual permanece disponível como LEGADO/exceção — dados no JSONB do produto, nunca apagados. Prefira a regra fiscal. */}
+              <details className="mt-3 rounded-xl border border-[var(--pp-border)] bg-white p-3">
+                <summary className="cursor-pointer text-[12px] font-semibold text-[var(--pp-text-body)]">Tributação manual do produto (legado — sobrepõe a regra; use só em exceção)</summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                  {fSel("cstIcms", "CST / CSOSN ICMS", ["102 - Tributada pelo Simples", "101 - Tributada com permissão de crédito", "500 - ICMS cobrado por ST", "00 - Tributada integralmente"])}
+                  {fIn("aliquotaIcms", "Alíquota ICMS (%)", "18,00")}
+                  {fSel("cstPis", "CST PIS", ["01 - Operação Tributável", "07 - Isenta", "49 - Outras"])}
+                  {fIn("aliquotaPis", "Alíquota PIS (%)", "1,65")}
+                  {fSel("cstCofins", "CST COFINS", ["01 - Operação Tributável", "07 - Isenta", "49 - Outras"])}
+                  {fIn("aliquotaCofins", "Alíquota COFINS (%)", "7,60")}
+                  {fSel("cstIpi", "CST IPI", ["53 - Saída não tributada", "50 - Saída tributada", "99 - Outras saídas"])}
+                  {fIn("aliquotaIpi", "Alíquota IPI (%)", "0,00")}
+                  {fIn("cBenef", "cBenef", "Ex.: 123456")}
+                  {fSel("cstIbsCbs", "CST IBS/CBS", ["200 - Tributada pelo regime regular", "400 - Isenta", "000 - Tributada integralmente"])}
+                  {fIn("cClassTrib", "cClassTrib", "Ex.: 001")}
+                  {fIn("cCredPres", "cCredPres", "Ex.: 001")}
+                </div>
+                <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">CFOP não é característica fixa da mercadoria — depende da operação. Deixe estes campos vazios para usar a regra fiscal.</p>
+              </details>
             </>)}
           </>)}
 
@@ -23330,26 +23360,14 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 {fIn("codigoBarrasEan", "Código de barras (EAN)", "7891234567890")}
               </div>
             </>)}
-            {secao("📄", "Configurações para NF-e", "Indicadores usados na emissão da NF-e.",
+            {secao("💬", "Observações do item no documento", "Mensagens e notas do próprio produto.",
               <div className="grid gap-3 sm:grid-cols-2">
-                {fSel("indPres", "Indicador de presença (indPres)", ["1 - Operação presencial", "0 - Não se aplica", "2 - Não presencial (internet)", "9 - Não presencial (outros)"])}
-                {fSel("indIntermed", "Indicador de intermediador (indIntermed)", ["0 - Operação sem intermediador", "1 - Operação com intermediador"])}
-                {fSel("indEntrega", "Indicador de entrega (indEntrega)", ["1 - Entrega por conta do emitente", "0 - Sem entrega", "2 - Entrega por conta do destinatário"])}
-                {fSel("modalidadeFrete", "Modalidade do frete", ["0 - Contratação por conta do Remetente (CIF)", "1 - Por conta do Destinatário (FOB)", "9 - Sem frete"])}
-              </div>)}
-            {secao("🧾", "Configurações para NFC-e", "Indicadores usados na emissão da NFC-e.",
-              <div className="grid gap-3 sm:grid-cols-2">
-                {fSel("crt", "Código do Regime Tributário (CRT)", ["1 - Simples Nacional", "2 - Simples Nacional (excesso)", "3 - Regime Normal"])}
-                {fSel("indFinal", "Indicador de Contribuinte (indFinal)", ["1 - Contribuinte final", "0 - Não contribuinte"])}
-                {fSel("indIEDest", "Consumidor final (indIEDest)", ["1 - Consumidor final", "2 - Contribuinte isento", "9 - Não contribuinte"])}
-                {fSel("destinoOperacao", "Destino da operação", ["1 - Operação interna", "2 - Operação interestadual", "3 - Operação com exterior"])}
-              </div>)}
-            {secao("💬", "Observações e personalizações", "Mensagens do documento e notas internas.",
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div><label className={PP_LBL}>Mensagem no rodapé do DANFE / NFC-e</label><textarea value={fis.mensagemRodapeDanfe || ""} onChange={(e) => setF2("mensagemRodapeDanfe", e.target.value.slice(0, 300))} rows={2} placeholder="Ex.: Obrigado pela preferência! Volte sempre." className={`${PP_INP} resize-none`} /></div>
                 <div><label className={PP_LBL}>Observações internas</label><textarea value={fis.observacoesInternas || ""} onChange={(e) => setF2("observacoesInternas", e.target.value.slice(0, 300))} rows={2} placeholder="Apenas para controle interno" className={`${PP_INP} resize-none`} /></div>
               </div>)}
-            <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#012E46]">ⓘ Sobre NF-e / NFC-e</p><p className="mt-0.5">Estas informações serão utilizadas na emissão dos documentos fiscais eletrônicos. Certifique-se de que os dados fiscais estejam corretos para evitar rejeições.</p></div>
+            <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
+              <p className="font-semibold text-[#012E46]">ⓘ Regime, ambiente e operação são da LOJA</p>
+              <p className="mt-0.5">CRT/regime tributário, ambiente e série NFC-e ficam em <b>Configuração Fiscal → Emitente</b>. Indicadores de presença, consumidor final, destino e frete pertencem à <b>operação da venda</b> — não ao produto. Aqui o produto guarda só o que é inerente à mercadoria.</p>
+            </div>
           </>)}
         </div>
 

@@ -96,6 +96,99 @@ export function documentoSuportadoParaChave(doc) {
   return /^\d{14}$/.test(normalizarDocumentoFiscal(doc));
 }
 
+// ── Validação de dígitos verificadores (CPF / CNPJ num. / CNPJ alfanumérico) ──
+// Separação de responsabilidades: normalização (acima) → validação estrutural →
+// validação dos DV. NUNCA usa \D genérico no CNPJ (preserva letras).
+//
+// CNPJ alfanumérico segue o algoritmo OFICIAL da Receita Federal (vigente a
+// partir de 2026): 12 primeiras posições alfanuméricas + 2 DV numéricos. O
+// valor de cada caractere no cálculo do DV é (código ASCII − 48): '0'..'9'→0..9
+// e 'A'..'Z'→17..42. Pesos idênticos ao CNPJ tradicional (módulo 11). Para CNPJ
+// puramente numérico o algoritmo coincide com o tradicional.
+function valorCaractereCnpj(ch) {
+  return ch.charCodeAt(0) - 48;
+}
+function dvCnpj(base) {
+  // base: 12 (1º DV) ou 13 (2º DV) caracteres. Pesos módulo 11 da direita p/ esquerda.
+  const pesos = base.length === 12
+    ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  let soma = 0;
+  for (let i = 0; i < base.length; i++) soma += valorCaractereCnpj(base[i]) * pesos[i];
+  const resto = soma % 11;
+  return resto < 2 ? 0 : 11 - resto;
+}
+
+export function validarCpf(doc) {
+  const d = String(doc ?? "").replace(/\D/g, ""); // CPF é sempre numérico
+  if (d.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(d)) return false; // sequência repetida (000…, 111…)
+  let soma = 0;
+  for (let i = 0; i < 9; i++) soma += parseInt(d[i], 10) * (10 - i);
+  let dv = (soma * 10) % 11; if (dv === 10) dv = 0;
+  if (dv !== parseInt(d[9], 10)) return false;
+  soma = 0;
+  for (let i = 0; i < 10; i++) soma += parseInt(d[i], 10) * (11 - i);
+  dv = (soma * 10) % 11; if (dv === 10) dv = 0;
+  return dv === parseInt(d[10], 10);
+}
+
+export function validarCnpjNumerico(doc) {
+  const d = normalizarDocumentoFiscal(doc);
+  if (!/^\d{14}$/.test(d)) return false;
+  if (/^(\d)\1{13}$/.test(d)) return false; // sequência repetida
+  const dv1 = dvCnpj(d.slice(0, 12));
+  const dv2 = dvCnpj(d.slice(0, 12) + String(dv1));
+  return d[12] === String(dv1) && d[13] === String(dv2);
+}
+
+export function validarCnpjAlfanumerico(doc) {
+  const d = normalizarDocumentoFiscal(doc);
+  // 12 posições alfanuméricas + 2 DV numéricos (leiaute oficial vigente).
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(d)) return false;
+  const dv1 = dvCnpj(d.slice(0, 12));
+  const dv2 = dvCnpj(d.slice(0, 12) + String(dv1));
+  return d[12] === String(dv1) && d[13] === String(dv2);
+}
+
+/**
+ * Valida um documento fiscal (CPF, CNPJ numérico ou CNPJ alfanumérico).
+ * Retorna { valido, tipo, motivo }. NÃO comprova existência na Receita —
+ * validação apenas matemática/estrutural.
+ */
+export function validarDocumentoFiscal(doc) {
+  const d = normalizarDocumentoFiscal(doc);
+  if (!d) return { valido: false, tipo: "desconhecido", motivo: "Documento não informado." };
+  const alfanumerico = /[A-Z]/.test(d);
+  if (!alfanumerico && d.length === 11) {
+    return validarCpf(d)
+      ? { valido: true, tipo: "cpf", motivo: "CPF válido." }
+      : { valido: false, tipo: "cpf", motivo: "CPF inválido. Verifique os dígitos informados." };
+  }
+  if (d.length === 14) {
+    if (alfanumerico) {
+      return validarCnpjAlfanumerico(d)
+        ? { valido: true, tipo: "cnpj-alfanumerico", motivo: "CNPJ (alfanumérico) válido." }
+        : { valido: false, tipo: "cnpj-alfanumerico", motivo: "CNPJ inválido. Verifique os dígitos verificadores." };
+    }
+    return validarCnpjNumerico(d)
+      ? { valido: true, tipo: "cnpj", motivo: "CNPJ válido." }
+      : { valido: false, tipo: "cnpj", motivo: "CNPJ inválido. Verifique os dígitos informados." };
+  }
+  return { valido: false, tipo: "desconhecido", motivo: "Documento deve ter 11 (CPF) ou 14 (CNPJ) caracteres." };
+}
+
+// Consulta externa oficial fica como PREPARAÇÃO (não chamar terceiros nesta fase).
+// A validação atual é matemática/estrutural — não comprova existência na Receita.
+export async function consultarCadastroCnpj() {
+  return { disponivel: false, motivo: "Consulta oficial de CNPJ não habilitada nesta fase." };
+}
+
+// ── Segmentos de estabelecimento (sugestão de template fiscal) ──
+export const SEGMENTOS_LOJA = [
+  "Restaurante", "Pizzaria", "Hamburgueria", "Bar", "Cafeteria", "Açaíteria", "Outros",
+];
+
 // ── Validações estruturais de endereço/numeração ───────────
 export const SERIE_NFCE_MIN = 1;
 export const SERIE_NFCE_MAX = 999; // leiaute NFC-e: série de 3 posições (0–999); 0 não é usado.
@@ -120,7 +213,7 @@ const intOuNull = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) 
 const CAMPOS_TEXTO = [
   "razaoSocial", "nomeFantasia", "inscricaoEstadual", "inscricaoMunicipal", "crt", "cnaePrincipal",
   "cep", "logradouro", "numero", "complemento", "bairro", "municipio", "codigoMunicipioIbge", "uf",
-  "telefoneFiscal", "emailFiscal",
+  "telefoneFiscal", "emailFiscal", "segmento",
 ];
 
 /**
@@ -139,6 +232,9 @@ export function normalizarEmitenteFiscal(dados = {}) {
   const amb = String(dados.nfceAmbiente ?? "").trim();
   out.nfceAmbiente = AMBIENTES_NFCE.some((a) => a.valor === amb) ? amb : "simulacao";
   out.nfceSerie = intOuNull(dados.nfceSerie) ?? 1;
+  // Flags de habilitação de documento (default seguro: desabilitado).
+  out.nfceHabilitada = dados.nfceHabilitada === true;
+  out.nfeHabilitada = dados.nfeHabilitada === true;
   return out;
 }
 
@@ -154,9 +250,13 @@ export function dbParaEmitente(r) {
     bairro: r.bairro ?? "", municipio: r.municipio ?? "", codigoMunicipioIbge: r.codigo_municipio_ibge ?? "", uf: r.uf ?? "",
     telefoneFiscal: r.telefone_fiscal ?? "", emailFiscal: r.email_fiscal ?? "",
     nfceAmbiente: r.nfce_ambiente ?? "simulacao", nfceSerie: r.nfce_serie ?? 1,
+    // Migration 109 (tolerante se ausente): segmento + flags de habilitação.
+    segmento: r.segmento ?? "", nfceHabilitada: r.nfce_habilitada ?? false, nfeHabilitada: r.nfe_habilitada ?? false,
     criadoEmISO: r.criado_em ?? null, atualizadoEmISO: r.atualizado_em ?? null,
   };
 }
+// Campos introduzidos pela migration 109 (separados p/ fallback tolerante no upsert).
+export const CAMPOS_EMITENTE_109 = ["segmento", "nfce_habilitada", "nfe_habilitada"];
 // Monta o payload snake_case para UPSERT (já normalizado). loja_id é
 // definido pela API (nunca pelo formulário) para não burlar o RLS.
 export function emitenteParaDb(dados = {}) {
@@ -169,6 +269,7 @@ export function emitenteParaDb(dados = {}) {
     bairro: n.bairro, municipio: n.municipio, codigo_municipio_ibge: n.codigoMunicipioIbge, uf: n.uf,
     telefone_fiscal: n.telefoneFiscal, email_fiscal: n.emailFiscal,
     nfce_ambiente: n.nfceAmbiente, nfce_serie: n.nfceSerie,
+    segmento: n.segmento, nfce_habilitada: n.nfceHabilitada, nfe_habilitada: n.nfeHabilitada,
   };
 }
 

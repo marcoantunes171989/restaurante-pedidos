@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { dbParaEmitente, emitenteParaDb } from './emitenteFiscalService'
+import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
 
 // Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
 // Em produção o ideal é vir do ambiente (VITE_SUPABASE_*), mas se faltar, usa estes valores.
@@ -2340,10 +2340,20 @@ export async function fetchLojaFiscalEmitente(lojaId) {
 export async function salvarLojaFiscalEmitente(lojaId, dados) {
   if (lojaId == null) throw new Error('loja_id obrigatório para salvar o emitente.')
   const payload = { ...emitenteParaDb(dados), loja_id: lojaId, atualizado_em: new Date().toISOString() }
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('loja_fiscal_emitente')
     .upsert([payload], { onConflict: 'loja_id' })
     .select().single()
+  // Fallback: migration 109 (segmento/flags) ainda não aplicada → reenvia sem
+  // essas colunas para não bloquear o cadastro (compatibilidade transitória).
+  if (error && (error.code === '42703' || error.code === 'PGRST204')) {
+    const base = { ...payload }
+    for (const c of CAMPOS_EMITENTE_109) delete base[c]
+    ;({ data, error } = await supabase
+      .from('loja_fiscal_emitente')
+      .upsert([base], { onConflict: 'loja_id' })
+      .select().single())
+  }
   if (error) throw error
   return dbParaEmitente(data)
 }
