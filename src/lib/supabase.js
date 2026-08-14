@@ -1616,6 +1616,10 @@ export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
 // Mínimo exigido pelo Supabase Auth e pelas RPCs de cadastro/senha.
 export const SENHA_MIN_AUTH = 6
 
+// Fase 7.2: colunas do usuário lidas pelo app — SEM `senha`. Usado nos
+// SELECT diretos (fallback) para que a senha nunca trafegue até o cliente.
+const USUARIO_COLS_SEM_SENHA = 'id,nome,email,perfil,ativo,ids_acesso,loja_id,cargo_id,super_admin,permissoes_acoes'
+
 export async function loginSupabaseAuth(email, senha) {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -1702,22 +1706,12 @@ export async function validarLoginNoBanco(email, senha) {
     if (e?.code === 'INVALID_CREDENTIALS' || e?.code === 'INACTIVE') throw e
   }
 
-  // 3) Fallback: SELECT direto (policies permissivas).
-  const { data: row, error } = await supabase
-    .from('tab_usuarios')
-    .select('*')
-    .ilike('email', emailNorm)
-    .maybeSingle()
-  if (error) {
-    rejeitar('DB_ERROR', error.message || 'Falha ao consultar usuários.')
-  }
-  if (!row || String(row.senha ?? '') !== senhaStr) {
-    rejeitar('INVALID_CREDENTIALS', 'E-mail ou senha incorretos.', 401)
-  }
-  if (row.ativo === false) {
-    rejeitar('INACTIVE', 'Usuário inativo, entre em contato com o administrador do sistema.', 403)
-  }
-  return { ok: true, authAlinhado: false, usuario: dbParaUsuario(row) }
+  // 3) Sem caminho seguro: a validação de senha é SEMPRE server-side
+  // (RPC app_validar_login ou API /api/login-banco). Fase 7.2 removeu a
+  // comparação de senha no cliente — nunca lemos tab_usuarios.senha aqui.
+  // Se RPC e API falharam por indisponibilidade, não há como validar com
+  // segurança: erro genérico, sem revelar existência de conta.
+  rejeitar('DB_ERROR', 'Não foi possível validar o acesso agora. Tente novamente.')
 }
 
 /** @deprecated use validarLoginNoBanco */
@@ -1739,11 +1733,11 @@ function montarCamposRpcUsuario(payload) {
   return rpcCampos
 }
 
-function assertSenhaGravada(usuario, senhaEsperada) {
-  if (!senhaEsperada) return usuario
-  if (!usuario || String(usuario.password ?? '') !== String(senhaEsperada)) {
-    throw Object.assign(new Error('Senha não foi gravada no banco de dados.'), { code: 'SAVE_FAILED' })
-  }
+// Fase 7.2: a confirmação de gravação da senha passou a ser SERVER-SIDE
+// (as RPCs retornam code 'SAVE_FAILED' quando a senha não persiste). O
+// cliente não recebe mais a senha, então não há comparação local: apenas
+// repassa o usuário salvo. O 2º argumento é mantido por compatibilidade.
+function assertSenhaGravada(usuario) {
   return usuario
 }
 
@@ -1844,7 +1838,7 @@ export async function persistirUsuarioCampos(usuarioId, camposApp = {}, adminCre
   if (rpcCampos.permissoes_acoes != null) dbCampos.permissoes_acoes = rpcCampos.permissoes_acoes
   if (!Object.keys(dbCampos).length) throw new Error('Nenhum campo para salvar.')
   await atualizarUsuario(usuarioId, dbCampos)
-  const { data: row, error } = await supabase.from('tab_usuarios').select('*').eq('id', usuarioId).maybeSingle()
+  const { data: row, error } = await supabase.from('tab_usuarios').select(USUARIO_COLS_SEM_SENHA).eq('id', usuarioId).maybeSingle()
   if (error) throw error
   if (!row) throw new Error('Usuário não encontrado após salvar.')
   return assertSenhaGravada(dbParaUsuario(row), senhaEsperada)
@@ -1930,7 +1924,7 @@ export async function fetchUsuarioPorEmail(email) {
   } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
     .from('tab_usuarios')
-    .select('*')
+    .select(USUARIO_COLS_SEM_SENHA)
     .ilike('email', alvo)
     .maybeSingle()
   if (error) throw error
@@ -2079,7 +2073,8 @@ export function mapUsuarioDb(r) {
     id: r.id,
     name: r.nome,
     email: r.email,
-    password: r.senha,
+    // Fase 7.2: a senha NUNCA é trazida para o estado do app. As RPCs/API
+    // deixaram de retorná-la; leituras diretas também não a expõem.
     role: r.perfil,
     active: r.ativo,
     accessIds: r.ids_acesso ?? [],
@@ -2775,7 +2770,7 @@ export async function fetchUsuarios() {
     if (!error && Array.isArray(data)) rpcRows = data
   } catch { /* RPC ausente → SELECT */ }
   const { data, error } = await supabase
-    .from('tab_usuarios').select('*').order('id', { ascending: true })
+    .from('tab_usuarios').select(USUARIO_COLS_SEM_SENHA).order('id', { ascending: true })
   if (!error && Array.isArray(data) && data.length > 0) {
     return data.map(dbParaUsuario)
   }
@@ -2972,7 +2967,7 @@ function dbParaUsuario(r) {
     id:        r.id,
     name:      r.nome,
     email:     r.email,
-    password:  r.senha,
+    // Fase 7.2: senha NÃO é mapeada para o estado do app.
     role:      r.perfil,
     active:    r.ativo,
     accessIds: r.ids_acesso ?? [],

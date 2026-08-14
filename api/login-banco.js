@@ -181,13 +181,19 @@ export default async function handler(req, res) {
       console.warn("[login-banco] Auth não alinhado (login liberado pelo banco):", e?.message || e);
     }
 
+    // Nunca devolver a senha ao cliente — remove-a do payload (fase 7.2).
+    // A comparação já ocorreu no servidor (acima); o front só recebe o
+    // perfil operacional.
+    const usuarioSemSenha = { ...row };
+    delete usuarioSemSenha.senha;
+
     return json(res, 200, {
       ok: true,
       email,
       authId,
       authAlinhado,
       usuarioId: row.id,
-      usuario: row,
+      usuario: usuarioSemSenha,
     });
   } catch (e) {
     console.error("[login-banco]", e);

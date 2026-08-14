@@ -1273,9 +1273,10 @@ export default function RestaurantePedidoApp() {
       }
     } catch { /* best-effort — segue para validação normal */ }
 
-    // Fonte da verdade: tab_usuarios (e-mail + senha no banco).
-    // Se existir e estiver ativo → libera o sistema. Auth/JWT é best-effort.
-    let credOk = null;
+    // Fonte da verdade: tab_usuarios (e-mail + senha), validada SEMPRE no
+    // servidor (RPC app_validar_login ou API /api/login-banco). Fase 7.2:
+    // sem comparação de senha no cliente e sem fallback em memória.
+    let credOk;
     try {
       const v = await validarLoginNoBanco(email, senha);
       credOk = v?.usuario || null;
@@ -1289,26 +1290,12 @@ export default function RestaurantePedidoApp() {
         registrarLoginNegado({ email, motivo: "Credenciais inválidas" });
         return notify("error", "E-mail ou senha incorretos.");
       }
-      // Último recurso: lista já carregada em memória (mesmo critério do banco).
-      credOk = users.find(
-        (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
-      ) || null;
-      if (!credOk) return notify("error", mensagemErroAcesso(e?.message));
-      if (credOk.active === false) {
-        return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
-      }
+      // Qualquer outra falha (rede/banco) é genérica — nunca cai para uma
+      // comparação local de senha.
+      registrarLoginNegado({ email, motivo: "Falha ao validar acesso" });
+      return notify("error", mensagemErroAcesso(e?.message));
     }
 
-    if (!credOk) {
-      // API ok sem row no payload — tenta memória / fetch.
-      credOk = users.find(
-        (u) => (u.email || "").toLowerCase() === email && String(u.password ?? "") === senha,
-      ) || null;
-      if (!credOk) {
-        try { credOk = await fetchUsuarioPorEmail(email); } catch { credOk = null; }
-        if (credOk && String(credOk.password ?? "") !== senha) credOk = null;
-      }
-    }
     if (!credOk) {
       registrarLoginNegado({ email, motivo: "Credenciais inválidas" });
       return notify("error", "E-mail ou senha incorretos.");
@@ -1318,7 +1305,14 @@ export default function RestaurantePedidoApp() {
       return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
     }
 
-    setUsers((cur) => (cur.some((u) => u.id === credOk.id) ? cur : [credOk, ...cur]));
+    // A lista global de usuários NUNCA guarda senha.
+    const credLista = credOk;
+    setUsers((cur) => (cur.some((u) => u.id === credLista.id) ? cur : [credLista, ...cur]));
+
+    // A senha digitada permanece SOMENTE em memória, no usuário da sessão,
+    // para autorizar as RPCs administrativas (app_admin_*). Nunca é lida de
+    // uma resposta, nem persistida, nem exibida, nem registrada em log.
+    const credSessao = { ...credOk, password: senha };
 
     // Persiste sessão da aba. Antes do reload Auth, prende URL em /login para
     // o histórico da tela anterior NÃO virar destino do restore silencioso.
@@ -1350,7 +1344,7 @@ export default function RestaurantePedidoApp() {
       }
     }
 
-    if (!aplicarLogin(credOk, { forcarHome: true })) return;
+    if (!aplicarLogin(credSessao, { forcarHome: true })) return;
   }
 
   async function logout() {
@@ -1424,7 +1418,8 @@ export default function RestaurantePedidoApp() {
       auditar("criar", "empresa", loja.id, { nome: loja.nome, prefixo: loja.prefixo });
       // O usuário gestor é cadastrado depois, na tela "Usuários" (este modal trata só dos dados da empresa)
       if (email) {
-        const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, password: dados.senha, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
+        // Fase 7.2: a lista de usuários não guarda senha (nem a recém-criada).
+        const novoUser = { id: Date.now(), name: dados.nomeResponsavel, email, role: cargo?.nome || "Gestor", cargoId: cargo?.id || null, active: true, accessIds: ["tablet","kitchen","panel","cashier","admin"], lojaId: loja.id };
         setUsers((cur) => [...cur, novoUser]);
         notify("success", `Empresa "${loja.nome}" criada. Acesso do gestor: ${email}. Comandas: ${loja.prefixo}-000001.`);
       } else {
@@ -3127,7 +3122,13 @@ export default function RestaurantePedidoApp() {
     const cargoId = dados.cargoId ? Number(dados.cargoId) : null;
     const emailNovo = (dados.email || "").trim().toLowerCase();
     if (!dbReady) {
-      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, ...dados, email: emailNovo || dados.email, cargoId, ...(senhaNova ? { password: senhaNova } : {}) } : u));
+      // Fase 7.2: nem no modo local a senha entra no estado da lista.
+      setUsers((cur) => cur.map((u) => {
+        if (u.id !== uid) return u;
+        const semSenha = { ...dados };
+        delete semSenha.password;
+        return { ...u, ...semSenha, email: emailNovo || dados.email, cargoId };
+      }));
       notify("success", "Usuário atualizado (modo local).");
       return;
     }
@@ -3239,7 +3240,10 @@ export default function RestaurantePedidoApp() {
     };
 
     if (!dbReady) {
-      const saved = { ...nu, id: Date.now() };
+      // Fase 7.2: a senha não entra no estado da lista (nem no modo local).
+      const nuSemSenha = { ...nu };
+      delete nuSemSenha.password;
+      const saved = { ...nuSemSenha, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
       setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
       notify("success", "Usuário cadastrado (modo local).");
@@ -3251,10 +3255,9 @@ export default function RestaurantePedidoApp() {
       : null;
     try {
       // 1) tab_usuarios primeiro (senha obrigatória no banco).
+      // Fase 7.2: a confirmação de gravação é server-side (a RPC lança
+      // SAVE_FAILED). O cliente não recebe mais a senha para conferir.
       const saved = await criarUsuarioNoBanco(nu, adminCreds);
-      if (String(saved.password ?? "") !== String(nu.password)) {
-        throw new Error("Senha não foi gravada no banco. Rode a migration 090 no Supabase.");
-      }
 
       // 2) Auth best-effort (login também valida tab_usuarios).
       if (usandoSupabaseAuth()) {
@@ -23115,14 +23118,12 @@ function CargoEditModal({ cargo, onSalvar, onFechar }) {
   );
 }
 
-function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [], currentUser = null }) {
+function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
   // Senha em claro na lista/edição só para administrador (admin ou super admin).
-  const podeVerSenha = !!(currentUser?.superAdmin || (currentUser?.accessIds || []).includes("admin"));
-  const [senhasVisiveis, setSenhasVisiveis] = useState({}); // id → true para revelar na lista
   const lojasAtivas = lojas.filter((l) => l.active !== false);
   const cargosAtivos = cargos.filter((c) => c.active !== false);
   const lojaDoUser = (u) => lojas.find((l) => l.id === u.lojaId);
@@ -23187,32 +23188,14 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
           )}
           {users.length > 0 && usuariosFiltrados.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhum usuário encontrado.</p>}
           {usuariosFiltrados.map((u) => {
-            const senha = u.password != null ? String(u.password) : "";
-            const revelada = !!senhasVisiveis[u.id];
             return (
             <div key={u.id} className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</div>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">{u.name}{u.superAdmin && <span className="ml-2 rounded-full bg-gold-500/20 px-2 py-0.5 text-[10px] font-black text-gold-300 align-middle">ADMIN GERAL</span>}</p>
                 <p className="text-xs text-slate-400 truncate">{u.email}</p>
-                {podeVerSenha && (
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                    <span className="font-bold uppercase tracking-wide text-slate-500">Senha</span>
-                    <span className="rounded-lg border border-white/10 bg-slate-950/60 px-2 py-0.5 font-mono text-[12px] text-emerald-200">
-                      {senha ? (revelada ? senha : "••••••••") : "—"}
-                    </span>
-                    {senha ? (
-                      <button
-                        type="button"
-                        onClick={() => setSenhasVisiveis((cur) => ({ ...cur, [u.id]: !cur[u.id] }))}
-                        className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] font-black text-slate-300 hover:bg-white/10"
-                        title={revelada ? "Ocultar senha" : "Mostrar senha"}
-                      >
-                        {revelada ? "Ocultar" : "Mostrar"}
-                      </button>
-                    ) : null}
-                  </p>
-                )}
+                {/* Fase 7.2: a senha nunca é exibida na lista. Para trocar,
+                    use "Editar" → Redefinir senha. */}
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] font-bold text-slate-200">🪪 {u.role || "—"}</span>
                   {isSuperAdmin && <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-200">🏪 {lojaDoUser(u)?.nome || (u.superAdmin ? "Todas" : "Sem empresa")}</span>}
@@ -23230,9 +23213,9 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
 
       {criando && (
         <UsuarioCadastroModal userForm={userForm} setUserForm={setUserForm} onSalvar={salvarNovo} onFechar={() => setCriando(false)}
-          cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} formValido={formValido} podeVerSenha={podeVerSenha} />
+          cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} formValido={formValido} />
       )}
-      {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} podeVerSenha={podeVerSenha} onSalvar={async (d) => {
+      {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} onSalvar={async (d) => {
         const ok = await editarUsuario(editando.id, d);
         if (ok !== false) setEditando(null);
       }} onFechar={() => setEditando(null)} />}
@@ -23248,9 +23231,9 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
 }
 
 // Modal de cadastro de usuário (empresa em chips p/ super admin + cargo em chips)
-function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido, podeVerSenha = false }) {
-  // Administrador vê a senha em claro ao cadastrar; demais mantêm campo oculto.
-  const [verSenha, setVerSenha] = useState(!!podeVerSenha);
+function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido }) {
+  // Mostrar/ocultar a senha que está sendo digitada (valor novo, não armazenado).
+  const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
@@ -23296,14 +23279,10 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
               <span className={lbl}>Senha * (mín. {SENHA_MIN_AUTH})</span>
               <div className="relative">
                 <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
-                {podeVerSenha && (
-                  <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white" title={verSenha ? "Ocultar senha" : "Mostrar senha"}>{verSenha ? "🙈" : "👁️"}</button>
-                )}
+                <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white" title={verSenha ? "Ocultar senha" : "Mostrar senha"}>{verSenha ? "🙈" : "👁️"}</button>
               </div>
               <p className="mt-1 text-[11px] text-slate-500">
-                {podeVerSenha
-                  ? "Senha visível para administrador — a mesma usada no login (tab_usuarios)."
-                  : "Mesma senha usada no login (validada no banco/Auth)."}
+                Mesma senha usada no login (validada no banco/Auth).
               </p>
             </div>
           </div>
@@ -23333,8 +23312,7 @@ function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargo
   );
 }
 
-function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar, podeVerSenha = false }) {
-  const senhaAtual = usuario.password != null ? String(usuario.password) : "";
+function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
   // Normaliza cargoId (bigint/string) para casar com os chips.
   const cargoInicial = (() => {
     if (usuario.cargoId != null && usuario.cargoId !== "") return usuario.cargoId;
@@ -23344,11 +23322,13 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar, podeVerSen
   const [f, setF] = useState({
     name: usuario.name,
     email: usuario.email,
-    password: podeVerSenha ? senhaAtual : "",
+    // Fase 7.2: nunca pré-preenche a senha atual (o app não a possui).
+    // Campo vazio = manter; preencher = redefinir.
+    password: "",
     role: usuario.role,
     cargoId: cargoInicial,
   });
-  const [verSenha, setVerSenha] = useState(!!podeVerSenha);
+  const [verSenha, setVerSenha] = useState(false);
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
@@ -23365,21 +23345,20 @@ function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar, podeVerSen
           <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
           <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
           <div>
-            <label className={lbl}>{podeVerSenha ? `Senha (mín. ${SENHA_MIN_AUTH})` : `Nova senha (opcional, mín. ${SENHA_MIN_AUTH})`}</label>
+            <label className={lbl}>{`Nova senha (opcional, mín. ${SENHA_MIN_AUTH})`}</label>
             <div className="relative">
               <input
                 type={verSenha ? "text" : "password"}
                 value={f.password}
                 onChange={(e) => setF({ ...f, password: e.target.value })}
-                placeholder={podeVerSenha ? "Senha do usuário" : "Deixe em branco para manter"}
+                placeholder="Deixe em branco para manter"
                 className={`${inp} pr-12`}
+                autoComplete="new-password"
               />
               <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
             </div>
             <p className="mt-1 text-[11px] text-slate-500">
-              {podeVerSenha
-                ? "Visível apenas para administrador. Alterações são gravadas em tab_usuarios."
-                : "Nome, e-mail e cargo são gravados no banco. Senha só altera se preenchida."}
+              Nome, e-mail e cargo são gravados no banco. A senha só é alterada se você preencher (redefinir). A senha atual não é exibida.
             </p>
           </div>
           <div>
