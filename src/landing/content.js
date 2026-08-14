@@ -35,8 +35,8 @@ export const HERO = {
     { label: "Segurança total", icon: "shield" },
     { label: "Suporte humanizado", icon: "heartHandshake" },
   ],
-  bg: "/img/landing/mockup-hero-ecossistema.webp",
-  bgFallback: "/img/landing/mockup-hero-ecossistema.webp",
+  bg: "/img/landing/hero-mockup-operacao.webp",
+  bgFallback: "/img/landing/hero-mockup-operacao.webp",
 };
 
 export const SOLUCOES = {
