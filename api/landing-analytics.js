@@ -50,9 +50,28 @@ async function isSuperAdmin(req) {
     || (operator.loja_id == null && Array.isArray(operator.ids_acesso) && operator.ids_acesso.includes("admin"));
 }
 
-async function insertVisit(req, body) {
+async function saveVisit(req, body) {
+  const action = clean(body.action, 20) || "start";
+  const sessionId = clean(body.sessionId, 80);
+  if (!sessionId) return false;
+  if (action === "heartbeat" || action === "end") {
+    const now = new Date();
+    const started = new Date(body.startedAt || now);
+    const duration = Math.max(0, Math.round((now - started) / 1000));
+    const changes = {
+      last_seen_at: now.toISOString(), duration_seconds: duration,
+      ...(action === "end" ? { ended_at: now.toISOString() } : {}),
+    };
+    const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits?session_id=eq.${encodeURIComponent(sessionId)}`, {
+      method: "PATCH",
+      headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, "content-type": "application/json", prefer: "return=minimal" },
+      body: JSON.stringify(changes),
+    });
+    return response.ok;
+  }
+  const startedAt = clean(body.startedAt, 40) || new Date().toISOString();
   const row = {
-    visitor_id: clean(body.visitorId, 80), session_id: clean(body.sessionId, 80),
+    visitor_id: clean(body.visitorId, 80), session_id: sessionId,
     path: clean(body.path, 300) || "/", referrer: clean(body.referrer, 500),
     ip_address: clientIp(req),
     city: clean(req.headers["x-vercel-ip-city"] ? decodeURIComponent(req.headers["x-vercel-ip-city"]) : null, 120),
@@ -62,10 +81,11 @@ async function insertVisit(req, body) {
     os: clean(body.os, 80), browser: clean(body.browser, 80), browser_version: clean(body.browserVersion, 40),
     screen_width: Number(body.screenWidth) || null, screen_height: Number(body.screenHeight) || null,
     language: clean(body.language, 30), user_agent: clean(req.headers["user-agent"], 500),
+    started_at: startedAt, last_seen_at: startedAt, duration_seconds: 0,
   };
-  const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits`, {
+  const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits?on_conflict=session_id`, {
     method: "POST",
-    headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, "content-type": "application/json", prefer: "return=minimal" },
+    headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, "content-type": "application/json", prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(row),
   });
   return response.ok;
@@ -81,30 +101,53 @@ export default async function handler(req, res) {
   if (req.method === "POST") {
     if (!serviceKey()) return json(res, 202, { ok: false, skipped: true });
     let body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const ok = await insertVisit(req, body).catch(() => false);
+    const ok = await saveVisit(req, body).catch(() => false);
     return json(res, 202, { ok });
+  }
+  if (req.method === "DELETE") {
+    if (!(await isSuperAdmin(req))) return json(res, 403, { error: "Acesso exclusivo do Super Admin." });
+    const id = clean(req.query?.id, 80);
+    if (!id) return json(res, 400, { error: "Registro inválido." });
+    const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits?id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, prefer: "return=minimal" },
+    });
+    return response.ok ? json(res, 200, { ok: true }) : json(res, 503, { error: "Não foi possível excluir." });
   }
   if (req.method !== "GET") return json(res, 405, { error: "method_not_allowed" });
   if (!(await isSuperAdmin(req))) return json(res, 403, { error: "Acesso exclusivo do Super Admin." });
   const end = new Date(req.query?.to || Date.now());
   const start = new Date(req.query?.from || (Date.now() - 30 * 86400000));
+  const page = Math.max(1, Number(req.query?.page) || 1);
+  const pageSize = 10;
   const query = new URLSearchParams({
-    select: "id,visitor_id,session_id,path,referrer,ip_address,city,state,country,device_type,device_name,os,browser,browser_version,screen_width,screen_height,created_at",
+    select: "id,visitor_id,session_id,path,referrer,ip_address,city,state,country,device_type,device_name,os,browser,browser_version,screen_width,screen_height,created_at,started_at,last_seen_at,ended_at,duration_seconds",
     created_at: `gte.${start.toISOString()}`, order: "created_at.desc", limit: "5000",
   });
   const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits?${query}`, {
     headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, accept: "application/json", Prefer: `count=exact` },
   });
   if (!response.ok) return json(res, 503, { error: "Métricas indisponíveis. Aplique a migration 114." });
-  const all = (await response.json()).filter((r) => new Date(r.created_at) <= end);
+  const staleBefore = Date.now() - 45000;
+  const all = (await response.json())
+    .filter((r) => new Date(r.created_at) <= end)
+    .map((r) => {
+      if (r.ended_at || !r.last_seen_at || new Date(r.last_seen_at).getTime() >= staleBefore) return r;
+      return { ...r, ended_at: r.last_seen_at, ended_inferred: true };
+    });
   const unique = new Set(all.map((r) => r.visitor_id).filter(Boolean)).size;
   const byDayMap = new Map();
   all.forEach((r) => { const d = r.created_at.slice(0, 10); byDayMap.set(d, (byDayMap.get(d) || 0) + 1); });
+  const ips = countBy(all, "ip_address", "IP não identificado").map((item) => ({
+    ...item,
+    devices: new Set(all.filter((r) => (r.ip_address || "IP não identificado") === item.label).map((r) => r.device_name || r.device_type)).size,
+  }));
+  const offset = (page - 1) * pageSize;
   return json(res, 200, {
     total: all.length, unique, sessions: new Set(all.map((r) => r.session_id).filter(Boolean)).size,
     devices: countBy(all, "device_type"), browsers: countBy(all, "browser"), systems: countBy(all, "os"),
-    locations: countBy(all.map((r) => ({ location: [r.city, r.state, r.country].filter(Boolean).join(" / ") })), "location"),
+    locations: countBy(all.map((r) => ({ location: [r.city, r.state, r.country].filter(Boolean).join(" / ") })), "location"), ips,
     byDay: [...byDayMap.entries()].map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)),
-    visits: all.slice(0, 200), capped: all.length >= 5000,
+    visits: all.slice(offset, offset + pageSize), page, pageSize, totalPages: Math.max(1, Math.ceil(all.length / pageSize)), capped: all.length >= 5000,
   });
 }
