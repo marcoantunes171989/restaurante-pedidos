@@ -71,4 +71,19 @@ describe('anti-vazamento de HASH (fase 7.2.1)', () => {
     expect(contemChaveSensivel(limpo)).toBe(false)
     expect(limpo.usuario).toEqual({ id: 1 })
   })
+  it('sanitiza a resposta da API de criação/edição (shape real)', () => {
+    // Espelha o formato retornado por /api/gerenciar-usuario-auth.
+    const resposta = {
+      ok: true, id: 'auth-uuid', atualizado: false,
+      usuario: {
+        id: 42, email: 'x@y.com', nome: 'X', perfil: 'Caixa', ativo: true,
+        loja_id: 3, cargo_id: 2, ids_acesso: ['cashier'],
+        senha_hash: '$2a$10$naoDeveVazar', senha: null,
+      },
+    }
+    const limpo = removerChavesSensiveis(resposta)
+    expect(contemChaveSensivel(limpo)).toBe(false)
+    expect(limpo.usuario.email).toBe('x@y.com')
+    expect(limpo.usuario).not.toHaveProperty('senha_hash')
+  })
 })

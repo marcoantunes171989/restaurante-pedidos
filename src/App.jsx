@@ -53,7 +53,7 @@ import {
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
   validarLoginNoBanco, fetchUsuarioPorEmail,
-  gerenciarUsuarioAuth, sincronizarAuthAoCriarUsuario, mapUsuarioDb, SENHA_MIN_AUTH,
+  gerenciarUsuarioAuth, mapUsuarioDb, SENHA_MIN_AUTH,
   persistirUsuarioCampos, criarUsuarioNoBanco,
   fetchLancamentos, inserirLancamento, atualizarLancamento, excluirLancamento,
 } from "./lib/supabase";
@@ -3150,26 +3150,24 @@ export default function RestaurantePedidoApp() {
         permissoesAcoes: atual.permissoesAcoes || {},
       }, adminCreds);
 
-      // 2) Auth best-effort (não bloqueia se o banco já gravou a senha).
+      // 2) Redefinição de senha → sincronização do Auth é OBRIGATÓRIA e
+      // FAIL-CLOSED (fase 7.2.2, §12/§15). A API valida a nova credencial
+      // (crypt) e lança se Auth/hash ficarem inconsistentes.
       if (usandoSupabaseAuth() && senhaNova) {
-        try {
-          await gerenciarUsuarioAuth({
-            acao: "atualizar",
-            email: emailNovo || saved.email,
-            emailAnterior: atual.email,
-            senha: senhaNova,
-            nome: saved.name || (dados.name || "").trim(),
-            lojaId: saved.lojaId ?? atual.lojaId ?? lojaAtual,
-            perfil: saved.role || dados.role || atual.role,
-            cargoId: saved.cargoId ?? cargoId,
-            ativo: saved.active !== false,
-            idsAcesso: saved.accessIds || atual.accessIds || [],
-            permissoesAcoes: saved.permissoesAcoes || {},
-            persistirPerfil: false,
-          });
-        } catch (e) {
-          console.warn("Auth não alinhado após salvar senha no banco:", e?.message || e);
-        }
+        await gerenciarUsuarioAuth({
+          acao: "atualizar",
+          email: emailNovo || saved.email,
+          emailAnterior: atual.email,
+          senha: senhaNova,
+          nome: saved.name || (dados.name || "").trim(),
+          lojaId: saved.lojaId ?? atual.lojaId ?? lojaAtual,
+          perfil: saved.role || dados.role || atual.role,
+          cargoId: saved.cargoId ?? cargoId,
+          ativo: saved.active !== false,
+          idsAcesso: saved.accessIds || atual.accessIds || [],
+          permissoesAcoes: saved.permissoesAcoes || {},
+          persistirPerfil: false,
+        });
       }
 
       setUsers((cur) => cur.map((u) => u.id === uid || u.id === saved.id ? { ...u, ...saved } : u));
@@ -3254,36 +3252,42 @@ export default function RestaurantePedidoApp() {
       ? { email: currentUser.email, password: currentUser.password || "" }
       : null;
     try {
-      // 1) tab_usuarios primeiro (senha obrigatória no banco).
-      // Fase 7.2: a confirmação de gravação é server-side (a RPC lança
-      // SAVE_FAILED). O cliente não recebe mais a senha para conferir.
-      const saved = await criarUsuarioNoBanco(nu, adminCreds);
-
-      // 2) Auth best-effort (login também valida tab_usuarios).
+      // Fase 7.2.2 — FLUXO CANÔNICO e FAIL-CLOSED.
+      // Com Supabase Auth, UMA única operação server-side cria Auth +
+      // tab_usuarios + senha_hash e valida a credencial (a API faz rollback
+      // e lança se algo falhar). Sem best-effort para criação de credencial.
+      let saved;
       if (usandoSupabaseAuth()) {
-        try {
-          await sincronizarAuthAoCriarUsuario({
-            email: saved.email || nu.email,
-            senha: nu.password,
-            nome: saved.name || nu.name,
-            lojaId: saved.lojaId ?? nu.lojaId,
-            perfil: saved.role || nu.role,
-            cargoId: saved.cargoId ?? nu.cargoId,
-            ativo: true,
-            idsAcesso: saved.accessIds || [],
-          });
-        } catch (e) {
-          console.warn("Auth não alinhado após criar usuário no banco:", e?.message || e);
-        }
+        const res = await gerenciarUsuarioAuth({
+          acao: "criar",
+          email: nu.email,
+          senha: nu.password,
+          nome: nu.name,
+          lojaId: nu.lojaId,
+          perfil: nu.role,
+          cargoId: nu.cargoId,
+          ativo: true,
+          idsAcesso: nu.accessIds || [],
+          persistirPerfil: true,
+        });
+        saved = res?.usuario
+          ? mapUsuarioDb(res.usuario)
+          : { id: res?.id ?? Date.now(), name: nu.name, email: nu.email, role: nu.role, cargoId: nu.cargoId, active: true, accessIds: nu.accessIds || [], lojaId: nu.lojaId };
+      } else {
+        // Modo legado (sem Supabase Auth): grava tab_usuarios + hash via RPC.
+        saved = await criarUsuarioNoBanco(nu, adminCreds);
       }
 
-      setUsers((cur) => [saved, ...cur.filter((u) => (u.email || "").toLowerCase() !== (saved.email || "").toLowerCase())]);
+      // A lista NUNCA guarda senha.
+      const savedSemSenha = { ...saved };
+      delete savedSemSenha.password;
+      setUsers((cur) => [savedSemSenha, ...cur.filter((u) => (u.email || "").toLowerCase() !== (savedSemSenha.email || "").toLowerCase())]);
       setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
-      auditar("criar", "usuario", saved.id, { nome: nu.name, email: nu.email, cargo: nu.role });
-      notify("success", "Usuário e senha gravados no banco. O login já aceita estas credenciais.");
+      auditar("criar", "usuario", savedSemSenha.id, { nome: nu.name, email: nu.email, cargo: nu.role });
+      notify("success", "Usuário criado. O login já aceita estas credenciais.");
       return true;
     } catch (e) {
-      notify("error", "Falha ao salvar o usuário no banco: " + (e.message || e));
+      notify("error", "Não foi possível criar o usuário: " + (e.message || e) + ". Nenhum acesso parcial foi mantido.");
       return false;
     }
   }

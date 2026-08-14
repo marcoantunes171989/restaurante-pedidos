@@ -86,15 +86,35 @@ function filtroEmail(email) {
   return `email=ilike.${encodeURIComponent(String(email || "").trim().toLowerCase())}`;
 }
 
+// Fase 7.2.2 (§10): allowlist de colunas seguras. NUNCA inclui senha nem
+// senha_hash — evita que `select=*` devolva a credencial pós-migration 112.
+const COLS_USUARIO_SEGURAS =
+  "id,email,loja_id,ativo,super_admin,ids_acesso,nome,perfil,cargo_id,permissoes_acoes";
+
+// Fase 7.2.2 (§26): remove qualquer chave sensível de um payload de resposta.
+const CHAVES_SEGREDO = ["senha", "password", "senha_hash", "password_hash", "secret", "token"];
+function semSegredo(valor) {
+  if (Array.isArray(valor)) return valor.map(semSegredo);
+  if (valor && typeof valor === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(valor)) {
+      if (CHAVES_SEGREDO.includes(String(k).toLowerCase())) continue;
+      out[k] = semSegredo(v);
+    }
+    return out;
+  }
+  return valor;
+}
+
 async function restSelectUsuarioPorEmail(email) {
   const rows = await rest(
-    `/tab_usuarios?${filtroEmail(email)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,perfil,cargo_id`,
+    `/tab_usuarios?${filtroEmail(email)}&select=${COLS_USUARIO_SEGURAS}`,
   );
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
 async function upsertTabUsuario(row) {
-  const rows = await rest("/tab_usuarios?on_conflict=email&select=*", {
+  const rows = await rest(`/tab_usuarios?on_conflict=email&select=${COLS_USUARIO_SEGURAS}`, {
     method: "POST",
     prefer: "resolution=merge-duplicates,return=representation",
     body: [row],
@@ -103,12 +123,34 @@ async function upsertTabUsuario(row) {
 }
 
 async function updateTabUsuarioPorId(id, campos) {
-  const rows = await rest(`/tab_usuarios?id=eq.${encodeURIComponent(id)}&select=*`, {
+  const rows = await rest(`/tab_usuarios?id=eq.${encodeURIComponent(id)}&select=${COLS_USUARIO_SEGURAS}`, {
     method: "PATCH",
     prefer: "return=representation",
     body: campos,
   });
   return Array.isArray(rows) ? rows[0] : rows;
+}
+
+// Fase 7.2.2 (§6): confirma que a credencial recém-gravada autentica de fato,
+// validando o HASH via RPC server-side. Não expõe senha nem hash.
+async function credencialValida(email, senha) {
+  if (!senha) return true; // nada a validar quando a senha não muda
+  try {
+    const r = await fetch(`${supabaseUrl()}/rest/v1/rpc/app_validar_login`, {
+      method: "POST",
+      headers: {
+        apikey: serviceKey(),
+        authorization: `Bearer ${serviceKey()}`,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({ p_email: String(email || "").trim().toLowerCase(), p_senha: String(senha) }),
+    });
+    const data = await r.json().catch(() => null);
+    return !!(r.ok && data && data.ok === true);
+  } catch {
+    return false;
+  }
 }
 
 async function deleteTabUsuarioPorEmail(email) {
@@ -274,43 +316,65 @@ export default async function handler(req, res) {
       const errSenha = validarSenha(senha);
       if (errSenha) return json(res, 400, { error: errSenha });
 
+      // Fail-closed (§4/§15/§28): coordena Auth + tab_usuarios + hash e só
+      // responde ok se a credencial autenticar de fato. Se o Auth foi criado
+      // NESTA operação e algo falhar, faz rollback compensatório do Auth.
       let authId = null;
       const existente = await encontrarAuthPorEmail(email);
-      if (existente) {
-        await authAdmin(`/admin/users/${existente.id}`, {
-          method: "PUT",
-          body: {
-            password: senha,
-            email_confirm: true,
-            user_metadata: { ...(existente.user_metadata || {}), nome, loja_id: lojaId },
-          },
-        });
-        authId = existente.id;
-      } else {
-        const criado = await authAdmin("/admin/users", {
-          method: "POST",
-          body: {
-            email,
-            password: senha,
-            email_confirm: true,
-            user_metadata: { nome, loja_id: lojaId },
-          },
-        });
-        authId = criado?.id || criado?.user?.id || null;
-      }
+      const authCriadoAgora = !existente;
+      try {
+        if (existente) {
+          await authAdmin(`/admin/users/${existente.id}`, {
+            method: "PUT",
+            body: {
+              password: senha,
+              email_confirm: true,
+              user_metadata: { ...(existente.user_metadata || {}), nome, loja_id: lojaId },
+            },
+          });
+          authId = existente.id;
+        } else {
+          const criado = await authAdmin("/admin/users", {
+            method: "POST",
+            body: {
+              email,
+              password: senha,
+              email_confirm: true,
+              user_metadata: { nome, loja_id: lojaId },
+            },
+          });
+          authId = criado?.id || criado?.user?.id || null;
+        }
 
-      let usuario = null;
-      if (persistirPerfil) {
-        usuario = await upsertTabUsuario(montarRowApp({
-          email, senha, nome, lojaId, perfil, cargoId,
-          ativo: ativo !== false,
-          idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : [],
-          permissoesAcoes: permissoesAcoes || {},
-        }));
-        // Credencial → apenas hash (bcrypt), nunca texto claro.
-        if (usuario?.id) await definirSenhaHash(usuario.id, senha);
+        let usuario = null;
+        if (persistirPerfil) {
+          usuario = await upsertTabUsuario(montarRowApp({
+            email, nome, lojaId, perfil, cargoId,
+            ativo: ativo !== false,
+            idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : [],
+            permissoesAcoes: permissoesAcoes || {},
+          }));
+          // Credencial → apenas hash (bcrypt), nunca texto claro.
+          if (usuario?.id) await definirSenhaHash(usuario.id, senha);
+        }
+
+        // §6: confirma que a senha recém-gravada autentica (hash + perfil).
+        if (persistirPerfil && !(await credencialValida(email, senha))) {
+          throw new Error("Credencial não validou após a criação (hash/perfil inconsistente).");
+        }
+
+        return json(res, 200, semSegredo({ ok: true, id: authId, atualizado: !!existente, usuario }));
+      } catch (e) {
+        // Rollback compensatório: só remove o Auth se ele foi criado agora.
+        if (authCriadoAgora && authId) {
+          try { await authAdmin(`/admin/users/${authId}`, { method: "DELETE" }); } catch { /* registra abaixo */ }
+        }
+        console.error("[gerenciar-usuario-auth] criar falhou (rollback):", e?.message || e);
+        return json(res, 500, {
+          error: "Não foi possível concluir o cadastro do usuário. Nenhum acesso parcial foi mantido.",
+          code: "CREATE_INCONSISTENT",
+        });
       }
-      return json(res, 200, { ok: true, id: authId, atualizado: !!existente, usuario });
     }
 
     // Atualiza só tab_usuarios (cadastro / permissões / ativo) — senha opcional.
@@ -353,8 +417,10 @@ export default async function handler(req, res) {
         }
       }
       // Credencial (se enviada) → apenas hash (bcrypt), nunca texto claro.
-      if (senha && (usuario?.id || rowApp?.id)) await definirSenhaHash(usuario?.id ?? rowApp.id, senha);
-      // Alinha Auth se senha/e-mail/nome mudaram (best-effort).
+      const alvoId = usuario?.id ?? rowApp?.id;
+      if (senha && alvoId) await definirSenhaHash(alvoId, senha);
+      // Alinha Supabase Auth. Se a SENHA mudou, a sincronização é OBRIGATÓRIA
+      // (fail-closed, §12/§15); para só metadata/nome/e-mail, é best-effort.
       if (senha || (emailNovo && emailNovo !== String(rowApp.email || "").toLowerCase()) || nome) {
         try {
           let authUser = await encontrarAuthPorEmail(rowApp.email);
@@ -383,10 +449,24 @@ export default async function handler(req, res) {
             });
           }
         } catch (e) {
+          if (senha) {
+            console.error("[gerenciar-usuario-auth] Auth password sync FALHOU (perfil):", e?.message || e);
+            return json(res, 500, {
+              error: "Não foi possível concluir a redefinição de senha. Tente novamente.",
+              code: "PASSWORD_SYNC_FAILED",
+            });
+          }
           console.warn("[gerenciar-usuario-auth] Auth best-effort (perfil):", e?.message || e);
         }
       }
-      return json(res, 200, { ok: true, usuario });
+      // §6: confirma que a nova senha autentica de fato (quando houve troca).
+      if (senha && !(await credencialValida(emailNovo, senha))) {
+        return json(res, 500, {
+          error: "A nova senha não pôde ser confirmada. Tente novamente.",
+          code: "PASSWORD_INCONSISTENT",
+        });
+      }
+      return json(res, 200, semSegredo({ ok: true, usuario }));
     }
 
     if (acao === "atualizar") {
@@ -467,7 +547,14 @@ export default async function handler(req, res) {
         // Credencial (se enviada) → apenas hash (bcrypt), nunca texto claro.
         if (senha && usuario?.id) await definirSenhaHash(usuario.id, senha);
       }
-      return json(res, 200, { ok: true, id: authId, usuario });
+      // §6: confirma que a nova senha autentica de fato (quando houve troca).
+      if (senha && !(await credencialValida(email, senha))) {
+        return json(res, 500, {
+          error: "A nova senha não pôde ser confirmada. Tente novamente.",
+          code: "PASSWORD_INCONSISTENT",
+        });
+      }
+      return json(res, 200, semSegredo({ ok: true, id: authId, usuario }));
     }
 
     // excluir
