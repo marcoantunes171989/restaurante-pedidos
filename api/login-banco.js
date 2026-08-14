@@ -48,24 +48,26 @@ async function authAdmin(path, { method = "GET", body } = {}) {
   return data;
 }
 
-async function restSelectUsuario(email) {
-  const filtro = `email=ilike.${encodeURIComponent(String(email || "").trim().toLowerCase())}`;
-  const r = await fetch(
-    `${supabaseUrl()}/rest/v1/tab_usuarios?${filtro}&select=id,email,senha,ativo,nome,loja_id,super_admin,perfil,ids_acesso,cargo_id&limit=1`,
-    {
-      headers: {
-        apikey: serviceKey(),
-        authorization: `Bearer ${serviceKey()}`,
-        accept: "application/json",
-      },
+// Fase 7.2.1: a validação da senha é feita SÓ pela RPC app_validar_login,
+// que compara por hash (bcrypt) no servidor. A API nunca lê tab_usuarios.senha
+// nem a senha_hash — só recebe o perfil operacional (sem credencial).
+async function rpcValidarLogin(email, senha) {
+  const r = await fetch(`${supabaseUrl()}/rest/v1/rpc/app_validar_login`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey(),
+      authorization: `Bearer ${serviceKey()}`,
+      "content-type": "application/json",
+      accept: "application/json",
     },
-  );
+    body: JSON.stringify({ p_email: email, p_senha: senha }),
+  });
+  let data = null;
+  try { data = await r.json(); } catch { /* vazio */ }
   if (!r.ok) {
-    const t = await r.text();
-    throw new Error(t || `REST HTTP ${r.status}`);
+    throw new Error((data && (data.message || data.error)) || `RPC HTTP ${r.status}`);
   }
-  const rows = await r.json();
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  return data && typeof data === "object" ? data : { ok: false, code: "INVALID_CREDENTIALS" };
 }
 
 async function encontrarAuthPorEmail(email) {
@@ -123,17 +125,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const row = await restSelectUsuario(email);
-    // Resposta genérica — não revela se o e-mail existe.
-    if (!row || String(row.senha ?? "") !== senha) {
+    // Validação por hash, server-side (nunca lê a senha armazenada).
+    const val = await rpcValidarLogin(email, senha);
+    if (!val.ok) {
+      if (val.code === "INACTIVE") {
+        return json(res, 403, {
+          error: "Usuário inativo, entre em contato com o administrador do sistema.",
+          code: "INACTIVE",
+        });
+      }
+      // Resposta genérica — não revela se o e-mail existe.
       return json(res, 401, { error: "E-mail ou senha incorretos.", code: "INVALID_CREDENTIALS" });
     }
-    if (row.ativo === false) {
-      return json(res, 403, {
-        error: "Usuário inativo, entre em contato com o administrador do sistema.",
-        code: "INACTIVE",
-      });
-    }
+    const row = val.usuario || {};
 
     // Credenciais OK no banco → login liberado. Auth é best-effort (JWT/RLS).
     const meta = {

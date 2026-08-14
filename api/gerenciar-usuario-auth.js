@@ -88,7 +88,7 @@ function filtroEmail(email) {
 
 async function restSelectUsuarioPorEmail(email) {
   const rows = await rest(
-    `/tab_usuarios?${filtroEmail(email)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,senha,perfil,cargo_id`,
+    `/tab_usuarios?${filtroEmail(email)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,perfil,cargo_id`,
   );
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
@@ -178,11 +178,12 @@ function podeGerenciarLoja(operador, lojaIdAlvo) {
   return String(operador.lojaId) === String(lojaIdAlvo);
 }
 
-function montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso, permissoesAcoes }) {
+// Fase 7.2.1: NUNCA grava `senha` (texto claro) no tab_usuarios. A credencial
+// vai só para senha_hash, via a RPC app_definir_senha_hash (ver definirSenhaHash).
+function montarRowApp({ email, nome, lojaId, perfil, cargoId, ativo, idsAcesso, permissoesAcoes }) {
   const row = {
     email: email != null ? String(email).trim().toLowerCase() : undefined,
     nome: nome != null ? (String(nome).trim() || undefined) : undefined,
-    senha: senha != null && String(senha) !== "" ? String(senha) : undefined,
     perfil: perfil != null ? (String(perfil).trim() || "Operador") : undefined,
     ativo: typeof ativo === "boolean" ? ativo : undefined,
     ids_acesso: Array.isArray(idsAcesso) ? idsAcesso : undefined,
@@ -194,10 +195,23 @@ function montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsA
   return row;
 }
 
+// Fase 7.2.1: grava a senha SOMENTE como hash (bcrypt), via RPC service-role.
+// Nunca escreve texto claro no banco. Lança se falhar (o login depende do hash).
+async function definirSenhaHash(id, senha) {
+  if (id == null || senha == null || String(senha) === "") return;
+  const out = await rest("/rpc/app_definir_senha_hash", {
+    method: "POST",
+    body: { p_id: Number(id), p_senha: String(senha) },
+  });
+  if (out && out.ok === false) {
+    throw new Error(`Falha ao gravar a credencial (hash): ${out.code || "erro"}`);
+  }
+}
+
 async function restSelectUsuarioPorId(id) {
   if (id == null || id === "") return null;
   const rows = await rest(
-    `/tab_usuarios?id=eq.${encodeURIComponent(id)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,senha,perfil,cargo_id,permissoes_acoes`,
+    `/tab_usuarios?id=eq.${encodeURIComponent(id)}&select=id,email,loja_id,ativo,super_admin,ids_acesso,nome,perfil,cargo_id,permissoes_acoes`,
   );
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
@@ -293,6 +307,8 @@ export default async function handler(req, res) {
           idsAcesso: Array.isArray(idsAcesso) ? idsAcesso : [],
           permissoesAcoes: permissoesAcoes || {},
         }));
+        // Credencial → apenas hash (bcrypt), nunca texto claro.
+        if (usuario?.id) await definirSenhaHash(usuario.id, senha);
       }
       return json(res, 200, { ok: true, id: authId, atualizado: !!existente, usuario });
     }
@@ -313,7 +329,6 @@ export default async function handler(req, res) {
       const emailNovo = email && email.includes("@") ? email : rowApp.email;
       const campos = montarRowApp({
         email: emailNovo,
-        senha: senha || undefined,
         nome: nome || undefined,
         lojaId: lojaId != null ? lojaId : undefined,
         perfil: body.perfil != null ? perfil : undefined,
@@ -337,6 +352,8 @@ export default async function handler(req, res) {
           throw e;
         }
       }
+      // Credencial (se enviada) → apenas hash (bcrypt), nunca texto claro.
+      if (senha && (usuario?.id || rowApp?.id)) await definirSenhaHash(usuario?.id ?? rowApp.id, senha);
       // Alinha Auth se senha/e-mail/nome mudaram (best-effort).
       if (senha || (emailNovo && emailNovo !== String(rowApp.email || "").toLowerCase()) || nome) {
         try {
@@ -424,7 +441,6 @@ export default async function handler(req, res) {
       if (persistirPerfil) {
         const campos = montarRowApp({
           email,
-          senha: senha || undefined,
           nome: nome || rowApp?.nome,
           lojaId: lojaEfetiva,
           perfil: body.perfil != null ? perfil : (rowApp?.perfil || perfil),
@@ -443,11 +459,13 @@ export default async function handler(req, res) {
             } else throw e;
           }
         } else {
-          if (!campos.senha) {
+          if (!senha) {
             return json(res, 400, { error: "Informe a senha para criar o registro do usuário no banco." });
           }
           usuario = await upsertTabUsuario(campos);
         }
+        // Credencial (se enviada) → apenas hash (bcrypt), nunca texto claro.
+        if (senha && usuario?.id) await definirSenhaHash(usuario.id, senha);
       }
       return json(res, 200, { ok: true, id: authId, usuario });
     }

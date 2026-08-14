@@ -42,18 +42,33 @@ describe('removerChavesSensiveis', () => {
   })
 })
 
-describe('mapUsuarioDb — nunca expõe a senha do banco', () => {
-  it('descarta a coluna senha mesmo quando presente na linha', () => {
+describe('mapUsuarioDb — nunca expõe senha nem hash do banco', () => {
+  it('descarta senha e senha_hash mesmo quando presentes na linha', () => {
     const row = {
-      id: 7, nome: 'Ana', email: 'ana@x.com', senha: 'super-secreta',
+      id: 7, nome: 'Ana', email: 'ana@x.com',
+      senha: 'super-secreta', senha_hash: '$2a$10$abcdefghijklmnopqrstuv',
       perfil: 'Gestor', ativo: true, ids_acesso: ['admin'], loja_id: 3,
       cargo_id: 1, super_admin: false, permissoes_acoes: {},
     }
     const u = mapUsuarioDb(row)
     expect(u).not.toHaveProperty('password')
     expect(u).not.toHaveProperty('senha')
+    expect(u).not.toHaveProperty('senha_hash')
+    expect(u).not.toHaveProperty('password_hash')
     expect(contemChaveSensivel(u)).toBe(false)
     // continua trazendo o perfil operacional
     expect(u).toMatchObject({ id: 7, name: 'Ana', email: 'ana@x.com', role: 'Gestor', lojaId: 3 })
+  })
+})
+
+describe('anti-vazamento de HASH (fase 7.2.1)', () => {
+  it('detecta senha_hash / password_hash aninhados', () => {
+    expect(contemChaveSensivel({ usuario: { id: 1, senha_hash: '$2a$...' } })).toBe(true)
+    expect(contemChaveSensivel([{ ok: true }, { password_hash: '$2a$...' }])).toBe(true)
+  })
+  it('removerChavesSensiveis também remove hash', () => {
+    const limpo = removerChavesSensiveis({ ok: true, usuario: { id: 1, senha_hash: '$2a$x' } })
+    expect(contemChaveSensivel(limpo)).toBe(false)
+    expect(limpo.usuario).toEqual({ id: 1 })
   })
 })

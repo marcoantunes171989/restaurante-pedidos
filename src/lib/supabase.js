@@ -1825,11 +1825,12 @@ export async function persistirUsuarioCampos(usuarioId, camposApp = {}, adminCre
     }
   }
 
-  // 4) Update direto
+  // 4) Update direto — Fase 7.2.1: NUNCA grava senha em texto claro por aqui.
+  // Se este fallback for atingido com troca de senha, a nova senha não persiste
+  // (a gravação de credencial só ocorre via RPC/API que fazem hash).
   const dbCampos = {}
   if (rpcCampos.nome != null) dbCampos.nome = rpcCampos.nome
   if (rpcCampos.email != null) dbCampos.email = rpcCampos.email
-  if (rpcCampos.senha != null) dbCampos.senha = rpcCampos.senha
   if (rpcCampos.perfil != null) dbCampos.perfil = rpcCampos.perfil
   if (typeof rpcCampos.ativo === 'boolean') dbCampos.ativo = rpcCampos.ativo
   if (Array.isArray(rpcCampos.ids_acesso)) dbCampos.ids_acesso = rpcCampos.ids_acesso
@@ -2264,12 +2265,21 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = ''
   }
   if (e1) throw e1
   const lojaId = loja.id
-  // 4. Cria o usuário administrador (acesso total) — somente se informado
+  // 4. Cria o gestor (acesso total) — via API que grava só HASH (fase 7.2.1),
+  //    nunca senha em texto claro. Sincroniza Supabase Auth para o login/JWT.
   if (criarGestor) {
-    const { error: e2 } = await supabase.from('tab_usuarios')
-      .insert([{ nome: nomeResponsavel, email, senha, perfil: cargoNome || 'Gestor', ...(cargoId ? { cargo_id: cargoId } : {}), ativo: true, ids_acesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'], loja_id: lojaId }])
-      .select().single()
-    if (e2) throw e2
+    await gerenciarUsuarioAuth({
+      acao: 'criar',
+      email,
+      senha,
+      nome: nomeResponsavel,
+      lojaId,
+      perfil: cargoNome || 'Gestor',
+      cargoId: cargoId || null,
+      ativo: true,
+      idsAcesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'],
+      persistirPerfil: true,
+    })
   }
   // 5. Seed de categorias e formas de pagamento padrão para a nova loja
   try {
@@ -3123,9 +3133,10 @@ function produtoParaDb(p) {
 
 function usuarioParaDb(u) {
   return {
+    // Fase 7.2.1: NUNCA grava senha em texto claro. A credencial vai só para
+    // senha_hash, via as RPCs/API que fazem bcrypt server-side.
     nome:       u.name,
     email:      u.email,
-    senha:      u.password,
     perfil:     u.role,
     ativo:      u.active ?? true,
     ids_acesso: u.accessIds ?? [],
