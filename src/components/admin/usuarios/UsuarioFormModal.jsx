@@ -123,7 +123,7 @@ export default function UsuarioFormModal({
         {/* Cabeçalho */}
         <div className="flex shrink-0 items-center justify-between border-b px-5 py-4" style={{ borderColor: BORDA }}>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl text-white" style={{ background: PETROLEO }}>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: PETROLEO, color: "#FFFFFF" }}>
               <User className="h-5 w-5" />
             </span>
             <div>
@@ -327,9 +327,9 @@ export default function UsuarioFormModal({
             Cancelar
           </button>
           <button type="button" onClick={submeter} disabled={!valido || salvando}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ background: PETROLEO }}>
-            {salvando && <Loader2 className="h-4 w-4 animate-spin" />}
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: PETROLEO, color: "#FFFFFF" }}>
+            {salvando && <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#FFFFFF" }} />}
             {salvando ? "Salvando..." : edicao ? "Salvar alterações" : "Cadastrar usuário"}
           </button>
         </div>
