@@ -50,6 +50,13 @@
 @keyframes pp-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .pp-float { animation: pp-float 6s ease-in-out infinite; }
 
+/* Hero: movimento de câmera quase imperceptível + cartões em perspectiva.
+   Mantém o mockup vivo sem competir com a leitura do título. */
+@keyframes pp-hero-camera { 0%, 100% { transform: scale(1.035) translate3d(0, 0, 0); } 50% { transform: scale(1.055) translate3d(-0.35%, -0.25%, 0); } }
+@keyframes pp-hero-chip-float { 0%, 100% { transform: perspective(900px) rotateY(-7deg) rotateX(2deg) translateY(0); } 50% { transform: perspective(900px) rotateY(-7deg) rotateX(2deg) translateY(-8px); } }
+.pp-hero-mockup { animation: pp-hero-camera 14s ease-in-out infinite; transform-origin: 70% 50%; }
+.pp-hero-chip { animation: pp-hero-chip-float 6s ease-in-out infinite; box-shadow: 0 24px 60px -28px rgba(0,0,0,.65); }
+
 /* Carrossel infinito (marquee) — rolagem contínua, lenta e constante.
    O trilho tem 2 cópias idênticas lado a lado e desliza -50% em loop. */
 .pp-marquee-track { animation: pp-marquee linear infinite; }
@@ -95,7 +102,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pp-reveal { opacity: 1; transform: none; transition: none; }
-  .pp-pulse-ring, .pp-float, .pp-anim-fade, .pp-anim-up, .pp-anim-left,
+  .pp-pulse-ring, .pp-float, .pp-hero-mockup, .pp-hero-chip, .pp-anim-fade, .pp-anim-up, .pp-anim-left,
   .pp-line-flow, .pp-glow-pulse, .pp-travel,
   .pp-load-bounce, .pp-load-bar, .pp-load-ring { animation: none; }
   .pp-timeline-fill { transition: none; }

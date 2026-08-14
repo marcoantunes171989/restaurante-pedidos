@@ -65,7 +65,7 @@ export function Botao({
   );
   if (href) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer" className={cls} {...rest}>
+      <a href={href} target="_blank" rel="noopener noreferrer" className={cls} onClick={onClick} {...rest}>
         {body}
       </a>
     );

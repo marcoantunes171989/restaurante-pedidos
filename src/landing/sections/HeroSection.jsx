@@ -5,6 +5,8 @@ import {
   HeartHandshake,
   Play,
   ShieldCheck,
+  CheckCircle2,
+  Wifi,
   Wallet,
 } from "lucide-react";
 import { Botao, Picture, Reveal } from "../ui";
@@ -42,7 +44,7 @@ export default function HeroSection() {
           loading="eager"
           fetchPriority="high"
           className="block h-full w-full"
-          imgClassName="h-full w-full scale-105 object-cover object-center"
+          imgClassName="pp-hero-mockup h-full w-full object-cover object-center"
         />
       </div>
       <div
@@ -53,6 +55,17 @@ export default function HeroSection() {
             "linear-gradient(105deg, rgba(1,46,70,0.95) 0%, rgba(1,46,70,0.90) 42%, rgba(1,46,70,0.68) 72%, rgba(1,46,70,0.52) 100%)",
         }}
       />
+
+      <div aria-hidden="true" className="pointer-events-none absolute bottom-20 right-[4vw] z-0 hidden xl:block">
+        <div className="pp-hero-chip flex items-center gap-3 rounded-2xl border border-white/20 bg-[#012E46]/80 px-4 py-3 text-white shadow-2xl shadow-black/25 backdrop-blur-md">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F38525] text-[#012E46]"><CheckCircle2 className="h-5 w-5" /></span>
+          <span><strong className="block text-sm">Pedidos em tempo real</strong><small className="text-white/65">Atendimento e produção conectados</small></span>
+        </div>
+        <div className="pp-hero-chip ml-14 mt-3 flex items-center gap-3 rounded-2xl border border-white/20 bg-white/90 px-4 py-3 text-[#012E46] shadow-2xl shadow-black/20 backdrop-blur-md [animation-delay:-2s]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#012E46] text-[#F38525]"><Wifi className="h-5 w-5" /></span>
+          <span><strong className="block text-sm">Operação integrada</strong><small className="text-[#012E46]/65">Salão, cozinha, bar e caixa</small></span>
+        </div>
+      </div>
 
       <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-16 pt-28 sm:pt-32 lg:px-8 lg:pb-20">
         <div className="relative z-10 max-w-3xl">
