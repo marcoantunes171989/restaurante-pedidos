@@ -176,10 +176,17 @@ async function operadorDoToken(req) {
   const auth = req.headers.authorization || req.headers.Authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   if (!token) return null;
-  const anon = anonKey();
-  if (!anon) return null;
+  // Valida o JWT do usuário no GoTrue. O `apikey` só precisa ser uma chave
+  // VÁLIDA do projeto (quem identifica o usuário é o Bearer). Preferimos a
+  // service role — garantida presente (senão o handler já respondeu 503) — em
+  // vez de depender da anon key estar exposta no RUNTIME da função. Sem isso,
+  // se a anon não estivesse no ambiente da função, esta função devolvia
+  // "Sem permissão" para TODO admin, mesmo super_admin. Mesmo padrão da Edge
+  // Function (admin.auth.getUser(token) usa a service role).
+  const apikey = serviceKey() || anonKey();
+  if (!apikey) return null;
   const r = await fetch(`${supabaseUrl()}/auth/v1/user`, {
-    headers: { apikey: anon, authorization: `Bearer ${token}` },
+    headers: { apikey, authorization: `Bearer ${token}` },
   });
   if (!r.ok) return null;
   const user = await r.json();

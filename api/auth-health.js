@@ -35,13 +35,22 @@ function serviceRoleFormat() {
   return "desconhecido";
 }
 
+const PERFIS_ADMIN = new Set([
+  "admin", "administrador", "admin geral", "administrador geral",
+  "gestor", "gerente",
+]);
+const ehPerfilAdmin = (p) => PERFIS_ADMIN.has(String(p || "").trim().toLowerCase());
+
 async function operadorAdmin(req) {
   const auth = req.headers.authorization || req.headers.Authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token || !anonKey()) return false;
+  // apikey só precisa ser válida (o Bearer identifica o usuário) — usa service
+  // role para não depender da anon key no runtime da função.
+  const apikey = serviceKey() || anonKey();
+  if (!token || !apikey) return false;
   try {
     const r = await fetch(`${supabaseUrl()}/auth/v1/user`, {
-      headers: { apikey: anonKey(), authorization: `Bearer ${token}` },
+      headers: { apikey, authorization: `Bearer ${token}` },
     });
     if (!r.ok) return false;
     const user = await r.json();
@@ -49,7 +58,7 @@ async function operadorAdmin(req) {
     if (!email) return false;
     // Consulta mínima em tab_usuarios (com service role) — só flags de acesso.
     const q = await fetch(
-      `${supabaseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,ids_acesso&limit=1`,
+      `${supabaseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,ids_acesso,perfil&limit=1`,
       { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, accept: "application/json" } },
     );
     if (!q.ok) return false;
@@ -57,7 +66,7 @@ async function operadorAdmin(req) {
     const row = Array.isArray(rows) ? rows[0] : null;
     if (!row || row.ativo === false) return false;
     const ids = Array.isArray(row.ids_acesso) ? row.ids_acesso : [];
-    return !!row.super_admin || ids.includes("admin");
+    return !!row.super_admin || ids.includes("admin") || ehPerfilAdmin(row.perfil);
   } catch {
     return false;
   }

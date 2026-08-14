@@ -1,8 +1,34 @@
-# Correção — Permissão do Gestor para gerenciar usuários
+# Correção — Permissão para gerenciar usuários / trocar senha
 
-**Sem migration** — a estrutura atual (`tab_usuarios.perfil`) já bastava.
+**Sem migration** — só código de API. A estrutura atual (`tab_usuarios.perfil`)
+já bastava.
 
-## Causa raiz
+## Causa raiz PRINCIPAL (persistia após o 1º ajuste): anon key no runtime
+
+`api/gerenciar-usuario-auth.js` → `operadorDoToken()` validava o JWT do usuário
+chamando `GET /auth/v1/user` com a **anon key** como `apikey`, e retornava
+`null` logo no início se a anon key estivesse ausente:
+
+```js
+const anon = anonKey();     // process.env.VITE_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY
+if (!anon) return null;     // → 401 "Sem permissão para gerenciar usuários de login."
+```
+
+A anon key `VITE_*` é embutida no bundle do front em **build**, mas o **runtime
+da Serverless Function** só a enxerga se estiver configurada como env do runtime.
+Quando não está, `operadorDoToken` devolvia `null` para **todo** administrador
+— inclusive super admin — e a resposta era sempre "Sem permissão…", em qualquer
+operação de usuário (incluindo **trocar a senha**). Como esse retorno acontece
+**antes** de qualquer checagem de perfil/loja, o primeiro ajuste (perfil) não
+tinha efeito.
+
+**Correção:** validar o JWT com a **service role** (garantida presente — senão
+o handler já responde 503), com a anon como fallback. O `apikey` só precisa ser
+uma chave válida do projeto; quem identifica o usuário é o **Bearer**. É o mesmo
+padrão que a Edge Function já usa (`admin.auth.getUser(token)` com service role).
+Aplicado também em `api/auth-health.js`.
+
+## Causa raiz SECUNDÁRIA (defesa em profundidade): perfil ignorado
 
 `api/gerenciar-usuario-auth.js` → `operadorDoToken()`. A autorização de
 **escrita** reconhecia administrador apenas por:

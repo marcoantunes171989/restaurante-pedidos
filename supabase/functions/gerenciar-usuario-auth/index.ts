@@ -26,6 +26,14 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// Perfis administrativos (gerenciam usuários da própria loja) — mesmo conjunto
+// da leitura (app_listar_usuarios/095) e da Vercel Function.
+const PERFIS_ADMIN = new Set([
+  "admin", "administrador", "admin geral", "administrador geral",
+  "gestor", "gerente",
+]);
+const ehPerfilAdmin = (p: unknown) => PERFIS_ADMIN.has(String(p ?? "").trim().toLowerCase());
+
 async function operadorDoToken(req: Request) {
   const auth = req.headers.get("authorization") || "";
   const token = auth.replace(/^Bearer\s+/i, "");
@@ -34,12 +42,14 @@ async function operadorDoToken(req: Request) {
   if (error || !data?.user?.email) return null;
   const { data: u } = await admin
     .from("tab_usuarios")
-    .select("id, email, loja_id, ativo, super_admin, ids_acesso")
+    .select("id, email, loja_id, ativo, super_admin, ids_acesso, perfil")
     .ilike("email", data.user.email)
     .maybeSingle();
   if (!u || u.ativo === false) return null;
   const ids = Array.isArray(u.ids_acesso) ? u.ids_acesso : [];
-  if (!u.super_admin && !ids.includes("admin")) return null;
+  // Admin por super_admin OU ids_acesso 'admin' OU perfil administrativo. O
+  // isolamento por loja é garantido depois em podeGerenciarLoja.
+  if (!u.super_admin && !ids.includes("admin") && !ehPerfilAdmin(u.perfil)) return null;
   return { email: data.user.email, lojaId: u.loja_id ?? null, superAdmin: !!u.super_admin };
 }
 
