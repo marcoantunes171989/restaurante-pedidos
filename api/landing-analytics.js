@@ -8,7 +8,16 @@ function json(res, status, body) {
 
 const baseUrl = () => process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const anonKey = () => process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+const FALLBACK_PUBLISHABLE_KEY = "sb_publishable_d7rhTgmb-hBruvWSw_SmKg_-dJQyDw0";
+function anonKey() {
+  const configured = process.env.SUPABASE_PUBLISHABLE_KEY
+    || process.env.VITE_SUPABASE_ANON_KEY
+    || process.env.SUPABASE_ANON_KEY
+    || "";
+  // O projeto rotacionou a assinatura de JWT. Chaves anon legadas ainda
+  // presentes na Vercel não autenticam tokens ECC; use apenas publishable key.
+  return configured.startsWith("sb_") ? configured : FALLBACK_PUBLISHABLE_KEY;
+}
 const clean = (v, max = 200) => v == null ? null : String(v).trim().slice(0, max) || null;
 
 function clientIp(req) {
