@@ -5,17 +5,20 @@ import { linkWhatsappConsultor } from "../config/contato";
 import LandingHeader from "./sections/LandingHeader";
 import HeroSection from "./sections/HeroSection";
 import SolutionsSection from "./sections/SolutionsSection";
+import ProductFlowSection from "./sections/ProductFlowSection";
+import CapabilitiesSection from "./sections/CapabilitiesSection";
 import DevicesSection from "./sections/DevicesSection";
 import BenefitsSection from "./sections/BenefitsSection";
 import SegmentsSection from "./sections/SegmentsSection";
 import PlanosSection from "./sections/PlanosSection";
+import FAQSection from "./sections/FAQSection";
 import FinalCTA from "./sections/FinalCTA";
 import LandingFooter from "./sections/LandingFooter";
 
 /**
  * Landing institucional Pedido Prime — hero (gestão em tempo real) →
- * soluções → dispositivos (prova visual do painel) → benefícios →
- * gastronomia → planos → CTA.
+ * plataforma → fluxo operacional → recursos → dispositivos → benefícios →
+ * segmentos → soluções por perfil → FAQ → CTA.
  */
 export default function LandingPage({ navigate }) {
   const entrar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
@@ -26,10 +29,13 @@ export default function LandingPage({ navigate }) {
       <main>
         <HeroSection />
         <SolutionsSection />
+        <ProductFlowSection />
+        <CapabilitiesSection />
         <DevicesSection />
         <BenefitsSection />
         <SegmentsSection />
         <PlanosSection />
+        <FAQSection />
         <FinalCTA />
       </main>
       <LandingFooter onEntrar={entrar} />

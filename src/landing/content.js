@@ -7,9 +7,10 @@ export const NOME_SISTEMA = "Pedido Prime";
 
 export const NAV = [
   { label: "Início", id: "topo" },
-  { label: "Soluções", id: "solucoes" },
-  { label: "Recursos", id: "dispositivos" },
+  { label: "Plataforma", id: "solucoes" },
+  { label: "Como funciona", id: "fluxo" },
   { label: "Soluções", id: "planos" },
+  { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
 ];
 
@@ -23,10 +24,10 @@ export const HERO = {
     "Sistema completo para restaurantes que simplifica operações, aumenta vendas e melhora a experiência do cliente.",
   ctaPrimario: "Conhecer soluções",
   ctaSecundario: "Ver demonstração",
-  // KPIs ilustrativos da visão do painel (composição de marketing).
+  // Benefícios verificáveis da plataforma, sem métricas comerciais inventadas.
   kpis: [
-    { valor: "99%", label: "das entregas concluídas", icon: "barChart" },
-    { valor: "R$ 12.272,79", label: "recebidos", icon: "wallet" },
+    { valor: "Tempo real", label: "pedidos e produção conectados", icon: "barChart" },
+    { valor: "Visão única", label: "vendas, caixa e gestão", icon: "wallet" },
   ],
   indicadores: [
     { label: "100% em nuvem", icon: "cloud" },
@@ -70,9 +71,55 @@ export const SOLUCOES = {
     },
     {
       icon: "settings",
-      titulo: "Integrações",
-      desc: "Conecte meios de pagamento, impressoras e canais sem complicar o dia a dia.",
+      titulo: "Operação por Setores",
+      desc: "Direcione itens para cozinha, bar e impressoras, com acompanhamento do preparo.",
     },
+  ],
+};
+
+export const FLUXO_PRODUTO = {
+  badge: "Operação conectada",
+  titulo: "Do pedido à gestão,",
+  tituloAccent: "tudo conversa.",
+  desc: "O Pedido Prime conecta cada etapa da jornada para reduzir retrabalho, dar ritmo à equipe e transformar a operação em informação útil.",
+  etapas: [
+    { numero: "01", icon: "qrCode", titulo: "Pedido sem atrito", desc: "Receba pedidos pelo cardápio QR, tablet, smartphone, balcão, mesa ou comanda." },
+    { numero: "02", icon: "chefHat", titulo: "Produção organizada", desc: "Envie cada item ao setor correto e acompanhe cozinha e bar em tempo real." },
+    { numero: "03", icon: "creditCard", titulo: "Caixa sob controle", desc: "Feche contas, divida pagamentos e registre vendas, sangrias e suprimentos." },
+    { numero: "04", icon: "lineChart", titulo: "Decisão com dados", desc: "Acompanhe indicadores, clientes, estoque e desempenho em uma visão gerencial." },
+  ],
+};
+
+export const RECURSOS_PRODUTO = {
+  badge: "Mais que um sistema de pedidos",
+  titulo: "Recursos para operar hoje",
+  tituloAccent: "e crescer amanhã.",
+  desc: "Uma plataforma modular para centralizar atendimento, produção, gestão e relacionamento com o cliente.",
+  grupos: [
+    { icon: "layoutDashboard", titulo: "PDV, mesas e comandas", desc: "Venda no balcão ou salão, transfira mesas, separe itens e acompanhe contas abertas." },
+    { icon: "utensils", titulo: "Cozinha, bar e impressão", desc: "Organize filas por setor, status de preparo e impressão automática de produção." },
+    { icon: "scanLine", titulo: "Cardápio QR e autoatendimento", desc: "Ofereça cardápio digital para o cliente e atendimento em tablets e smartphones." },
+    { icon: "boxes", titulo: "Produtos e estoque", desc: "Cadastre produtos, adicionais e categorias, com baixa de estoque vinculada às vendas." },
+    { icon: "heartHandshake", titulo: "CRM e fidelidade", desc: "Conheça a recorrência dos clientes e trabalhe pontos, recompensas, promoções e cupons." },
+    { icon: "barChart3", titulo: "Dashboard e relatórios", desc: "Visualize vendas, operação, comandas e desempenho para decidir com mais segurança." },
+    { icon: "receiptText", titulo: "Configuração fiscal", desc: "Organize NCM, CFOP, ICMS, PIS, COFINS e regras fiscais dentro da operação." },
+    { icon: "shieldCheck", titulo: "Usuários e permissões", desc: "Defina acessos por função e mantenha cada equipe focada no que precisa executar." },
+  ],
+};
+
+export const FAQ = {
+  badge: "Perguntas frequentes",
+  titulo: "Tudo o que você precisa saber",
+  tituloAccent: "antes da apresentação.",
+  desc: "Se a sua dúvida não estiver aqui, fale com um consultor e conte como funciona a sua operação.",
+  itens: [
+    { pergunta: "Para quais tipos de negócio o Pedido Prime é indicado?", resposta: "A plataforma atende operações gastronômicas como restaurantes, bares, hamburguerias, pizzarias e cafeterias. A configuração é definida conforme o modelo de atendimento, os setores e a rotina de cada negócio." },
+    { pergunta: "O sistema funciona em celular, tablet e computador?", resposta: "Sim. O Pedido Prime é uma plataforma web em nuvem e pode ser acessado em smartphones, tablets e computadores compatíveis, permitindo conectar salão, produção, caixa e gestão." },
+    { pergunta: "É possível trabalhar com mesas, comandas e balcão?", resposta: "Sim. A operação contempla pedidos por mesa, comanda e balcão, além de recursos de PDV, transferência de mesa, separação de itens e fechamento de conta." },
+    { pergunta: "Os pedidos podem ser separados entre cozinha e bar?", resposta: "Sim. Produtos podem ser vinculados a setores de produção, permitindo organizar filas de cozinha e bar e direcionar impressões para cada setor configurado." },
+    { pergunta: "O Pedido Prime possui cardápio digital e QR Code?", resposta: "Sim. O projeto inclui cardápio público, acesso por QR Code e experiências para tablet e smartphone, integradas ao fluxo de pedidos do estabelecimento." },
+    { pergunta: "Há recursos para relacionamento e fidelização?", resposta: "Sim. A plataforma reúne cadastro e histórico de clientes, CRM, promoções, cupons e programa de fidelidade com regras de pontos e recompensas." },
+    { pergunta: "Como funcionam implantação, suporte e valores?", resposta: "A equipe realiza uma apresentação inicial para entender estrutura, quantidade de pontos de atendimento, setores e recursos necessários. A partir desse diagnóstico, orienta a configuração, implantação e proposta comercial mais adequadas." },
   ],
 };
 
@@ -150,9 +197,9 @@ export const METRICAS = {
 export const CTA_FINAL = {
   titulo: "Pronto para transformar",
   tituloAccent: "a gestão do seu restaurante?",
-  desc: "Conheça uma plataforma criada para simplificar sua operação e ajudar seu negócio a crescer.",
-  ctaPrimario: "Fale com um especialista",
-  ctaSecundario: "ou agende uma demonstração",
+  desc: "Conte como funciona sua operação e veja, em uma apresentação personalizada, como o Pedido Prime pode conectar atendimento, produção, caixa e gestão.",
+  ctaPrimario: "Agendar uma apresentação",
+  ctaSecundario: "Prefiro falar pelo WhatsApp",
   imagem: "/img/landing/cta-operacao.webp",
   imagemFallback: "/img/landing/cta-operacao.jpg",
 };
