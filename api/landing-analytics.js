@@ -134,12 +134,29 @@ export default async function handler(req, res) {
   });
   if (!response.ok) return json(res, 503, { error: "Métricas indisponíveis. Aplique a migration 114." });
   const staleBefore = Date.now() - 45000;
-  const all = (await response.json())
+  const sourceRows = (await response.json())
     .filter((r) => new Date(r.created_at) <= end)
     .map((r) => {
       if (r.ended_at || !r.last_seen_at || new Date(r.last_seen_at).getTime() >= staleBefore) return r;
       return { ...r, ended_at: r.last_seen_at, ended_inferred: true };
     });
+  const search = clean(req.query?.q, 160)?.toLowerCase() || "";
+  const deviceFilter = clean(req.query?.device, 60)?.toLowerCase() || "";
+  const browserFilter = clean(req.query?.browser, 60)?.toLowerCase() || "";
+  const statusFilter = clean(req.query?.status, 30)?.toLowerCase() || "";
+  const searchable = (row) => [
+    row.ip_address, row.city, row.state, row.country, row.device_type, row.device_name,
+    row.os, row.browser, row.browser_version, row.path, row.referrer,
+    row.started_at, row.ended_at, row.created_at, row.duration_seconds,
+    row.screen_width && row.screen_height ? `${row.screen_width}x${row.screen_height}` : null,
+  ].filter(Boolean).join(" ").toLowerCase();
+  const all = sourceRows.filter((row) => {
+    const active = !row.ended_at && row.last_seen_at && new Date(row.last_seen_at).getTime() >= staleBefore;
+    return (!search || searchable(row).includes(search))
+      && (!deviceFilter || String(row.device_type || "").toLowerCase() === deviceFilter)
+      && (!browserFilter || String(row.browser || "").toLowerCase() === browserFilter)
+      && (!statusFilter || (statusFilter === "active" ? active : !active));
+  });
   const unique = new Set(all.map((r) => r.visitor_id).filter(Boolean)).size;
   const byDayMap = new Map();
   all.forEach((r) => { const d = r.created_at.slice(0, 10); byDayMap.set(d, (byDayMap.get(d) || 0) + 1); });
@@ -148,11 +165,25 @@ export default async function handler(req, res) {
     devices: new Set(all.filter((r) => (r.ip_address || "IP não identificado") === item.label).map((r) => r.device_name || r.device_type)).size,
   }));
   const offset = (page - 1) * pageSize;
+  const durations = all.map((r) => Number(r.duration_seconds) || 0);
+  const visitorCounts = new Map();
+  all.forEach((r) => { if (r.visitor_id) visitorCounts.set(r.visitor_id, (visitorCounts.get(r.visitor_id) || 0) + 1); });
+  const activeNow = all.filter((r) => !r.ended_at && r.last_seen_at && new Date(r.last_seen_at).getTime() >= staleBefore).length;
+  const exportAll = String(req.query?.export || "") === "1";
   return json(res, 200, {
     total: all.length, unique, sessions: new Set(all.map((r) => r.session_id).filter(Boolean)).size,
+    activeNow,
+    averageDuration: durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : 0,
+    returningVisitors: [...visitorCounts.values()].filter((value) => value > 1).length,
+    shortSessions: durations.filter((value) => value <= 10).length,
     devices: countBy(all, "device_type"), browsers: countBy(all, "browser"), systems: countBy(all, "os"),
     locations: countBy(all.map((r) => ({ location: [r.city, r.state, r.country].filter(Boolean).join(" / ") })), "location"), ips,
     byDay: [...byDayMap.entries()].map(([date, value]) => ({ date, value })).sort((a, b) => a.date.localeCompare(b.date)),
-    visits: all.slice(offset, offset + pageSize), page, pageSize, totalPages: Math.max(1, Math.ceil(all.length / pageSize)), capped: all.length >= 5000,
+    filterOptions: {
+      devices: [...new Set(sourceRows.map((r) => r.device_type).filter(Boolean))].sort(),
+      browsers: [...new Set(sourceRows.map((r) => r.browser).filter(Boolean))].sort(),
+    },
+    visits: exportAll ? all : all.slice(offset, offset + pageSize), page, pageSize,
+    totalPages: Math.max(1, Math.ceil(all.length / pageSize)), capped: sourceRows.length >= 5000,
   });
 }
