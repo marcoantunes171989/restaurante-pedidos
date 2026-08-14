@@ -18,10 +18,10 @@ export default function PlanosSection() {
     <section id="planos" className="section scroll-mt-24 bg-white">
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
         <SectionHeading
-          badge="Planos"
-          titulo="Escolha o plano ideal"
-          tituloAccent="para a sua operação."
-          desc={`Planos a partir de R$ ${planosPedidoPrime[0].preco}/mês. Valores e recursos podem variar conforme o porte do negócio.`}
+          badge="Soluções"
+          titulo="Uma solução para cada"
+          tituloAccent="tipo de operação."
+          desc="Cada restaurante tem uma rotina, estrutura e necessidade diferente. Conheça a plataforma em uma apresentação personalizada e descubra a configuração mais adequada para o seu negócio."
         />
 
         <div className="mt-12 grid gap-5 lg:grid-cols-4">
@@ -53,15 +53,8 @@ export default function PlanosSection() {
                 </span>
                 <h3 className="mt-4 text-xl font-bold text-[#012E46]">{p.nome}</h3>
                 <p className="mt-1 min-h-[3.25rem] text-sm leading-6 text-[#012E46]/70">{p.desc}</p>
-                <p className="mt-4 flex items-baseline gap-1">
-                  {p.preco ? (
-                    <>
-                      <span className="text-3xl font-black text-[#012E46]">R$ {p.preco}</span>
-                      <span className="text-sm text-[#012E46]/65">{p.periodo}</span>
-                    </>
-                  ) : (
-                    <span className="text-2xl font-black text-[#012E46]">{p.precoTexto}</span>
-                  )}
+                <p className="mt-4 min-h-[3.5rem] text-base font-bold leading-6 text-[#012E46]">
+                  Solução personalizada para sua operação
                 </p>
                 <ul className="mt-5 flex-1 space-y-2">
                   {p.recursos.slice(0, 5).map((r) => (
@@ -77,17 +70,17 @@ export default function PlanosSection() {
                 </ul>
                 <Botao
                   variant={destaque ? "primary" : "outlineDark"}
-                  href={linkWhatsappConsultor(`Olá! Tenho interesse no plano ${p.nome} do Pedido Prime.`)}
+                  href={linkWhatsappConsultor(`Olá! Gostaria de agendar uma apresentação da solução ${p.nome} do Pedido Prime.`)}
                   className="mt-6 w-full"
                 >
-                  {p.cta}
+                  Agendar uma apresentação
                 </Botao>
               </Reveal>
             );
           })}
         </div>
-        <Reveal className="mt-8 text-center text-xs text-[#012E46]/65">
-          * Valores mensais de referência — recursos e condições podem variar conforme o plano e o porte da operação.
+        <Reveal className="mt-8 text-center text-sm text-[#012E46]/65">
+          Fale com um consultor para entender a configuração mais adequada para o seu negócio.
         </Reveal>
       </div>
     </section>

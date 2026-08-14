@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════
 //  Conteúdo da landing — Pedido Prime (layout referência visual).
-//  Sem números comerciais inventados. Preços: ../config/pricing.js
+//  Sem números comerciais inventados. Condições apresentadas em conversa consultiva.
 // ════════════════════════════════════════════════════════════
 
 export const NOME_SISTEMA = "Pedido Prime";
@@ -9,7 +9,7 @@ export const NAV = [
   { label: "Início", id: "topo" },
   { label: "Soluções", id: "solucoes" },
   { label: "Recursos", id: "dispositivos" },
-  { label: "Planos", id: "planos" },
+  { label: "Soluções", id: "planos" },
   { label: "Contato", id: "contato" },
 ];
 
@@ -208,7 +208,7 @@ export const FOOTER = {
       titulo: "Empresa",
       links: [
         { label: "Sobre", id: "segmentos" },
-        { label: "Planos", id: "planos" },
+        { label: "Soluções", id: "planos" },
         { label: "Contato", id: "contato" },
       ],
     },
