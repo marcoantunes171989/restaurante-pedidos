@@ -27,12 +27,18 @@ async function isSuperAdmin(req) {
   const user = await userResponse.json();
   const email = clean(user?.email, 160)?.toLowerCase();
   if (!email) return false;
-  const response = await fetch(`${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin&limit=1`, {
+  const response = await fetch(`${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`, {
     headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}` },
   });
   if (!response.ok) return false;
   const rows = await response.json();
-  return rows?.[0]?.ativo !== false && rows?.[0]?.super_admin === true;
+  const operator = rows?.[0];
+  if (!operator || operator.ativo === false) return false;
+  // Conta-raiz criada pela migration 013. O e-mail vem do JWT validado pelo
+  // Supabase, nunca de um header fornecido diretamente pelo navegador.
+  if (email === "admin@restaurante.com") return true;
+  return operator.super_admin === true
+    || (operator.loja_id == null && Array.isArray(operator.ids_acesso) && operator.ids_acesso.includes("admin"));
 }
 
 async function insertVisit(req, body) {
