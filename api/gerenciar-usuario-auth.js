@@ -160,6 +160,18 @@ async function deleteTabUsuarioPorEmail(email) {
   });
 }
 
+// Perfis com poder administrativo (gerenciam usuários da PRÓPRIA loja).
+// Mesmo conjunto reconhecido pela leitura em app_listar_usuarios (migration 095),
+// para que "quem vê a tela" e "quem pode salvar" fiquem consistentes.
+const PERFIS_ADMIN = new Set([
+  "admin", "administrador", "admin geral", "administrador geral",
+  "gestor", "gerente",
+]);
+
+function ehPerfilAdmin(perfil) {
+  return PERFIS_ADMIN.has(String(perfil || "").trim().toLowerCase());
+}
+
 async function operadorDoToken(req) {
   const auth = req.headers.authorization || req.headers.Authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
@@ -176,7 +188,10 @@ async function operadorDoToken(req) {
   const row = await restSelectUsuarioPorEmail(email);
   if (!row || row.ativo === false) return null;
   const ids = Array.isArray(row.ids_acesso) ? row.ids_acesso : [];
-  const podeAdmin = !!row.super_admin || ids.includes("admin");
+  // Admin por super_admin OU ids_acesso 'admin' OU perfil administrativo
+  // (Gestor/Gerente). O isolamento por loja é garantido depois em
+  // podeGerenciarLoja — um Gestor só gerencia usuários da própria loja.
+  const podeAdmin = !!row.super_admin || ids.includes("admin") || ehPerfilAdmin(row.perfil);
   if (!podeAdmin) return null;
   return {
     email,
