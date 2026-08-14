@@ -68,7 +68,7 @@ import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
-import { mensagemErroAcesso } from "./login/authMessages";
+import { mensagemErroAcesso, mensagemPorCodigoAuth } from "./login/authMessages";
 import LoginPage from "./login/LoginPage";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
@@ -1323,17 +1323,25 @@ export default function RestaurantePedidoApp() {
     forcarUrlLogin();
 
     // Sessão Supabase Auth (JWT) é necessária para RLS ler o banco na tela.
-    // Se o 1º signIn falhar, tenta alinhar Auth via API e repetir uma vez.
+    // Fase 7.2.3 — FAIL-CLOSED: se o 1º signIn falhar, o servidor repara o Auth
+    // (self-healing) com a senha DIGITADA. Se o reparo NÃO confirmar, não
+    // fingimos login sem JWT — mostramos erro de infra (não "senha inválida").
     if (usandoSupabaseAuth()) {
       let r = await loginSupabaseAuth(email, senha);
       if (!r.ok) {
+        let heal;
         try {
-          await fetch("/api/login-banco", {
+          const resp = await fetch("/api/login-banco", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ email, senha }),
           });
-        } catch { /* best-effort */ }
+          heal = await resp.json().catch(() => ({ ok: false, code: "SERVER_ERROR" }));
+        } catch { heal = { ok: false, code: "SERVER_ERROR" }; }
+        if (!heal.ok) {
+          registrarLoginNegado({ email, motivo: heal.code || "AUTH_SYNC_FAILED" });
+          return notify("error", mensagemPorCodigoAuth(heal.code));
+        }
         r = await loginSupabaseAuth(email, senha);
       }
       if (r.ok) {
@@ -1342,6 +1350,9 @@ export default function RestaurantePedidoApp() {
         window.location.replace(`${window.location.origin}/login`);
         return;
       }
+      // Auth reparado mas a sessão ainda não veio: NÃO entra sem JWT.
+      registrarLoginNegado({ email, motivo: "AUTH_SESSION_FAILED" });
+      return notify("error", mensagemPorCodigoAuth("AUTH_SESSION_FAILED"));
     }
 
     if (!aplicarLogin(credSessao, { forcarHome: true })) return;

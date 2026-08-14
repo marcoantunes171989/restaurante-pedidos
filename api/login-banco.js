@@ -146,20 +146,20 @@ export default async function handler(req, res) {
       perfil: row.perfil || "",
     };
 
+    // SELF-HEALING FAIL-CLOSED (fase 7.2.3, §3/§6/§7): a sessão do app depende
+    // do JWT do Supabase Auth. Alinhar o Auth com a senha DIGITADA (nunca lida
+    // do banco) é OBRIGATÓRIO — se não conseguir, NÃO retorna ok:true.
+    //  • Auth ausente        → cria com a senha digitada;
+    //  • Auth com senha ≠     → atualiza a senha para a digitada;
+    //  • Auth correto         → confirma metadata.
     let authId = null;
-    let authAlinhado = false;
     try {
       let authUser = await encontrarAuthPorEmail(email);
       if (!authUser) {
         try {
           const criado = await authAdmin("/admin/users", {
             method: "POST",
-            body: {
-              email,
-              password: senha,
-              email_confirm: true,
-              user_metadata: meta,
-            },
+            body: { email, password: senha, email_confirm: true, user_metadata: meta },
           });
           authUser = { id: criado?.id || criado?.user?.id || null, user_metadata: meta };
         } catch (e) {
@@ -168,26 +168,32 @@ export default async function handler(req, res) {
           if (!authUser) throw e;
         }
       }
-      if (authUser?.id) {
-        await authAdmin(`/admin/users/${authUser.id}`, {
-          method: "PUT",
-          body: {
-            password: senha,
-            email_confirm: true,
-            user_metadata: { ...(authUser.user_metadata || {}), ...meta },
-          },
-        });
-        authId = authUser.id;
-        authAlinhado = true;
-      }
+      if (!authUser?.id) throw new Error("Conta Auth não pôde ser criada/localizada.");
+      await authAdmin(`/admin/users/${authUser.id}`, {
+        method: "PUT",
+        body: {
+          password: senha,
+          email_confirm: true,
+          user_metadata: { ...(authUser.user_metadata || {}), ...meta },
+        },
+      });
+      authId = authUser.id;
     } catch (e) {
-      // Não bloqueia o login: senha já conferiu em tab_usuarios.
-      console.warn("[login-banco] Auth não alinhado (login liberado pelo banco):", e?.message || e);
+      // Classifica: chave service-role inválida vs. falha de sincronização.
+      const status = e?.status;
+      const msg = String(e?.message || "");
+      const roleInvalida = status === 401 || status === 403
+        || /invalid (jwt|api key|token)|jwt (expired|malformed)|signature|not authorized/i.test(msg);
+      const code = roleInvalida ? "SERVICE_ROLE_INVALID" : "AUTH_SYNC_FAILED";
+      // Log seguro (sem senha, sem chave).
+      console.error(`[login-banco] ${code} ao alinhar Auth:`, msg);
+      return json(res, 503, {
+        error: "Não foi possível concluir a autenticação. Tente novamente em instantes.",
+        code,
+      });
     }
 
-    // Nunca devolver a senha ao cliente — remove-a do payload (fase 7.2).
-    // A comparação já ocorreu no servidor (acima); o front só recebe o
-    // perfil operacional.
+    // Nunca devolver a senha ao cliente — remove-a do payload.
     const usuarioSemSenha = { ...row };
     delete usuarioSemSenha.senha;
 
@@ -195,7 +201,7 @@ export default async function handler(req, res) {
       ok: true,
       email,
       authId,
-      authAlinhado,
+      authAlinhado: true,
       usuarioId: row.id,
       usuario: usuarioSemSenha,
     });
