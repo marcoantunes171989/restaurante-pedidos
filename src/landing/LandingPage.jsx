@@ -6,6 +6,7 @@ import LandingHeader from "./sections/LandingHeader";
 import HeroSection from "./sections/HeroSection";
 import SolutionsSection from "./sections/SolutionsSection";
 import ProductFlowSection from "./sections/ProductFlowSection";
+import OperationOverviewSection from "./sections/OperationOverviewSection";
 import CapabilitiesSection from "./sections/CapabilitiesSection";
 import GettingStartedSection from "./sections/GettingStartedSection";
 import ExperienceByRoleSection from "./sections/ExperienceByRoleSection";
@@ -33,6 +34,7 @@ export default function LandingPage({ navigate }) {
       <main>
         <HeroSection />
         <SolutionsSection />
+        <OperationOverviewSection />
         <ProductFlowSection />
         <BenefitsSection />
         <ExperienceByRoleSection />

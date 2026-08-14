@@ -8,7 +8,7 @@ export const NOME_SISTEMA = "Pedido Prime";
 export const NAV = [
   { label: "Início", id: "topo" },
   { label: "Plataforma", id: "solucoes" },
-  { label: "Como funciona", id: "fluxo" },
+  { label: "Como funciona", id: "como-funciona" },
   { label: "Soluções", id: "planos" },
   { label: "FAQ", id: "faq" },
   { label: "Contato", id: "contato" },
@@ -88,6 +88,40 @@ export const FLUXO_PRODUTO = {
     { numero: "03", icon: "creditCard", titulo: "Caixa sob controle", desc: "Feche contas, divida pagamentos e registre vendas, sangrias e suprimentos." },
     { numero: "04", icon: "lineChart", titulo: "Decisão com dados", desc: "Acompanhe indicadores, clientes, estoque e desempenho em uma visão gerencial." },
   ],
+};
+
+export const VISAO_OPERACAO = {
+  badge: "Como o Pedido Prime trabalha",
+  titulo: "Atendimento simples na operação.",
+  tituloAccent: "Controle robusto na gestão.",
+  desc: "A plataforma conecta os dispositivos usados no estabelecimento a um painel administrativo completo, para que cada pedido gere organização no atendimento e informação confiável para a gestão empresarial e financeira.",
+  contextos: [
+    {
+      icon: "layoutDashboard",
+      titulo: "Painel administrativo e gerencial",
+      desc: "Centralize vendas, pedidos, caixa, estoque, clientes e indicadores em um painel robusto para acompanhar resultados e tomar decisões com mais segurança.",
+      destaque: "Visão clara da operação e do negócio",
+    },
+    {
+      icon: "tablet",
+      titulo: "Tablets no salão e por mesa",
+      desc: "A equipe pode registrar e acompanhar pedidos em tablets distribuídos pelo estabelecimento, reduzindo deslocamentos e acelerando o atendimento de cada mesa.",
+      destaque: "Mais agilidade para a equipe",
+    },
+    {
+      icon: "qrCode",
+      titulo: "Comandas identificadas por QR Code",
+      desc: "O cliente ou atendente utiliza a comanda com QR Code para identificar pedidos vinculados à mesa, mantendo consumo, produção e acompanhamento corretamente organizados.",
+      destaque: "Pedidos vinculados e rastreáveis",
+    },
+    {
+      icon: "monitorSmartphone",
+      titulo: "Acesso em smartphone e computador",
+      desc: "As funcionalidades se adaptam a diferentes telas, permitindo operar e consultar informações pelo celular, tablet ou computador, dentro e fora do estabelecimento.",
+      destaque: "A mesma operação em vários dispositivos",
+    },
+  ],
+  fechamento: "Do primeiro pedido ao fechamento da conta, as informações seguem conectadas. Isso facilita o controle do atendimento, agiliza o caixa e transforma a rotina do estabelecimento em dados úteis para uma gestão empresarial e financeira mais eficiente.",
 };
 
 export const RECURSOS_PRODUTO = {
