@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { Reveal, SectionHeading, Botao } from "../ui";
 import { planosPedidoPrime } from "../../config/pricing";
 import { linkWhatsappConsultor } from "../../config/contato";
@@ -43,19 +44,26 @@ export default function PlanosSection() {
                     : "border-[#012E46]/12 hover:border-[#012E46]/30 hover:shadow-[0_20px_45px_-34px_rgba(1,46,70,0.4)]"
                 }`}
               >
-                <button
-                  type="button"
-                  aria-pressed={selecionado}
-                  aria-label={`Selecionar solução ${p.nome}`}
-                  onClick={() => setSelecionadoId(p.id)}
-                  className="absolute inset-0 z-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F38525] focus-visible:ring-offset-2"
-                />
-                <div className="pointer-events-none relative z-10 flex flex-1 flex-col">
+                <div className="relative flex flex-1 flex-col">
                   {selecionado ? (
                     <span className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#012E46] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
                       Selecionado
                     </span>
                   ) : null}
+                  <button
+                    type="button"
+                    aria-pressed={selecionado}
+                    aria-label={`${selecionado ? "Solução selecionada" : "Selecionar solução"} ${p.nome}`}
+                    onClick={() => setSelecionadoId(p.id)}
+                    className={`absolute right-0 top-0 flex min-h-9 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F38525] focus-visible:ring-offset-2 ${
+                      selecionado
+                        ? "border-[#012E46] bg-[#012E46] text-white"
+                        : "border-[#012E46]/20 bg-white text-[#012E46] hover:border-[#F38525] hover:text-[#F38525]"
+                    }`}
+                  >
+                    {selecionado ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
+                    {selecionado ? "Escolhido" : "Escolher"}
+                  </button>
                   <span
                     className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-colors ${
                       selecionado ? "border-[#012E46]/30 text-[#012E46]" : "border-[#F38525]/30 text-[#F38525]"
@@ -84,7 +92,7 @@ export default function PlanosSection() {
                     variant={selecionado ? "primary" : "outlineDark"}
                     href={linkWhatsappConsultor(`Olá! Gostaria de agendar uma apresentação da solução ${p.nome} do Pedido Prime.`)}
                     onClick={() => setSelecionadoId(p.id)}
-                    className="pointer-events-auto mt-6 w-full"
+                    className="mt-6 w-full"
                   >
                     Agendar uma apresentação
                   </Botao>
