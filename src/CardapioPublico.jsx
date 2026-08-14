@@ -1579,7 +1579,7 @@ export default function CardapioPublico() {
           </header>
 
           {/* ── Mesa + status do estabelecimento ── */}
-          {(currentTable || lojaStatus) && (
+          {(modoExterno || currentTable || lojaStatus) && (
             <div className="pp-welcome-status mt-[clamp(0.4rem,1.2vh,0.7rem)] grid w-full shrink-0 grid-cols-2 gap-2">
               {currentTable ? (
                 <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
@@ -1636,9 +1636,12 @@ export default function CardapioPublico() {
             <section className="mt-[clamp(0.35rem,1.1vh,0.65rem)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden" aria-labelledby="pp-destaques-titulo"
               onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
               <div className="mb-1.5 flex min-w-0 shrink-0 items-center justify-between gap-2">
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <h2 id="pp-destaques-titulo" className="truncate text-[clamp(14px,2.1vh,16px)] font-black text-[#012E46]">Destaques da casa</h2>
-                  <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
+                <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden">
+                  <CkIconEstrela width={23} height={23} className="mt-0.5 shrink-0 text-[#F38525]" />
+                  <div className="min-w-0">
+                    <h2 id="pp-destaques-titulo" className="truncate text-[clamp(14px,2.1vh,16px)] font-black text-[#012E46]">Destaques da casa</h2>
+                    <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
+                  </div>
                 </div>
                 {nSlides > 1 && (
                   <div className="flex shrink-0 gap-1.5">
@@ -1693,18 +1696,18 @@ export default function CardapioPublico() {
                         }}
                         className="pp-img-fill"
                       />
-                      <span className="pp-welcome-foto-badge pointer-events-none absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#012E46]">{slideAtual + 1}</span>
-                      {produtoAtivo.badge ? (
+                      {!modoExterno && <span className="pp-welcome-foto-badge pointer-events-none absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#012E46]">{slideAtual + 1}</span>}
+                      {!modoExterno && produtoAtivo.badge ? (
                         <span className="pp-welcome-foto-badge pointer-events-none absolute right-2 top-2 truncate rounded-full border border-[#E6E6E6] bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#F38525]">{produtoAtivo.badge}</span>
                       ) : null}
                     </div>
                   );
                 })()}
-                <div className="min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
+                {!modoExterno && <div className="min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
                   <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#012E46]">{produtoAtivo.name}</p>
                   <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
                   <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F38525]">{formatCurrency(produtoAtivo.price)}</p>
-                </div>
+                </div>}
               </div>
 
               {nSlides > 1 && (
@@ -1736,6 +1739,24 @@ export default function CardapioPublico() {
               <span className="shrink-0" aria-hidden="true">→</span>
             </button>
 
+            {modoExterno && (
+              <div className="pp-welcome-benefits mt-2 grid grid-cols-3 rounded-2xl border border-[#E6E6E6] bg-white px-2 py-3">
+                {[
+                  [CkIconSacola, "Ingredientes", "Selecionados"],
+                  [CkIconPanela, "Preparo", "Na hora"],
+                  [CkIconEstrela, "Qualidade", "Garantida"],
+                ].map(([Icone, titulo, texto], i) => (
+                  <div key={titulo} className={`flex min-w-0 items-center justify-center gap-1.5 px-1 ${i ? "border-l border-[#E6E6E6]" : ""}`}>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] text-[#F38525]"><Icone width={17} height={17} /></span>
+                    <span className="min-w-0 leading-tight">
+                      <b className="block truncate text-[10px] font-black text-[#012E46]">{titulo}</b>
+                      <span className="block truncate text-[9px] text-[#6B7280]">{texto}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {meusPedidos.length > 0 && (
               <button type="button" onClick={() => { setEtapa("cardapio"); setAba("conta"); }}
                 className="mt-1 inline-flex min-h-9 items-center justify-center gap-1.5 self-center px-2 text-[12px] font-bold text-[var(--client-info)]">
@@ -1762,6 +1783,7 @@ export default function CardapioPublico() {
 
             <footer className="mt-1.5 flex shrink-0 flex-col items-center gap-0.5 text-center">
               <p className="flex items-center gap-1 text-[10px] text-[#6B7280]">
+                {modoExterno && <CkIconCoracao width={11} height={11} className="text-[#F38525]" />}
                 Tecnologia e confiança
                 <span className="font-black"><span className="text-[#012E46]">Pedido</span><span className="text-[#F38525]">Prime</span></span>
               </p>
