@@ -59,6 +59,13 @@ describe('mapUsuarioDb — nunca expõe senha nem hash do banco', () => {
     // continua trazendo o perfil operacional
     expect(u).toMatchObject({ id: 7, name: 'Ana', email: 'ana@x.com', role: 'Gestor', lojaId: 3 })
   })
+  it('recupera os acessos de Gestor criado com ids_acesso vazio', () => {
+    const u = mapUsuarioDb({
+      id: 8, nome: 'Marco', email: 'marco@marco.com', perfil: 'Gestor',
+      ativo: true, ids_acesso: [], loja_id: 3, cargo_id: 1, super_admin: false,
+    })
+    expect(u.accessIds).toEqual(expect.arrayContaining(['admin', 'tablet', 'kitchen', 'panel', 'cashier']))
+  })
 })
 
 describe('anti-vazamento de HASH (fase 7.2.1)', () => {

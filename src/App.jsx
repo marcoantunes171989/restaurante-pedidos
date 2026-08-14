@@ -70,6 +70,7 @@ import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
 import { mensagemErroAcesso, mensagemPorCodigoAuth } from "./login/authMessages";
 import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
+import { acessosIniciaisDoPerfil } from "./lib/usuarioForm";
 import LoginPage from "./login/LoginPage";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
@@ -3139,11 +3140,13 @@ export default function RestaurantePedidoApp() {
     const emailNovo = String(dados.email ?? atual.email ?? "").trim().toLowerCase();
     const nome = String(dados.name ?? atual.name ?? "").trim();
     const role = dados.role || atual.role;
+    const cargoMudou = String(cargoId ?? "") !== String(atual.cargoId ?? "") || role !== atual.role;
+    const accessIds = cargoMudou ? acessosIniciaisDoPerfil(role) : (atual.accessIds || []);
     const lojaId = atual.lojaId ?? lojaAtual; // gestor não move usuário de empresa
     const ativo = typeof dados.active === "boolean" ? dados.active : (atual.active !== false);
 
     if (!dbReady) {
-      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, name: nome, email: emailNovo, role, cargoId, active: ativo } : u));
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, name: nome, email: emailNovo, role, cargoId, active: ativo, accessIds } : u));
       notify("success", "Usuário atualizado (modo local).");
       return true;
     }
@@ -3165,17 +3168,17 @@ export default function RestaurantePedidoApp() {
         perfil: role,
         cargoId,
         ativo,
-        idsAcesso: atual.accessIds || [],
+        idsAcesso: accessIds,
         permissoesAcoes: atual.permissoesAcoes || {},
         persistirPerfil: true,
       });
-      saved = res?.usuario ? mapUsuarioDb(res.usuario) : { ...atual, name: nome, email: emailNovo, role, cargoId, active: ativo };
+      saved = res?.usuario ? mapUsuarioDb(res.usuario) : { ...atual, name: nome, email: emailNovo, role, cargoId, active: ativo, accessIds };
     } else {
       const adminCreds = currentUser?.email ? { email: currentUser.email, password: currentUser.password || "" } : null;
       saved = await persistirUsuarioCampos(uid, {
         name: nome, email: emailNovo, emailAnterior: atual.email,
         password: senhaNova || undefined, role, cargoId, lojaId, active: ativo,
-        accessIds: atual.accessIds || [], permissoesAcoes: atual.permissoesAcoes || {},
+        accessIds, permissoesAcoes: atual.permissoesAcoes || {},
       }, adminCreds);
     }
 
@@ -3236,7 +3239,7 @@ export default function RestaurantePedidoApp() {
       role: src.role || "Operador",
       cargoId: src.cargoId ?? null,
       active: src.active !== false,
-      accessIds: [],
+      accessIds: acessosIniciaisDoPerfil(src.role || "Operador"),
       lojaId: src.lojaId || lojaAtual,
     };
     // Guardas de defesa (o modal já valida inline).
@@ -3265,11 +3268,11 @@ export default function RestaurantePedidoApp() {
         acao: "criar",
         email: nu.email, senha: nu.password, nome: nu.name,
         lojaId: nu.lojaId, perfil: nu.role, cargoId: nu.cargoId,
-        ativo: true, idsAcesso: [], persistirPerfil: true,
+        ativo: true, idsAcesso: nu.accessIds, persistirPerfil: true,
       });
       saved = res?.usuario
         ? mapUsuarioDb(res.usuario)
-        : { id: res?.id ?? Date.now(), name: nu.name, email: nu.email, role: nu.role, cargoId: nu.cargoId, active: true, accessIds: [], lojaId: nu.lojaId };
+        : { id: res?.id ?? Date.now(), name: nu.name, email: nu.email, role: nu.role, cargoId: nu.cargoId, active: true, accessIds: nu.accessIds, lojaId: nu.lojaId };
     } else {
       const adminCreds = currentUser?.email ? { email: currentUser.email, password: currentUser.password || "" } : null;
       saved = await criarUsuarioNoBanco(nu, adminCreds);
@@ -3609,7 +3612,7 @@ export default function RestaurantePedidoApp() {
         </div>
       ) : (
       <div className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <header className="mb-6 rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl sm:p-7">
+        <header className="mb-6 rounded-[2rem] border border-[#174A63] p-5 shadow-2xl sm:p-7" style={{ background: "#012E46", color: "#FFFFFF" }}>
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-4 flex items-center gap-3">
@@ -3660,8 +3663,17 @@ export default function RestaurantePedidoApp() {
               <p className="mt-1 text-xs opacity-75">Central de pedidos, cozinha, bar e caixa no celular</p>
             </button>
           )}
-          <button onClick={logout} className="rounded-3xl border border-red-400/20 bg-red-500/10 p-4 text-left text-red-100 transition hover:bg-red-500/20"><p className="text-sm font-black">Sair</p><p className="mt-1 text-xs opacity-75">Encerrar sessão</p></button>
+          <button onClick={logout} className="rounded-3xl border p-4 text-left transition hover:shadow-md" style={{ background: "#FFFFFF", borderColor: "#FCA5A5", color: "#B91C1C" }}><p className="text-sm font-black">Sair</p><p className="mt-1 text-xs opacity-75">Encerrar sessão</p></button>
         </section>
+
+        {activeTab === "blocked" && (
+          <section className="mb-6 rounded-3xl border bg-white p-6 shadow-sm" style={{ borderColor: "#D1D5DB" }}>
+            <h2 className="text-lg font-black text-[#012E46]">Acesso aguardando configuração</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4B5563]">
+              Este cargo ainda não possui módulos liberados. Solicite ao administrador da empresa a configuração das permissões em Usuários → Controle de acessos.
+            </p>
+          </section>
+        )}
 
         {message.text && <div className={`mb-6 rounded-3xl border p-4 shadow-xl ${message.type === "error" ? "border-red-400/30 bg-red-500/10 text-red-100" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"}`}><p className="font-bold">{message.type === "error" ? "Atenção necessária" : "Operação concluída"}</p><p className="text-sm opacity-90">{message.text}</p></div>}
 

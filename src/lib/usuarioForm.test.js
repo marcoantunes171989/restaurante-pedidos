@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   validarUsuarioForm, emailValido, normalizarEmail, normalizarNome,
-  forcaSenha, agruparCargos, metaDoPerfil, mensagemErroUsuario, SENHA_MIN,
+  forcaSenha, agruparCargos, metaDoPerfil, acessosIniciaisDoPerfil,
+  mensagemErroUsuario, SENHA_MIN,
 } from './usuarioForm'
 
 describe('emailValido / normalização', () => {
@@ -87,6 +88,23 @@ describe('agruparCargos / metaDoPerfil', () => {
   it('metaDoPerfil traz ícone e descrição', () => {
     expect(metaDoPerfil('Caixa').icone).toBe('CircleDollarSign')
     expect(metaDoPerfil('desconhecido').descricao).toBeTruthy()
+  })
+})
+
+describe('acessosIniciaisDoPerfil', () => {
+  it('libera o painel administrativo completo para Gestor', () => {
+    expect(acessosIniciaisDoPerfil('Gestor')).toEqual(
+      expect.arrayContaining(['admin', 'tablet', 'kitchen', 'panel', 'cashier']),
+    )
+  })
+  it('direciona perfis especializados ao módulo correto', () => {
+    expect(acessosIniciaisDoPerfil('Caixa')).toEqual(['cashier'])
+    expect(acessosIniciaisDoPerfil('Cozinha')).toEqual(['kitchen'])
+    expect(acessosIniciaisDoPerfil('Painel')).toEqual(['panel'])
+    expect(acessosIniciaisDoPerfil('Cliente')).toEqual(['tablet'])
+  })
+  it('não concede acesso implícito a cargo personalizado', () => {
+    expect(acessosIniciaisDoPerfil('Consultor')).toEqual([])
   })
 })
 

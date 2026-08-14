@@ -101,6 +101,30 @@ export function metaDoPerfil(nome) {
 }
 
 /**
+ * Acessos iniciais coerentes com o cargo escolhido.
+ * Uma lista vazia continua significando "ainda não configurado"; já
+ * `op_managed` permite ao administrador bloquear explicitamente todos os
+ * módulos operacionais sem que este fallback volte a liberá-los.
+ */
+export function acessosIniciaisDoPerfil(nome) {
+  const perfil = String(nome || "").trim().toLowerCase();
+  const mapa = {
+    gestor: ["tablet", "kitchen", "panel", "cashier", "admin"],
+    administrador: ["tablet", "kitchen", "panel", "cashier", "admin"],
+    caixa: ["cashier"],
+    financeiro: ["cashier"],
+    cozinha: ["kitchen"],
+    produção: ["kitchen"],
+    producao: ["kitchen"],
+    painel: ["panel"],
+    cliente: ["tablet"],
+    garçom: ["op_managed", "op_pedidos"],
+    garcom: ["op_managed", "op_pedidos"],
+  };
+  return [...(mapa[perfil] || [])];
+}
+
+/**
  * Organiza a lista de cargos (do banco) nos grupos de UI, preservando os
  * valores técnicos (id/nome). Cargos que não casam com nenhum grupo caem em
  * "Outros". Só UX — não altera dados.

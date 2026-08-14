@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { acessosIniciaisDoPerfil } from './usuarioForm'
 import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
 
 // Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
@@ -2070,6 +2071,7 @@ export async function sincronizarAuthAoCriarUsuario({
 /** Converte linha tab_usuarios (API) para o shape do app — espelho de dbParaUsuario. */
 export function mapUsuarioDb(r) {
   if (!r) return null
+  const acessosPersistidos = Array.isArray(r.ids_acesso) ? r.ids_acesso : []
   return {
     id: r.id,
     name: r.nome,
@@ -2078,7 +2080,9 @@ export function mapUsuarioDb(r) {
     // deixaram de retorná-la; leituras diretas também não a expõem.
     role: r.perfil,
     active: r.ativo,
-    accessIds: r.ids_acesso ?? [],
+    // Recupera cadastros criados pela versão que salvava ids_acesso=[].
+    // Uma configuração explícita nunca é substituída.
+    accessIds: acessosPersistidos.length ? acessosPersistidos : acessosIniciaisDoPerfil(r.perfil),
     lojaId: r.loja_id ?? null,
     cargoId: r.cargo_id ?? null,
     superAdmin: r.super_admin ?? false,
