@@ -59,15 +59,18 @@ async function saveVisit(req, body) {
     const started = new Date(body.startedAt || now);
     const duration = Math.max(0, Math.round((now - started) / 1000));
     const changes = {
+      session_id: sessionId,
       last_seen_at: now.toISOString(), duration_seconds: duration,
       ...(action === "end" ? { ended_at: now.toISOString() } : {}),
     };
-    const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits?session_id=eq.${encodeURIComponent(sessionId)}`, {
-      method: "PATCH",
-      headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, "content-type": "application/json", prefer: "return=minimal" },
+    const response = await fetch(`${baseUrl()}/rest/v1/tab_landing_visits?on_conflict=session_id`, {
+      method: "POST",
+      headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, "content-type": "application/json", prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(changes),
     });
-    return response.ok;
+    if (response.ok) return { ok: true };
+    const detail = clean(await response.text().catch(() => ""), 240);
+    return { ok: false, code: `heartbeat_${response.status}`, detail };
   }
   const startedAt = clean(body.startedAt, 40) || new Date().toISOString();
   const row = {
@@ -88,7 +91,9 @@ async function saveVisit(req, body) {
     headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, "content-type": "application/json", prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify(row),
   });
-  return response.ok;
+  if (response.ok) return { ok: true };
+  const detail = clean(await response.text().catch(() => ""), 240);
+  return { ok: false, code: `start_${response.status}`, detail };
 }
 
 function countBy(rows, key, fallback = "Não identificado") {
@@ -101,8 +106,8 @@ export default async function handler(req, res) {
   if (req.method === "POST") {
     if (!serviceKey()) return json(res, 202, { ok: false, skipped: true });
     let body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    const ok = await saveVisit(req, body).catch(() => false);
-    return json(res, 202, { ok });
+    const result = await saveVisit(req, body).catch(() => ({ ok: false, code: "unexpected_error" }));
+    return json(res, 202, result);
   }
   if (req.method === "DELETE") {
     if (!(await isSuperAdmin(req))) return json(res, 403, { error: "Acesso exclusivo do Super Admin." });
