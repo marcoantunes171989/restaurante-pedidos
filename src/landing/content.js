@@ -134,9 +134,8 @@ export const DISPOSITIVOS = {
     { label: "Computador", icon: "laptop" },
     { label: "Painel de cozinha", icon: "chefHat" },
   ],
-  // Prova visual do painel (antes no hero) — salão → escritório.
-  imagem: "/img/landing/hero-gestao-tempo-real.webp",
-  imagemFallback: "/img/landing/hero-gestao-tempo-real.jpg",
+  imagem: "/img/landing/produto-dashboard.webp",
+  imagemFallback: "/img/landing/produto-dashboard.webp",
 };
 
 export const BENEFICIOS = {
@@ -144,8 +143,8 @@ export const BENEFICIOS = {
   titulo: "Menos rotina,",
   tituloAccent: "mais resultado.",
   desc: "Automatize processos, reduza erros e acompanhe a operação em tempo real — do salão à gestão.",
-  imagem: "/img/landing/equipe-tablet.webp",
-  imagemFallback: "/img/landing/equipe-tablet.jpg",
+  imagem: "/img/landing/produto-salao.webp",
+  imagemFallback: "/img/landing/produto-salao.webp",
   itens: [
     {
       icon: "zap",
@@ -175,12 +174,9 @@ export const SEGMENTOS = {
   titulo: "Restaurantes que crescem",
   tituloAccent: "escolhem eficiência.",
   fotos: [
-    { src: "/img/landing/restaurante-salao.webp", fallback: "/img/landing/restaurante-salao.jpg", alt: "Salão de restaurante em operação", rotulo: "Restaurante" },
-    { src: "/img/landing/cozinha.webp", fallback: "/img/landing/cozinha.jpg", alt: "Cozinha profissional em operação", rotulo: "Cozinha" },
-    { src: "/img/landing/bar.webp", fallback: "/img/landing/bar.jpg", alt: "Balcão de bar", rotulo: "Bar" },
-    { src: "/img/landing/hamburgueria.webp", fallback: "/img/landing/hamburgueria.jpg", alt: "Hamburgueria", rotulo: "Hamburgueria" },
-    { src: "/img/landing/cafe.webp", fallback: "/img/landing/cafe.jpg", alt: "Cafeteria", rotulo: "Café" },
-    { src: "/img/landing/pizzaria.webp", fallback: "/img/landing/pizzaria.jpg", alt: "Pizzaria", rotulo: "Pizzaria" },
+    { src: "/img/landing/produto-cardapio.webp", fallback: "/img/landing/produto-cardapio.webp", alt: "Tela real do cardápio digital do Pedido Prime", rotulo: "Cardápio digital" },
+    { src: "/img/landing/produto-cozinha.webp", fallback: "/img/landing/produto-cozinha.webp", alt: "Tela real do painel de produção da cozinha", rotulo: "Painel da cozinha" },
+    { src: "/img/landing/produto-caixa.webp", fallback: "/img/landing/produto-caixa.webp", alt: "Tela real de caixa e pagamentos do Pedido Prime", rotulo: "Caixa e pagamentos" },
   ],
 };
 
@@ -200,8 +196,8 @@ export const CTA_FINAL = {
   desc: "Conte como funciona sua operação e veja, em uma apresentação personalizada, como o Pedido Prime pode conectar atendimento, produção, caixa e gestão.",
   ctaPrimario: "Agendar uma apresentação",
   ctaSecundario: "Prefiro falar pelo WhatsApp",
-  imagem: "/img/landing/cta-operacao.webp",
-  imagemFallback: "/img/landing/cta-operacao.jpg",
+  imagem: "/img/landing/produto-pdv.webp",
+  imagemFallback: "/img/landing/produto-pdv.webp",
 };
 
 export const LEAD_FORM = {

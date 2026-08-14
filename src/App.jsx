@@ -79,6 +79,7 @@ import CashierPdv from "./pages/pdv/CashierPdv";
 import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
+import LandingAnalyticsAdmin from "./pages/admin/LandingAnalyticsAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
 import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
@@ -945,7 +946,7 @@ export default function RestaurantePedidoApp() {
       } else {
         if (!canAccess(user, "admin")) { irParaFallbackSeguro(user); return; }
         // Controle de Acessos: só administrador geral (superAdmin) — demais vão ao dashboard
-        if (seg === "controle-acessos" && !user?.superAdmin) {
+        if (["controle-acessos", "audiencia-landing"].includes(seg) && !user?.superAdmin) {
           setAdminSection("dashboard");
           setActiveTab("admin");
           return;
@@ -6831,6 +6832,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "link", icon: <IconLink />, label: "Usuário x Acesso" },
         // Controle de Acessos: exclusivo do administrador geral do projeto
         { id: "controle-acessos", icon: <IconPermissoes />, label: "Controle de Acessos" },
+        { id: "audiencia-landing", icon: <IconDashboard />, label: "Audiência da Landing" },
         { id: "auditoria", icon: <IconPermissoes />, label: "Auditoria" },
       ]},
       { grupo: "Plataforma", itens: [
@@ -6991,6 +6993,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
                 </main>
               )
           )}
+          {ativo === "audiencia-landing" && isSuperAdmin && <LandingAnalyticsAdmin />}
           {ativo === "financeiro" && (precisaEmpresa ? avisoEmpresa : <FinanceiroVisaoAdmin orders={filtraLoja(orders)} fidRegra={fidRegra} fidTransacoes={fidTransacoes} />)}
           {ativo === "lancamentos" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} />)}
           {ativo === "contas-receber" && (precisaEmpresa ? avisoEmpresa : <LancamentosAdmin lojaId={lojaInfo?.id} orders={filtraLoja(orders)} modo="receber" />)}

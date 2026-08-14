@@ -44,18 +44,17 @@ export default function FinalCTA() {
           </div>
         </Reveal>
 
-        <Reveal delay={90} className="relative min-h-[240px] overflow-hidden rounded-[1.75rem] sm:min-h-[320px] lg:min-h-[360px]">
+        <Reveal delay={90} className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#071725] p-2 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7)]">
           <Picture
             src={CTA_FINAL.imagem}
             fallback={CTA_FINAL.imagemFallback}
-            alt="Clientes e operação gastronômica em ambiente real"
-            className="absolute inset-0 block h-full w-full"
-            imgClassName="h-full w-full object-cover"
+            alt="Tela real do PDV Pedido Prime durante o atendimento"
+            className="block h-full w-full overflow-hidden rounded-[1.25rem]"
+            imgClassName="h-full w-full object-contain"
           />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-tr from-[#012E46]/45 via-transparent to-transparent"
-          />
+          <span className="absolute right-4 top-4 rounded-full bg-[#F38525] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#012E46] shadow-lg sm:text-xs">
+            Conheça o Pedido Prime
+          </span>
         </Reveal>
       </div>
 

@@ -13,18 +13,17 @@ export default function BenefitsSection() {
   return (
     <section id="beneficios" className="section scroll-mt-24 bg-[#012E46] text-white">
       <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 lg:grid-cols-2 lg:gap-14 lg:px-8">
-        <Reveal className="relative order-2 min-h-[280px] overflow-hidden rounded-[1.75rem] sm:min-h-[360px] lg:order-1 lg:min-h-[480px]">
+        <Reveal className="relative order-2 aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-white/15 bg-[#071725] p-2 shadow-[0_24px_60px_-30px_rgba(0,0,0,0.7)] lg:order-1">
           <Picture
             src={BENEFICIOS.imagem}
             fallback={BENEFICIOS.imagemFallback}
-            alt="Equipe de restaurante acompanhando a operação no salão"
-            className="absolute inset-0 block h-full w-full"
-            imgClassName="h-full w-full object-cover"
+            alt="Tela real do PDV Pedido Prime com mesas, pedidos e pagamentos"
+            className="block h-full w-full overflow-hidden rounded-[1.25rem]"
+            imgClassName="h-full w-full object-contain"
           />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-t from-[#012E46]/55 via-transparent to-transparent"
-          />
+          <span className="absolute right-4 top-4 rounded-full bg-[#F38525] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#012E46] shadow-lg sm:text-xs">
+            Operação em tempo real
+          </span>
         </Reveal>
 
         <div className="order-1 lg:order-2">

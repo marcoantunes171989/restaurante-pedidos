@@ -41,18 +41,17 @@ export default function DevicesSection() {
           </Reveal>
         </div>
 
-        <Reveal delay={120} className="relative min-h-[280px] overflow-hidden rounded-[1.75rem] sm:min-h-[380px] lg:min-h-[440px]">
+        <Reveal delay={120} className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-[#012E46] p-2 shadow-[0_24px_60px_-30px_rgba(1,46,70,0.5)]">
           <Picture
             src={DISPOSITIVOS.imagem}
             fallback={DISPOSITIVOS.imagemFallback}
-            alt="Gestor no escritório acompanhando o painel Pedido Prime — do salão à gestão"
-            className="absolute inset-0 block h-full w-full"
-            imgClassName="h-full w-full object-cover object-center"
+            alt="Dashboard gerencial real do Pedido Prime com indicadores de vendas"
+            className="block h-full w-full overflow-hidden rounded-[1.25rem]"
+            imgClassName="h-full w-full object-contain"
           />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-tr from-[#012E46]/35 via-transparent to-transparent"
-          />
+          <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#012E46] shadow-lg sm:text-xs">
+            Tela real do sistema
+          </span>
         </Reveal>
       </div>
     </section>

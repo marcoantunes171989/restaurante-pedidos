@@ -7,6 +7,7 @@ import HeroSection from "./sections/HeroSection";
 import SolutionsSection from "./sections/SolutionsSection";
 import ProductFlowSection from "./sections/ProductFlowSection";
 import CapabilitiesSection from "./sections/CapabilitiesSection";
+import GettingStartedSection from "./sections/GettingStartedSection";
 import DevicesSection from "./sections/DevicesSection";
 import BenefitsSection from "./sections/BenefitsSection";
 import SegmentsSection from "./sections/SegmentsSection";
@@ -14,6 +15,7 @@ import PlanosSection from "./sections/PlanosSection";
 import FAQSection from "./sections/FAQSection";
 import FinalCTA from "./sections/FinalCTA";
 import LandingFooter from "./sections/LandingFooter";
+import { useLandingAnalytics } from "./useLandingAnalytics";
 
 /**
  * Landing institucional Pedido Prime — hero (gestão em tempo real) →
@@ -21,6 +23,7 @@ import LandingFooter from "./sections/LandingFooter";
  * segmentos → soluções por perfil → FAQ → CTA.
  */
 export default function LandingPage({ navigate }) {
+  useLandingAnalytics();
   const entrar = () => (navigate ? navigate("/login") : (window.location.href = "/login"));
 
   return (
@@ -31,6 +34,7 @@ export default function LandingPage({ navigate }) {
         <SolutionsSection />
         <ProductFlowSection />
         <CapabilitiesSection />
+        <GettingStartedSection />
         <DevicesSection />
         <BenefitsSection />
         <SegmentsSection />

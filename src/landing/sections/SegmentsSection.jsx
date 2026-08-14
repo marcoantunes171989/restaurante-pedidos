@@ -9,7 +9,7 @@ const METRIC_ICONS = {
   headset: Headset,
 };
 
-/** Colagem 3 fotos (referência) + indicadores institucionais na mesma seção. */
+/** Telas reais do produto + indicadores institucionais na mesma seção. */
 export default function SegmentsSection() {
   const collage = SEGMENTOS.fotos.slice(0, 3);
 
@@ -22,7 +22,7 @@ export default function SegmentsSection() {
             badge={SEGMENTOS.badge}
             titulo={SEGMENTOS.titulo}
             tituloAccent={SEGMENTOS.tituloAccent}
-            desc="Do salão fino à operação dinâmica — uma plataforma adaptada ao ritmo da gastronomia."
+            desc="Cardápio, produção e caixa conectados em uma experiência construída para a rotina da gastronomia."
           />
 
           <ul className="mt-10 grid gap-3 sm:grid-cols-2">
@@ -47,13 +47,13 @@ export default function SegmentsSection() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          <Reveal className="relative min-h-[280px] overflow-hidden rounded-[1.5rem] sm:min-h-[360px] lg:min-h-[440px]">
+          <Reveal className="relative col-span-2 aspect-[16/10] overflow-hidden rounded-[1.5rem] border border-[#012E46]/10 bg-[#071725] p-1.5 shadow-[0_20px_50px_-30px_rgba(1,46,70,0.55)]">
             <Picture
               src={collage[0].src}
               fallback={collage[0].fallback}
               alt={collage[0].alt}
-              className="absolute inset-0 block h-full w-full"
-              imgClassName="h-full w-full object-cover"
+              className="block h-full w-full overflow-hidden rounded-[1.15rem]"
+              imgClassName="h-full w-full object-contain"
             />
             <div
               aria-hidden="true"
@@ -62,28 +62,26 @@ export default function SegmentsSection() {
             <p className="absolute bottom-4 left-4 text-sm font-bold text-white">{collage[0].rotulo}</p>
           </Reveal>
 
-          <div className="grid gap-3 sm:gap-4">
-            {collage.slice(1).map((foto, i) => (
-              <Reveal
-                key={foto.rotulo}
-                delay={(i + 1) * 70}
-                className="relative min-h-[130px] overflow-hidden rounded-[1.5rem] sm:min-h-[170px] lg:min-h-[210px]"
-              >
-                <Picture
-                  src={foto.src}
-                  fallback={foto.fallback}
-                  alt={foto.alt}
-                  className="absolute inset-0 block h-full w-full"
-                  imgClassName="h-full w-full object-cover"
-                />
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 bg-gradient-to-t from-[#012E46]/70 via-transparent to-transparent"
-                />
-                <p className="absolute bottom-3 left-3 text-sm font-bold text-white">{foto.rotulo}</p>
-              </Reveal>
-            ))}
-          </div>
+          {collage.slice(1).map((foto, i) => (
+            <Reveal
+              key={foto.rotulo}
+              delay={(i + 1) * 70}
+              className="relative aspect-[16/10] overflow-hidden rounded-[1.25rem] border border-[#012E46]/10 bg-[#071725] p-1"
+            >
+              <Picture
+                src={foto.src}
+                fallback={foto.fallback}
+                alt={foto.alt}
+                className="block h-full w-full overflow-hidden rounded-2xl"
+                imgClassName="h-full w-full object-contain"
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-1 rounded-2xl bg-gradient-to-t from-[#012E46]/75 via-transparent to-transparent"
+              />
+              <p className="absolute bottom-3 left-3 text-xs font-bold text-white sm:text-sm">{foto.rotulo}</p>
+            </Reveal>
+          ))}
         </div>
       </div>
     </section>
