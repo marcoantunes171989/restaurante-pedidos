@@ -48,7 +48,7 @@ export default function FinalCTA() {
           <Picture
             src={CTA_FINAL.imagem}
             fallback={CTA_FINAL.imagemFallback}
-            alt="Tela real do PDV Pedido Prime durante o atendimento"
+            alt="Mockup 3D do cardápio digital Pedido Prime em tablet e celular"
             className="block h-full w-full overflow-hidden rounded-[1.25rem]"
             imgClassName="h-full w-full object-contain"
           />

@@ -17,12 +17,12 @@ export default function BenefitsSection() {
           <Picture
             src={BENEFICIOS.imagem}
             fallback={BENEFICIOS.imagemFallback}
-            alt="Tela real do PDV Pedido Prime com mesas, pedidos e pagamentos"
+            alt="Mockup 3D da gestão Pedido Prime em computador, notebook e celular"
             className="block h-full w-full overflow-hidden rounded-[1.25rem]"
             imgClassName="h-full w-full object-contain"
           />
           <span className="absolute right-4 top-4 rounded-full bg-[#F38525] px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#012E46] shadow-lg sm:text-xs">
-            Operação em tempo real
+            Gestão de onde estiver
           </span>
         </Reveal>
 

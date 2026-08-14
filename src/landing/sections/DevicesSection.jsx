@@ -45,12 +45,12 @@ export default function DevicesSection() {
           <Picture
             src={DISPOSITIVOS.imagem}
             fallback={DISPOSITIVOS.imagemFallback}
-            alt="Dashboard gerencial real do Pedido Prime com indicadores de vendas"
+            alt="Mockup 3D da operação Pedido Prime na cozinha, caixa e salão"
             className="block h-full w-full overflow-hidden rounded-[1.25rem]"
             imgClassName="h-full w-full object-contain"
           />
           <span className="absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#012E46] shadow-lg sm:text-xs">
-            Tela real do sistema
+            Operação conectada
           </span>
         </Reveal>
       </div>

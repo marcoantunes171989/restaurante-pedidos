@@ -8,6 +8,7 @@ import SolutionsSection from "./sections/SolutionsSection";
 import ProductFlowSection from "./sections/ProductFlowSection";
 import CapabilitiesSection from "./sections/CapabilitiesSection";
 import GettingStartedSection from "./sections/GettingStartedSection";
+import ExperienceByRoleSection from "./sections/ExperienceByRoleSection";
 import DevicesSection from "./sections/DevicesSection";
 import BenefitsSection from "./sections/BenefitsSection";
 import SegmentsSection from "./sections/SegmentsSection";
@@ -33,11 +34,12 @@ export default function LandingPage({ navigate }) {
         <HeroSection />
         <SolutionsSection />
         <ProductFlowSection />
-        <CapabilitiesSection />
-        <GettingStartedSection />
-        <DevicesSection />
         <BenefitsSection />
+        <ExperienceByRoleSection />
+        <CapabilitiesSection />
+        <DevicesSection />
         <SegmentsSection />
+        <GettingStartedSection />
         <PlanosSection />
         <FAQSection />
         <FinalCTA />

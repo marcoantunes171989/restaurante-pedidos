@@ -35,8 +35,8 @@ export const HERO = {
     { label: "Segurança total", icon: "shield" },
     { label: "Suporte humanizado", icon: "heartHandshake" },
   ],
-  bg: "/img/landing/hero-mockup-operacao.webp",
-  bgFallback: "/img/landing/hero-mockup-operacao.webp",
+  bg: "/img/landing/mockup-hero-ecossistema.webp",
+  bgFallback: "/img/landing/mockup-hero-ecossistema.webp",
 };
 
 export const SOLUCOES = {
@@ -107,6 +107,20 @@ export const RECURSOS_PRODUTO = {
   ],
 };
 
+export const EXPERIENCIA_POR_PERFIL = {
+  badge: "Uma plataforma para toda a equipe",
+  titulo: "Cada pessoa vê o que precisa.",
+  tituloAccent: "A operação inteira trabalha conectada.",
+  desc: "O Pedido Prime organiza responsabilidades e informações por perfil, sem perder a visão integrada do negócio.",
+  itens: [
+    { icon: "userRound", titulo: "Cliente", desc: "Consulta o cardápio, escolhe produtos e envia o pedido com menos atrito." },
+    { icon: "tablet", titulo: "Atendimento", desc: "Registra pedidos por mesa, comanda ou balcão usando o dispositivo mais conveniente." },
+    { icon: "chefHat", titulo: "Produção", desc: "Recebe cada item no setor correto e acompanha prioridades e status de preparo." },
+    { icon: "badgeDollarSign", titulo: "Caixa", desc: "Confere contas, divide pagamentos e conclui vendas com informações centralizadas." },
+    { icon: "chartNoAxesCombined", titulo: "Gestão", desc: "Acompanha vendas, estoque, clientes e desempenho para decidir com mais clareza." },
+  ],
+};
+
 export const FAQ = {
   badge: "Perguntas frequentes",
   titulo: "Tudo o que você precisa saber",
@@ -134,8 +148,8 @@ export const DISPOSITIVOS = {
     { label: "Computador", icon: "laptop" },
     { label: "Painel de cozinha", icon: "chefHat" },
   ],
-  imagem: "/img/landing/produto-dashboard.webp",
-  imagemFallback: "/img/landing/produto-dashboard.webp",
+  imagem: "/img/landing/mockup-operacao-integrada.webp",
+  imagemFallback: "/img/landing/mockup-operacao-integrada.webp",
 };
 
 export const BENEFICIOS = {
@@ -143,8 +157,8 @@ export const BENEFICIOS = {
   titulo: "Menos rotina,",
   tituloAccent: "mais resultado.",
   desc: "Automatize processos, reduza erros e acompanhe a operação em tempo real — do salão à gestão.",
-  imagem: "/img/landing/produto-salao.webp",
-  imagemFallback: "/img/landing/produto-salao.webp",
+  imagem: "/img/landing/mockup-gestao-escritorio.webp",
+  imagemFallback: "/img/landing/mockup-gestao-escritorio.webp",
   itens: [
     {
       icon: "zap",
@@ -196,8 +210,8 @@ export const CTA_FINAL = {
   desc: "Conte como funciona sua operação e veja, em uma apresentação personalizada, como o Pedido Prime pode conectar atendimento, produção, caixa e gestão.",
   ctaPrimario: "Agendar uma apresentação",
   ctaSecundario: "Prefiro falar pelo WhatsApp",
-  imagem: "/img/landing/produto-pdv.webp",
-  imagemFallback: "/img/landing/produto-pdv.webp",
+  imagem: "/img/landing/mockup-cardapio-cafe.webp",
+  imagemFallback: "/img/landing/mockup-cardapio-cafe.webp",
 };
 
 export const LEAD_FORM = {
