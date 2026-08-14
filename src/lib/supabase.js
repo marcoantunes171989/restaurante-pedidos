@@ -1982,10 +1982,10 @@ export async function gerenciarUsuarioAuth({
     }
     if (data && r.ok && !data.error) return data
     if (data && (r.status === 400 || r.status === 401 || r.status === 403 || r.status === 503)) {
-      throw new Error(data.error || `Erro ${r.status} ao sincronizar login.`)
+      throw Object.assign(new Error(data.error || `Erro ${r.status} ao sincronizar login.`), { code: data.code })
     }
     if (data && r.status >= 500) {
-      throw new Error(data.error || `Erro ${r.status} ao sincronizar login.`)
+      throw Object.assign(new Error(data.error || `Erro ${r.status} ao sincronizar login.`), { code: data.code })
     }
     // 404/não-JSON → Edge
   } catch (e) {

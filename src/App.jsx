@@ -69,6 +69,7 @@ import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
 import { mensagemErroAcesso, mensagemPorCodigoAuth } from "./login/authMessages";
+import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
 import LoginPage from "./login/LoginPage";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
@@ -3122,78 +3123,70 @@ export default function RestaurantePedidoApp() {
     notify("success", "Produto excluído.");
   }
 
-  // Usuários — edição e exclusão (senha/cadastro SEMPRE em tab_usuarios primeiro)
+  // Usuários — edição (FASE 7.2.4): fluxo CANÔNICO e FAIL-CLOSED. Uma única
+  // operação coordena Supabase Auth (e-mail + senha) + tab_usuarios + hash e
+  // valida a credencial. Lança em falha (o modal exibe a mensagem inline).
   async function editarUsuario(uid, dados) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!canAccess(currentUser, "admin")) { notify("error", "Usuário sem permissão administrativa."); return false; }
     const atual = users.find((u) => u.id === uid);
-    if (!atual) return notify("error", "Usuário não encontrado.");
-    const senhaNova = dados.password != null ? String(dados.password).trim() : "";
+    if (!atual) { notify("error", "Usuário não encontrado."); return false; }
+    // Senha NÃO sofre trim (§47): espaço pode fazer parte da credencial.
+    const senhaNova = dados.password != null ? String(dados.password) : "";
     if (senhaNova && senhaNova.length < SENHA_MIN_AUTH) {
-      return notify("error", `Informe uma senha com no mínimo ${SENHA_MIN_AUTH} caracteres.`);
+      throw Object.assign(new Error("Senha muito curta."), { code: "INVALID_INPUT" });
     }
-    const cargoId = dados.cargoId ? Number(dados.cargoId) : null;
-    const emailNovo = (dados.email || "").trim().toLowerCase();
+    const cargoId = dados.cargoId != null && dados.cargoId !== "" ? Number(dados.cargoId) : (atual.cargoId ?? null);
+    const emailNovo = String(dados.email ?? atual.email ?? "").trim().toLowerCase();
+    const nome = String(dados.name ?? atual.name ?? "").trim();
+    const role = dados.role || atual.role;
+    const lojaId = atual.lojaId ?? lojaAtual; // gestor não move usuário de empresa
+    const ativo = typeof dados.active === "boolean" ? dados.active : (atual.active !== false);
+
     if (!dbReady) {
-      // Fase 7.2: nem no modo local a senha entra no estado da lista.
-      setUsers((cur) => cur.map((u) => {
-        if (u.id !== uid) return u;
-        const semSenha = { ...dados };
-        delete semSenha.password;
-        return { ...u, ...semSenha, email: emailNovo || dados.email, cargoId };
-      }));
+      setUsers((cur) => cur.map((u) => u.id === uid ? { ...u, name: nome, email: emailNovo, role, cargoId, active: ativo } : u));
       notify("success", "Usuário atualizado (modo local).");
-      return;
+      return true;
     }
-    const adminCreds = currentUser?.email
-      ? { email: currentUser.email, password: currentUser.password || "" }
-      : null;
-    try {
-      // 1) Banco primeiro (tab_usuarios.senha) — fonte da verdade do login.
-      const saved = await persistirUsuarioCampos(uid, {
-        name: (dados.name || "").trim(),
+
+    // E-mail duplicado (outro usuário) — defesa; a API é a fonte da verdade.
+    if (emailNovo && users.some((u) => u.id !== uid && (u.email || "").toLowerCase() === emailNovo)) {
+      throw Object.assign(new Error("Este e-mail já está vinculado a outro usuário."), { code: "DUPLICATE" });
+    }
+
+    let saved;
+    if (usandoSupabaseAuth()) {
+      const res = await gerenciarUsuarioAuth({
+        acao: "atualizar",
         email: emailNovo,
         emailAnterior: atual.email,
-        password: senhaNova || undefined,
-        role: dados.role || atual.role,
+        senha: senhaNova || undefined, // undefined = mantém a senha atual
+        nome,
+        lojaId,
+        perfil: role,
         cargoId,
-        lojaId: atual.lojaId ?? lojaAtual,
-        active: atual.active !== false,
-        accessIds: atual.accessIds || [],
+        ativo,
+        idsAcesso: atual.accessIds || [],
         permissoesAcoes: atual.permissoesAcoes || {},
+        persistirPerfil: true,
+      });
+      saved = res?.usuario ? mapUsuarioDb(res.usuario) : { ...atual, name: nome, email: emailNovo, role, cargoId, active: ativo };
+    } else {
+      const adminCreds = currentUser?.email ? { email: currentUser.email, password: currentUser.password || "" } : null;
+      saved = await persistirUsuarioCampos(uid, {
+        name: nome, email: emailNovo, emailAnterior: atual.email,
+        password: senhaNova || undefined, role, cargoId, lojaId, active: ativo,
+        accessIds: atual.accessIds || [], permissoesAcoes: atual.permissoesAcoes || {},
       }, adminCreds);
-
-      // 2) Redefinição de senha → sincronização do Auth é OBRIGATÓRIA e
-      // FAIL-CLOSED (fase 7.2.2, §12/§15). A API valida a nova credencial
-      // (crypt) e lança se Auth/hash ficarem inconsistentes.
-      if (usandoSupabaseAuth() && senhaNova) {
-        await gerenciarUsuarioAuth({
-          acao: "atualizar",
-          email: emailNovo || saved.email,
-          emailAnterior: atual.email,
-          senha: senhaNova,
-          nome: saved.name || (dados.name || "").trim(),
-          lojaId: saved.lojaId ?? atual.lojaId ?? lojaAtual,
-          perfil: saved.role || dados.role || atual.role,
-          cargoId: saved.cargoId ?? cargoId,
-          ativo: saved.active !== false,
-          idsAcesso: saved.accessIds || atual.accessIds || [],
-          permissoesAcoes: saved.permissoesAcoes || {},
-          persistirPerfil: false,
-        });
-      }
-
-      setUsers((cur) => cur.map((u) => u.id === uid || u.id === saved.id ? { ...u, ...saved } : u));
-      if (currentUser?.id === saved.id) {
-        setCurrentUser((cu) => (cu ? { ...cu, ...saved } : cu));
-      }
-      notify("success", senhaNova
-        ? "Senha e cadastro atualizados no banco. O login já usa a nova senha."
-        : "Usuário atualizado no banco.");
-      return true;
-    } catch (e) {
-      notify("error", "Não foi possível atualizar no banco: " + (e.message || e));
-      return false;
     }
+
+    const savedSemSenha = { ...saved };
+    delete savedSemSenha.password;
+    setUsers((cur) => cur.map((u) => (u.id === uid || u.id === savedSemSenha.id) ? { ...u, ...savedSemSenha } : u));
+    if (currentUser?.id === (savedSemSenha.id ?? uid)) {
+      setCurrentUser((cu) => (cu ? { ...cu, ...savedSemSenha } : cu));
+    }
+    notify("success", "Usuário atualizado com sucesso.");
+    return true;
   }
   async function removerUsuario(uid) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
@@ -3226,82 +3219,68 @@ export default function RestaurantePedidoApp() {
     notify("success", "Forma de pagamento excluída.");
   }
 
-  async function addUser() {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    const lojaDestino = userForm.lojaId || lojaAtual;
-    if (isSuperAdmin && !lojaDestino) return notify("error", "Selecione a empresa do usuário.");
-    if (!userForm.name.trim() || !userForm.email.trim()) return notify("error", "Informe nome e e-mail do usuário.");
-    if (!userForm.password || userForm.password.length < SENHA_MIN_AUTH) {
-      return notify("error", `Informe uma senha com no mínimo ${SENHA_MIN_AUTH} caracteres.`);
-    }
-    if (!userForm.cargoId) return notify("error", "Selecione o cargo/perfil do usuário.");
-    const emailNorm = userForm.email.trim().toLowerCase();
-    if (users.some((u) => (u.email || "").toLowerCase() === emailNorm)) return notify("error", "Já existe usuário com este e-mail.");
-    const cargo = cargos.find((c) => c.id === Number(userForm.cargoId));
-    const nu = {
-      name: userForm.name.trim(),
-      email: emailNorm,
-      password: userForm.password,
-      role: cargo?.nome || userForm.role || "Operador",
-      cargoId: cargo?.id || null,
-      active: true,
-      accessIds: [],
-      lojaId: lojaDestino,
+  // FASE 7.2.4: recebe `dados` do modal único (fallback para userForm por compat).
+  // Fluxo CANÔNICO e FAIL-CLOSED — lança em falha (o modal mostra a mensagem).
+  async function addUser(dados = null) {
+    if (!canAccess(currentUser, "admin")) { notify("error", "Usuário sem permissão administrativa."); return false; }
+    const src = dados || {
+      name: userForm.name, email: userForm.email, password: userForm.password,
+      role: (cargos.find((c) => c.id === Number(userForm.cargoId))?.nome) || userForm.role || "Operador",
+      cargoId: userForm.cargoId || null, lojaId: userForm.lojaId || lojaAtual, active: true,
     };
+    const emailNorm = String(src.email || "").trim().toLowerCase();
+    const nu = {
+      name: String(src.name || "").trim(),
+      email: emailNorm,
+      password: src.password, // sem trim (§47)
+      role: src.role || "Operador",
+      cargoId: src.cargoId ?? null,
+      active: src.active !== false,
+      accessIds: [],
+      lojaId: src.lojaId || lojaAtual,
+    };
+    // Guardas de defesa (o modal já valida inline).
+    if (isSuperAdmin && !nu.lojaId) throw Object.assign(new Error("Selecione a empresa do usuário."), { code: "INVALID_INPUT" });
+    if (!nu.name || !nu.email) throw Object.assign(new Error("Informe nome e e-mail."), { code: "INVALID_INPUT" });
+    if (!nu.password || String(nu.password).length < SENHA_MIN_AUTH) throw Object.assign(new Error("Senha muito curta."), { code: "INVALID_INPUT" });
+    if (!nu.cargoId) throw Object.assign(new Error("Selecione o cargo/perfil."), { code: "INVALID_INPUT" });
+    if (users.some((u) => (u.email || "").toLowerCase() === emailNorm)) {
+      throw Object.assign(new Error("Este e-mail já está vinculado a outro usuário."), { code: "DUPLICATE" });
+    }
 
     if (!dbReady) {
-      // Fase 7.2: a senha não entra no estado da lista (nem no modo local).
       const nuSemSenha = { ...nu };
       delete nuSemSenha.password;
       const saved = { ...nuSemSenha, id: Date.now() };
       setUsers((cur) => [saved, ...cur]);
-      setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
       notify("success", "Usuário cadastrado (modo local).");
       return true;
     }
 
-    const adminCreds = currentUser?.email
-      ? { email: currentUser.email, password: currentUser.password || "" }
-      : null;
-    try {
-      // Fase 7.2.2 — FLUXO CANÔNICO e FAIL-CLOSED.
-      // Com Supabase Auth, UMA única operação server-side cria Auth +
-      // tab_usuarios + senha_hash e valida a credencial (a API faz rollback
-      // e lança se algo falhar). Sem best-effort para criação de credencial.
-      let saved;
-      if (usandoSupabaseAuth()) {
-        const res = await gerenciarUsuarioAuth({
-          acao: "criar",
-          email: nu.email,
-          senha: nu.password,
-          nome: nu.name,
-          lojaId: nu.lojaId,
-          perfil: nu.role,
-          cargoId: nu.cargoId,
-          ativo: true,
-          idsAcesso: nu.accessIds || [],
-          persistirPerfil: true,
-        });
-        saved = res?.usuario
-          ? mapUsuarioDb(res.usuario)
-          : { id: res?.id ?? Date.now(), name: nu.name, email: nu.email, role: nu.role, cargoId: nu.cargoId, active: true, accessIds: nu.accessIds || [], lojaId: nu.lojaId };
-      } else {
-        // Modo legado (sem Supabase Auth): grava tab_usuarios + hash via RPC.
-        saved = await criarUsuarioNoBanco(nu, adminCreds);
-      }
-
-      // A lista NUNCA guarda senha.
-      const savedSemSenha = { ...saved };
-      delete savedSemSenha.password;
-      setUsers((cur) => [savedSemSenha, ...cur.filter((u) => (u.email || "").toLowerCase() !== (savedSemSenha.email || "").toLowerCase())]);
-      setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : lojaAtual });
-      auditar("criar", "usuario", savedSemSenha.id, { nome: nu.name, email: nu.email, cargo: nu.role });
-      notify("success", "Usuário criado. O login já aceita estas credenciais.");
-      return true;
-    } catch (e) {
-      notify("error", "Não foi possível criar o usuário: " + (e.message || e) + ". Nenhum acesso parcial foi mantido.");
-      return false;
+    let saved;
+    if (usandoSupabaseAuth()) {
+      // UMA operação server-side: Auth + tab_usuarios + senha_hash + validação
+      // (a API faz rollback compensatório e lança se algo falhar).
+      const res = await gerenciarUsuarioAuth({
+        acao: "criar",
+        email: nu.email, senha: nu.password, nome: nu.name,
+        lojaId: nu.lojaId, perfil: nu.role, cargoId: nu.cargoId,
+        ativo: true, idsAcesso: [], persistirPerfil: true,
+      });
+      saved = res?.usuario
+        ? mapUsuarioDb(res.usuario)
+        : { id: res?.id ?? Date.now(), name: nu.name, email: nu.email, role: nu.role, cargoId: nu.cargoId, active: true, accessIds: [], lojaId: nu.lojaId };
+    } else {
+      const adminCreds = currentUser?.email ? { email: currentUser.email, password: currentUser.password || "" } : null;
+      saved = await criarUsuarioNoBanco(nu, adminCreds);
     }
+
+    const savedSemSenha = { ...saved };
+    delete savedSemSenha.password;
+    setUsers((cur) => [savedSemSenha, ...cur.filter((u) => (u.email || "").toLowerCase() !== (savedSemSenha.email || "").toLowerCase())]);
+    auditar("criar", "usuario", savedSemSenha.id, { nome: nu.name, email: nu.email, cargo: nu.role });
+    notify("success", "Usuário cadastrado com sucesso.");
+    return true;
   }
 
   // ── Cargos / Perfis ─────────────────────────────────────────
@@ -23136,21 +23115,14 @@ function CargoEditModal({ cargo, onSalvar, onFechar }) {
   );
 }
 
-function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [] }) {
+function UserAdmin({ users, addUser, toggleUserStatus, editarUsuario, removerUsuario, lojaInfo, lojas = [], isSuperAdmin = false, cargos = [] }) {
   const [editando, setEditando] = useState(null);
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
-  // Senha em claro na lista/edição só para administrador (admin ou super admin).
   const lojasAtivas = lojas.filter((l) => l.active !== false);
   const cargosAtivos = cargos.filter((c) => c.active !== false);
   const lojaDoUser = (u) => lojas.find((l) => l.id === u.lojaId);
-
-  // Validação para habilitar o botão (sem salvar nada antes de tudo preenchido)
-  const formValido =
-    (!isSuperAdmin || userForm.lojaId) &&
-    userForm.name.trim() && userForm.email.trim() &&
-    (userForm.password || "").length >= SENHA_MIN_AUTH && userForm.cargoId;
 
   // Lista sempre da EMPRESA EM FOCO (seletor da lateral esquerda). Para o super
   // admin, restringe pela empresa em foco; sem foco definido, mostra todas.
@@ -23164,12 +23136,7 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   });
 
   function abrirCadastro() {
-    setUserForm({ name: "", email: "", password: "", role: "", cargoId: "", lojaId: isSuperAdmin ? "" : (lojaInfo?.id ?? "") });
     setCriando(true);
-  }
-  async function salvarNovo() {
-    const ok = await addUser();
-    if (ok) setCriando(false);
   }
 
   return (
@@ -23230,13 +23197,13 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
       </div>
 
       {criando && (
-        <UsuarioCadastroModal userForm={userForm} setUserForm={setUserForm} onSalvar={salvarNovo} onFechar={() => setCriando(false)}
-          cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} formValido={formValido} />
+        <UsuarioFormModal modo="novo" cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo}
+          onSalvar={(d) => addUser(d)} onFechar={() => setCriando(false)} />
       )}
-      {editando && <UsuarioEditModal usuario={editando} cargos={cargosAtivos} onSalvar={async (d) => {
-        const ok = await editarUsuario(editando.id, d);
-        if (ok !== false) setEditando(null);
-      }} onFechar={() => setEditando(null)} />}
+      {editando && (
+        <UsuarioFormModal modo="editar" usuario={editando} cargos={cargosAtivos} lojas={lojasAtivas} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo}
+          onSalvar={(d) => editarUsuario(editando.id, d)} onFechar={() => setEditando(null)} />
+      )}
       {excluir && (
         <ConfirmModal titulo="Excluir usuário?"
           mensagem={`Deseja excluir o usuário "${excluir.name}" (${excluir.email})? Esta ação não pode ser desfeita.`}
@@ -23248,167 +23215,6 @@ function UserAdmin({ users, userForm, setUserForm, addUser, toggleUserStatus, ed
   );
 }
 
-// Modal de cadastro de usuário (empresa em chips p/ super admin + cargo em chips)
-function UsuarioCadastroModal({ userForm, setUserForm, onSalvar, onFechar, cargos = [], lojas = [], isSuperAdmin, lojaInfo, formValido }) {
-  // Mostrar/ocultar a senha que está sendo digitada (valor novo, não armazenado).
-  const [verSenha, setVerSenha] = useState(false);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">👤</span>
-            <h2 className="text-lg font-black text-white">Novo usuário</h2>
-          </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {/* Empresa (chips) — só super admin */}
-          {isSuperAdmin ? (
-            <div>
-              <span className={lbl}>Empresa do usuário *</span>
-              <div className="flex flex-wrap gap-2">
-                {lojas.length === 0 && <p className="text-xs text-amber-300">Nenhuma empresa ativa.</p>}
-                {lojas.map((l) => {
-                  const sel = userForm.lojaId === l.id;
-                  return <button key={l.id} type="button" onClick={() => setUserForm({ ...userForm, lojaId: l.id })} className={chip(sel)}>{sel && <span className="text-[11px]">✓</span>}{l.nome}</button>;
-                })}
-              </div>
-            </div>
-          ) : (lojaInfo && (
-            <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs text-slate-400">Vinculado à empresa <b className="text-blue-300">{lojaInfo.nome}</b> <span className="font-mono text-slate-500">({lojaInfo.prefixo})</span></p>
-          ))}
-
-          <div>
-            <span className={lbl}>Nome *</span>
-            <input autoFocus value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} placeholder="Nome do usuário" className={inp} autoComplete="off" name="novo_usuario_nome" />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <span className={lbl}>E-mail *</span>
-              <input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} placeholder="usuario@empresa.com" className={inp} autoComplete="off" name="novo_usuario_email" />
-            </div>
-            <div>
-              <span className={lbl}>Senha * (mín. {SENHA_MIN_AUTH})</span>
-              <div className="relative">
-                <input type={verSenha ? "text" : "password"} value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} placeholder="Defina a senha" className={`${inp} pr-12`} autoComplete="new-password" name="novo_usuario_senha" />
-                <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white" title={verSenha ? "Ocultar senha" : "Mostrar senha"}>{verSenha ? "🙈" : "👁️"}</button>
-              </div>
-              <p className="mt-1 text-[11px] text-slate-500">
-                Mesma senha usada no login (validada no banco/Auth).
-              </p>
-            </div>
-          </div>
-
-          {/* Cargo (chips) */}
-          <div>
-            <span className={lbl}>Cargo / Perfil *</span>
-            <div className="flex flex-wrap gap-2">
-              {cargos.length === 0 && <p className="text-xs text-amber-300">Nenhum cargo ativo. Cadastre em “Cargos / Perfis”.</p>}
-              {cargos.map((c) => {
-                const sel = userForm.cargoId === c.id;
-                return <button key={c.id} type="button" onClick={() => setUserForm({ ...userForm, cargoId: c.id, role: c.nome })} className={chip(sel)}>{sel && <span className="text-[11px]">✓</span>}{c.nome}</button>;
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={onSalvar} disabled={!formValido}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-            + Cadastrar usuário
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function UsuarioEditModal({ usuario, cargos = [], onSalvar, onFechar }) {
-  // Normaliza cargoId (bigint/string) para casar com os chips.
-  const cargoInicial = (() => {
-    if (usuario.cargoId != null && usuario.cargoId !== "") return usuario.cargoId;
-    const porNome = cargos.find((c) => String(c.nome || "").toLowerCase() === String(usuario.role || "").toLowerCase());
-    return porNome?.id ?? "";
-  })();
-  const [f, setF] = useState({
-    name: usuario.name,
-    email: usuario.email,
-    // Fase 7.2: nunca pré-preenche a senha atual (o app não a possui).
-    // Campo vazio = manter; preencher = redefinir.
-    password: "",
-    role: usuario.role,
-    cargoId: cargoInicial,
-  });
-  const [verSenha, setVerSenha] = useState(false);
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
-  const chip = (sel) => `flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-xs font-black transition active:scale-95 ${sel ? "border-blue-400 bg-blue-500 text-white shadow-lg shadow-blue-950/40" : "border-white/10 bg-white/[0.04] text-slate-300 hover:border-white/25 hover:bg-white/10"}`;
-  const senhaOk = !f.password || f.password.length >= SENHA_MIN_AUTH;
-  const valido = f.name.trim() && f.email.trim() && senhaOk && f.cargoId !== "" && f.cargoId != null;
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md max-h-[92vh] flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
-          <h2 className="text-lg font-black text-white">✏️ Editar usuário</h2>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
-        </div>
-        <div className="flex-1 space-y-3 overflow-y-auto px-6 py-4">
-          <div><label className={lbl}>Nome</label><input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Nome" className={inp} /></div>
-          <div><label className={lbl}>E-mail</label><input value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="E-mail" className={inp} /></div>
-          <div>
-            <label className={lbl}>{`Nova senha (opcional, mín. ${SENHA_MIN_AUTH})`}</label>
-            <div className="relative">
-              <input
-                type={verSenha ? "text" : "password"}
-                value={f.password}
-                onChange={(e) => setF({ ...f, password: e.target.value })}
-                placeholder="Deixe em branco para manter"
-                className={`${inp} pr-12`}
-                autoComplete="new-password"
-              />
-              <button type="button" onClick={() => setVerSenha((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 hover:text-white">{verSenha ? "🙈" : "👁️"}</button>
-            </div>
-            <p className="mt-1 text-[11px] text-slate-500">
-              Nome, e-mail e cargo são gravados no banco. A senha só é alterada se você preencher (redefinir). A senha atual não é exibida.
-            </p>
-          </div>
-          <div>
-            <label className={lbl}>Cargo / Perfil *</label>
-            <div className="flex flex-wrap gap-2">
-              {cargos.length === 0 && (
-                <p className="text-xs text-amber-300">Nenhum cargo carregado. Rode a migration 095 no Supabase ou cadastre em “Cargos / Perfis”.</p>
-              )}
-              {cargos.map((c) => {
-                const sel = String(f.cargoId ?? "") === String(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setF({ ...f, cargoId: c.id, role: c.nome })}
-                    className={chip(sel)}
-                  >
-                    {sel && <span className="text-[11px]">✓</span>}
-                    {c.nome}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-        <div className="shrink-0 border-t border-white/10 px-6 py-4">
-          <button onClick={() => valido && onSalvar(f)} disabled={!valido} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar no banco</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAccessStatus }) {
   const [criando, setCriando] = useState(false);
