@@ -38,6 +38,29 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Cards comerciais são interativos e mudam de estado depois de exibidos.
+   Não usam opacity/transform do reveal para nunca desaparecer ao selecionar. */
+.pp-plan-card {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  background-color: #FFFFFF;
+  border-color: rgba(1, 46, 70, 0.12);
+  box-shadow: none;
+}
+.pp-plan-card:hover {
+  border-color: rgba(1, 46, 70, 0.30);
+  box-shadow: 0 20px 45px -34px rgba(1, 46, 70, 0.40);
+}
+.pp-plan-card[data-selected="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  background-color: #F7FAFC;
+  border-color: #012E46;
+  box-shadow: 0 28px 60px -28px rgba(1, 46, 70, 0.45);
+}
+
 /* ── Landing Pedido Prime: animações leves + carrossel ──────────
    Fade/slide ao entrar na viewport (via IntersectionObserver que
    adiciona .pp-in). Respeita prefers-reduced-motion. */

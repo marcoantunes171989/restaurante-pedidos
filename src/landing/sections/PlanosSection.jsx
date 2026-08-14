@@ -30,19 +30,14 @@ export default function PlanosSection() {
         />
 
         <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {planosPedidoPrime.map((p, i) => {
+          {planosPedidoPrime.map((p) => {
             const Icone = ICONE_PLANO[p.ico] || ICONE_PLANO.phone;
             const selecionado = selecionadoId === p.id;
             return (
-              <Reveal
-                as="article"
+              <article
                 key={p.id}
-                delay={i * 70}
-                className={`relative flex flex-col rounded-2xl border-2 bg-white p-5 transition sm:p-6 ${
-                  selecionado
-                    ? "border-[#012E46] shadow-[0_28px_60px_-28px_rgba(1,46,70,0.45)] xl:-translate-y-2"
-                    : "border-[#012E46]/12 hover:border-[#012E46]/30 hover:shadow-[0_20px_45px_-34px_rgba(1,46,70,0.4)]"
-                }`}
+                data-selected={selecionado}
+                className="pp-plan-card relative flex flex-col rounded-2xl border-2 p-5 transition sm:p-6"
               >
                 <div className="relative flex flex-1 cursor-pointer flex-col" onClick={() => setSelecionadoId(p.id)}>
                   {selecionado ? (
@@ -100,7 +95,7 @@ export default function PlanosSection() {
                     Agendar apresentação
                   </Botao>
                 </div>
-              </Reveal>
+              </article>
             );
           })}
         </div>
