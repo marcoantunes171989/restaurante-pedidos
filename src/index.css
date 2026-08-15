@@ -1764,6 +1764,11 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   min-height: 0;
   max-height: none;
   aspect-ratio: auto;
+  background-size: contain;
+}
+.pp-welcome-ext .pp-welcome-foto img,
+.pp-welcome-ext .pp-welcome-foto img.pp-img-fill {
+  object-fit: contain !important;
 }
 .pp-welcome-ext .pp-welcome-card { align-self: start; }
 .pp-welcome-ext .pp-welcome-stage {
