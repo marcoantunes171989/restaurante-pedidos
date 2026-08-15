@@ -2186,12 +2186,12 @@ export default function CardapioPublico() {
           rodape={cart.length === 0 ? undefined : (
             <>
               {modoExterno && minimoExterno > 0 && (
-                <p className={`mb-2 text-[11px] font-bold ${minimoFalta > 0 ? "text-[var(--client-warning)]" : "text-[var(--client-success)]"}`}>
+                <p className={`mb-1.5 text-[10px] font-bold leading-4 ${minimoFalta > 0 ? "text-[var(--client-warning)]" : "text-[var(--client-success)]"}`}>
                   {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
                 </p>
               )}
               <button onClick={enviar} disabled={!podeEnviar || enviando} type="button"
-                className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
+                className={`mx-auto flex h-10 w-[96%] items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
                 {enviando && <CkIconSpinner />}
                 {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : usarPedidoWhatsapp ? "Confirmar e continuar no WhatsApp" : "Confirmar e enviar pedido"}
               </button>
