@@ -140,6 +140,7 @@ export default function DashboardGerencial({
   orders = [],
   products = [],
   clientes = [],
+  lojaNome = "",
   irParaProdutos = () => {},
 }) {
   const [periodo, setPeriodo] = useState("hoje");
@@ -264,7 +265,7 @@ export default function DashboardGerencial({
             </span>
           </div>
           <p className="mt-0.5 text-xs font-semibold text-[#6B7280]">
-            Dados reais da loja · sync {fmtHora(atualizadoEm)} · pulso {PULSE_MS / 1000}s
+            Dados reais de {lojaNome || "loja selecionada"} · sync {fmtHora(atualizadoEm)} · pulso {PULSE_MS / 1000}s
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

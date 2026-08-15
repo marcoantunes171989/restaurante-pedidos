@@ -63,6 +63,7 @@ import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } fro
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
 import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
+import { filtrarPorLojaEstrita } from "./lib/lojaScope";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
@@ -6852,15 +6853,20 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     return () => window.removeEventListener("keydown", h);
   }, []);
   // Super admin precisa escolher "Empresa em foco" para gerenciar cadastros de uma empresa
-  const precisaEmpresa = isSuperAdmin && !lojaInfo;
+  const precisaEmpresa = !lojaInfo;
+  // Indicadores gerenciais nunca aceitam o escopo global nem registros sem
+  // loja_id: cada número precisa pertencer inequivocamente à loja em foco.
+  const dashboardOrders = filtrarPorLojaEstrita(orders, lojaInfo?.id);
+  const dashboardProducts = filtrarPorLojaEstrita(products, lojaInfo?.id);
+  const dashboardClientes = filtrarPorLojaEstrita(clientes, lojaInfo?.id);
   const avisoEmpresa = (
     <main className="mx-auto max-w-lg">
       <section className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-6 shadow-[0_1px_2px_rgba(1, 46, 70,0.05),0_18px_40px_-24px_rgba(1, 46, 70,0.25)]">
         <div className="text-center">
           <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-3xl bg-[#012E46]/10 text-3xl">🏪</span>
           <h3 className="text-lg font-semibold text-[var(--pp-text)]">Selecione uma empresa</h3>
-          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">Como administrador geral, escolha a <b className="font-semibold text-[#F38525]">Empresa em foco</b> no menu lateral para visualizar e gerenciar os cadastros desta empresa, sem misturar dados de outras.</p>
-          <SelectEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={(id) => setLojaContexto(id != null ? Number(id) : null)} />
+          <p className="mt-2 text-sm text-[var(--pp-text-muted)]">{isSuperAdmin ? <>Como administrador geral, escolha a <b className="font-semibold text-[#F38525]">Empresa em foco</b> para visualizar somente os dados reais desta empresa, sem misturar informações de outras lojas.</> : <>Seu usuário precisa estar vinculado a uma empresa válida para visualizar os indicadores. Solicite o ajuste ao administrador geral.</>}</p>
+          {isSuperAdmin && <SelectEmpresaFoco lojas={lojas} valor={lojaContexto} onChange={(id) => setLojaContexto(id != null ? Number(id) : null)} />}
         </div>
       </section>
     </main>
@@ -6936,14 +6942,15 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
-          {ativo === "dashboard"  && (
+          {ativo === "dashboard"  && (precisaEmpresa ? avisoEmpresa : (
             <DashboardGerencial
-              orders={orders}
-              products={products}
-              clientes={clientes}
+              orders={dashboardOrders}
+              products={dashboardProducts}
+              clientes={dashboardClientes}
+              lojaNome={lojaInfo?.nome || ""}
               irParaProdutos={() => setAdminSection("products")}
             />
-          )}
+          ))}
           {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}

@@ -2806,15 +2806,15 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "
     return () => { vv.removeEventListener("resize", upd); vv.removeEventListener("scroll", upd); };
   }, []);
   const overlayStyle = vp ? { top: vp.top, height: vp.h, bottom: "auto" } : undefined;
-  const sheetMax = vp ? `${vp.h}px` : "92dvh";
+  const sheetHeight = vp ? `${vp.h}px` : "100dvh";
   return (
-    <div data-theme="light" className="tema-claro-area fixed inset-x-0 top-0 z-[110] flex w-full max-w-full items-end justify-center overflow-x-hidden bg-black/60 backdrop-blur-sm" style={overlayStyle} onClick={onFechar}>
+    <div data-theme="light" className="tema-claro-area fixed inset-0 z-[110] flex w-full max-w-full items-end justify-center overflow-hidden bg-[var(--client-surface)]" style={overlayStyle} onClick={onFechar}>
       {/* flex-col + min-h-0 no corpo: o rodapé (quando existe) reserva sua
           própria altura de verdade (medida pelo navegador), e o corpo rolável
           ocupa exatamente o resto — sem precisar "chutar" um px fixo de
           desconto pra altura do cabeçalho/rodapé em cada gaveta. */}
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col rounded-t-[24px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)]" style={{ maxHeight: sheetMax, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
-        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 rounded-t-[24px] border-b border-[var(--client-border)] bg-[var(--client-surface)] px-5 pb-4" style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden border-x border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] sm:rounded-t-[24px] sm:border-t" style={{ height: sheetHeight, maxHeight: sheetHeight, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-5 pb-4 sm:rounded-t-[24px]" style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
           <div className="min-w-0">
             <h2 className="text-lg font-black text-[var(--client-text-primary)]">{titulo}</h2>
             {subtitulo && <p className="mt-0.5 text-xs text-[var(--client-text-secondary)]">{subtitulo}</p>}
