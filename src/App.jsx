@@ -5610,7 +5610,7 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
 }
 
 // ── Financeiro → Lançamentos (CRUD) — migration 063, front tolerante ──
-function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
+function LancamentoModal({ inicial, contexto = "todos", onFechar, onSalvar, salvando }) {
   const [f, setF] = useState(() => ({ ...inicial, valor: (inicial.valor !== "" && inicial.valor != null) ? rawParaMoeda(String(Math.round(Number(inicial.valor) * 100))) : "" }));
   const set = (k, v) => setF((c) => ({ ...c, [k]: v }));
   const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
@@ -5618,22 +5618,29 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
   const catsSugeridas = f.tipo === "receita" ? ["Vendas", "Serviços", "Gorjetas", "Outros"] : ["Insumos", "Aluguel", "Salários", "Energia", "Água", "Marketing", "Manutenção", "Impostos", "Outros"];
   const valido = f.descricao.trim() && moedaParaNum(String(f.valor)) > 0 && f.data;
   const ehReceita = f.tipo === "receita";
+  const contaReceber = contexto === "receber";
+  const contaPagar = contexto === "pagar";
   const tituloModal = f.id
-    ? (ehReceita ? "Editar conta a receber" : "Editar lançamento financeiro")
-    : (ehReceita ? "Nova conta a receber" : "Novo lançamento financeiro");
+    ? (contaReceber ? "Editar conta a receber" : contaPagar ? "Editar conta a pagar" : "Editar lançamento financeiro")
+    : (contaReceber ? "Nova conta a receber" : contaPagar ? "Nova conta a pagar" : "Novo lançamento financeiro");
+  const descricaoContexto = contaReceber
+    ? "Registre e acompanhe um valor que a empresa tem a receber."
+    : contaPagar
+      ? "Registre e acompanhe uma obrigação financeira da empresa."
+      : "Registre uma receita, despesa ou movimentação financeira da empresa.";
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <h3 className="page-title text-lg font-bold text-white">{tituloModal}</h3>
-            <p className="mt-0.5 text-[11px] text-slate-500">{ehReceita ? "Registre um valor que a empresa tem a receber." : "Registre uma despesa ou movimentação financeira da empresa."}</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">{descricaoContexto}</p>
           </div>
           <button onClick={onFechar} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10">✕</button>
         </div>
         <div className="grid gap-3 overflow-y-auto p-6 sm:grid-cols-2">
-          <div className="sm:col-span-2"><label className={lbl}>Descrição do lançamento *</label><input autoFocus value={f.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder={ehReceita ? "Ex.: Serviço prestado ou venda faturada" : "Ex.: Compra de insumos ou aluguel"} className={inp} /></div>
-          <div><label className={lbl}>Natureza *</label><select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} className={inp}><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
+          <div className="sm:col-span-2"><label className={lbl}>Descrição do lançamento *</label><input autoFocus value={f.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder={contaReceber ? "Ex.: Serviço prestado ou venda faturada" : contaPagar ? "Ex.: Fornecedor de insumos ou aluguel" : "Ex.: Compra de insumos ou serviço prestado"} className={inp} /></div>
+          <div><label className={lbl}>Natureza *</label><select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} disabled={contexto !== "todos"} className={`${inp} disabled:cursor-not-allowed disabled:bg-[#F1F4F5] disabled:text-[#637985]`}><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
           <div><label className={lbl}>Valor (R$) *</label><input inputMode="numeric" value={f.valor} onChange={(e) => { const { display } = handleMoeda(e); set("valor", display); }} placeholder="R$ 0,00" className={inp} /></div>
           <div><label className={lbl}>Data do lançamento *</label><input type="date" value={f.data} onChange={(e) => set("data", e.target.value)} className={inp} /></div>
           <div><label className={lbl}>Data de vencimento</label><input type="date" value={f.vencimento || ""} onChange={(e) => set("vencimento", e.target.value)} className={inp} /></div>
@@ -5651,7 +5658,7 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
         </div>
         <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-4">
           <button onClick={onFechar} className="rounded-xl border border-[#DDE4E8] bg-white px-5 py-2.5 text-sm font-bold text-[#012E46] transition hover:border-[#AFC2CC] hover:bg-[#F7F9FA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-xl border border-[#012E46] bg-[#012E46] px-5 py-2.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525] disabled:cursor-not-allowed disabled:border-[#CBD5DA] disabled:bg-[#E8EDF0] disabled:text-[#8798A1]">{salvando ? "Salvando…" : (ehReceita ? "Salvar conta" : "Salvar lançamento")}</button>
+          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-xl border border-[#012E46] bg-[#012E46] px-5 py-2.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525] disabled:cursor-not-allowed disabled:border-[#CBD5DA] disabled:bg-[#E8EDF0] disabled:text-[#8798A1]">{salvando ? "Salvando…" : (contaReceber || contaPagar ? "Salvar conta" : "Salvar lançamento")}</button>
         </div>
       </div>
     </div>
@@ -5842,7 +5849,7 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
         </div>
       )}
 
-      {modal && <LancamentoModal inicial={modal} salvando={salvando} onFechar={() => setModal(null)} onSalvar={salvar} />}
+      {modal && <LancamentoModal inicial={modal} contexto={modo} salvando={salvando} onFechar={() => setModal(null)} onSalvar={salvar} />}
     </main>
   );
 }
