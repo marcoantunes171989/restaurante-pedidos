@@ -41,7 +41,13 @@ export default function PwaUpdateBanner({ swAtivado }) {
       .then((t) => {
         if (cancelado) return;
         const m = t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
-        if (m && m[1] && m[1] !== "__APP_VERSION__") setNovaVersao(m[1]);
+        if (m && m[1] && m[1] !== "__APP_VERSION__") {
+          if (m[1] === versaoAtual) {
+            pendenteRef.current = false;
+            setVisivel(false);
+            setNovaVersao(null);
+          } else setNovaVersao(m[1]);
+        }
       })
       .catch(() => {});
     return () => { cancelado = true; };
