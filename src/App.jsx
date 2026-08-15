@@ -4344,14 +4344,14 @@ const PmIconAlerta   = () => (<svg {...pmIconBase} width={15} height={15} stroke
 function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, icone = "check" }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} aria-pressed={selecionado}
-      className={`group flex min-h-11 shrink-0 items-center gap-2 rounded-2xl border px-3.5 py-2 text-left text-sm font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--client-primary)] ${
+      className={`group flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border !bg-white px-2.5 py-1.5 text-left text-xs font-medium transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--client-primary)] ${
         disabled
           ? "cursor-not-allowed border-[var(--client-disabled-border)] bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]"
           : selecionado
-            ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-text-primary)] shadow-[0_1px_2px_rgba(243, 133, 37,.15)]"
-            : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)] hover:bg-[var(--client-surface-secondary)]"
+            ? "border-[var(--client-primary)] bg-white text-[var(--client-text-primary)]"
+            : "border-[var(--client-border)] bg-white text-[var(--client-text-secondary)] hover:border-[var(--client-border-strong)]"
       }`}>
-      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+      <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-colors ${
         disabled ? "border-[var(--client-disabled-border)]" : selecionado ? "border-[var(--client-primary)] bg-[var(--client-primary-hover)] text-[#012E46]" : "border-[var(--client-border-strong)] text-transparent group-hover:border-[var(--client-text-muted)]"
       }`}>
         {icone === "remover" ? <PmIconX /> : <PmIconCheck />}
@@ -4368,13 +4368,13 @@ function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, i
 // Obrigatório · Opcional · Concluído — nunca só cor: sempre com texto/ícone.
 function SecaoTitulo({ titulo, subtitulo, selo }) {
   return (
-    <div className="mb-2.5 flex items-start justify-between gap-3">
+    <div className="mb-1.5 flex items-start justify-between gap-2">
       <div className="min-w-0">
-        <h3 className="text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--client-text-primary)]">{titulo}</h3>
-        {subtitulo && <p className="mt-0.5 text-xs text-[var(--client-text-secondary)]">{subtitulo}</p>}
+        <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--client-text-primary)]">{titulo}</h3>
+        {subtitulo && <p className="mt-0.5 text-[10px] text-[var(--client-text-secondary)]">{subtitulo}</p>}
       </div>
       {selo && (
-        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${selo.tom}`}>
+        <span className={`inline-flex shrink-0 items-center gap-1 !bg-white px-1 py-0.5 text-[9px] font-bold uppercase tracking-wider ${selo.tom}`}>
           {selo.icone}{selo.texto}
         </span>
       )}
@@ -4511,7 +4511,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
     <div className="fixed inset-0 z-[100] flex items-stretch sm:items-center justify-center bg-[rgba(33,24,20,0.5)] backdrop-blur-sm p-0 sm:p-4"
       style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }} onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="pm-titulo"
-        className="relative flex w-full sm:w-[calc(100%-32px)] max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain lg:overflow-hidden rounded-none sm:rounded-[28px] border-0 sm:border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)]">
+        className="pp-product-modal relative flex w-full sm:w-[calc(100%-32px)] max-w-[520px] lg:max-w-[900px] flex-col lg:flex-row h-[100dvh] sm:h-auto sm:max-h-[92dvh] overflow-y-auto overscroll-contain lg:overflow-hidden rounded-none sm:rounded-[22px] border-0 sm:border border-[var(--client-border)] bg-white shadow-[var(--client-shadow-floating)]">
 
         {/* Voltar / Favoritar — barra STICKY: fica fixa no topo enquanto o
             conteúdo (imagem inclusive) rola por baixo. Altura 0 para sobrepor a
@@ -4543,8 +4543,8 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             • Desktop (lg): a imagem é a coluna lateral ALTA; ali object-cover
               deixaria um recorte fino/esticado, então usa object-contain (produto
               inteiro) com respiro (lg:p-6). ── */}
-        <div className="relative h-[clamp(240px,44dvh,400px)] shrink-0 overflow-hidden bg-[var(--client-background)] lg:h-auto lg:max-h-none lg:w-[42%]">
-          {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-[var(--client-surface-secondary)]" aria-hidden="true" />}
+        <div className="relative h-[clamp(190px,34dvh,300px)] shrink-0 overflow-hidden bg-white lg:h-auto lg:max-h-none lg:w-[42%]">
+          {!imgPronta && <div className="absolute inset-0 animate-pulse motion-reduce:animate-none bg-white" aria-hidden="true" />}
           <img
             src={imgSrc} alt={produto.name} decoding="async"
             onLoad={() => setImgPronta(true)}
@@ -4563,7 +4563,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             próprio no corpo (lg:overflow). ── */}
         <div className="flex min-w-0 flex-col lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           {/* Transição elegante da imagem pro conteúdo + informações do produto */}
-          <div className="shrink-0 px-5 pt-4 lg:pt-5">
+          <div className="shrink-0 bg-white px-3.5 pt-3 lg:px-5 lg:pt-4">
             {produto.isFeatured && !indisponivel && (
               <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--client-primary-soft)] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
                 <PmIconEstrela aria-hidden="true" /> {produto.featuredLabel || "Mais vendido"}
@@ -4574,15 +4574,15 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               {produto.category && produto.time && <span aria-hidden="true" className="text-[var(--client-text-muted)]">•</span>}
               {produto.time && <span className="inline-flex items-center gap-1"><PmIconRelogio aria-hidden="true" /> {produto.time}</span>}
             </p>
-            <h2 id="pm-titulo" className="mt-1.5 text-[22px] font-bold leading-tight tracking-tight text-[var(--client-text-primary)]">{produto.name}</h2>
-            <p className="mt-1 text-lg font-bold text-[var(--client-text-primary)]">{formatCurrency(produto.price)}</p>
-            {produto.description && <p className="mt-2 text-sm leading-6 text-[var(--client-text-secondary)]">{produto.description}</p>}
+            <h2 id="pm-titulo" className="mt-1 text-[18px] font-bold leading-tight tracking-tight text-[var(--client-text-primary)]">{produto.name}</h2>
+            <p className="mt-0.5 text-base font-bold text-[var(--client-text-primary)]">{formatCurrency(produto.price)}</p>
+            {produto.description && <p className="mt-1 text-xs leading-5 text-[var(--client-text-secondary)]">{produto.description}</p>}
           </div>
 
           {/* Corpo — personalização + observação. No mobile flui na rolagem do
               dialog; no desktop tem scroll próprio (lg:overflow-y-auto). */}
-          <div className="mt-4 px-5 pb-4 space-y-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-            {!semPersonalizacao && <p className="text-[11px] font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Personalize seu pedido</p>}
+          <div className="mt-3 space-y-4 bg-white px-3.5 pb-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-5">
+            {!semPersonalizacao && <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Personalize seu pedido</p>}
 
             {/* Grupos de variações/adicionais estruturados (migration 040) */}
             {gruposProduto.map((g) => {
@@ -4633,13 +4633,13 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
             {/* Observação — card clean, expansão controlada */}
             <div>
-              <label htmlFor="pm-observacao" className="mb-2 block text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--client-text-primary)]">Observação</label>
-              <div className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] p-3.5 transition-colors duration-150 focus-within:border-[var(--client-primary)] focus-within:bg-[var(--client-surface)] focus-within:ring-4 focus-within:ring-[var(--client-focus-primary)]">
+              <label htmlFor="pm-observacao" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--client-text-primary)]">Observação</label>
+              <div className="rounded-xl border border-[var(--client-border)] bg-white p-2.5 transition-colors duration-150 focus-within:border-[var(--client-primary)] focus-within:ring-2 focus-within:ring-[var(--client-focus-primary)]">
                 <textarea id="pm-observacao" ref={obsRef} value={observacao}
                   onChange={(e) => setObservacao(e.target.value)}
                   rows={2}
                   placeholder="Ex.: ponto da carne, alergias, retirar molho..."
-                  className="block w-full resize-none overflow-y-auto bg-transparent text-sm text-[var(--client-text-primary)] outline-none placeholder:text-[var(--client-text-muted)]"
+                  className="block w-full resize-none overflow-y-auto bg-white text-xs text-[var(--client-text-primary)] outline-none placeholder:text-[var(--client-text-muted)]"
                   style={{ maxHeight: 160 }} />
               </div>
             </div>
@@ -4648,7 +4648,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           {/* Rodapé — quantidade + adicionar ao pedido, sempre visível. No mobile
               é sticky bottom (fica fixo enquanto o dialog rola); no desktop é
               estático no fim da coluna. Fundo sólido cobre o conteúdo por baixo. */}
-          <div className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-4 lg:static" style={{ paddingBottom: "max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem))" }}>
+          <div className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--client-border)] bg-white px-3.5 py-2.5 lg:static lg:px-5" style={{ paddingBottom: "max(0.625rem, calc(env(safe-area-inset-bottom) + 0.35rem))" }}>
             {!podeAdicionar && !indisponivel && (
               <p className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-[var(--client-error)]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
             )}
@@ -4656,20 +4656,20 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               {/* Seletor de quantidade — compacto o bastante pra caber ao lado
                   do botão mesmo em telas de 320px, sem descer do toque mínimo
                   de 44x44px nos botões +/−. */}
-              <div className="flex items-center rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface-secondary)] p-0.5">
+              <div className="flex items-center rounded-xl border border-[var(--client-border)] bg-white p-0.5">
                 <button type="button" onClick={() => setQuantidade((q) => Math.max(1, q - 1))} disabled={quantidade <= 1} aria-label="Diminuir quantidade"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--client-text-primary)] transition duration-150 hover:bg-[var(--client-surface)] active:scale-90 disabled:cursor-not-allowed disabled:text-[var(--client-disabled-text)] disabled:hover:bg-transparent">
+                  className="flex h-10 w-9 items-center justify-center rounded-lg text-[var(--client-text-primary)] transition duration-150 active:scale-90 disabled:cursor-not-allowed disabled:text-[var(--client-disabled-text)]">
                   <PmIconMenos />
                 </button>
                 <span className="w-6 text-center text-base font-bold text-[var(--client-text-primary)]" aria-live="polite" aria-atomic="true">{quantidade}</span>
                 <button type="button" onClick={() => setQuantidade((q) => q + 1)} aria-label="Aumentar quantidade"
-                  className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--client-text-primary)] transition duration-150 hover:bg-[var(--client-surface)] active:scale-90">
+                  className="flex h-10 w-9 items-center justify-center rounded-lg text-[var(--client-text-primary)] transition duration-150 active:scale-90">
                   <PmIconMais />
                 </button>
               </div>
               {/* Botão adicionar — laranja (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
-                className={`flex min-h-[44px] flex-1 items-center justify-between gap-1.5 rounded-2xl px-3.5 py-3.5 text-[13px] sm:text-sm font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
+                className={`flex min-h-[40px] flex-1 items-center justify-between gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
                   statusEnvio === "erro" ? "bg-[var(--client-error)]" : "btn-laranja bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
                 } disabled:opacity-50 shadow-lg shadow-[#F38525]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
