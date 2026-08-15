@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { acessosIniciaisDoPerfil } from './usuarioForm'
 import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
+import { fidelidadeHabilitada, numeroFidelidade } from './fidelidade'
 
 // Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
 // Em produção o ideal é vir do ambiente (VITE_SUPABASE_*), mas se faltar, usa estes valores.
@@ -1342,20 +1343,20 @@ export async function fetchFidelidadeRegras() {
   const { data, error } = await supabase.from('tab_fidelidade_regras').select('*')
   if (error || !data) return []
   // pontos_por_real (migration 073): quantos pontos valem R$ 1 no RESGATE (default 100).
-  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: Number(r.valor_por_ponto) || 1, pontosPorReal: Number(r.pontos_por_real) || 100, ativo: r.ativo !== false }))
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: numeroFidelidade(r.valor_por_ponto, 1), pontosPorReal: numeroFidelidade(r.pontos_por_real, 100), ativo: r.ativo !== false }))
 }
 export async function salvarFidelidadeRegra(lojaId, campos) {
   // pontos_por_real só entra no patch quando informado — tolera a coluna ausente
   // (migration 073 ainda não aplicada) sem quebrar o salvamento do restante.
-  const extra = campos.pontosPorReal != null ? { pontos_por_real: Number(campos.pontosPorReal) || 100 } : {}
+  const extra = campos.pontosPorReal != null ? { pontos_por_real: numeroFidelidade(campos.pontosPorReal, 100) } : {}
   // upsert "manual": existe regra da loja? atualiza; senão insere
   const { data: ex } = await supabase.from('tab_fidelidade_regras').select('id').eq('loja_id', lojaId).limit(1)
   if (ex && ex.length) {
-    const { error } = await supabase.from('tab_fidelidade_regras').update({ valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', ...extra, atualizado_em: new Date().toISOString() }).eq('id', ex[0].id)
+    const { error } = await supabase.from('tab_fidelidade_regras').update({ valor_por_ponto: numeroFidelidade(campos.valorPorPonto, 1), ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', ...extra, atualizado_em: new Date().toISOString() }).eq('id', ex[0].id)
     if (error) throw error
     return { id: ex[0].id }
   }
-  const { data, error } = await supabase.from('tab_fidelidade_regras').insert([{ loja_id: lojaId ?? null, valor_por_ponto: Number(campos.valorPorPonto) || 1, ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', ...extra }]).select().single()
+  const { data, error } = await supabase.from('tab_fidelidade_regras').insert([{ loja_id: lojaId ?? null, valor_por_ponto: numeroFidelidade(campos.valorPorPonto, 1), ativo: campos.ativo !== false, nome: campos.nome || 'Programa de Fidelidade', ...extra }]).select().single()
   if (error) throw error
   return { id: data.id }
 }
@@ -1602,7 +1603,8 @@ export async function rpcFidelidadeRegra({ lojaId }) {
     if (error) return null
     const r = Array.isArray(data) ? data[0] : data
     if (!r) return null
-    return { valorPorPonto: Number(r.valor_por_ponto) || 1, pontosPorReal: Number(r.pontos_por_real) || 100, ativo: r.ativo !== false }
+    const regra = { valorPorPonto: numeroFidelidade(r.valor_por_ponto, 1), pontosPorReal: numeroFidelidade(r.pontos_por_real, 100), ativo: r.ativo !== false }
+    return { ...regra, ativo: fidelidadeHabilitada(regra) }
   } catch { return null }
 }
 export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {

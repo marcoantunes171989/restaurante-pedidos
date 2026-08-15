@@ -62,6 +62,7 @@ import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
+import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
@@ -2401,7 +2402,7 @@ export default function RestaurantePedidoApp() {
   }
 
   // ── Fidelidade (migration 043) ─────────────────────────────
-  const fidRegraAtual = fidRegras.find((r) => (lojaAtual == null || r.lojaId === lojaAtual) && r.ativo) || null;
+  const fidRegraAtual = fidRegras.find((r) => (lojaAtual == null || r.lojaId === lojaAtual) && fidelidadeHabilitada(r)) || null;
   // Fidelidade no CAIXA: saldo de pontos por telefone do cliente + valor de
   // resgate (pontos por R$1). Alimenta a forma de pagamento "Pontos".
   const fidCaixa = (() => {
@@ -17934,16 +17935,17 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
   const [confirmarExcluir, setConfirmarExcluir] = useState(null);
   const [verTodasRec, setVerTodasRec] = useState(false);
   const regraRef = useRef(null);
-  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); setPontosPorReal(regra?.pontosPorReal ?? 100); }, [regra?.id]);
+  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); setPontosPorReal(regra?.pontosPorReal ?? 100); }, [regra?.id, regra?.valorPorPonto, regra?.pontosPorReal]);
 
-  const programaAtivo = regra?.ativo !== false && !!regra;
-  const vpp = Number(String(regra?.valorPorPonto ?? valorPorPonto).replace(",", ".")) || 1;
+  const programaAtivo = fidelidadeHabilitada(regra);
+  const vpp = numeroFidelidade(regra?.valorPorPonto ?? valorPorPonto, 1);
   // Valores DIGITADOS ao vivo (antes de salvar) — alimentam os textos-exemplo e a
   // descrição de funcionamento, que atualizam a cada tecla para facilitar a leitura.
-  const vppLive = Number(String(valorPorPonto).replace(",", ".")) || 1;   // R$ para ganhar 1 ponto
-  const pprLive = Number(String(pontosPorReal).replace(",", ".")) || 100;  // pts que valem R$ 1,00
-  const ptsEmCem = Math.floor(100 / vppLive);                              // pontos numa compra de R$ 100
-  const creditoCem = ptsEmCem / pprLive;                                   // R$ que esses pontos resgatam
+  const vppLive = numeroFidelidade(valorPorPonto, 0);   // R$ para ganhar 1 ponto
+  const pprLive = numeroFidelidade(pontosPorReal, 0);   // pts que valem R$ 1,00
+  const regraLiveAtiva = vppLive > 0 && pprLive > 0;
+  const ptsEmCem = regraLiveAtiva ? Math.floor(100 / vppLive) : 0;
+  const creditoCem = regraLiveAtiva ? ptsEmCem / pprLive : 0;
 
   // ── Métricas 100% reais ──
   const saldo = useMemo(() => { const m = {}; transacoes.forEach((t) => { if (t.clienteId != null) m[t.clienteId] = (m[t.clienteId] || 0) + t.pontos; }); return m; }, [transacoes]);
@@ -18037,7 +18039,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                 <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Quando inativo, novas compras não creditam pontos.</p>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm font-bold text-dash-navy">{programaAtivo ? "Ativo" : "Inativo"}</span>
-                  <button type="button" role="switch" aria-checked={programaAtivo} onClick={() => { api?.salvarRegra({ valorPorPonto: vpp, pontosPorReal: Number(String(pontosPorReal).replace(",", ".")) || 100, ativo: !programaAtivo }); setConfigAberto(false); }}
+                  <button type="button" role="switch" aria-checked={programaAtivo} onClick={() => { api?.salvarRegra({ valorPorPonto: vppLive, pontosPorReal: pprLive, ativo: !programaAtivo && regraLiveAtiva }); setConfigAberto(false); }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${programaAtivo ? "bg-[#5E8C31]" : "bg-[var(--pp-border)]"}`}>
                     <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${programaAtivo ? "translate-x-5" : "translate-x-0.5"}`} />
                   </button>
@@ -18093,10 +18095,10 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
             </div>
             {/* Descrição viva de como o programa funciona com a configuração atual */}
             <p className="mt-4 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3 text-sm leading-6 text-[var(--pp-text-body)]">
-              <b className="text-dash-navy">Como funciona hoje:</b> o cliente ganha <b className="text-dash-navy">1 ponto</b> a cada <b className="text-dash-navy">R$ {String(vppLive).replace(".", ",")}</b> em compras e pode usar <b className="text-dash-navy">{fmtInt(pprLive)} pontos</b> para abater <b className="text-dash-navy">R$ 1,00</b> no pagamento da conta. Exemplo: uma compra de <b className="text-dash-navy">R$ 100,00</b> gera <b className="text-dash-navy">{fmtInt(ptsEmCem)} pontos</b> (≈ <b className="text-dash-navy">{formatCurrency(creditoCem)}</b> em créditos para resgate).
+              {regraLiveAtiva ? <><b className="text-dash-navy">Como funciona hoje:</b> o cliente ganha <b className="text-dash-navy">1 ponto</b> a cada <b className="text-dash-navy">R$ {String(vppLive).replace(".", ",")}</b> em compras e pode usar <b className="text-dash-navy">{fmtInt(pprLive)} pontos</b> para abater <b className="text-dash-navy">R$ 1,00</b> no pagamento da conta. Exemplo: uma compra de <b className="text-dash-navy">R$ 100,00</b> gera <b className="text-dash-navy">{fmtInt(ptsEmCem)} pontos</b> (≈ <b className="text-dash-navy">{formatCurrency(creditoCem)}</b> em créditos para resgate).</> : <><b className="text-dash-navy">Programa sem pontuação:</b> ao salvar ganho e resgate com valor zero, novos pontos não serão acumulados ou trocados. Os saldos já existentes permanecerão armazenados internamente e não serão exibidos aos clientes.</>}
             </p>
             <div className="mt-4 flex justify-end">
-              <button onClick={() => api?.salvarRegra({ valorPorPonto: Number(String(valorPorPonto).replace(",", ".")) || 1, pontosPorReal: Number(String(pontosPorReal).replace(",", ".")) || 100, ativo: programaAtivo || !regra })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
+              <button onClick={() => api?.salvarRegra({ valorPorPonto: vppLive, pontosPorReal: pprLive, ativo: regraLiveAtiva && (programaAtivo || !regra) })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
             </div>
           </section>
 
