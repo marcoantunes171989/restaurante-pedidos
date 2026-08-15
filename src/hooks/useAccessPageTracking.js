@@ -22,7 +22,7 @@ export function useAccessPageTracking(currentUser, tela = {}) {
     }
 
     let cancelled = false;
-    const key = info.screenKey;
+    const key = `${info.screenKey}::${info.contextKey ?? "geral"}`;
 
     async function abrir() {
       // Evita reabrir a mesma tela (ex.: re-render)
@@ -62,16 +62,23 @@ export function useAccessPageTracking(currentUser, tela = {}) {
         abrir();
       }
     };
+    const onContextChanged = () => {
+      stayIdRef.current = null;
+      keyRef.current = "";
+      if (!cancelled) abrir();
+    };
     document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pp:access-context-changed", onContextChanged);
 
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pp:access-context-changed", onContextChanged);
       if (stayIdRef.current) {
         const id = stayIdRef.current;
         stayIdRef.current = null;
         encerrarPageStay(id).catch(() => {});
       }
     };
-  }, [currentUser?.id, info.screenKey, info.screenLabel, info.route]);
+  }, [currentUser?.id, info.screenKey, info.screenLabel, info.route, info.contextKey]);
 }

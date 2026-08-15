@@ -318,6 +318,7 @@ export default function ControleAcessosAdmin({
   const [excluindo, setExcluindo] = useState(false);
   const [bloqueando, setBloqueando] = useState(false);
   const [agora, setAgora] = useState(Date.now());
+  const [contextoIniciadoEm, setContextoIniciadoEm] = useState(Date.now());
   const reloadTimerRef = useRef(null);
   const carregarRef = useRef(async () => {});
   const lojaIdAnteriorRef = useRef(lojaInfo?.id ?? null);
@@ -348,6 +349,7 @@ export default function ControleAcessosAdmin({
     const atual = lojaInfo?.id ?? null;
     if (lojaIdAnteriorRef.current === atual) return;
     lojaIdAnteriorRef.current = atual;
+    setContextoIniciadoEm(Date.now());
     setPagina(0);
     setDetalhe(null);
     setEventosDetalhe([]);
@@ -760,6 +762,19 @@ export default function ControleAcessosAdmin({
         titulo="Controle de Acessos"
         descricao={`Sessões, dispositivos e usuários de ${nomeEmpresaFoco} — atualização em tempo real.`}
       />
+
+      {isSuperAdmin ? (
+        <section className="rounded-2xl border border-[#AFC2CC] bg-[#F7F9FA] px-4 py-3" aria-label="Contexto de acompanhamento">
+          <p className="text-sm font-black text-[#012E46]">
+            {lojaInfo ? `Empresa em foco: ${lojaInfo.nome}` : "Visão geral do Super Admin"}
+          </p>
+          <p className="mt-0.5 text-xs leading-5 text-[#637985]">
+            {lojaInfo
+              ? `A presença nesta empresa é contabilizada desde ${new Date(contextoIniciadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}. Ao trocar a empresa, este período será encerrado e um novo será iniciado.`
+              : "Nenhuma empresa está selecionada. A sessão geral é exibida sem vínculo empresarial; selecione uma empresa para iniciar a contagem específica a partir daquele momento."}
+          </p>
+        </section>
+      ) : null}
 
       {/* Grupo: indicadores */}
       <section aria-label="Indicadores">

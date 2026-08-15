@@ -1113,6 +1113,8 @@ export default function RestaurantePedidoApp() {
   // Controle de Acessos — heartbeat de presença (não confundir com tab_dispositivos)
   // Se admin encerrar a sessão remotamente, força logout local no próximo heartbeat.
   useUserSessionHeartbeat(currentUser, {
+    trackCompanyContext: isSuperAdmin,
+    lojaId: isSuperAdmin ? lojaAtual : currentUser?.lojaId,
     onSessionRevoked: () => {
       try { logoutRef.current(); } catch { /* ignore */ }
     },
@@ -1121,7 +1123,7 @@ export default function RestaurantePedidoApp() {
   useAccessPageTracking(
     currentUser,
     currentUser
-      ? resolverTelaAcesso({ activeTab, adminSection, opmobileTab })
+      ? { ...resolverTelaAcesso({ activeTab, adminSection, opmobileTab }), contextKey: lojaAtual ?? "geral" }
       : null,
   );
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
@@ -1381,6 +1383,7 @@ export default function RestaurantePedidoApp() {
     setTableNumber("");
     setLoginForm({ email: "", password: "" });
     setAdminSection("dashboard");
+    setLojaContexto(null);
     setOpmobileTab("central");
     setCozinhaSetorInicial(null);
     setCurrentUser(null);
@@ -23449,7 +23452,7 @@ function AccessAdmin({ accesses, accessForm, setAccessForm, addAccess, toggleAcc
                 </p>
                 {a.desc && <p className="text-[11px] text-slate-500 truncate">{a.desc}</p>}
               </div>
-              <button onClick={() => toggleAccessStatus(a.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${a.active ? "bg-emerald-500 text-white" : "bg-slate-700 text-slate-200"}`}>{a.active ? "Ativa" : "Inativa"}</button>
+              <button onClick={() => toggleAccessStatus(a.id)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${a.active ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-[#C81E4A] text-white hover:bg-[#A8173D]"}`}>{a.active ? "Ativa" : "Inativa"}</button>
             </div>
           ))}
         </div>
@@ -23542,7 +23545,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
       <PageHeader
         icone={<IconLink />}
         titulo="Usuário × Acesso"
-        descricao="Clique em um usuário para liberar as telas que ele pode acessar. O menu de cada usuário é montado apenas com as telas liberadas aqui."
+        descricao="Defina, por usuário, quais telas e ações estarão disponíveis. As permissões aplicadas aqui atualizam o menu e limitam as operações do perfil."
         indicadores={[
           { valor: baseUsuarios.length, rotulo: baseUsuarios.length === 1 ? "usuário" : "usuários" },
           { valor: comAcesso, rotulo: "com acesso liberado", tom: "ok" },
@@ -23556,7 +23559,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
             <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar usuário por nome, e-mail ou cargo..."
-              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
+              className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/10" />
           </div>
         </div>
 
@@ -23565,7 +23568,7 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
           {visiveis.map((u) => (
             <div key={u.id}
               onClick={() => setEditandoId(u.id)}
-              className="group flex cursor-pointer items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-blue-400/30 hover:bg-white/[0.06]">
+              className="group flex cursor-pointer items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-3 transition hover:border-[#AFC2CC] hover:bg-[#F7F9FA]">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-lg group-hover:bg-blue-500/15 transition">👤</span>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-white truncate">
@@ -23574,8 +23577,8 @@ function UserAccessAdmin({ users, accesses, toggleUserAccess, definirAcessos, de
                 </p>
                 <p className="truncate text-xs text-slate-400">{u.email} · {u.role || "—"}{isSuperAdmin ? ` · ${nomeLoja(u.lojaId)}` : ""}</p>
               </div>
-              <span className="shrink-0 text-xs text-slate-600 group-hover:text-blue-400 transition hidden sm:inline">✏️ Gerenciar</span>
-              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${u.accessIds.length > 0 ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>
+              <span className="hidden shrink-0 text-xs text-slate-600 transition group-hover:text-[#012E46] sm:inline">Gerenciar acessos</span>
+              <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-black ${u.accessIds.length > 0 ? "bg-[#E8F0F3] text-[#012E46]" : "bg-[#FDECEF] text-[#C81E4A]"}`}>
                 {u.accessIds.length}/{acessosAtivos.length} telas
               </span>
             </div>
@@ -23640,7 +23643,7 @@ function UserAccessModal({ usuario, acessosAtivos = [], nomeLoja, toggleUserAcce
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-bold text-slate-200">🪪 {usuario.role || "—"}</span>
               <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-200">🏪 {usuario.superAdmin ? "Todas" : nomeLoja(usuario.lojaId)}</span>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${usuario.active ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700 text-slate-300"}`}>{usuario.active ? "Ativo" : "Inativo"}</span>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${usuario.active ? "bg-emerald-500/15 text-emerald-300" : "bg-[#FDECEF] text-[#C81E4A]"}`}>{usuario.active ? "Ativo" : "Inativo"}</span>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -23656,14 +23659,14 @@ function UserAccessModal({ usuario, acessosAtivos = [], nomeLoja, toggleUserAcce
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => definirAcessos(usuario.id, acessosAtivos.map((a) => a.id))}
-              className="rounded-2xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-2 text-xs font-black text-emerald-200 hover:bg-emerald-500/25 transition">✓ Liberar todas</button>
+              className="rounded-xl border border-[#012E46] bg-[#012E46] px-4 py-2 text-xs font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561]">✓ Liberar todas</button>
             <button onClick={() => definirAcessos(usuario.id, [])}
               className="rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">✕ Bloquear todas</button>
             {/* Copiar o conjunto de acessos de outro usuário (item 24 do padrão SaaS) */}
             {outrosUsuarios.length > 0 && (
               <select defaultValue=""
                 onChange={(e) => { const u = outrosUsuarios.find((x) => String(x.id) === e.target.value); if (u) definirAcessos(usuario.id, [...(u.accessIds || [])]); e.target.value = ""; }}
-                className="rounded-2xl border border-gold-400/30 bg-gold-400/10 px-3 py-2 text-xs font-black text-gold-200 outline-none focus:border-gold-400">
+                className="rounded-xl border border-[#DDE4E8] bg-white px-3 py-2 text-xs font-black text-[#012E46] outline-none transition hover:border-[#AFC2CC] focus:border-[#012E46]">
                 <option value="" disabled>Copiar acesso de outro usuário…</option>
                 {outrosUsuarios.map((u) => <option key={u.id} value={u.id}>{u.name} ({(u.accessIds || []).length} tela{(u.accessIds || []).length === 1 ? "" : "s"})</option>)}
               </select>
@@ -23676,14 +23679,14 @@ function UserAccessModal({ usuario, acessosAtivos = [], nomeLoja, toggleUserAcce
               const checked = usuario.accessIds.includes(a.id);
               const aberto = expandido === a.id;
               return (
-                <div key={a.id} className={`rounded-2xl border transition ${checked ? "border-emerald-400/30 bg-emerald-500/10" : "border-white/10 bg-slate-950/40"}`}>
+                <div key={a.id} className={`rounded-2xl border transition ${checked ? "border-[#AFC2CC] bg-[#E8F0F3]" : "border-white/10 bg-slate-950/40"}`}>
                   <div className="flex w-full items-center justify-between gap-3 p-3.5">
                     <button onClick={() => toggleUserAccess(usuario.id, a.id)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
                       <div className="min-w-0">
-                        <p className={`text-sm font-black ${checked ? "text-emerald-100" : "text-white"}`}>{a.label}</p>
+                        <p className={`text-sm font-black ${checked ? "text-[#012E46]" : "text-white"}`}>{a.label}</p>
                         {a.desc && <p className="mt-0.5 truncate text-xs text-slate-400">{a.desc}</p>}
                       </div>
-                      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-emerald-500" : "bg-slate-700"}`}>
+                      <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-[#012E46]" : "bg-slate-700"}`}>
                         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-[22px]" : "left-0.5"}`} />
                       </span>
                     </button>
@@ -23724,10 +23727,10 @@ function UserAccessModal({ usuario, acessosAtivos = [], nomeLoja, toggleUserAcce
         {/* Rodapé */}
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
           <button onClick={() => setQrAberto(true)}
-            className="flex-1 rounded-2xl border border-gold-400/30 bg-gold-500/15 py-3.5 text-sm font-black text-gold-200 hover:bg-gold-500/25 transition active:scale-95">
+            className="flex-1 rounded-xl border border-[#AFC2CC] bg-white py-3.5 text-sm font-black text-[#012E46] transition hover:border-[#012E46] hover:bg-[#F7F9FA] active:scale-95">
             🔐 QR de login
           </button>
-          <button onClick={onFechar} className="flex-1 rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">Concluir</button>
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[#012E46] bg-[#012E46] py-3.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] active:scale-95">Concluir</button>
         </div>
       </div>
 

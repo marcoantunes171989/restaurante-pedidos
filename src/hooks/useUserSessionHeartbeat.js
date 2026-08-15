@@ -5,6 +5,7 @@ import {
   iniciarSessaoAcesso,
   limparSessionToken,
   escutarSessaoPropria,
+  trocarContextoSessaoAcesso,
 } from "../lib/accessControl/api.js";
 
 /**
@@ -19,6 +20,7 @@ import {
 export function useUserSessionHeartbeat(currentUser, options = {}) {
   const startedRef = useRef(false);
   const revokedRef = useRef(false);
+  const contextRef = useRef("__unset__");
   const onRevokedRef = useRef(options.onSessionRevoked);
   onRevokedRef.current = options.onSessionRevoked;
 
@@ -26,6 +28,7 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
     if (!currentUser?.id) {
       startedRef.current = false;
       revokedRef.current = false;
+      contextRef.current = "__unset__";
       return undefined;
     }
 
@@ -43,7 +46,15 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
     async function boot() {
       if (cancelled || revokedRef.current) return;
       try {
-        const sessionId = await iniciarSessaoAcesso({ loginMethod: "password" });
+        const contextoAtual = options.trackCompanyContext ? (options.lojaId ?? null) : null;
+        const deveTrocarContexto = options.trackCompanyContext
+          && startedRef.current
+          && contextRef.current !== "__unset__"
+          && contextRef.current !== contextoAtual;
+        const sessionId = deveTrocarContexto
+          ? await trocarContextoSessaoAcesso(contextoAtual)
+          : await iniciarSessaoAcesso({ loginMethod: "password" });
+        if (sessionId) contextRef.current = contextoAtual;
         startedRef.current = true;
         if (cancelled || revokedRef.current) return;
         if (sessionId) {
@@ -85,5 +96,5 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [currentUser?.id]);
+  }, [currentUser?.id, options.trackCompanyContext, options.lojaId]);
 }

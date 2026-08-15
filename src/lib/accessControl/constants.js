@@ -21,6 +21,7 @@ export const ACCESS_EVENT = {
   ADMIN_SESSION_TERMINATED: "ADMIN_SESSION_TERMINATED",
   DEVICE_BLOCKED: "DEVICE_BLOCKED",
   DEVICE_UNBLOCKED: "DEVICE_UNBLOCKED",
+  CONTEXT_CHANGED: "CONTEXT_CHANGED",
 };
 
 export const MSG_DISPOSITIVO_BLOQUEADO =
@@ -60,6 +61,7 @@ const ROTULOS_EVENTO = {
   [ACCESS_EVENT.ADMIN_SESSION_TERMINATED]: "Encerrada por admin",
   [ACCESS_EVENT.DEVICE_BLOCKED]: "Dispositivo bloqueado",
   [ACCESS_EVENT.DEVICE_UNBLOCKED]: "Dispositivo desbloqueado",
+  [ACCESS_EVENT.CONTEXT_CHANGED]: "Empresa em foco alterada",
 };
 
 export function rotuloEventoAcesso(tipo) {

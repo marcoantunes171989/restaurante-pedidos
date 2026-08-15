@@ -110,6 +110,32 @@ export async function iniciarSessaoAcesso({ loginMethod = "password" } = {}) {
 }
 
 /**
+ * Super Admin: troca a empresa em foco sem misturar o tempo das sessões.
+ * O banco encerra o contexto anterior e abre um novo período no instante da seleção.
+ */
+export async function trocarContextoSessaoAcesso(lojaId = null) {
+  if (!supabase) return null;
+  let tokenAtual = null;
+  try { tokenAtual = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
+  if (!tokenAtual) return iniciarSessaoAcesso({ loginMethod: "company_context" });
+  const novoSessionToken = novoToken();
+  const { data, error } = await supabase.rpc("app_sessao_trocar_contexto", {
+    p_session_token: tokenAtual,
+    p_new_session_token: novoSessionToken,
+    p_loja_id: lojaId != null ? Number(lojaId) : null,
+  });
+  if (error) {
+    console.warn("[access-control] trocar contexto:", error.message);
+    return null;
+  }
+  if (data?.changed) {
+    try { sessionStorage.setItem(ACCESS_SESSION_KEY, novoSessionToken); } catch { /* ignore */ }
+    try { window.dispatchEvent(new CustomEvent("pp:access-context-changed")); } catch { /* ignore */ }
+  }
+  return data?.session_id || null;
+}
+
+/**
  * Heartbeat de presença.
  * @returns {Promise<{ status: 'active'|'closed'|'missing'|'error', alive: boolean }>}
  */
