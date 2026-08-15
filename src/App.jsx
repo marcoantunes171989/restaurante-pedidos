@@ -16597,8 +16597,8 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
       observacoes: form.observacoes || "",
     });
   }
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60 transition";
-  const lbl = "mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500";
+  const inp = "w-full rounded-2xl border border-[#012E46]/15 bg-[#F7FAFC] px-4 py-3 text-[#012E46] outline-none transition focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10 placeholder:text-slate-400";
+  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#012E46]/60";
 
   return (
     <main className="space-y-5">
@@ -17021,54 +17021,70 @@ function CampoCupom({ label, valor, onChange, placeholder = "", tipo = "text" })
 function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addPromocao, editarPromocao, togglePromocao, removerPromocao }) {
   const [fStatus, setFStatus] = useState("todas"); // todas | ativas | inativas
   const [fTipo, setFTipo] = useState("todos");
+  const [busca, setBusca] = useState("");
   const [editando, setEditando] = useState(null);  // promo | "novo"
   const [confirmar, setConfirmar] = useState(null); // promo a excluir
 
+  const termo = busca.trim().toLowerCase();
   const lista = promocoes.filter((p) =>
     (fStatus === "todas" || (fStatus === "ativas" ? p.ativo : !p.ativo)) &&
-    (fTipo === "todos" || p.tipo === fTipo)
-  );
+    (fTipo === "todos" || p.tipo === fTipo) &&
+    (!termo || `${p.nome} ${p.descricao || ""} ${promoLabelTipo(p.tipo)}`.toLowerCase().includes(termo))
+  ).sort((a, b) => Number(b.ativo) - Number(a.ativo) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
   const nomeProduto = (id) => produtos.find((x) => x.id === id)?.name || null;
   const nomeCategoria = (id) => categoriasDb.find((x) => x.id === id)?.nome || null;
 
   return (
     <main className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <PageHeader icone={<IconPromocao />} titulo="Promoções" descricao="Crie campanhas para aumentar as vendas — exibidas no cardápio e no tablet." />
-        <PrimeButton onClick={() => setEditando("novo")}><span className="text-lg leading-none">+</span> Nova promoção</PrimeButton>
-      </div>
+      <PageHeader icone={<IconPromocao />} titulo="Promoções" descricao="Planeje campanhas, destaque produtos e acompanhe onde cada oferta será exibida."
+        indicadores={[
+          { valor: promocoes.length, rotulo: promocoes.length === 1 ? "promoção" : "promoções" },
+          { valor: promocoes.filter((p) => p.ativo).length, rotulo: "ativas", tom: "ok" },
+          { valor: promocoes.filter((p) => !p.ativo).length, rotulo: "inativas" },
+          { valor: new Set(promocoes.map((p) => p.tipo)).size, rotulo: "tipos usados", tom: "gold" },
+        ]}
+        acao={<PrimeButton onClick={() => setEditando("novo")}><span className="text-lg leading-none">+</span> Nova promoção</PrimeButton>} />
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-2">
-        {[["todas", "Todas"], ["ativas", "Ativas"], ["inativas", "Inativas"]].map(([v, t]) => (
-          <FilterChip key={v} size="sm" selected={fStatus === v} label={t} onClick={() => setFStatus(v)} />
-        ))}
-        <span className="mx-1 h-5 w-px bg-white/10" />
-        <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-white outline-none focus:border-gold-400/60">
-          <option value="todos">Todos os tipos</option>
-          {PROMO_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-        </select>
-      </div>
+      <section className="rounded-[1.5rem] border border-[#012E46]/10 bg-white p-4 shadow-sm" aria-label="Pesquisa e filtros de promoções">
+        <div className="relative mb-3">
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#012E46]/55"><IconBusca /></span>
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar promoção por nome, descrição ou tipo..." aria-label="Buscar promoção"
+            className="w-full rounded-2xl border border-[#012E46]/15 bg-[#F7FAFC] py-3 pl-11 pr-16 text-sm text-[#012E46] outline-none transition placeholder:text-slate-400 focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10" />
+          {busca && <button type="button" onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-bold text-[#012E46]/60 hover:bg-[#012E46]/5">Limpar</button>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {[["todas", "Todas"], ["ativas", "Ativas"], ["inativas", "Inativas"]].map(([v, t]) => (
+            <FilterChip key={v} size="sm" selected={fStatus === v} label={t} onClick={() => setFStatus(v)} />
+          ))}
+          <span className="mx-1 hidden h-5 w-px bg-[#012E46]/10 sm:block" />
+          <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} aria-label="Filtrar por tipo de promoção" className="rounded-xl border border-[#012E46]/15 bg-white px-3 py-2 text-xs font-semibold text-[#012E46] outline-none focus:border-[#F38525]">
+            <option value="todos">Todos os tipos</option>
+            {PROMO_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+          <span className="ml-auto text-xs font-semibold text-slate-500">{lista.length} {lista.length === 1 ? "resultado" : "resultados"}</span>
+        </div>
+      </section>
 
       {/* Lista */}
       {lista.length === 0 ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] py-14 text-center">
-          <span className="text-4xl">🏷️</span>
-          <p className="mt-2 font-black text-white">Nenhuma promoção {fStatus !== "todas" ? "neste filtro" : "cadastrada"}.</p>
+        <div className="rounded-[2rem] border border-[#012E46]/10 bg-white py-14 text-center shadow-sm">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F38525]/10 text-[#F38525]"><IconPromocao /></span>
+          <p className="mt-3 font-black text-[#012E46]">Nenhuma promoção {fStatus !== "todas" || termo ? "neste filtro" : "cadastrada"}.</p>
           <p className="text-sm text-slate-500">Crie sua primeira campanha para destacar ofertas no cardápio.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {lista.map((p) => (
-            <div key={p.id} className={`flex flex-col rounded-[1.5rem] border p-5 transition ${p.ativo ? "border-gold-400/30 bg-gold-400/[0.05]" : "border-white/10 bg-white/[0.03] opacity-70"}`}>
+            <article key={p.id} className={`flex flex-col rounded-[1.5rem] border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${p.ativo ? "border-[#F38525]/40" : "border-[#012E46]/10 opacity-75"}`}>
               <div className="flex items-start justify-between gap-2">
-                <span className="rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-gold-300">{promoLabelTipo(p.tipo)}</span>
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${p.ativo ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-700/40 text-slate-400"}`}>{p.ativo ? "Ativa" : "Inativa"}</span>
+                <span className="rounded-full border border-[#F38525]/35 bg-[#F38525]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-[#9A4B0C]">{promoLabelTipo(p.tipo)}</span>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${p.ativo ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{p.ativo ? "Ativa" : "Inativa"}</span>
               </div>
-              <h3 className="page-title mt-3 text-lg font-bold tracking-tight text-white">{p.nome}</h3>
-              <p className="mt-1 text-2xl font-black text-gold-400">{promoResumoDesconto(p)}</p>
+              <h3 className="page-title mt-3 text-lg font-bold tracking-tight text-[#012E46]">{p.nome}</h3>
+              <p className="mt-1 text-2xl font-black text-[#9A4B0C]">{promoResumoDesconto(p)}</p>
               {p.descricao && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{p.descricao}</p>}
-              <div className="mt-3 space-y-1 text-[11px] text-slate-400">
+              <div className="mt-3 flex-1 space-y-1 text-[11px] leading-5 text-slate-500">
                 {(p.dataInicio || p.dataFim) && <p>📅 {p.dataInicio ? new Date(p.dataInicio).toLocaleDateString("pt-BR") : "—"} → {p.dataFim ? new Date(p.dataFim).toLocaleDateString("pt-BR") : "—"}</p>}
                 {(p.horaInicio || p.horaFim) && <p>⏰ {p.horaInicio || "—"} às {p.horaFim || "—"}</p>}
                 {Array.isArray(p.diasSemana) && p.diasSemana.length > 0 && p.diasSemana.length < 7 && <p>🗓️ {p.diasSemana.map((d) => PROMO_DIAS[d]).join(", ")}</p>}
@@ -17077,12 +17093,12 @@ function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addP
                 {nomeCategoria(p.categoriaId) && <p>📂 {nomeCategoria(p.categoriaId)}</p>}
                 <p className="text-slate-500">{[p.mostrarCardapio && "Cardápio", p.mostrarTablet && "Tablet"].filter(Boolean).join(" · ") || "Oculta"}</p>
               </div>
-              <div className="mt-4 flex gap-2 border-t border-white/10 pt-3">
-                <button onClick={() => togglePromocao(p.id)} className="flex-1 rounded-xl border border-white/10 bg-white/[0.05] py-2 text-xs font-black text-slate-300 hover:bg-white/10 transition">{p.ativo ? "Pausar" : "Ativar"}</button>
-                <button onClick={() => setEditando(p)} className="flex-1 rounded-xl border border-gold-400/30 bg-gold-400/10 py-2 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition">Editar</button>
-                <button onClick={() => setConfirmar(p)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
+              <div className="mt-4 flex gap-2 border-t border-[#012E46]/10 pt-3">
+                <button onClick={() => togglePromocao(p.id)} className="flex-1 rounded-xl border border-[#012E46]/15 bg-white py-2 text-xs font-black text-[#012E46] transition hover:bg-slate-50">{p.ativo ? "Pausar" : "Ativar"}</button>
+                <button onClick={() => setEditando(p)} className="flex-1 rounded-xl border border-[#F38525]/35 bg-[#F38525]/10 py-2 text-xs font-black text-[#9A4B0C] transition hover:bg-[#F38525]/20">Editar</button>
+                <button onClick={() => setConfirmar(p)} aria-label={`Excluir promoção ${p.nome}`} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-100">🗑️</button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}
@@ -17093,13 +17109,13 @@ function PromocoesAdmin({ promocoes = [], produtos = [], categoriasDb = [], addP
           onSalvar={async (dados) => { const ok = editando === "novo" ? await addPromocao(dados) : await editarPromocao(editando.id, dados); if (ok) setEditando(null); }} />
       )}
       {confirmar && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setConfirmar(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-red-400/20 bg-slate-900 p-6 text-center shadow-2xl">
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 p-4 backdrop-blur-sm" onClick={() => setConfirmar(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-red-200 bg-white p-6 text-center shadow-2xl">
             <span className="text-4xl">🗑️</span>
-            <h3 className="mt-2 text-lg font-black text-white">Excluir promoção?</h3>
+            <h3 className="mt-2 text-lg font-black text-[#012E46]">Excluir promoção?</h3>
             <p className="mt-1 text-sm text-slate-400">“{confirmar.nome}” será removida permanentemente.</p>
             <div className="mt-5 flex gap-3">
-              <button onClick={() => setConfirmar(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+              <button onClick={() => setConfirmar(null)} className="flex-1 rounded-2xl border border-[#012E46]/15 bg-white py-3 text-sm font-black text-[#012E46] hover:bg-slate-50">Cancelar</button>
               <button onClick={() => { removerPromocao(confirmar.id); setConfirmar(null); }} className="flex-1 rounded-2xl bg-red-500 py-3 text-sm font-black text-white hover:bg-red-400 transition active:scale-95">Excluir</button>
             </div>
           </div>
@@ -17129,7 +17145,10 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
   // Não permite início retroativo (data/hora no passado). Ao EDITAR, mantém o início original (grandfather).
   const inicioRetroativo = f.dataInicio && f.dataInicio < hojeISO && f.dataInicio !== (promocao?.dataInicio || "");
   const horaRetroativa = !inicioRetroativo && f.dataInicio === hojeISO && f.horaInicio && f.horaInicio < horaAgora && f.horaInicio !== (promocao?.horaInicio || "");
-  const valido = f.nome.trim() && !dataInvalida && !horaInvalida && !inicioRetroativo && !horaRetroativa;
+  const valorBeneficio = Number(String(f.tipo === "percentual" ? f.descontoPercent : f.descontoValor).replace(",", "."));
+  const beneficioInvalido = f.tipo === "percentual" ? !(valorBeneficio > 0 && valorBeneficio <= 100)
+    : (f.tipo === "valor" || f.tipo === "combo") ? !(valorBeneficio > 0) : false;
+  const valido = f.nome.trim() && !beneficioInvalido && !dataInvalida && !horaInvalida && !inicioRetroativo && !horaRetroativa;
   const toggleDia = (d) => setF((s) => ({ ...s, diasSemana: s.diasSemana.includes(d) ? s.diasSemana.filter((x) => x !== d) : [...s.diasSemana, d].sort() }));
   const adicionarProduto = (id) => { const pid = Number(id); if (!pid || f.produtoIds.includes(pid)) return; setF((s) => ({ ...s, produtoIds: [...s.produtoIds, pid] })); };
   const removerProduto = (id) => setF((s) => ({ ...s, produtoIds: s.produtoIds.filter((x) => x !== id) }));
@@ -17137,17 +17156,18 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
   const produtosDisponiveis = produtos.filter((p) => !f.produtoIds.includes(p.id));
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 p-2 backdrop-blur-sm sm:p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl sm:max-h-[92vh]">
+        <div className="flex items-center justify-between border-b border-[#012E46]/10 px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconPromocao /></span>
-            <h2 className="page-title text-lg font-bold tracking-tight text-white">{promocao ? "Editar promoção" : "Nova promoção"}</h2>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F38525]/12 text-[#F38525]"><IconPromocao /></span>
+            <div><h2 className="page-title text-lg font-bold tracking-tight text-[#012E46]">{promocao ? "Editar promoção" : "Nova promoção"}</h2><p className="text-xs text-slate-500">Configure benefício, público e período</p></div>
           </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+          <button onClick={onFechar} aria-label="Fechar promoção" className="rounded-xl border border-[#012E46]/10 bg-[#F7FAFC] px-3 py-2 text-sm font-black text-[#012E46] hover:bg-slate-100">✕</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="rounded-2xl border border-[#012E46]/10 bg-[#012E46]/[0.04] px-4 py-3 text-xs leading-5 text-slate-600"><b className="text-[#012E46]">Dica:</b> use um nome curto, descreva o benefício e defina produtos ou categoria. Sem vínculo, a promoção pode ser aplicada de forma geral.</div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <span className={lbl}>Nome da promoção *</span>
@@ -17163,9 +17183,9 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
               {PROMO_TIPOS.map((t) => (
                 <button key={t.id} type="button" onClick={() => setF({ ...f, tipo: t.id })}
-                  className={`rounded-xl border px-2 py-2.5 text-center transition ${f.tipo === t.id ? "border-gold-400/60 bg-gold-400/10" : "border-white/10 bg-slate-950/40 hover:bg-white/[0.06]"}`}>
+                  className={`rounded-xl border px-2 py-2.5 text-center transition ${f.tipo === t.id ? "border-[#F38525] bg-[#F38525]/10 shadow-sm" : "border-[#012E46]/10 bg-white hover:bg-slate-50"}`}>
                   <p className="text-base leading-none">{t.icon}</p>
-                  <p className={`mt-1 text-[10px] font-black ${f.tipo === t.id ? "text-gold-300" : "text-slate-400"}`}>{t.label}</p>
+                  <p className={`mt-1 text-[10px] font-black ${f.tipo === t.id ? "text-[#9A4B0C]" : "text-slate-500"}`}>{t.label}</p>
                 </button>
               ))}
             </div>
@@ -17179,11 +17199,16 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
               )}
             </div>
           )}
+          {beneficioInvalido && (f.tipo === "percentual" || f.tipo === "valor" || f.tipo === "combo") && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              {f.tipo === "percentual" ? "Informe um desconto entre 1% e 100%." : f.tipo === "combo" ? "Informe um preço de combo maior que zero." : "Informe um desconto maior que zero."}
+            </p>
+          )}
           {f.tipo === "combo" && (
             <div>
               <span className={lbl}>Preço do combo (R$) *</span>
               <input inputMode="decimal" value={f.descontoValor} onChange={(e) => setF({ ...f, descontoValor: e.target.value.replace(/[^\d.,]/g, "") })} placeholder="49,90" className={inp} />
-              <p className="mt-1 text-[11px] text-slate-500">Preço fechado do combo. Selecione abaixo os <b className="text-slate-300">produtos que compõem o combo</b> — o cliente adiciona todos de uma vez por este valor.</p>
+              <p className="mt-1 text-[11px] text-slate-500">Preço fechado do combo. Selecione abaixo os <b className="text-[#012E46]">produtos que compõem o combo</b> — o cliente adiciona todos de uma vez por este valor.</p>
             </div>
           )}
           <div>
@@ -17197,8 +17222,8 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
             {f.produtoIds.length > 0 ? (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {f.produtoIds.map((id) => (
-                  <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-3 py-1 text-xs font-bold text-gold-100">🍽️ {nomeProd(id)}
-                    <button type="button" onClick={() => removerProduto(id)} className="text-red-300 hover:text-red-200">✕</button></span>
+                  <span key={id} className="inline-flex items-center gap-1.5 rounded-full border border-[#F38525]/30 bg-[#F38525]/10 px-3 py-1 text-xs font-bold text-[#9A4B0C]">🍽️ {nomeProd(id)}
+                    <button type="button" onClick={() => removerProduto(id)} aria-label={`Remover ${nomeProd(id)}`} className="text-red-600 hover:text-red-700">✕</button></span>
                 ))}
                 <button type="button" onClick={() => setF({ ...f, produtoIds: [] })} className="rounded-full px-2 py-1 text-[11px] font-bold text-slate-400 underline hover:text-slate-200">limpar</button>
               </div>
@@ -17217,16 +17242,16 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
             <div><span className={lbl}>Hora início</span><input type="time" value={f.horaInicio || ""} onChange={(e) => setF({ ...f, horaInicio: e.target.value })} className={`${inp} ${horaRetroativa ? "!border-red-400/70" : ""}`} /></div>
             <div><span className={lbl}>Hora fim</span><input type="time" value={f.horaFim || ""} onChange={(e) => setF({ ...f, horaFim: e.target.value })} className={`${inp} ${horaInvalida ? "!border-red-400/70" : ""}`} /></div>
           </div>
-          {inicioRetroativo && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A data de <b>Início</b> não pode ser retroativa. Use a data de hoje ({new Date(hojeISO + "T00:00").toLocaleDateString("pt-BR")}) ou futura.</p>}
-          {horaRetroativa && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ Como o início é hoje, a <b>Hora início</b> não pode ser anterior ao horário atual ({horaAgora}).</p>}
-          {dataInvalida && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A data <b>Fim</b> é anterior à data <b>Início</b>. Assim a promoção nunca fica vigente — ajuste para salvar.</p>}
-          {horaInvalida && <p className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200">⚠ A <b>Hora fim</b> é anterior à <b>Hora início</b>. Para promoção que vira a madrugada, deixe a hora fim em branco.</p>}
+          {inicioRetroativo && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">⚠ A data de <b>Início</b> não pode ser retroativa. Use a data de hoje ({new Date(hojeISO + "T00:00").toLocaleDateString("pt-BR")}) ou futura.</p>}
+          {horaRetroativa && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">⚠ Como o início é hoje, a <b>Hora início</b> não pode ser anterior ao horário atual ({horaAgora}).</p>}
+          {dataInvalida && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">⚠ A data <b>Fim</b> é anterior à data <b>Início</b>. Assim a promoção nunca fica vigente — ajuste para salvar.</p>}
+          {horaInvalida && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">⚠ A <b>Hora fim</b> é anterior à <b>Hora início</b>. Para promoção que vira a madrugada, deixe a hora fim em branco.</p>}
           <div>
             <span className={lbl}>Dias da semana válidos</span>
             <div className="flex flex-wrap gap-2">
               {PROMO_DIAS.map((d, i) => (
                 <button key={i} type="button" onClick={() => toggleDia(i)}
-                  className={`h-10 w-12 rounded-xl border text-xs font-black transition ${f.diasSemana.includes(i) ? "border-gold-400 bg-gold-400 text-blue-950" : "border-white/10 bg-white/[0.04] text-slate-400 hover:bg-white/10"}`}>{d}</button>
+                  className={`h-10 w-12 rounded-xl border text-xs font-black transition ${f.diasSemana.includes(i) ? "border-[#F38525] bg-[#F38525] text-white" : "border-[#012E46]/10 bg-white text-slate-500 hover:bg-slate-50"}`}>{d}</button>
               ))}
             </div>
             <p className="mt-1 text-[11px] text-slate-500">Nenhum selecionado = todos os dias.</p>
@@ -17234,17 +17259,17 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
           <div className="flex flex-wrap gap-2">
             {[["mostrarCardapio", "📱 Exibir no cardápio externo"], ["mostrarTablet", "📲 Exibir no tablet"]].map(([k, t]) => (
               <button key={k} type="button" onClick={() => setF({ ...f, [k]: !f[k] })}
-                className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${f[k] ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-500"}`}>
+                className={`rounded-xl border px-3 py-2 text-xs font-bold transition ${f[k] ? "border-[#F38525]/50 bg-[#F38525]/10 text-[#9A4B0C]" : "border-[#012E46]/10 bg-white text-slate-500"}`}>
                 <span className={`mr-1.5 ${f[k] ? "" : "opacity-40"}`}>{f[k] ? "✓" : "○"}</span>{t}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+        <div className="flex shrink-0 gap-3 border-t border-[#012E46]/10 bg-white px-5 py-4 sm:px-6">
+          <button onClick={onFechar} className="flex-1 rounded-2xl border border-[#012E46]/15 bg-white py-3.5 text-sm font-black text-[#012E46] hover:bg-slate-50">Cancelar</button>
           <button onClick={() => valido && onSalvar(f)} disabled={!valido}
-            className="font-display flex-[2] rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30 disabled:opacity-50">
+            className="font-display flex-[2] rounded-2xl bg-[#F38525] py-3.5 text-sm font-bold text-white shadow-lg shadow-orange-900/10 transition hover:bg-[#df741b] active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
             {promocao ? "Salvar alterações" : "+ Criar promoção"}
           </button>
         </div>
