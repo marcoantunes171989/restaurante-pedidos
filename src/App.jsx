@@ -4358,7 +4358,7 @@ function ChipSelecao({ selecionado, disabled = false, onClick, texto, detalhe, i
       </span>
       <span className="min-w-0">{texto}</span>
       {detalhe != null && (
-        <span className={`shrink-0 text-xs font-semibold ${disabled ? "text-[var(--client-disabled-text)]" : selecionado ? "text-[var(--client-primary-active)]" : "text-[var(--client-text-muted)]"}`}>{detalhe}</span>
+        <span className={`shrink-0 text-[11px] font-semibold ${disabled ? "text-[var(--client-disabled-text)]" : selecionado ? "text-[#012E46]" : "text-[var(--client-text-muted)]"}`}>{detalhe}</span>
       )}
     </button>
   );

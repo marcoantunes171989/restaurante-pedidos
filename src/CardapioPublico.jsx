@@ -2182,7 +2182,7 @@ export default function CardapioPublico() {
 
       {/* Gaveta: Carrinho */}
       {aba === "carrinho" && (
-        <Gaveta titulo="Finalizar pedido" subtitulo={cart.length > 0 ? "Revise os dados antes de confirmar" : undefined} onFechar={() => setAba(null)}
+        <Gaveta className="pp-checkout" titulo="Finalizar pedido" subtitulo={cart.length > 0 ? "Revise os dados antes de confirmar" : undefined} onFechar={() => setAba(null)}
           rodape={cart.length === 0 ? undefined : (
             <>
               {modoExterno && minimoExterno > 0 && (
@@ -2191,7 +2191,7 @@ export default function CardapioPublico() {
                 </p>
               )}
               <button onClick={enviar} disabled={!podeEnviar || enviando} type="button"
-                className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
+                className={`flex min-h-11 w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
                 {enviando && <CkIconSpinner />}
                 {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : usarPedidoWhatsapp ? "Confirmar e continuar no WhatsApp" : "Confirmar e enviar pedido"}
               </button>
@@ -2222,19 +2222,19 @@ export default function CardapioPublico() {
               <EtapaProgresso etapas={etapasCheckout} atualIdx={etapaAtualIdx} />
 
               {/* Itens do pedido */}
-              <div className="mt-4">
+              <div className="mt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Seu pedido</h3>
                   <button onClick={() => setConfirmarLimpar(true)} type="button" className="min-h-8 rounded-lg px-2 text-xs font-bold text-[var(--client-text-muted)] transition hover:bg-[var(--client-error-soft)] hover:text-[var(--client-error)]">Limpar carrinho</button>
                 </div>
-                <div className="space-y-2.5">
+                <div>
                   {cart.map((i) => <CardItemCarrinho key={i._uid} item={i} onRemover={pedirRemover} />)}
                 </div>
               </div>
 
               {/* Forma de recebimento (externo) / mesa+comanda (interno) */}
               {modoExterno ? (
-                <div className="mt-5 space-y-3">
+                <div className="mt-4 space-y-2.5">
                   <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Como deseja receber?</h3>
                   {!aceitaExterno ? (
                     <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Esta empresa não está aceitando pedidos pelo cardápio no momento.</div>
@@ -2247,13 +2247,13 @@ export default function CardapioPublico() {
                         const sel = tipoPedido === o.id;
                         return (
                           <button key={o.id} type="button" role="radio" aria-checked={sel} onClick={() => escolherTipoPedido(o.id)}
-                            className={`flex w-full items-start gap-3 rounded-2xl border p-3.5 text-left transition ${sel ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)]" : "border-[var(--client-border)] bg-[var(--client-surface)] hover:bg-[var(--client-surface-secondary)]"}`}>
-                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${sel ? "bg-[var(--client-primary-hover)] text-[#012E46]" : "bg-[var(--client-surface-secondary)] text-[var(--client-text-secondary)]"}`}><Icone width={17} height={17} /></span>
+                            className={`flex w-full items-start gap-2.5 rounded-xl border bg-white p-3 text-left transition ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border)] hover:border-[var(--client-border-strong)]"}`}>
+                            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-white ${sel ? "border-[var(--client-primary)] text-[var(--client-primary-hover)]" : "border-[var(--client-border)] text-[var(--client-text-secondary)]"}`}><Icone width={16} height={16} /></span>
                             <span className="min-w-0 flex-1">
-                              <span className={`block text-sm font-black ${sel ? "text-[var(--client-primary-active)]" : "text-[var(--client-text-primary)]"}`}>{o.label}</span>
-                              <span className="mt-0.5 block text-xs text-[var(--client-text-secondary)]">{DESC_ENTREGA[o.id]}</span>
+                              <span className="block text-xs font-black text-[#012E46]">{o.label}</span>
+                              <span className="mt-0.5 block text-[11px] text-[var(--client-text-secondary)]">{DESC_ENTREGA[o.id]}</span>
                             </span>
-                            <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border-strong)]"}`}>{sel && <span className="h-2.5 w-2.5 rounded-full bg-[var(--client-primary-hover)]" />}</span>
+                            <span className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border-strong)]"}`}>{sel && <span className="h-2 w-2 rounded-full bg-[var(--client-primary-hover)]" />}</span>
                           </button>
                         );
                       })}
@@ -2769,7 +2769,7 @@ function EtapaProgresso({ etapas, atualIdx }) {
 function CardItemCarrinho({ item, onRemover }) {
   const personalizado = item.removedIngredients?.length > 0 || item.extraIngredients?.length > 0 || item.observation;
   return (
-    <div className={`flex items-start justify-between gap-3 rounded-2xl border bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)] ${item.comboId ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
+    <div className="flex items-start justify-between gap-3 border-b border-[var(--client-border)] bg-white py-2.5">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black leading-snug text-[var(--client-text-primary)]">
           <span className="text-[var(--client-text-secondary)]">{item.quantity}×</span> {item.name}
@@ -2796,7 +2796,7 @@ function CardItemCarrinho({ item, onRemover }) {
 // CTA de "Finalizar pedido") — fica sempre visível, nunca precisa rolar até
 // o fim pra alcançar o botão principal. Sem essa prop, a gaveta se comporta
 // exatamente como antes (usado por aba "conta"/acompanhar pedido).
-function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "Fechar" }) {
+function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "Fechar", className = "" }) {
   useScrollLock(); // trava a rolagem do fundo enquanto a gaveta está aberta
   // Acompanha o "visual viewport" (área visível) para a gaveta sentar ACIMA do teclado
   // do celular — assim o campo focado nunca fica escondido.
@@ -2813,25 +2813,25 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "
   const overlayStyle = vp ? { top: vp.top, height: vp.h, bottom: "auto" } : undefined;
   const sheetHeight = vp ? `${vp.h}px` : "100dvh";
   return (
-    <div data-theme="light" className="tema-claro-area fixed inset-0 z-[110] flex w-full max-w-full items-end justify-center overflow-hidden bg-[var(--client-surface)]" style={overlayStyle} onClick={onFechar}>
+    <div data-theme="light" className={`tema-claro-area fixed inset-0 z-[110] flex w-full max-w-full items-end justify-center overflow-hidden bg-white ${className}`} style={{ ...overlayStyle, fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }} onClick={onFechar}>
       {/* flex-col + min-h-0 no corpo: o rodapé (quando existe) reserva sua
           própria altura de verdade (medida pelo navegador), e o corpo rolável
           ocupa exatamente o resto — sem precisar "chutar" um px fixo de
           desconto pra altura do cabeçalho/rodapé em cada gaveta. */}
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden border-x border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] sm:rounded-t-[24px] sm:border-t" style={{ height: sheetHeight, maxHeight: sheetHeight, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
-        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--client-border)] bg-[var(--client-surface)] px-5 pb-4 sm:rounded-t-[24px]" style={{ paddingTop: "max(1rem, calc(env(safe-area-inset-top) + 0.5rem))" }}>
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden border-x border-[var(--client-border)] bg-white sm:rounded-t-[20px] sm:border-t" style={{ height: sheetHeight, maxHeight: sheetHeight, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--client-border)] bg-white px-4 pb-3 sm:rounded-t-[20px]" style={{ paddingTop: "max(0.75rem, calc(env(safe-area-inset-top) + 0.4rem))" }}>
           <div className="min-w-0">
-            <h2 className="text-lg font-black text-[var(--client-text-primary)]">{titulo}</h2>
-            {subtitulo && <p className="mt-0.5 text-xs text-[var(--client-text-secondary)]">{subtitulo}</p>}
+            <h2 className="text-base font-black text-[#012E46]">{titulo}</h2>
+            {subtitulo && <p className="mt-0.5 text-[11px] text-[var(--client-text-secondary)]">{subtitulo}</p>}
           </div>
           <button onClick={onFechar} aria-label={fecharLabel} title={fecharLabel} type="button"
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)] transition duration-200 hover:border-[var(--client-error-border)] hover:bg-[var(--client-error-soft)] hover:text-[var(--client-error)] active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--client-error)]">
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--client-border)] bg-white text-[var(--client-text-secondary)] transition duration-200 hover:border-[var(--client-primary)] hover:text-[var(--client-primary-hover)] active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--client-primary)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
-        <div className="pp-overscroll-contain min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div className="pp-overscroll-contain min-h-0 flex-1 overflow-y-auto bg-white px-4 py-3">{children}</div>
         {rodape && (
-          <div className="shrink-0 border-t border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-3" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+          <div className="shrink-0 border-t border-[var(--client-border)] bg-white px-4 py-2.5" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.625rem)" }}>
             {rodape}
           </div>
         )}
