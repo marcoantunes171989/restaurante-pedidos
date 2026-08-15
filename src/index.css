@@ -1766,6 +1766,9 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   aspect-ratio: auto;
 }
 .pp-welcome-ext .pp-welcome-card { align-self: start; }
+.pp-welcome-ext .pp-welcome-stage {
+  align-content: center;
+}
 .pp-welcome-ext .pp-welcome-side {
   align-self: start;
   height: var(--pp-welcome-photo-height);
