@@ -17880,7 +17880,7 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
           <h3 className="page-title mt-2 text-lg font-bold text-white">Caixa fechado</h3>
           <p className="mt-1 text-sm text-slate-400">Informe o valor inicial (fundo de troco) para abrir o caixa.</p>
           <input inputMode="decimal" value={abrindo} onChange={(e) => setAbrindo(e.target.value)} placeholder="R$ 0,00" className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-gold-400/60" />
-          <button onClick={() => api.abrir(num(abrindo))} className="font-display mt-4 w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">Abrir caixa</button>
+          <button onClick={() => api.abrir(num(abrindo))} className="font-display mt-4 w-full rounded-xl border border-[#012E46] bg-[#012E46] py-3.5 text-sm font-bold text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Abrir caixa</button>
         </div>
       ) : (
         <>
@@ -17892,9 +17892,9 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => { setOpTipo("suprimento"); setOpValor(""); setOpDesc(""); }} className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-black text-emerald-300 hover:bg-emerald-500/20 transition">+ Suprimento</button>
-            <button onClick={() => { setOpTipo("sangria"); setOpValor(""); setOpDesc(""); }} className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-2.5 text-sm font-black text-amber-300 hover:bg-amber-500/20 transition">− Sangria</button>
-            <button onClick={() => setFechando(true)} className="ml-auto rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition active:scale-95">🔒 Fechar caixa</button>
+            <button onClick={() => { setOpTipo("suprimento"); setOpValor(""); setOpDesc(""); }} className="rounded-xl border border-[#AFC2CC] bg-white px-4 py-2.5 text-sm font-black text-[#012E46] transition hover:border-[#012E46] hover:bg-[#F7F9FA]">+ Suprimento</button>
+            <button onClick={() => { setOpTipo("sangria"); setOpValor(""); setOpDesc(""); }} className="rounded-xl border border-[#AFC2CC] bg-white px-4 py-2.5 text-sm font-black text-[#012E46] transition hover:border-[#012E46] hover:bg-[#F7F9FA]">− Sangria</button>
+            <button onClick={() => setFechando(true)} className="ml-auto rounded-xl border border-[#012E46] bg-[#012E46] px-5 py-2.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] active:scale-95">🔒 Fechar caixa</button>
           </div>
 
           {/* Vendas por forma de pagamento */}
@@ -17948,12 +17948,15 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
       {opTipo && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={() => setOpTipo(null)}>
           <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl">
-            <h3 className="page-title text-lg font-bold text-white">{opTipo === "suprimento" ? "Suprimento (entrada)" : "Sangria (retirada)"}</h3>
-            <input autoFocus inputMode="decimal" value={opValor} onChange={(e) => setOpValor(e.target.value)} placeholder="R$ 0,00" className="mt-4 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-gold-400/60" />
-            <input value={opDesc} onChange={(e) => setOpDesc(e.target.value)} placeholder="Descrição (opcional)" className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60" />
+            <h3 className="page-title text-lg font-bold text-white">{opTipo === "suprimento" ? "Registrar suprimento" : "Registrar sangria"}</h3>
+            <p className="mt-1 text-xs text-slate-500">{opTipo === "suprimento" ? "Adicione uma entrada de dinheiro ao caixa atual." : "Registre uma retirada de dinheiro do caixa atual."}</p>
+            <label className="mt-4 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Valor *</label>
+            <input autoFocus inputMode="decimal" value={opValor} onChange={(e) => setOpValor(e.target.value)} placeholder="R$ 0,00" className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-[#012E46]" />
+            <label className="mt-3 block text-[11px] font-bold uppercase tracking-widest text-slate-500">Motivo <span className="normal-case tracking-normal">(opcional)</span></label>
+            <input value={opDesc} onChange={(e) => setOpDesc(e.target.value)} placeholder={opTipo === "suprimento" ? "Ex.: reforço de troco" : "Ex.: pagamento de fornecedor"} className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-[#012E46]" />
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setOpTipo(null)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-              <button onClick={confirmarOp} className="flex-1 rounded-2xl bg-gold-400 py-3 text-sm font-black text-blue-950 hover:bg-gold-300 transition">Registrar</button>
+              <button onClick={() => setOpTipo(null)} className="flex-1 rounded-xl border border-[#DDE4E8] bg-white py-3 text-sm font-black text-[#012E46] transition hover:bg-[#F7F9FA]">Cancelar</button>
+              <button onClick={confirmarOp} className="flex-1 rounded-xl border border-[#012E46] bg-[#012E46] py-3 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561]">Registrar</button>
             </div>
           </div>
         </div>
@@ -17973,8 +17976,8 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
               <p className={`mt-2 text-center text-sm font-black ${(num(contado) - esperadoDinheiro) < 0 ? "text-red-400" : (num(contado) - esperadoDinheiro) > 0 ? "text-amber-300" : "text-emerald-400"}`}>Diferença: {formatCurrency(num(contado) - esperadoDinheiro)}</p>
             )}
             <div className="mt-4 flex gap-3">
-              <button onClick={() => setFechando(false)} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-              <button onClick={confirmarFechamento} className="flex-1 rounded-2xl bg-gold-400 py-3 text-sm font-black text-blue-950 hover:bg-gold-300 transition">Confirmar fechamento</button>
+              <button onClick={() => setFechando(false)} className="flex-1 rounded-xl border border-[#DDE4E8] bg-white py-3 text-sm font-black text-[#012E46] transition hover:bg-[#F7F9FA]">Cancelar</button>
+              <button onClick={confirmarFechamento} className="flex-1 rounded-xl border border-[#012E46] bg-[#012E46] py-3 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561]">Confirmar fechamento</button>
             </div>
           </div>
         </div>
@@ -19574,7 +19577,7 @@ function FormaPagamentoEditModal({ forma, onSalvar, onToggle, onFechar }) {
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">💳</span>
-            <h2 className="text-lg font-black text-white">Editar forma de pagamento</h2>
+            <div><h2 className="text-lg font-black text-white">Editar forma de pagamento</h2><p className="text-[11px] text-slate-500">Defina como esta opção será exibida e utilizada no caixa.</p></div>
           </div>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
@@ -19619,9 +19622,9 @@ function FormaPagamentoEditModal({ forma, onSalvar, onToggle, onFechar }) {
 
         {/* Rodapé */}
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[#DDE4E8] bg-white py-3.5 text-sm font-black text-[#012E46] transition hover:bg-[#F7F9FA]">Cancelar</button>
           <button onClick={() => onSalvar(f)} disabled={!valido || !alterado}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex-[2] rounded-xl border border-[#012E46] bg-[#012E46] py-3.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] active:scale-95 disabled:cursor-not-allowed disabled:border-[#CBD5DA] disabled:bg-[#E8EDF0] disabled:text-[#8798A1]">
             💾 Salvar alterações
           </button>
         </div>
@@ -19642,7 +19645,7 @@ function FormaPagamentoCadastroModal({ onSalvar, onFechar }) {
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-500/15 text-lg">💳</span>
-            <h2 className="text-lg font-black text-white">Nova forma de pagamento</h2>
+            <div><h2 className="text-lg font-black text-white">Nova forma de pagamento</h2><p className="text-[11px] text-slate-500">Cadastre uma opção para recebimentos e operações do caixa.</p></div>
           </div>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
@@ -19667,9 +19670,9 @@ function FormaPagamentoCadastroModal({ onSalvar, onFechar }) {
           </label>
         </div>
         <div className="shrink-0 border-t border-white/10 px-6 py-4 flex gap-3">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-white/10 bg-white/[0.06] py-3.5 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[#DDE4E8] bg-white py-3.5 text-sm font-black text-[#012E46] transition hover:bg-[#F7F9FA]">Cancelar</button>
           <button onClick={() => onSalvar(form)} disabled={!valido}
-            className="flex-[2] rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex-[2] rounded-xl border border-[#012E46] bg-[#012E46] py-3.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] active:scale-95 disabled:cursor-not-allowed disabled:border-[#CBD5DA] disabled:bg-[#E8EDF0] disabled:text-[#8798A1]">
             + Cadastrar forma
           </button>
         </div>
