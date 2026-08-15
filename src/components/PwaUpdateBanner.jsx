@@ -105,36 +105,24 @@ export default function PwaUpdateBanner({ swAtivado }) {
   if (!visivel) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[140] flex justify-center p-3 sm:p-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
-      <div role="status" aria-live="polite" className="w-full max-w-md overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] shadow-[0_20px_50px_rgba(43,35,32,0.18)]">
-        <div className="flex items-start gap-2.5 p-3.5">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--pp-info-soft)] text-[var(--pp-info)] ${atualizando ? "animate-spin" : ""}`}>
-            <RefreshCw aria-hidden="true" size={15} />
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[130] flex justify-center p-3 sm:justify-end sm:p-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
+      <div role="status" aria-live="polite" aria-label="Atualização do Pedido Prime" className="pointer-events-auto w-full max-w-[380px] rounded-2xl border border-[#012E46]/15 bg-white p-3 shadow-[0_16px_40px_rgba(1,46,70,0.18)]">
+        <div className="flex items-center gap-3">
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#012E46]/10 text-[#012E46] ${atualizando ? "animate-spin" : ""}`}>
+            <RefreshCw aria-hidden="true" size={16} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-[var(--pp-text)]">Nova versão disponível</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-[var(--pp-text-muted)]">
-              {atualizando ? "Aplicando atualização…" : "Reinicie o app para ter as últimas novidades."}
+            <p className="text-[13px] font-semibold text-[#012E46]">{atualizando ? "Atualizando…" : "Atualização disponível"}</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
+              {atualizando ? "A nova versão será aberta em instantes." : "Uma versão mais recente do Pedido Prime está pronta."}
             </p>
-            {!atualizando && (
-              <p className="mt-1 flex flex-wrap items-center gap-x-1.5 font-mono text-[10.5px] tabular-nums text-[var(--pp-text-muted)]">
-                <span>Atual: {versaoAtual}</span>
-                <span aria-hidden="true">→</span>
-                <span className="font-semibold text-[var(--pp-text-body)]">{novaVersao || "carregando…"}</span>
-              </p>
-            )}
           </div>
+          {!atualizando && <button type="button" onClick={aplicar} className="shrink-0 rounded-xl bg-[#F38525] px-3.5 py-2.5 text-xs font-semibold text-[#012E46] transition hover:bg-[#e9791f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46]">Atualizar</button>}
         </div>
-        {!atualizando && (
-          <div className="flex gap-2.5 border-t border-[var(--pp-border)] p-2.5">
-            <button type="button" onClick={adiar} className="flex min-h-[42px] flex-1 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[13px] font-semibold text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]">
-              Depois
-            </button>
-            <button type="button" onClick={aplicar} className="flex min-h-[42px] flex-[1.4] items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary)] text-[13px] font-semibold text-[#012E46] transition-colors duration-150 hover:bg-[var(--pp-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary-hover)]">
-              <RefreshCw aria-hidden="true" size={14} /> Atualizar agora
-            </button>
-          </div>
-        )}
+        {!atualizando && <div className="mt-2 flex items-center justify-between pl-12">
+          <span className="text-[10px] text-slate-400">Leva apenas alguns segundos</span>
+          <button type="button" onClick={adiar} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#012E46] transition hover:bg-[#012E46]/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#012E46]">Lembrar depois</button>
+        </div>}
       </div>
     </div>
   );

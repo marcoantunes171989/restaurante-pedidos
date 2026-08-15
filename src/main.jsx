@@ -61,17 +61,34 @@ async function iniciarSW(onAtivado) {
       onAtivado() // banner de opção manual (o próprio banner decide onde exibir)
     }
 
-    swReg.addEventListener('updatefound', () => {
-      const sw = swReg.installing
+    const instalacoesObservadas = new WeakSet()
+    const observarInstalacao = (sw) => {
       if (!sw) return
+      if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+        marcarAtualizacao()
+        return
+      }
+      if (instalacoesObservadas.has(sw)) return
+      instalacoesObservadas.add(sw)
       sw.addEventListener('statechange', () => {
         if (sw.state === 'installed' && navigator.serviceWorker.controller) {
           marcarAtualizacao()
         }
       })
+    }
+
+    swReg.addEventListener('updatefound', () => {
+      observarInstalacao(swReg.installing)
     })
+    observarInstalacao(swReg.installing)
     // Se já havia um SW aguardando ao abrir (deploy ocorreu com o app fechado)
     if (swReg.waiting && navigator.serviceWorker.controller) marcarAtualizacao()
+
+    const verificarAtualizacao = async () => {
+      await checkUpdate(swReg)
+      if (swReg?.waiting && navigator.serviceWorker.controller) marcarAtualizacao()
+      else observarInstalacao(swReg?.installing)
+    }
 
     // controllerchange: o novo SW assumiu o controle. Isso SÓ acontece depois
     // que o usuário confirma "Atualizar agora" (banner → SKIP_WAITING). Aqui
@@ -93,22 +110,22 @@ async function iniciarSW(onAtivado) {
     // Não recarrega ao voltar/focar — a atualização é SEMPRE manual. O
     // re-exibir do banner ao voltar ao app é tratado no próprio PwaUpdateBanner.
 
-    await checkUpdate(swReg)
-    setInterval(() => checkUpdate(swReg), CHECK_INTERVAL_MS)
+    await verificarAtualizacao()
+    setInterval(verificarAtualizacao, CHECK_INTERVAL_MS)
 
     window.addEventListener('online', () => {
       navigator.serviceWorker.controller?.postMessage({ type: 'CHECK_UPDATE' })
-      checkUpdate(swReg)
+      verificarAtualizacao()
       registrarBgSync(swReg)
     })
 
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') checkUpdate(swReg)
+      if (document.visibilityState === 'visible') verificarAtualizacao()
     })
     // Ao focar a janela do app (clicar de volta no PWA) → verifica na hora
-    window.addEventListener('focus', () => checkUpdate(swReg))
+    window.addEventListener('focus', verificarAtualizacao)
     // Em cada navegação interna do app → também verifica (oportunidade rápida)
-    window.addEventListener('pageshow', () => checkUpdate(swReg))
+    window.addEventListener('pageshow', verificarAtualizacao)
 
     await registrarBgSync(swReg)
   } catch {

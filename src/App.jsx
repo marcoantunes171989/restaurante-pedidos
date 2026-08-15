@@ -6680,6 +6680,54 @@ function SidebarSection({ titulo, children }) {
 // Rodapé — agora reúne, próximos entre si (abaixo do menu), a IDENTIDADE do
 // usuário logado + selo de assinatura + ação de sair. Fontes menores para um
 // acabamento mais elegante/gourmet, mantendo contraste AA (branco no petróleo).
+function AdminUserActions({ currentUser, isSuperAdmin, lojaInfo, onSair }) {
+  const nome = currentUser?.name || "Usuário";
+  const iniciais = nome.split(/\s+/).slice(0, 2).map((parte) => parte.charAt(0)).join("").toUpperCase();
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <div className="hidden min-w-0 text-right sm:block">
+        <p className="max-w-48 truncate text-xs font-black leading-tight text-[#012E46]">{nome}</p>
+        <p className="max-w-48 truncate text-[10px] leading-tight text-[#637985]">
+          {isSuperAdmin ? "Administrador geral" : (lojaInfo?.nome || currentUser?.role || "Usuário")}
+        </p>
+      </div>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#012E46] text-[11px] font-black tracking-wide text-white shadow-sm" aria-hidden="true">
+        {iniciais || "U"}
+      </div>
+      <button type="button" onClick={onSair} aria-label="Sair do sistema" title="Sair do sistema"
+        className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-[#DDE4E8] bg-white px-3 text-xs font-bold text-[#012E46] transition hover:border-[#F38525] hover:bg-[#FFF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
+        <span aria-hidden="true">↪</span><span className="hidden sm:inline">Sair</span>
+      </button>
+    </div>
+  );
+}
+
+function AdminStatusBar({ currentUser, lojaInfo }) {
+  const [agora, setAgora] = useState(() => new Date());
+  const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
+  useEffect(() => {
+    const timer = window.setInterval(() => setAgora(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const dataHora = agora.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return (
+    <footer className="flex min-h-7 shrink-0 items-center justify-between gap-3 border-t border-[#DDE4E8] bg-[#F7F9FA] px-3 py-1 text-[9.5px] font-semibold text-[#637985] sm:px-5" aria-label="Informações do sistema">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="inline-flex shrink-0 items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />PostgreSQL</span>
+        <span className="hidden max-w-48 truncate md:inline">Empresa: <b className="text-[#012E46]">{lojaInfo?.nome || "Nenhuma selecionada"}</b></span>
+        <span className="hidden max-w-40 truncate lg:inline">Usuário: <b className="text-[#012E46]">{currentUser?.name || "—"}</b></span>
+      </div>
+      <div className="flex shrink-0 items-center gap-3 tabular-nums">
+        <time dateTime={agora.toISOString()}>{dataHora}</time>
+        <span className="hidden rounded-md bg-[#E9EEF1] px-1.5 py-0.5 font-mono text-[9px] text-[#012E46] sm:inline">v{versao}</span>
+      </div>
+    </footer>
+  );
+}
+
+// Mantido temporariamente como referência visual para instalações antigas; o
+// layout atual usa AdminUserActions no topo e AdminStatusBar no rodapé.
+// eslint-disable-next-line no-unused-vars
 function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, onSair }) {
   return (
     <div className="shrink-0 border-t border-white/10 p-2.5 space-y-2">
@@ -6900,7 +6948,6 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         </div>
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} />
-        <SidebarFooter currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} assinaturaAtual={assinaturaAtual} onSair={onSair} />
       </aside>
 
       {/* ── Drawer de navegação mobile (substitui o menu fixo) — mesma
@@ -6916,26 +6963,24 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
           onNavigate={() => setMenuMobileAberto(false)} />
-        <SidebarFooter currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} assinaturaAtual={assinaturaAtual} onSair={onSair} />
       </MobileAdminDrawer>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* Cabeçalho mobile/tablet — azul petróleo, mesma cor da sidebar desktop
             (botão de menu abre o drawer de navegação, lg:hidden) */}
-        <div className="lg:hidden flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[var(--pp-nav)] px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top) + 12px)" }}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#DDE4E8] bg-white px-3 py-2 sm:px-5" style={{ paddingTop: "calc(env(safe-area-inset-top) + 8px)" }}>
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <button ref={botaoMenuRef} onClick={() => setMenuMobileAberto(true)} aria-label="Abrir menu de navegação" aria-expanded={menuMobileAberto} aria-controls="drawer-admin-mobile"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-white/85 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]">
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DDE4E8] bg-[#F7F9FA] text-[#012E46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] lg:hidden">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
             </button>
-            <LogoPP size={28} />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black leading-tight"><span className="text-white">PEDIDO</span> <span className="text-[var(--pp-primary)]">PRIME</span></p>
-              {currentUser?.role && <p className="truncate text-[10px] text-white/60 leading-tight">{currentUser.role}{lojaInfo ? ` · ${lojaInfo.nome}` : ""}</p>}
+            <div className="hidden min-w-0 lg:block">
+              <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#84949C]">Painel administrativo</p>
+              <p className="truncate text-xs font-black text-[#012E46]">{menu.flatMap((grupo) => grupo.itens).find((item) => item.id === ativo)?.label || "Dashboard"}</p>
             </div>
           </div>
-          <button onClick={onSair} className="shrink-0 rounded-2xl border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-white/80">Sair</button>
+          <AdminUserActions currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} onSair={onSair} />
         </div>
 
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
@@ -7035,6 +7080,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           )}
           </SecaoErrorBoundary>)}
         </div>
+        <AdminStatusBar currentUser={currentUser} lojaInfo={lojaInfo} />
       </div>
     </div>
   );
