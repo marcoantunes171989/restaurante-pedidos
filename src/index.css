@@ -1539,13 +1539,17 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   .pp-mesa-welcome .pp-welcome-brand-sub { display: none !important; }
 }
 .pp-mesa-welcome {
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  min-height: 100svh;
   overflow-x: clip !important;
-  overflow-y: hidden;
+  overflow-y: hidden !important;
   width: 100%;
   max-width: 100%;
   overscroll-behavior: none;
   overscroll-behavior-x: none;
-  touch-action: pan-y;
+  touch-action: none;
   background: #ffffff;
   box-sizing: border-box;
   /* Safe areas laterais (notch / iPhone XS landscape / home indicator). */
@@ -1631,11 +1635,11 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   isolation: isolate;
   overflow: visible;
   display: grid;
-  grid-template-columns: 18% minmax(0, 1fr) 18%;
+  grid-template-columns: 14% minmax(0, 1fr) 14%;
   column-gap: 8px;
-  width: 112%;
+  width: 100%;
   max-width: none !important;
-  margin-left: -6%;
+  margin-left: 0;
 }
 .pp-mesa-welcome .pp-welcome-stage > .pp-welcome-card {
   z-index: 2;
@@ -1727,11 +1731,12 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 
 /* Entrada do cardápio externo: hierarquia da vitrine comercial aprovada. */
 .pp-mesa-welcome.pp-welcome-ext {
+  overflow: hidden !important;
   border-top: 6px solid #012E46;
   border-bottom: 6px solid #012E46;
 }
 .pp-welcome-ext .pp-welcome-inner {
-  --pp-welcome-photo-height: clamp(165px, 45vw, 230px);
+  --pp-welcome-photo-height: clamp(140px, min(45vw, 30dvh), 230px);
   max-width: min(470px, 100%);
   padding-left: clamp(0.75rem, 3.5vw, 1rem);
   padding-right: clamp(0.75rem, 3.5vw, 1rem);
@@ -1782,7 +1787,7 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   color: #012E46;
 }
 @media (max-width: 360px), (max-height: 720px) {
-  .pp-mesa-welcome .pp-welcome-stage { grid-template-columns: 17% minmax(0, 1fr) 17%; column-gap: 6px; width: 110%; margin-left: -5%; }
+  .pp-mesa-welcome .pp-welcome-stage { grid-template-columns: 13% minmax(0, 1fr) 13%; column-gap: 6px; width: 100%; margin-left: 0; }
   .pp-welcome-ext .pp-welcome-benefits { min-height: 50px; padding-block: 0.45rem; }
   .pp-welcome-ext .pp-welcome-benefits > div { gap: 0.25rem; }
   .pp-welcome-ext .pp-welcome-benefits > div > span:first-child { width: 27px; height: 27px; }
