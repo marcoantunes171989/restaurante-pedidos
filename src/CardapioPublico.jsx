@@ -830,13 +830,13 @@ export default function CardapioPublico() {
       : { ...item, lojaId: item.lojaId ?? loja?.id });
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
-      <article key={item.id} className={`flex h-full gap-2.5 rounded-2xl border bg-[var(--client-surface)] p-2.5 shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
+      <article key={item.id} className={`flex h-full gap-2.5 border-x-0 border-t-0 border-b bg-transparent px-0 py-2.5 shadow-none ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
         {/* Imagem — alvo de toque que abre a personalização. */}
         <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
           aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
           className="relative shrink-0 transition active:scale-[0.98] disabled:cursor-not-allowed">
           <span
-            className="relative block h-[76px] w-[76px] shrink-0 overflow-hidden rounded-xl bg-[var(--client-surface-secondary)]"
+            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[var(--client-surface-secondary)]"
             style={{
               backgroundImage: `url(${JSON.stringify(String(item.imageUrl || fallbackImage))})`,
               backgroundSize: "cover",
@@ -848,8 +848,8 @@ export default function CardapioPublico() {
               alt={item.name}
               loading="lazy"
               decoding="async"
-              width={76}
-              height={76}
+              width={72}
+              height={72}
               onError={(e) => {
                 if (e.currentTarget.src !== fallbackImage) {
                   e.currentTarget.src = fallbackImage;
@@ -896,14 +896,14 @@ export default function CardapioPublico() {
             )}
           </button>
 
-          <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
+          <div className="mt-1 flex items-center justify-between gap-2">
             {promo
               ? <span className="flex flex-col gap-0.5 leading-none">
                   <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
                   <span className="text-base font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
                   <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
                 </span>
-              : <span className="text-[15px] font-black text-[var(--client-info)]">{formatCurrency(item.price)}</span>}
+              : <span className="text-[15px] font-black leading-5 text-[var(--client-info)]">{formatCurrency(item.price)}</span>}
             {indisponivel
               ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
               : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full btn-laranja bg-[var(--client-primary-hover)] text-lg font-black text-[#012E46] shadow-[var(--client-shadow-sm)] transition active:scale-90 hover:bg-[var(--client-primary)]">+</button>}
@@ -2004,7 +2004,7 @@ export default function CardapioPublico() {
                 <h2 className="text-xs font-black uppercase tracking-wide text-[var(--client-info)]">{g.nome}</h2>
                 <span className="text-[10px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
               </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-x-4">
                 {g.produtos.map(renderProduto)}
               </div>
             </section>
