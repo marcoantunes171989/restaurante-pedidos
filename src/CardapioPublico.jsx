@@ -1834,7 +1834,7 @@ export default function CardapioPublico() {
   // Acesso interno (mesa/QR) paga no caixa — não escolhe forma no app. Só o
   // canal externo (entrega/retirada) pede a forma de pagamento agora; consumo
   // no local também paga só no fechamento.
-  const exigePagamentoAgora = modoExterno && tipoPedido !== "local";
+  const exigePagamentoAgora = modoExterno && tipoPedido !== "local" && formasPagto.length > 0;
   const pagtoOk = !exigePagamentoAgora || (formasPagto.length > 0 && formasPagto.some((f) => f.id === formaPagto));
   const podeEnviar = cart.length > 0 && pagtoOk && !bloqueioHorario && (!modoExterno || (
     aceitaExterno && opcoesEntrega.length > 0 && opcoesEntrega.some((o) => o.id === tipoPedido) && minimoFalta <= 0
@@ -2312,7 +2312,7 @@ export default function CardapioPublico() {
 
               {/* Pagamento — só no canal externo. No acesso interno (mesa/QR) o
                   pagamento é no caixa, então a tela não pede forma alguma. */}
-              {modoExterno && (
+              {modoExterno && (tipoPedido === "local" || formasPagto.length > 0) && (
               <div className="mt-5">
                 <h3 className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Pagamento</h3>
                 {!exigePagamentoAgora ? (
@@ -2325,8 +2325,6 @@ export default function CardapioPublico() {
                       </div>
                     </div>
                   </div>
-                ) : formasPagto.length === 0 ? (
-                  <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Nenhuma forma de pagamento está disponível no momento.</div>
                 ) : (
                   <>
                     <fieldset>

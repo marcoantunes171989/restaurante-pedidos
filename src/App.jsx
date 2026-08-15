@@ -15458,7 +15458,7 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
     try {
       const ok = await salvarConfigExterno(lojaInfo?.id, { ...cfg, areaAtendimento: (cfg.areasAtendimento || []).join(", ") });
       setFeedbackCfg(ok === true
-        ? { tipo: "success", texto: "Configurações salvas. O canal de WhatsApp já está atualizado no cardápio externo." }
+        ? { tipo: "success", texto: "Configurações do cardápio externo atualizadas com sucesso." }
         : { tipo: "error", texto: "Não foi possível salvar. Verifique sua permissão e tente novamente." });
       return ok === true;
     } catch (e) {
