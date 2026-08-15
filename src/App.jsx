@@ -15424,6 +15424,7 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
   // ── Configurações do cardápio externo (migration 033 — config_externo) ──
   const CFG_PADRAO = {
     aceitaPedidoExterno: true, consumoLocal: true, entrega: false, retirada: true, pedidoMinimo: "",
+    pedidoViaWhatsapp: false, whatsappNumero: "", whatsappMensagem: "Olá! Fiz um pedido pelo cardápio digital.",
     pagOnline: false, pagEntrega: true, pagRetirada: true, pagPix: true, pagCartao: true, pagDinheiro: true,
     taxaEntrega: "", tempoEntregaMin: "", areaAtendimento: "", areasAtendimento: [], obsEntrega: "",
     horarios: { seg: "", ter: "", qua: "", qui: "", sex: "", sab: "", dom: "" }, bloquearForaHorario: false,
@@ -15461,7 +15462,7 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
   );
   const ABAS = [
     ["link", "Link público"], ["qrmesa", "QR por mesa"], ["pedido", "Pedido externo"],
-    ["pagamento", "Pagamento"], ["entrega", "Entrega"], ["horarios", "Horários"],
+    ["whatsapp", "WhatsApp"], ["pagamento", "Pagamento"], ["entrega", "Entrega"], ["horarios", "Horários"],
   ];
   const DIAS = [["seg", "Segunda"], ["ter", "Terça"], ["qua", "Quarta"], ["qui", "Quinta"], ["sex", "Sexta"], ["sab", "Sábado"], ["dom", "Domingo"]];
 
@@ -15618,6 +15619,35 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">R$</span>
               <input inputMode="numeric" value={cfg.pedidoMinimo} onChange={(e) => setC("pedidoMinimo", fmtMoedaDigitando(e.target.value))} placeholder="0,00" className={`${inpCfg} pl-11`} />
             </div>
+          </div>
+          <BotaoSalvarCfg />
+        </div>
+      )}
+
+      {/* Aba: continuidade comercial pelo WhatsApp */}
+      {aba === "whatsapp" && (
+        <div className="space-y-4 rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <div>
+            <h3 className="text-base font-black text-white">💬 Pedidos pelo WhatsApp</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-400">O Pedido Prime registra o pedido normalmente e, em seguida, abre o WhatsApp comercial com cliente, itens, quantidades, observações, pagamento e total.</p>
+          </div>
+          <Toggle on={cfg.pedidoViaWhatsapp} onClick={() => setC("pedidoViaWhatsapp", !cfg.pedidoViaWhatsapp)} label="Continuar atendimento pelo WhatsApp" hint="Após confirmar o pedido, o cliente conversa diretamente com a empresa" />
+          <div>
+            <label className={lblCfg}>WhatsApp comercial *</label>
+            <input type="tel" inputMode="numeric" value={cfg.whatsappNumero || ""} onChange={(e) => setC("whatsappNumero", e.target.value.replace(/\D/g, "").slice(0, 13))} placeholder="Ex.: 5511987654321" className={inpCfg} />
+            <p className="mt-1.5 text-[11px] text-slate-500">Informe DDI + DDD + número. Exemplo: 55 11 98765-4321.</p>
+          </div>
+          <div>
+            <label className={lblCfg}>Mensagem inicial</label>
+            <textarea value={cfg.whatsappMensagem || ""} onChange={(e) => setC("whatsappMensagem", e.target.value.slice(0, 180))} rows={3} maxLength={180} placeholder="Olá! Fiz um pedido pelo cardápio digital." className={`${inpCfg} resize-y`} />
+            <p className="mt-1 text-right text-[10px] text-slate-600">{(cfg.whatsappMensagem || "").length}/180</p>
+          </div>
+          {cfg.pedidoViaWhatsapp && String(cfg.whatsappNumero || "").replace(/\D/g, "").length < 12 && (
+            <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">Informe um número comercial válido antes de ativar este canal.</p>
+          )}
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+            <p className="text-xs font-black text-emerald-200">Fluxo do cliente</p>
+            <p className="mt-1 text-[11px] leading-5 text-slate-300">Link público → produtos e quantidades → identificação → pedido registrado → WhatsApp aberto com o resumo → empresa confirma e continua o atendimento.</p>
           </div>
           <BotaoSalvarCfg />
         </div>

@@ -18,6 +18,7 @@ import {
 } from "./App";
 import { LogoPP } from "./components/BrandLogo";
 import { normalizarFuncionamento, avaliarDisponibilidadeCanal, MOTIVO } from "./lib/horarioFuncionamentoService";
+import { criarUrlPedidoWhatsApp, numeroWhatsAppValido } from "./lib/whatsappPedido";
 
 // ════════════════════════════════════════════════════════════
 //  Cardápio digital PÚBLICO (cliente, externo) — ver + pedir + acompanhar
@@ -371,6 +372,7 @@ export default function CardapioPublico() {
     cfgExt.entrega      === true  && { id: "entrega",  label: "Entrega (delivery)", icon: "🛵" },
   ].filter(Boolean);
   const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
+  const usarPedidoWhatsapp = modoExterno && cfgExt.pedidoViaWhatsapp === true && numeroWhatsAppValido(cfgExt.whatsappNumero);
   // Horário de funcionamento — FONTE ÚNICA: loja.funcionamento (migration 110),
   // com fallback do legado config_externo.horarios (canal externo). Avaliado no
   // fuso da loja pelo serviço de domínio (não recalcula aqui). QR de mesa é canal
@@ -1145,6 +1147,7 @@ export default function CardapioPublico() {
     // pedidos antes do botão desabilitar.
     if (enviandoRef.current) return;
     enviandoRef.current = true;
+    let janelaWhatsapp = null;
     try {
       if (bloqueioHorario) return setMsg({ t: "error", m: mensagemCanalIndisponivel(disp, modoExterno) });
       // Revalida a ocupação da mesa direto no backend antes de concluir — evita
@@ -1193,6 +1196,9 @@ export default function CardapioPublico() {
       // Pedido externo (link de divulgação): exige NOME + TELEFONE
       if (!cliente.trim()) return setMsg({ t: "error", m: "Informe o seu nome." });
       if (telDig.length < 10) return setMsg({ t: "error", m: "Informe um telefone válido (com DDD)." });
+      // Reserva a aba ainda dentro do clique do cliente. A URL final só será
+      // aplicada depois que o Pedido Prime confirmar a gravação do pedido.
+      if (usarPedidoWhatsapp) janelaWhatsapp = window.open("about:blank", "_blank");
       setEnviando(true);
       try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); } catch {}
       const rotuloTipo = { local: "Consumo no local", retirada: "Retirada", entrega: "Entrega" }[opc.id] || "Externo";
@@ -1248,11 +1254,25 @@ export default function CardapioPublico() {
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
       try { const pend = lerSetLS(SURVEY_PEND_KEY); pend.add(pedidoId); salvarSetLS(SURVEY_PEND_KEY, pend); } catch {}
+      if (usarPedidoWhatsapp) {
+        const urlWhatsapp = criarUrlPedidoWhatsApp(cfgExt.whatsappNumero, {
+          pedido: { ...novo, lojaNome: loja.nome }, pedidoId, total: totalCart,
+          formaPagamento: formaSel?.label || "", momentoPagamento: momentoPagto,
+          introducao: cfgExt.whatsappMensagem,
+        });
+        if (urlWhatsapp) {
+          if (janelaWhatsapp && !janelaWhatsapp.closed) janelaWhatsapp.location.href = urlWhatsapp;
+          else window.location.href = urlWhatsapp;
+        }
+      }
       setCart([]); setTrocoResposta(""); setTrocoValor(""); setAba("conta");
-      setMsg({ t: "success", m: modoExterno && tipoPedido === "local"
+      setMsg({ t: "success", m: usarPedidoWhatsapp
+        ? "Pedido registrado. O WhatsApp foi aberto para continuar o atendimento com a empresa."
+        : modoExterno && tipoPedido === "local"
         ? "Pedido enviado com sucesso. Foi encaminhado para preparação — o pagamento será feito no fechamento da conta."
         : "Pedido enviado com sucesso. Foi encaminhado para preparação." });
     } catch (e) {
+      if (janelaWhatsapp && !janelaWhatsapp.closed) janelaWhatsapp.close();
       console.error("Erro ao criar pedido:", e);
       // Mensagens conhecidas vindas da validação no servidor (pub_validar_pedido_mesa,
       // migration 065) — mostradas como vieram; qualquer outra cai no texto genérico
@@ -2166,7 +2186,7 @@ export default function CardapioPublico() {
               <button onClick={enviar} disabled={!podeEnviar || enviando} type="button"
                 className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
                 {enviando && <CkIconSpinner />}
-                {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : "Confirmar e enviar pedido"}
+                {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : usarPedidoWhatsapp ? "Confirmar e continuar no WhatsApp" : "Confirmar e enviar pedido"}
               </button>
               {!enviando && !bloqueioHorario && (
                 <p className="mt-2 text-center text-[11px] text-[var(--client-text-secondary)]">
