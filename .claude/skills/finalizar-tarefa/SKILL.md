@@ -17,7 +17,7 @@ consequência do push, não um passo manual separado.
 - Branch de produção: **`master`** (push no master → deploy de produção na Vercel).
 - Domínio de produção: `pedidoprime.com.br` (e `www.pedidoprime.com.br`).
 - Vercel (para consultar deploy via MCP, quando disponível):
-  - Projeto: `restaurante-pedidos` — `prj_X5YkIWfdSkbhskMpo6aP9slCaIxP`
+  - Projeto: `pedido-prime` — `prj_S0cQ2yCqtURY41fgFJCKjS8mmCR4`
   - Team: `Marco Antonio's projects` — `team_iIylzmG0qcwYy1eKH7gRWrAI`
 - Observação: alterações em `.claude/` não afetam o bundle da Vercel, mas o push
   ainda dispara um rebuild (idêntico). Isso é esperado e inofensivo.
@@ -67,7 +67,7 @@ conflitos, refaça `npm run build` e só então `git push origin master`.
 ### 5. Confirmar o deploy na Vercel
 O push já disparou o build de produção. Quando as ferramentas MCP da Vercel
 estiverem disponíveis, confirme que o deployment do novo commit chegou a `READY`:
-- `list_deployments` no projeto `prj_X5YkIWfdSkbhskMpo6aP9slCaIxP` (team
+- `list_deployments` no projeto `prj_S0cQ2yCqtURY41fgFJCKjS8mmCR4` (team
   `team_iIylzmG0qcwYy1eKH7gRWrAI`) e verifique o item cujo `githubCommitSha` bate
   com o commit recém-enviado — o `state` deve ficar `READY` e `target` `production`.
 - Se o deploy falhar (`ERROR`), investigue com `get_deployment_build_logs` e corrija.
