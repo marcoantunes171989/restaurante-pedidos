@@ -2186,7 +2186,7 @@ export default function CardapioPublico() {
           rodape={cart.length === 0 ? undefined : (
             <>
               {modoExterno && minimoExterno > 0 && (
-                <p className={`mb-2 text-xs font-bold ${minimoFalta > 0 ? "text-[var(--client-warning)]" : "text-[var(--client-success)]"}`}>
+                <p className={`mb-2 text-[11px] font-bold ${minimoFalta > 0 ? "text-[var(--client-warning)]" : "text-[var(--client-success)]"}`}>
                   {minimoFalta > 0 ? `Pedido mínimo de ${formatCurrency(minimoExterno)} — faltam ${formatCurrency(minimoFalta)}.` : `Pedido mínimo de ${formatCurrency(minimoExterno)} atingido.`}
                 </p>
               )}
@@ -2235,7 +2235,7 @@ export default function CardapioPublico() {
               {/* Forma de recebimento (externo) / mesa+comanda (interno) */}
               {modoExterno ? (
                 <div className="mt-4 space-y-2.5">
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Como deseja receber?</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--client-text-secondary)]">Como deseja receber?</h3>
                   {!aceitaExterno ? (
                     <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Esta empresa não está aceitando pedidos pelo cardápio no momento.</div>
                   ) : opcoesEntrega.length === 0 ? (
@@ -2250,7 +2250,7 @@ export default function CardapioPublico() {
                             className={`flex w-full items-start gap-2.5 rounded-xl border bg-white p-3 text-left transition ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border)] hover:border-[var(--client-border-strong)]"}`}>
                             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-white ${sel ? "border-[var(--client-primary)] text-[var(--client-primary-hover)]" : "border-[var(--client-border)] text-[var(--client-text-secondary)]"}`}><Icone width={16} height={16} /></span>
                             <span className="min-w-0 flex-1">
-                              <span className="block text-xs font-black text-[#012E46]">{o.label}</span>
+                              <span className="block text-[11px] font-black text-[#012E46]">{o.label}</span>
                               <span className="mt-0.5 block text-[11px] text-[var(--client-text-secondary)]">{DESC_ENTREGA[o.id]}</span>
                             </span>
                             <span className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border-strong)]"}`}>{sel && <span className="h-2 w-2 rounded-full bg-[var(--client-primary-hover)]" />}</span>
@@ -2260,21 +2260,21 @@ export default function CardapioPublico() {
                     </div>
                   )}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Telefone (WhatsApp) <span className="text-[var(--client-error)]">*</span></span>
+                    <label className="block"><span className="mb-1 block text-[11px] font-bold text-[var(--client-text-secondary)]">Telefone (WhatsApp) <span className="text-[var(--client-error)]">*</span></span>
                       <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
-                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
-                    <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome <span className="text-[var(--client-error)]">*</span></span>
+                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-xs font-bold text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
+                    <label className="block"><span className="mb-1 block text-[11px] font-bold text-[var(--client-text-secondary)]">Seu nome <span className="text-[var(--client-error)]">*</span></span>
                       <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
-                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
+                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-xs text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
                   </div>
                   <label className="block">
-                    <span className="mb-1.5 flex items-center justify-between gap-2 text-xs font-bold text-[var(--client-text-secondary)]">
+                    <span className="mb-1 flex items-center justify-between gap-2 text-[11px] font-bold text-[var(--client-text-secondary)]">
                       <span>Observação do pedido <span className="font-normal text-[var(--client-text-muted)]">(opcional)</span></span>
                       <span className="font-normal tabular-nums text-[var(--client-text-muted)]">{observacaoPedido.length}/500</span>
                     </span>
                     <textarea value={observacaoPedido} onChange={(e) => setObservacaoPedido(e.target.value.slice(0, 500))} maxLength={500} rows={3}
                       placeholder="Ex.: retirar no horário combinado ou outra orientação para o estabelecimento"
-                      className="w-full resize-y rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm leading-5 text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" />
+                      className="w-full resize-y rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-xs leading-[1.45] text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" />
                   </label>
                 </div>
               ) : (
@@ -2408,14 +2408,14 @@ export default function CardapioPublico() {
                     <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Desconto</span><span className="font-bold text-[var(--client-offer-hover)]">-{formatCurrency(economiaCart)}</span></div>
                   </>
                 )}
-                <div className="flex items-center justify-between"><span className="text-sm font-bold text-[var(--client-text-secondary)]">Total do pedido</span><span className="text-xl font-black text-[var(--client-text-primary)]">{formatCurrency(totalCart)}</span></div>
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[var(--client-text-secondary)]">Total do pedido</span><span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(totalCart)}</span></div>
                 {modoExterno && tipoPedido === "local" && <p className="text-[11px] text-[var(--client-text-secondary)]">Pagamento realizado no fechamento da conta.</p>}
               </div>
 
               {/* Fidelidade — pontos creditados nesta compra (informado no pagamento) */}
               {pontosGanharCart > 0 && (
-                <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-primary)] bg-[var(--client-primary-soft)] px-3 py-2.5 text-sm font-black text-[var(--client-primary-hover)]">
-                  <CkIconEstrela width={16} height={16} className="shrink-0" /> Você ganhará {pontosGanharCart.toLocaleString("pt-BR")} pontos com esta compra
+                <div className="mt-3 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-primary)] bg-[var(--client-primary-soft)] px-3 py-2.5 text-xs font-bold text-[var(--client-primary-hover)]">
+                  <CkIconEstrela width={14} height={14} className="shrink-0" /> Você ganhará {pontosGanharCart.toLocaleString("pt-BR")} pontos com esta compra
                   {saldoPontos > 0 && <span className="font-bold text-[var(--client-text-secondary)]">· saldo passa a {(saldoPontos + pontosGanharCart).toLocaleString("pt-BR")} pts</span>}
                 </div>
               )}
