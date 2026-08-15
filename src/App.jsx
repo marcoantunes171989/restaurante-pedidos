@@ -115,7 +115,7 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
-import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag } from "lucide-react";
+import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -6650,14 +6650,14 @@ const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blo
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
       className={cxSidebar(
         "group relative flex min-h-[38px] w-full items-center gap-2.5 rounded-xl border-l-[3px] px-3 py-2 text-[12.5px] tracking-[0.01em] transition-all duration-200 ease-out",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80",
         selected
-          ? "border-l-[var(--pp-nav-accent)] bg-[rgba(243, 133, 37,0.16)] font-bold text-[var(--pp-nav-accent)]"
-          : "border-l-transparent font-medium text-white/75 hover:bg-[rgba(243, 133, 37,0.10)] hover:text-white"
+          ? "border-l-white/80 bg-white/[0.11] font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+          : "border-l-transparent font-medium text-white/75 hover:bg-white/[0.06] hover:text-white"
       )}>
-      <span className={cxSidebar("text-base shrink-0 transition-colors duration-200", selected ? "text-[var(--pp-nav-accent)]" : "text-white/75 group-hover:text-[var(--pp-nav-accent)]", blocked && "opacity-40")} aria-hidden="true">{icon}</span>
+      <span className={cxSidebar("shrink-0 text-base text-white transition-opacity duration-200", blocked ? "opacity-35" : "opacity-90 group-hover:opacity-100")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
-      {blocked && <span className="ml-auto shrink-0" aria-label="Disponível em outro plano" title="Disponível em outro plano">🔒</span>}
+      {blocked && <LockKeyhole className="ml-auto h-3.5 w-3.5 shrink-0 text-white/45" aria-label="Disponível em outro plano" />}
     </button>
   );
 });
@@ -6684,7 +6684,7 @@ function AdminUserActions({ currentUser, isSuperAdmin, lojaInfo, onSair }) {
   const nome = currentUser?.name || "Usuário";
   const iniciais = nome.split(/\s+/).slice(0, 2).map((parte) => parte.charAt(0)).join("").toUpperCase();
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2 font-[inherit]">
       <div className="hidden min-w-0 text-right sm:block">
         <p className="max-w-52 truncate text-[13px] font-bold leading-5 text-[#012E46]">{nome}</p>
         <p className="max-w-52 truncate text-[11px] font-medium leading-4 text-[#637985]">
@@ -6711,7 +6711,7 @@ function AdminStatusBar({ currentUser, lojaInfo }) {
   }, []);
   const dataHora = agora.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   return (
-    <footer className="flex min-h-9 shrink-0 items-center justify-between gap-3 border-t border-[#DDE4E8] bg-[#F7F9FA] px-3 py-1.5 text-[10.5px] font-medium leading-4 text-[#526A76] sm:px-5 sm:text-[11px]" aria-label="Informações do sistema">
+    <footer className="flex min-h-9 shrink-0 items-center justify-between gap-3 border-t border-[#DDE4E8] bg-[#F7F9FA] px-3 py-1.5 font-[inherit] text-[10.5px] font-medium leading-4 text-[#526A76] sm:px-5 sm:text-[11px]" aria-label="Informações do sistema">
       <div className="flex min-w-0 items-center gap-3">
         <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#012E46]"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />PostgreSQL</span>
         <span className="hidden max-w-52 truncate md:inline">Empresa: <b className="font-semibold text-[#012E46]">{lojaInfo?.nome || "Nenhuma selecionada"}</b></span>
@@ -6719,7 +6719,7 @@ function AdminStatusBar({ currentUser, lojaInfo }) {
       </div>
       <div className="flex shrink-0 items-center gap-3 tabular-nums">
         <time className="font-medium text-[#012E46]" dateTime={agora.toISOString()}>{dataHora}</time>
-        <span className="hidden rounded-md bg-[#E9EEF1] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#012E46] sm:inline">v{versao}</span>
+        <span className="hidden text-[10.5px] font-semibold text-[#012E46] sm:inline">v{versao}</span>
       </div>
     </footer>
   );
@@ -6827,7 +6827,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   const menu = [
     { grupo: "Visão Geral", itens: [
       { id: "dashboard", icon: <IconDashboard />, label: "Dashboard" },
-      { id: "copiloto", icon: <span className="text-base leading-none">🤖</span>, label: "Copiloto IA" },
+      { id: "copiloto", icon: <Bot className="h-4 w-4" />, label: "Copiloto IA" },
       { id: "relatorios", icon: <IconRelatorios />, label: "Relatórios" },
     ]},
     { grupo: "Operação", itens: [
@@ -6844,8 +6844,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     { grupo: "Gestão", itens: [
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
       { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
-      { id: "fiscal", icon: <span className="text-base leading-none">🧾</span>, label: "Fiscal" },
-      { id: "config-fiscal", icon: <span className="text-base leading-none">📥</span>, label: "Configuração Fiscal" },
+      { id: "fiscal", icon: <Receipt className="h-4 w-4" />, label: "Fiscal" },
+      { id: "config-fiscal", icon: <Download className="h-4 w-4" />, label: "Configuração Fiscal" },
       { id: "promocoes", icon: <IconPromocao />, label: "Promoções" },
       { id: "cupons", icon: <IconPromocao />, label: "Cupons" },
       { id: "crm", icon: <IconCrm />, label: "Clientes / CRM" },
@@ -6883,7 +6883,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       ]},
       { grupo: "Plataforma", itens: [
         { id: "lojas", icon: <IconEmpresas />, label: "Empresas" },
-        { id: "central-fiscal", icon: <span className="text-base leading-none">🏛️</span>, label: "Central Fiscal" },
+        { id: "central-fiscal", icon: <Landmark className="h-4 w-4" />, label: "Central Fiscal" },
         { id: "licencas", icon: <IconLicencas />, label: "Licenças de Uso" },
         { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
       ]},
@@ -6975,10 +6975,6 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#DDE4E8] bg-[#F7F9FA] text-[#012E46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] lg:hidden">
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
             </button>
-            <div className="hidden min-w-0 lg:block">
-              <p className="truncate text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-[#637985]">Painel administrativo</p>
-              <p className="truncate text-sm font-bold leading-5 text-[#012E46]">{menu.flatMap((grupo) => grupo.itens).find((item) => item.id === ativo)?.label || "Dashboard"}</p>
-            </div>
           </div>
           <AdminUserActions currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} onSair={onSair} />
         </div>
