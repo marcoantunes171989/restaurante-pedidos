@@ -71,6 +71,7 @@ import { gerarLoginQRTexto } from "./lib/loginQr";
 import { mensagemErroAcesso, mensagemPorCodigoAuth } from "./login/authMessages";
 import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
 import { acessosIniciaisDoPerfil } from "./lib/usuarioForm";
+import { numeroWhatsAppValido } from "./lib/whatsappPedido";
 import LoginPage from "./login/LoginPage";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
@@ -2177,11 +2178,12 @@ export default function RestaurantePedidoApp() {
 
   // Salva as configurações do cardápio externo (migration 033) — config_externo jsonb
   async function salvarConfigExterno(id, config) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    if (!id) return notify("error", "Selecione uma empresa em foco.");
-    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, configExterno: config } : x));
+    if (!canAccess(currentUser, "admin")) { notify("error", "Usuário sem permissão administrativa."); return false; }
+    if (!id) { notify("error", "Selecione uma empresa em foco."); return false; }
     if (dbReady) try { await atualizarLoja(id, { config_externo: config }); }
-    catch (e) { notify("error", "Erro ao salvar configurações: " + (e.message || e)); return; }
+    catch (e) { notify("error", "Erro ao salvar configurações: " + (e.message || e)); return false; }
+    // Só confirma no estado local depois que o banco aceitou a atualização.
+    setLojas((cur) => cur.map((x) => x.id === id ? { ...x, configExterno: config } : x));
     notify("success", "Configurações do cardápio externo salvas.");
     return true;
   }
@@ -15439,13 +15441,33 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
   };
   const [cfg, setCfg] = useState(montarCfg);
   const [salvandoCfg, setSalvandoCfg] = useState(false);
+  const [feedbackCfg, setFeedbackCfg] = useState(null);
   useEffect(() => { setCfg(montarCfg()); /* eslint-disable-next-line */ }, [lojaInfo?.id]);
-  const setC = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
+  const setC = (k, v) => { setFeedbackCfg(null); setCfg((c) => ({ ...c, [k]: v })); };
   // Cadastro de áreas de atendimento (chips)
   const addArea = () => { const v = novaArea.trim(); if (!v) return; setCfg((c) => ({ ...c, areasAtendimento: [...(c.areasAtendimento || []), v] })); setNovaArea(""); };
   const removerArea = (i) => setCfg((c) => ({ ...c, areasAtendimento: (c.areasAtendimento || []).filter((_, idx) => idx !== i) }));
   // Salva sincronizando a string legada areaAtendimento com a lista de áreas
-  async function salvarCfg() { setSalvandoCfg(true); await salvarConfigExterno(lojaInfo?.id, { ...cfg, areaAtendimento: (cfg.areasAtendimento || []).join(", ") }); setSalvandoCfg(false); }
+  async function salvarCfg() {
+    if (cfg.pedidoViaWhatsapp && !numeroWhatsAppValido(cfg.whatsappNumero)) {
+      setFeedbackCfg({ tipo: "error", texto: "Informe um WhatsApp comercial válido com DDI, DDD e número." });
+      return false;
+    }
+    setSalvandoCfg(true);
+    setFeedbackCfg(null);
+    try {
+      const ok = await salvarConfigExterno(lojaInfo?.id, { ...cfg, areaAtendimento: (cfg.areasAtendimento || []).join(", ") });
+      setFeedbackCfg(ok === true
+        ? { tipo: "success", texto: "Configurações salvas. O canal de WhatsApp já está atualizado no cardápio externo." }
+        : { tipo: "error", texto: "Não foi possível salvar. Verifique sua permissão e tente novamente." });
+      return ok === true;
+    } catch (e) {
+      setFeedbackCfg({ tipo: "error", texto: `Não foi possível salvar: ${e?.message || "tente novamente."}` });
+      return false;
+    } finally {
+      setSalvandoCfg(false);
+    }
+  }
 
   const Toggle = ({ on, onClick, label, hint }) => (
     <button type="button" onClick={onClick} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.05]">
@@ -15456,8 +15478,16 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
   const inpCfg = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600";
   const lblCfg = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   const BotaoSalvarCfg = () => (
-    <div className="flex justify-end pt-1">
-      <PrimeButton variante="gold" onClick={salvarCfg} disabled={salvandoCfg}>{salvandoCfg ? "Salvando…" : "Salvar configurações"}</PrimeButton>
+    <div className="space-y-2 pt-1">
+      {feedbackCfg && (
+        <p role={feedbackCfg.tipo === "error" ? "alert" : "status"} aria-live="polite"
+          className={`rounded-2xl border px-3 py-2.5 text-xs font-bold ${feedbackCfg.tipo === "error" ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"}`}>
+          {feedbackCfg.tipo === "success" ? "✓ " : "⚠ "}{feedbackCfg.texto}
+        </p>
+      )}
+      <div className="flex justify-end">
+        <PrimeButton variante="gold" onClick={salvarCfg} disabled={salvandoCfg}>{salvandoCfg ? "Salvando…" : feedbackCfg?.tipo === "success" ? "Salvo ✓" : "Salvar configurações"}</PrimeButton>
+      </div>
     </div>
   );
   const ABAS = [
