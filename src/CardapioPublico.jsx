@@ -1549,6 +1549,8 @@ export default function CardapioPublico() {
     const nSlides = destaques.length;
     const slideAtual = nSlides ? ((welcomeSlide % nSlides) + nSlides) % nSlides : 0;
     const produtoAtivo = nSlides ? destaques[slideAtual] : null;
+    const produtoAnterior = nSlides > 1 ? destaques[(slideAtual - 1 + nSlides) % nSlides] : null;
+    const produtoProximo = nSlides > 1 ? destaques[(slideAtual + 1) % nSlides] : null;
     const irSlide = (dir) => {
       if (nSlides <= 1) return;
       setWelcomeSlide((cur) => {
@@ -1679,6 +1681,16 @@ export default function CardapioPublico() {
                 )}
               </div>
 
+              <div className="pp-welcome-stage relative flex min-h-0 flex-1 items-stretch justify-center">
+                {produtoAnterior && <button type="button" onClick={() => irSlide(-1)} aria-label={`Ver destaque anterior: ${produtoAnterior.name}`}
+                  className="pp-welcome-side pp-welcome-side-left" style={{ backgroundImage: `url(${JSON.stringify(String(produtoAnterior.imageUrl || fallbackImage))})` }}>
+                  <img src={produtoAnterior.imageUrl || fallbackImage} alt="" loading="eager" decoding="async" onError={(e) => { e.currentTarget.src = fallbackImage; }} />
+                </button>}
+                {produtoProximo && <button type="button" onClick={() => irSlide(1)} aria-label={`Ver próximo destaque: ${produtoProximo.name}`}
+                  className="pp-welcome-side pp-welcome-side-right" style={{ backgroundImage: `url(${JSON.stringify(String(produtoProximo.imageUrl || fallbackImage))})` }}>
+                  <img src={produtoProximo.imageUrl || fallbackImage} alt="" loading="eager" decoding="async" onError={(e) => { e.currentTarget.src = fallbackImage; }} />
+                </button>}
+
               {/* div[role=button] em vez de <button>: no iOS/Safari imagens
                   dentro de <button> com layout flex/absolute podem ficar em branco. */}
               <div
@@ -1730,6 +1742,7 @@ export default function CardapioPublico() {
                   <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
                   <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F38525]">{formatCurrency(produtoAtivo.price)}</p>
                 </div>}
+              </div>
               </div>
 
               {nSlides > 1 && (

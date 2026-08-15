@@ -1623,6 +1623,44 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   overflow: hidden;
   contain: paint;
 }
+.pp-mesa-welcome .pp-welcome-stage {
+  isolation: isolate;
+  overflow: visible;
+}
+.pp-mesa-welcome .pp-welcome-stage > .pp-welcome-card {
+  z-index: 2;
+  flex: 0 0 82%;
+  width: 82%;
+  max-width: 82% !important;
+}
+.pp-mesa-welcome .pp-welcome-side {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  width: 24%;
+  overflow: hidden;
+  border: 1px solid #E6E6E6;
+  border-radius: 1.2rem;
+  background-color: #F3F4F6;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  opacity: .96;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.pp-mesa-welcome .pp-welcome-side:hover { opacity: 1; }
+.pp-mesa-welcome .pp-welcome-side:active { transform: scale(.98); }
+.pp-mesa-welcome .pp-welcome-side-left { left: -13%; }
+.pp-mesa-welcome .pp-welcome-side-right { right: -13%; }
+.pp-mesa-welcome .pp-welcome-side img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
 /* Status/mesa: ping e conteúdo não podem vazar a largura. */
 .pp-mesa-welcome .pp-welcome-status,
 .pp-mesa-welcome .pp-welcome-status > * {
