@@ -18122,7 +18122,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
         descricao="Gerencie regras de pontuação, recompensas e acompanhe a performance do programa."
         indicadores={[{ valor: programaAtivo ? "Ativo" : "Inativo", rotulo: "status", tom: programaAtivo ? "ok" : "alerta" }]}
         acao={<div className="relative">
-          <button onClick={() => setConfigAberto((v) => !v)} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.config /> Configurações do Programa</button>
+          <button onClick={() => setConfigAberto((v) => !v)} className="inline-flex items-center gap-2 rounded-xl border border-[#012E46] bg-[#012E46] px-4 py-2.5 text-sm font-bold text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525] [&>svg]:h-4 [&>svg]:w-4"><FidIco.config /> Configurações do Programa</button>
           {configAberto && (
             <>
               <div className="fixed inset-0 z-[90]" onClick={() => setConfigAberto(false)} />
