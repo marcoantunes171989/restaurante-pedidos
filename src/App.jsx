@@ -5617,34 +5617,41 @@ function LancamentoModal({ inicial, onFechar, onSalvar, salvando }) {
   const lbl = "mb-1 block text-[11px] font-bold uppercase tracking-widest text-slate-500";
   const catsSugeridas = f.tipo === "receita" ? ["Vendas", "Serviços", "Gorjetas", "Outros"] : ["Insumos", "Aluguel", "Salários", "Energia", "Água", "Marketing", "Manutenção", "Impostos", "Outros"];
   const valido = f.descricao.trim() && moedaParaNum(String(f.valor)) > 0 && f.data;
+  const ehReceita = f.tipo === "receita";
+  const tituloModal = f.id
+    ? (ehReceita ? "Editar conta a receber" : "Editar lançamento financeiro")
+    : (ehReceita ? "Nova conta a receber" : "Novo lançamento financeiro");
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <h3 className="page-title text-lg font-bold text-white">{f.id ? "Editar lançamento" : "Novo lançamento"}</h3>
+          <div>
+            <h3 className="page-title text-lg font-bold text-white">{tituloModal}</h3>
+            <p className="mt-0.5 text-[11px] text-slate-500">{ehReceita ? "Registre um valor que a empresa tem a receber." : "Registre uma despesa ou movimentação financeira da empresa."}</p>
+          </div>
           <button onClick={onFechar} className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10">✕</button>
         </div>
         <div className="grid gap-3 overflow-y-auto p-6 sm:grid-cols-2">
-          <div className="sm:col-span-2"><label className={lbl}>Descrição *</label><input autoFocus value={f.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder="Ex.: Compra de insumos" className={inp} /></div>
-          <div><label className={lbl}>Tipo *</label><select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} className={inp}><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
+          <div className="sm:col-span-2"><label className={lbl}>Descrição do lançamento *</label><input autoFocus value={f.descricao} onChange={(e) => set("descricao", e.target.value)} placeholder={ehReceita ? "Ex.: Serviço prestado ou venda faturada" : "Ex.: Compra de insumos ou aluguel"} className={inp} /></div>
+          <div><label className={lbl}>Natureza *</label><select value={f.tipo} onChange={(e) => set("tipo", e.target.value)} className={inp}><option value="despesa">Despesa</option><option value="receita">Receita</option></select></div>
           <div><label className={lbl}>Valor (R$) *</label><input inputMode="numeric" value={f.valor} onChange={(e) => { const { display } = handleMoeda(e); set("valor", display); }} placeholder="R$ 0,00" className={inp} /></div>
-          <div><label className={lbl}>Data *</label><input type="date" value={f.data} onChange={(e) => set("data", e.target.value)} className={inp} /></div>
-          <div><label className={lbl}>Vencimento</label><input type="date" value={f.vencimento || ""} onChange={(e) => set("vencimento", e.target.value)} className={inp} /></div>
-          <div><label className={lbl}>Status</label><select value={f.status} onChange={(e) => set("status", e.target.value)} className={inp}><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></div>
+          <div><label className={lbl}>Data do lançamento *</label><input type="date" value={f.data} onChange={(e) => set("data", e.target.value)} className={inp} /></div>
+          <div><label className={lbl}>Data de vencimento</label><input type="date" value={f.vencimento || ""} onChange={(e) => set("vencimento", e.target.value)} className={inp} /></div>
+          <div><label className={lbl}>Situação</label><select value={f.status} onChange={(e) => set("status", e.target.value)} className={inp}><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></div>
           <div className="sm:col-span-2">
             <label className={lbl}>Categoria</label>
-            <input value={f.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder="Ex.: Insumos, Aluguel" className={inp} />
+            <input value={f.categoria} onChange={(e) => set("categoria", e.target.value)} placeholder={ehReceita ? "Ex.: Vendas ou Serviços" : "Ex.: Insumos ou Aluguel"} className={inp} />
             <div className="mt-2 flex flex-wrap gap-1.5">
               {catsSugeridas.map((cat) => (
                 <FilterChip key={cat} size="sm" selected={f.categoria === cat} label={cat} onClick={() => set("categoria", cat)} />
               ))}
             </div>
           </div>
-          <div className="sm:col-span-2"><label className={lbl}>Forma de pagamento</label><input value={f.formaPagamento} onChange={(e) => set("formaPagamento", e.target.value)} placeholder="PIX, Cartão, Dinheiro…" className={inp} /></div>
+          <div className="sm:col-span-2"><label className={lbl}>{ehReceita ? "Forma de recebimento" : "Forma de pagamento"}</label><input value={f.formaPagamento} onChange={(e) => set("formaPagamento", e.target.value)} placeholder={ehReceita ? "Ex.: PIX, cartão ou transferência" : "Ex.: PIX, cartão, boleto ou dinheiro"} className={inp} /></div>
         </div>
         <div className="flex justify-end gap-2 border-t border-white/10 px-6 py-4">
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-slate-200 hover:bg-white/10">Cancelar</button>
-          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-black text-white transition hover:bg-gold-300 disabled:opacity-40">{salvando ? "Salvando…" : "Salvar"}</button>
+          <button onClick={onFechar} className="rounded-xl border border-[#DDE4E8] bg-white px-5 py-2.5 text-sm font-bold text-[#012E46] transition hover:border-[#AFC2CC] hover:bg-[#F7F9FA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Cancelar</button>
+          <button onClick={() => valido && onSalvar({ ...f, valor: moedaParaNum(String(f.valor)) })} disabled={!valido || salvando} className="rounded-xl border border-[#012E46] bg-[#012E46] px-5 py-2.5 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525] disabled:cursor-not-allowed disabled:border-[#CBD5DA] disabled:bg-[#E8EDF0] disabled:text-[#8798A1]">{salvando ? "Salvando…" : (ehReceita ? "Salvar conta" : "Salvar lançamento")}</button>
         </div>
       </div>
     </div>
