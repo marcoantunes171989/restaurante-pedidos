@@ -14932,11 +14932,11 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
             </h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Clientes identificados nos pedidos do cardápio digital. Analise frequência, consumo, faturamento, recorrência e oportunidades de relacionamento para aumentar vendas e fidelização.</p>
           </div>
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-            <button onClick={exportarClientesCSV} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Exportar clientes</button>
-            <button onClick={() => setCampanhaAberta(true)} className="rounded-2xl bg-gold-400 px-3.5 py-2.5 text-xs font-bold text-white transition hover:bg-gold-300">Criar campanha</button>
-            <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="rounded-2xl border border-red-400/25 bg-red-500/10 px-3.5 py-2.5 text-xs font-bold text-red-300 transition hover:bg-red-500/20">Clientes inativos</button>
-            <button onClick={() => setConfigAberta(true)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-xs font-bold text-slate-200 transition hover:bg-white/10">Configurar CRM</button>
+          <div className="flex flex-wrap gap-1.5 lg:justify-end" aria-label="Ações do CRM">
+            <button onClick={exportarClientesCSV} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#DDE4E8] bg-white px-3 text-[11px] font-bold text-[#012E46] transition hover:border-[#AFC2CC] hover:bg-[#F7F9FA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Exportar clientes</button>
+            <button onClick={() => setCampanhaAberta(true)} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#012E46] bg-[#012E46] px-3 text-[11px] font-bold text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Criar campanha</button>
+            <button onClick={() => { setSegmento("inativo"); setFiltrosAbertos(true); }} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#DDE4E8] bg-[#F7F9FA] px-3 text-[11px] font-bold text-[#475467] transition hover:border-[#AFC2CC] hover:bg-[#EEF3F5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Clientes inativos</button>
+            <button onClick={() => setConfigAberta(true)} className="inline-flex h-9 items-center justify-center rounded-xl border border-[#DDE4E8] bg-white px-3 text-[11px] font-bold text-[#012E46] transition hover:border-[#AFC2CC] hover:bg-[#F7F9FA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">Configurar CRM</button>
           </div>
         </div>
 
