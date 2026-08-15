@@ -5370,9 +5370,8 @@ function numeroParaMoeda(num) {
 
 // CompanySelector — seletor de "Empresa em foco" (super admin). Fica sobre o
 // menu AZUL PETRÓLEO profundo (--pp-nav) e segue o mesmo esquema monocromático:
-// seleção/hover/foco/borda/✓ no petróleo CLARO (--pp-nav-accent), tom sobre
-// tom, com tints rgba(243, 133, 37,*) nos fundos, rótulos em branco e o painel
-// do dropdown numa superfície de petróleo elevada (#012E46).
+// seleção/hover/foco em branco translúcido, igual aos itens do menu lateral;
+// o laranja fica reservado às ações principais do sistema.
 function CompanySelector({ lojas = [], valor, onChange }) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca]   = useState("");
@@ -5380,42 +5379,42 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   const termo = busca.trim().toLowerCase();
   const lista = termo ? lojas.filter((l) => `${l.nome} ${l.prefixo}`.toLowerCase().includes(termo)) : lojas;
   const escolher = (id) => { onChange(id); setAberto(false); setBusca(""); };
-  const item = (sel) => `group flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-1.5 text-left text-[12px] transition duration-150 ${sel ? "border-[var(--pp-nav-accent)] bg-[rgba(243, 133, 37,0.14)] text-white" : "border-transparent text-white/85 hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(243, 133, 37,0.10)]"}`;
-  const avatar = (sel) => `flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-[rgba(243, 133, 37,0.5)] bg-[rgba(243, 133, 37,0.16)] text-[var(--pp-nav-accent)]" : "border-white/10 bg-white/[0.05] text-white/70 group-hover:text-[var(--pp-nav-accent)]"}`;
+  const item = (sel) => `group flex w-full items-center gap-2 rounded-lg border-l-2 px-2 py-1.5 text-left text-[11px] transition duration-150 ${sel ? "border-l-white/80 bg-white/[0.11] font-bold text-white" : "border-l-transparent text-white/75 hover:bg-white/[0.06] hover:text-white"}`;
+  const avatar = (sel) => `flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 ${sel ? "border-white/20 bg-white/[0.08] text-white" : "border-white/10 bg-white/[0.04] text-white/65 group-hover:text-white"}`;
   const Globo = ({ className = "h-4 w-4" }) => (<svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9S14.5 18.5 12 21c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z" /></svg>);
 
   return (
     <div className="relative">
       <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`group flex min-h-[38px] w-full items-center gap-2 rounded-[14px] border px-2.5 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)] ${aberto ? "border-[var(--pp-nav-accent)] bg-[rgba(243, 133, 37,0.10)]" : "border-white/[0.08] bg-white/[0.06] hover:border-[var(--pp-nav-accent)] hover:bg-[rgba(243, 133, 37,0.10)]"}`}>
-        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] transition-colors duration-150 ${aberto ? "text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`}>
+        className={`group flex min-h-[34px] w-full items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 ${aberto ? "border-white/20 bg-white/[0.11]" : "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.08]"}`}>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-white/80 transition-colors group-hover:text-white">
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-display truncate text-[11.5px] font-bold text-white leading-tight">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[9px] font-medium text-white/60 leading-tight">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="font-display truncate text-[10.5px] font-bold leading-tight text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[8px] font-medium leading-tight text-white/55">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
-        <svg className={`h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${aberto ? "rotate-180 text-[var(--pp-nav-accent)]" : "text-white group-hover:text-[var(--pp-nav-accent)]"}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className={`h-3 w-3 shrink-0 text-white/75 transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
 
       {aberto && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setAberto(false)} />
-          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[18px] border border-white/[0.08] bg-[#012E46] shadow-2xl">
+          <div role="listbox" className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-white/[0.10] bg-[#012E46] shadow-xl">
             {lojas.length > 6 && (
-              <div className="border-b border-white/[0.08] p-2">
-                <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.05] px-3 py-1.5 transition duration-150 focus-within:border-[var(--pp-nav-accent)] focus-within:ring-2 focus-within:ring-[rgba(243, 133, 37,0.25)]">
+              <div className="border-b border-white/[0.08] p-1.5">
+                <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.10] bg-white/[0.04] px-2 py-1 transition focus-within:border-white/30">
                   <span className="shrink-0 text-white/60"><IconBusca /></span>
                   <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar empresa..."
-                    className="w-full bg-transparent text-xs text-white outline-none placeholder:text-white/40" />
+                    className="w-full bg-transparent text-[10px] text-white outline-none placeholder:text-white/40" />
                 </div>
               </div>
             )}
-            <div className="scrollbar-none max-h-64 space-y-0.5 overflow-y-auto p-1.5">
+            <div className="scrollbar-none max-h-56 space-y-0.5 overflow-y-auto p-1">
               <button onClick={() => escolher(null)} className={item(valor == null)} role="option" aria-selected={valor == null}>
                 <span className={avatar(valor == null)}><Globo /></span>
                 <span className="flex-1 truncate font-bold">Visão geral (todas)</span>
-                {valor == null && <span className="shrink-0 text-[var(--pp-nav-accent)]">✓</span>}
+                {valor == null && <span className="shrink-0 text-white">✓</span>}
               </button>
               {lista.map((l) => {
                 const sel = valor === l.id;
@@ -5424,9 +5423,9 @@ function CompanySelector({ lojas = [], valor, onChange }) {
                     <span className={avatar(sel)}><IconEmpresa /></span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-bold">{l.nome}</span>
-                      <span className="block truncate text-[10px] text-white/60">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
+                      <span className="block truncate text-[8.5px] text-white/55">{l.prefixo}{l.active === false ? " • inativa" : ""}</span>
                     </span>
-                    {sel && <span className="shrink-0 text-[var(--pp-nav-accent)]">✓</span>}
+                    {sel && <span className="shrink-0 text-white">✓</span>}
                   </button>
                 );
               })}
@@ -6922,6 +6921,16 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       </section>
     </main>
   );
+  const buscaRapida = (aoAbrir = () => setCmdOpen(true)) => (
+    <div className="border-b border-white/10 px-3 py-1.5">
+      <button onClick={aoAbrir} aria-label="Abrir busca rápida (Ctrl K)"
+        className="flex min-h-[32px] w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-transparent px-2 py-1 text-left text-[11px] text-white/65 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70">
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
+        <span className="flex-1 truncate">Buscar telas</span>
+        <span className="shrink-0 rounded border border-white/10 px-1 py-0.5 text-[8px] font-bold text-white/55">Ctrl K</span>
+      </button>
+    </div>
+  );
   return (
     <div data-theme="light" className="pp-admin-module fixed inset-0 z-50 flex bg-white overflow-hidden">
 
@@ -6933,19 +6942,12 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       <aside className="hidden lg:flex h-full w-64 shrink-0 flex-col overflow-hidden bg-[var(--pp-nav)]">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} />
         {isSuperAdmin && (
-          <div className="border-b border-white/10 px-4 py-2.5">
-            <label className="mb-1 block text-[9px] font-black uppercase tracking-widest text-white/60">Empresa em foco</label>
+          <div className="border-b border-white/10 px-3 py-2">
+            <label className="mb-1 block text-[8px] font-black uppercase tracking-[0.14em] text-white/55">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
-        <div className="border-b border-white/10 px-2.5 py-2.5">
-          <button onClick={() => setCmdOpen(true)} aria-label="Abrir busca rápida (Ctrl K)"
-            className="flex min-h-[38px] w-full items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-1.5 text-left text-[12.5px] text-white/80 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-nav-accent)]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-white/80" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
-            <span className="flex-1 truncate">Buscar telas…</span>
-            <span className="shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-bold text-white/70">Ctrl K</span>
-          </button>
-        </div>
+        {buscaRapida()}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} />
       </aside>
@@ -6955,11 +6957,12 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       <MobileAdminDrawer open={menuMobileAberto} onClose={() => setMenuMobileAberto(false)} triggerRef={botaoMenuRef} titulo="Menu Pedido Prime">
         <SidebarHeader subtitulo={isSuperAdmin ? "Administrador geral" : (lojaInfo ? lojaInfo.nome : "Painel gerencial")} onClose={() => setMenuMobileAberto(false)} />
         {isSuperAdmin && (
-          <div className="border-b border-white/10 px-4 py-2.5">
-            <label className="mb-1 block text-[9px] font-black uppercase tracking-widest text-white/60">Empresa em foco</label>
+          <div className="border-b border-white/10 px-3 py-2">
+            <label className="mb-1 block text-[8px] font-black uppercase tracking-[0.14em] text-white/55">Empresa em foco</label>
             <CompanySelector lojas={lojas} valor={lojaContexto} onChange={setLojaContexto} />
           </div>
         )}
+        {buscaRapida(() => { setCmdOpen(true); setMenuMobileAberto(false); })}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
           onNavigate={() => setMenuMobileAberto(false)} />
