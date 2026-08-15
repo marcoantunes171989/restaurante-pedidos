@@ -11,7 +11,7 @@ const ICONES_BENEFICIO = { central: IconCentral, tempo: IconRelogio, dados: Icon
 // ════════════════════════════════════════════════════════════
 export default function LoginBrandPanel() {
   return (
-    <aside className="pp-anim-left relative hidden h-full shrink-0 overflow-hidden bg-[#012E46] px-[clamp(2rem,5vw,5.5rem)] py-[clamp(1.5rem,4vh,3.5rem)] md:block md:w-[46%] lg:w-[56%]">
+    <aside className="pp-anim-left relative hidden shrink-0 self-stretch overflow-hidden bg-[#012E46] px-[clamp(2rem,5vw,5.5rem)] py-[clamp(1.5rem,4vh,3.5rem)] md:flex md:flex-col md:w-[46%] lg:w-[56%]">
       <div className="pointer-events-none absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #FFFFFF 1px, transparent 0)", backgroundSize: "34px 34px" }} />
       <div className="pointer-events-none absolute -right-48 -top-48 h-[34rem] w-[34rem] rounded-full border border-white/10" />
       <div className="pointer-events-none absolute -right-28 -top-28 h-[22rem] w-[22rem] rounded-full border border-[#F38525]/20" />
