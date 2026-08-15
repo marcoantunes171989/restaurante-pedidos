@@ -819,7 +819,6 @@ export default function CardapioPublico() {
   }, [loja?.id, detalhe]);
   const renderProduto = (item) => {
     const indisponivel = item.disponivel === false;
-    const personalizavel = (item.ingredients || []).length > 0;
     const promo = promoDoProduto(item);
     const favorito = favSet.has(item.id);
     // lojaId garante que a chave de favoritos do ProdutoModal case com a lida
@@ -863,11 +862,6 @@ export default function CardapioPublico() {
               style={{ maxWidth: "none" }}
             />
           </span>
-          {personalizavel && !indisponivel && (
-            <span aria-hidden="true" title="Personalizável" className="pointer-events-none absolute left-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] shadow-[var(--client-shadow-sm)]">
-              <CkIconAjustes width={14} height={14} strokeWidth={2.2} />
-            </span>
-          )}
           {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
           {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-text-secondary)]">Indisponível</span>}
           {favorito && !indisponivel && (
@@ -878,7 +872,7 @@ export default function CardapioPublico() {
         </button>
 
         {/* Conteúdo — nome/descrição/tempo e, embaixo, preço + "+". */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-w-0 flex-1 flex-col pr-8">
           <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
             aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
             className="text-left transition disabled:cursor-not-allowed">
@@ -890,24 +884,24 @@ export default function CardapioPublico() {
             <h3 className="line-clamp-2 text-[14px] font-black leading-[1.15] text-[var(--client-info)]">{item.name}</h3>
             {item.description && <p className="mt-0.5 line-clamp-1 text-[10.5px] leading-4 text-[var(--client-text-secondary)]">{item.description}</p>}
             {item.time && (
-              <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--client-text-muted)]">
+              <p className="mt-0.5 inline-flex items-center gap-1 text-[9.5px] font-semibold leading-3 text-[var(--client-text-muted)]">
                 <CkIconRelogio width={11} height={11} /> {item.time}
               </p>
             )}
           </button>
 
-          <div className="mt-0 flex items-center justify-between gap-2 leading-none">
+          <div className="mt-0 flex items-center gap-2 leading-none">
             {promo
               ? <span className="flex flex-col gap-0.5 leading-none">
                   <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
-                  <span className="text-base font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
+                  <span className="text-[14px] font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
                   <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
                 </span>
-              : <span className="text-[15px] font-black leading-4 text-[var(--client-info)]">{formatCurrency(item.price)}</span>}
-            {indisponivel
-              ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
-              : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--client-primary)] bg-transparent text-lg font-black text-[var(--client-primary)] transition active:scale-90 hover:bg-[var(--client-primary-soft)]">+</button>}
+              : <span className="text-[13px] font-black leading-4 text-[var(--client-info)]">{formatCurrency(item.price)}</span>}
           </div>
+          {indisponivel
+            ? <span className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center text-sm text-[var(--client-text-muted)]">✕</span>
+            : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center border-0 bg-transparent text-base font-black text-[var(--client-primary)] transition active:scale-90 hover:text-[var(--client-info)]">+</button>}
         </div>
       </article>
     );
@@ -2019,7 +2013,7 @@ export default function CardapioPublico() {
           bottom-0 flutua ACIMA do teclado, reaparecendo sobre a gaveta e
           duplicando os botões ao focar um campo (ex.: comanda). Esconder na
           raiz resolve em iOS, Android e desktop. */}
-      <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--client-border)] bg-[var(--client-surface)] shadow-[0_-6px_24px_rgba(45,52,54,0.10)] ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--client-border)] bg-white shadow-[0_-6px_24px_rgba(45,52,54,0.10)] ${(aba || detalhe || survey) ? "hidden" : ""}`} style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
         {/* Fidelidade — faixa de incentivo colada ao carrinho: pontos que a compra
             rende + saldo atual do cliente (quando identificado). Estimula recompra. */}
         {((cart.length > 0 && pontosGanharCart > 0) || saldoPontos > 0) && (
@@ -2038,7 +2032,7 @@ export default function CardapioPublico() {
             toda a largura e a base, cobrindo o fundo. Conteúdo em UMA linha:
             carrinho + Acompanhar (ícone com contador de pedidos, petróleo) +
             Finalizar (laranja). */}
-        <div className="mx-auto flex max-w-3xl items-center gap-1.5 px-3 py-1.5">
+        <div className="mx-auto flex max-w-3xl items-center gap-1.5 px-3 pb-1 pt-2">
             <button onClick={() => setAba("carrinho")} disabled={cart.length === 0} aria-label={cart.length > 0 ? "Ver carrinho" : "Carrinho vazio"}
               className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left disabled:cursor-default">
               <span className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cart.length > 0 ? "bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]"}`}>
@@ -2094,7 +2088,7 @@ export default function CardapioPublico() {
             })()}
             {cart.length > 0 && (
               <button onClick={() => setAba("carrinho")}
-                className="flex h-11 shrink-0 items-center gap-1 rounded-xl btn-laranja bg-[var(--client-primary-hover)] px-3.5 text-[13px] font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>
+                className="flex h-11 shrink-0 items-center gap-1 rounded-xl btn-laranja bg-[var(--client-primary-hover)] px-3.5 text-[11px] font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>
             )}
         </div>
       </div>
