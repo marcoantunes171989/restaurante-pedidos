@@ -1753,13 +1753,13 @@ export default function CardapioPublico() {
 
           {/* ── CTA + rodapé ── */}
           <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex w-full min-w-0 shrink-0 flex-col">
-            <div className="pp-mesa-opt-sub flex min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-3 py-2">
+            {!modoExterno && <div className="pp-mesa-opt-sub flex min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-3 py-2">
               <span className="shrink-0 text-xl" aria-hidden="true">👋</span>
               <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#374151]">
                 <b className="font-black text-[#012E46]">Olá! Seja bem-vindo!</b>{" "}
                 Cardápio especial para você aproveitar cada momento.
               </p>
-            </div>
+            </div>}
 
             <button type="button" onClick={() => setEtapa("cardapio")}
               className="pp-welcome-cta mt-2 flex w-full min-h-[48px] min-w-0 items-center gap-2.5 rounded-2xl btn-laranja px-3 text-[14px] font-black text-[#012E46] transition active:opacity-95 sm:px-4">
@@ -1769,17 +1769,17 @@ export default function CardapioPublico() {
             </button>
 
             {modoExterno && (
-              <div className="pp-welcome-benefits mt-2 grid grid-cols-3 rounded-2xl border border-[#E6E6E6] bg-white px-2 py-3">
+              <div className="pp-welcome-benefits mt-1.5 grid grid-cols-3 rounded-xl border border-[#E6E6E6] bg-white px-1.5 py-2">
                 {[
                   [CkIconSacola, "Ingredientes", "Selecionados"],
                   [CkIconPanela, "Preparo", "Na hora"],
                   [CkIconEstrela, "Qualidade", "Garantida"],
                 ].map(([Icone, titulo, texto], i) => (
-                  <div key={titulo} className={`flex min-w-0 items-center justify-center gap-1.5 px-1 ${i ? "border-l border-[#E6E6E6]" : ""}`}>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[#E6E6E6] text-[#F38525]"><Icone width={17} height={17} /></span>
+                  <div key={titulo} className={`flex min-w-0 items-center justify-center gap-1 px-1 ${i ? "border-l border-[#E6E6E6]" : ""}`}>
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#F38525]"><Icone width={15} height={15} /></span>
                     <span className="min-w-0 leading-tight">
-                      <b className="block truncate text-[10px] font-black text-[#012E46]">{titulo}</b>
-                      <span className="block truncate text-[9px] text-[#6B7280]">{texto}</span>
+                      <b className="block truncate text-[9px] font-black text-[#012E46]">{titulo}</b>
+                      <span className="block truncate text-[8px] text-[#6B7280]">{texto}</span>
                     </span>
                   </div>
                 ))}

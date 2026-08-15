@@ -1721,30 +1721,33 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 }
 .pp-welcome-ext .pp-welcome-inner {
   max-width: min(470px, 100%);
-  padding-left: clamp(1rem, 4.5vw, 1.35rem);
-  padding-right: clamp(1rem, 4.5vw, 1.35rem);
+  padding-left: clamp(0.75rem, 3.5vw, 1rem);
+  padding-right: clamp(0.75rem, 3.5vw, 1rem);
 }
 .pp-welcome-ext header img,
 .pp-welcome-ext header > span:first-child {
-  width: clamp(54px, 8.5vh, 74px) !important;
-  height: clamp(54px, 8.5vh, 74px) !important;
+  width: clamp(42px, 6.5vh, 54px) !important;
+  height: clamp(42px, 6.5vh, 54px) !important;
 }
-.pp-welcome-ext header h1 span { font-size: clamp(1.65rem, 4.2vh, 2.15rem) !important; }
+.pp-welcome-ext header h1 span { font-size: clamp(1.25rem, 3.2vh, 1.6rem) !important; }
 .pp-welcome-ext .pp-welcome-status > div {
-  min-height: clamp(58px, 7.5vh, 72px);
-  padding-inline: clamp(0.65rem, 3vw, 1rem);
+  min-height: clamp(46px, 6vh, 56px);
+  padding-inline: clamp(0.5rem, 2.5vw, 0.75rem);
 }
 .pp-welcome-ext .pp-welcome-status-icon {
-  width: clamp(34px, 5vh, 42px) !important;
-  height: clamp(34px, 5vh, 42px) !important;
+  width: clamp(29px, 4vh, 34px) !important;
+  height: clamp(29px, 4vh, 34px) !important;
 }
-.pp-welcome-ext .pp-welcome-card { border-radius: 1.45rem; }
+.pp-welcome-ext .pp-welcome-card { border-radius: 1.15rem; }
 .pp-welcome-ext .pp-welcome-foto {
-  aspect-ratio: 1.42 / 1;
-  min-height: 220px;
-  max-height: min(43dvh, 390px);
+  aspect-ratio: 1.55 / 1;
+  min-height: 165px;
+  max-height: min(33dvh, 260px);
 }
-.pp-welcome-ext .pp-welcome-benefits { min-height: 62px; }
+.pp-welcome-ext .pp-welcome-cta { min-height: 44px; margin-top: .45rem; font-size: 13px; border-radius: .8rem; }
+.pp-welcome-ext .pp-welcome-benefits { min-height: 44px; }
+.pp-welcome-ext footer { margin-top: .35rem; }
+.pp-welcome-ext footer p:last-child { display: none; }
 @media (max-width: 360px), (max-height: 720px) {
   .pp-welcome-ext .pp-welcome-benefits { min-height: 50px; padding-block: 0.45rem; }
   .pp-welcome-ext .pp-welcome-benefits > div { gap: 0.25rem; }
