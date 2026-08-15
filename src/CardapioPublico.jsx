@@ -830,13 +830,13 @@ export default function CardapioPublico() {
       : { ...item, lojaId: item.lojaId ?? loja?.id });
     const destaque = promo || (item.isFeatured && !indisponivel);
     return (
-      <article key={item.id} className={`flex h-full gap-3 rounded-[1.25rem] border bg-[var(--client-surface)] p-3 shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
+      <article key={item.id} className={`flex h-full gap-2.5 rounded-2xl border bg-[var(--client-surface)] p-2.5 shadow-[var(--client-shadow-sm)] ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
         {/* Imagem — alvo de toque que abre a personalização. */}
         <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
           aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
           className="relative shrink-0 transition active:scale-[0.98] disabled:cursor-not-allowed">
           <span
-            className="relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-2xl bg-[var(--client-surface-secondary)]"
+            className="relative block h-[76px] w-[76px] shrink-0 overflow-hidden rounded-xl bg-[var(--client-surface-secondary)]"
             style={{
               backgroundImage: `url(${JSON.stringify(String(item.imageUrl || fallbackImage))})`,
               backgroundSize: "cover",
@@ -848,8 +848,8 @@ export default function CardapioPublico() {
               alt={item.name}
               loading="lazy"
               decoding="async"
-              width={84}
-              height={84}
+              width={76}
+              height={76}
               onError={(e) => {
                 if (e.currentTarget.src !== fallbackImage) {
                   e.currentTarget.src = fallbackImage;
@@ -887,23 +887,23 @@ export default function CardapioPublico() {
                 <CkIconEstrela width={10} height={10} /> {item.featuredLabel || "Mais vendido"}
               </span>
             )}
-            <h3 className="text-[15px] font-black leading-tight text-[var(--client-text-primary)] line-clamp-2">{item.name}</h3>
-            {item.description && <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-[var(--client-text-secondary)]">{item.description}</p>}
+            <h3 className="line-clamp-2 text-[14px] font-black leading-[1.15] text-[var(--client-info)]">{item.name}</h3>
+            {item.description && <p className="mt-0.5 line-clamp-1 text-[10.5px] leading-4 text-[var(--client-text-secondary)]">{item.description}</p>}
             {item.time && (
-              <p className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--client-text-muted)]">
+              <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--client-text-muted)]">
                 <CkIconRelogio width={11} height={11} /> {item.time}
               </p>
             )}
           </button>
 
-          <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+          <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
             {promo
               ? <span className="flex flex-col gap-0.5 leading-none">
                   <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
                   <span className="text-base font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
                   <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
                 </span>
-              : <span className="text-base font-black text-[var(--client-text-primary)]">{formatCurrency(item.price)}</span>}
+              : <span className="text-[15px] font-black text-[var(--client-info)]">{formatCurrency(item.price)}</span>}
             {indisponivel
               ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--client-border)] bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]">✕</span>
               : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full btn-laranja bg-[var(--client-primary-hover)] text-lg font-black text-[#012E46] shadow-[var(--client-shadow-sm)] transition active:scale-90 hover:bg-[var(--client-primary)]">+</button>}
@@ -1868,18 +1868,18 @@ export default function CardapioPublico() {
           barra quando a medição chegava errada). A medição (headerH/catBarH)
           continua só para o scroll-margin e o realce da categoria ativa. */}
       <div className="sticky top-0 z-30">
-      <header ref={headerRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] px-4 pb-3 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}>
+      <header ref={headerRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] px-3 pb-2 backdrop-blur-xl" style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.5rem)" }}>
         {/* Header em UMA linha: logo + nome + ações SÓ-ÍCONE (garçom/ajuda/
             limpeza/QR). Antes eram 2 linhas (a de chamados ocupava ~50px); só
             ícones colapsa tudo numa linha e libera altura para os produtos.
             Cada ícone tem aria-label + title (a11y/desktop). Cor dos ícones =
             grafite (neutro/apoio) sobre superfície secundária — padrão da paleta
             para AÇÃO SECUNDÁRIA (o laranja fica reservado às ações primárias). */}
-        <div className="mx-auto flex max-w-3xl items-center gap-2.5">
-          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover" /> : <LogoPP size={44} />}
+        <div className="mx-auto flex max-w-3xl items-center gap-2">
+          {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-xl object-cover" /> : <LogoPP size={36} />}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-base font-black leading-tight text-[var(--client-text-primary)] sm:text-lg">{loja.nome}</p>
-            <p className="truncate text-xs text-[var(--client-text-secondary)] sm:text-sm">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
+            <p className="truncate text-sm font-black leading-tight text-[var(--client-info)] sm:text-base">{loja.nome}</p>
+            <p className="truncate text-[11px] leading-4 text-[var(--client-text-secondary)] sm:text-xs">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
           {!modoExterno && mesa && (
             <div className="flex shrink-0 items-center gap-1.5">
@@ -1914,12 +1914,12 @@ export default function CardapioPublico() {
             libera altura para os produtos, sem perder legibilidade. Selecionada
             no laranja padrão da marca (--client-primary), sem ícone. */}
         <div ref={catBarRef} className="border-b border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-sm)]">
-          <div ref={catScrollRef} className="pp-noscrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-2">
+          <div ref={catScrollRef} className="pp-noscrollbar mx-auto flex max-w-3xl gap-1.5 overflow-x-auto px-3 py-1.5">
           {cats.map((c) => { const ativo = catAtivaId === c.id;
             return (
               <button key={c.id} type="button" ref={(el) => (chipRefs.current[c.id] = el)} onClick={() => selecionarCategoria(c.id)}
                 aria-current={ativo ? "true" : undefined} aria-pressed={ativo}
-                className={`flex min-h-[34px] shrink-0 items-center rounded-full border px-3.5 text-sm font-bold transition duration-200 ${ativo ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
+                className={`flex min-h-[32px] shrink-0 items-center rounded-full border px-3 text-xs font-bold transition duration-200 ${ativo ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-info)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
                 {c.nome}
               </button>
             );
@@ -1928,7 +1928,7 @@ export default function CardapioPublico() {
         </div>
       </div>
 
-      <main className="mx-auto max-w-3xl px-4">
+      <main className="mx-auto max-w-3xl px-3">
         {/* Sentinela do topo — "Todos" rola até aqui (scrollIntoView); quem rola
             é #root, não a window. */}
         <div ref={topoRef} aria-hidden="true" style={{ scrollMarginTop: 0 }} />
@@ -1986,12 +1986,12 @@ export default function CardapioPublico() {
           {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
           {grupos.map((g) => (
             <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
-              <div className="sticky z-10 -mx-4 mb-3 mt-1 flex items-center gap-2 bg-[#FFFFFF]/95 px-4 py-1.5 backdrop-blur" style={{ top: headerH + catBarH }}>
-                <span className="h-4 w-1 rounded-full bg-[var(--client-primary-hover)]" />
-                <h2 className="text-sm font-black uppercase tracking-wide text-[var(--client-text-primary)]">{g.nome}</h2>
-                <span className="text-[11px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
+              <div className="sticky z-10 -mx-3 mb-2 mt-0.5 flex items-center gap-1.5 bg-[#FFFFFF]/95 px-3 py-1 backdrop-blur" style={{ top: headerH + catBarH }}>
+                <span className="h-3.5 w-1 rounded-full bg-[var(--client-primary-hover)]" />
+                <h2 className="text-xs font-black uppercase tracking-wide text-[var(--client-info)]">{g.nome}</h2>
+                <span className="text-[10px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {g.produtos.map(renderProduto)}
               </div>
             </section>
