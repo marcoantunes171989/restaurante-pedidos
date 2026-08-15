@@ -129,3 +129,82 @@ describe("rascunho + pré-validação da venda", () => {
     expect(v.pendenciasEmitente.length).toBeGreaterThan(0);
   });
 });
+
+// ── Emissão simulada (fase emissão) ─────────────────────────
+import {
+  tpAmbDeAmbiente, montarDocumentoNfce, simularAutorizacaoNfce,
+  montarUrlQrCodeNfce, emitirNfceSimulada, formatarChaveNfce,
+} from "./nfceService";
+
+const EMIT_SP = { uf: "SP", nfceSerie: 1, nfceAmbiente: "simulacao" };
+const CNPJ = "11222333000181";
+const VENDA1 = { itens: [{ produto: { name: "Refri", price: 6 }, quantidade: 2 }], formaPagamento: "Pix" };
+
+describe("tpAmbDeAmbiente", () => {
+  it("produção → 1; qualquer outro → 2", () => {
+    expect(tpAmbDeAmbiente("producao")).toBe(1);
+    expect(tpAmbDeAmbiente("simulacao")).toBe(2);
+    expect(tpAmbDeAmbiente("homologacao")).toBe(2);
+  });
+});
+
+describe("montarDocumentoNfce", () => {
+  it("número inválido → erro controlado", () => {
+    const r = montarDocumentoNfce({ emitente: EMIT_SP, documento: CNPJ, venda: VENDA1, numero: 0 });
+    expect(r.ok).toBe(false);
+    expect(r.documento).toBeNull();
+  });
+  it("monta documento mod.65 com chave de 44 dígitos e totais", () => {
+    const r = montarDocumentoNfce({ emitente: EMIT_SP, documento: CNPJ, venda: VENDA1, numero: 7 });
+    expect(r.ok).toBe(true);
+    expect(r.documento.ide.mod).toBe(65);
+    expect(r.documento.ide.nNF).toBe(7);
+    expect(String(r.chave).replace(/\D/g, "")).toHaveLength(44);
+    expect(r.documento.total.vNF).toBe(12);
+    expect(r.documento.det).toHaveLength(1);
+  });
+});
+
+describe("simularAutorizacaoNfce", () => {
+  it("apto → autorizada (cStat 100) com protocolo de 15 dígitos iniciando por 9", () => {
+    const a = simularAutorizacaoNfce({ chave: "1".repeat(44), ambiente: "simulacao", apto: true });
+    expect(a.status).toBe("autorizada");
+    expect(a.cStat).toBe(100);
+    expect(a.nProt).toMatch(/^9\d{14}$/);
+  });
+  it("não apto → rejeitada, sem protocolo", () => {
+    const a = simularAutorizacaoNfce({ chave: "1".repeat(44), apto: false });
+    expect(a.status).toBe("rejeitada");
+    expect(a.nProt).toBeNull();
+  });
+  it("é determinística para a mesma chave/data", () => {
+    const args = { chave: "1".repeat(44), dataEmissao: "2026-08-15T12:00:00Z", apto: true };
+    expect(simularAutorizacaoNfce(args).nProt).toBe(simularAutorizacaoNfce(args).nProt);
+  });
+});
+
+describe("montarUrlQrCodeNfce", () => {
+  it("chave de 44 dígitos → URL de simulação com a chave", () => {
+    const u = montarUrlQrCodeNfce({ chave: "1".repeat(44), ambiente: "simulacao", uf: "SP" });
+    expect(u).toContain("1".repeat(44));
+    expect(u).toMatch(/SIMULACAO/);
+  });
+  it("chave inválida → string vazia", () => {
+    expect(montarUrlQrCodeNfce({ chave: "123" })).toBe("");
+  });
+});
+
+describe("formatarChaveNfce", () => {
+  it("agrupa 44 dígitos em blocos de 4", () => {
+    const f = formatarChaveNfce("1".repeat(44));
+    expect(f.split(" ")).toHaveLength(11);
+  });
+});
+
+describe("emitirNfceSimulada", () => {
+  it("emitente incompleto → ok:false, apto:false (não emite)", () => {
+    const r = emitirNfceSimulada({ emitente: null, documento: "", venda: VENDA1, numero: 1 });
+    expect(r.ok).toBe(false);
+    expect(r.apto).toBe(false);
+  });
+});

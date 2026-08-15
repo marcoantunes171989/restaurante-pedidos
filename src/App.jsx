@@ -42,6 +42,7 @@ import {
   fetchLojaFiscalRegras, importarLojaFiscalRegra, atualizarLojaFiscalRegra, aplicarVersaoLojaFiscalRegra, marcarChecadaLojaFiscalRegra, excluirLojaFiscalRegra, escutarLojaFiscalRegras,
   fetchFiscalTemplates, fetchFiscalTemplateRegras, inserirFiscalTemplate, atualizarFiscalTemplate, excluirFiscalTemplate, adicionarRegraTemplate, removerRegraTemplate, escutarFiscalTemplates, escutarFiscalTemplateRegras,
   fetchLojaFiscalEmitente, salvarLojaFiscalEmitente,
+  reservarNumeroNfce, registrarNfceSimulada, fetchNfceEmitidas,
   fetchSetoresCozinha, inserirSetorCozinha, atualizarSetorCozinha, excluirSetorCozinha, escutarSetoresCozinha,
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
@@ -59,7 +60,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "./lib/emitenteFiscalService";
-import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe } from "./lib/nfceService";
+import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe, emitirNfceSimulada, formatarChaveNfce } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
 import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
@@ -20596,7 +20597,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     { id: "produtos", label: "🍔 Produtos", badge: produtos.filter((p) => p.lojaFiscalRegraId).length || null },
     { id: "sugestoes", label: "📋 Sugestões por segmento", badge: templates.filter((t) => t.ativo !== false).length || null },
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
-    ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (pré-validação)" }] : []),
+    ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (simulação)" }] : []),
   ];
 
   return (
@@ -21062,11 +21063,20 @@ function NfceKpi({ rotulo, valor, tom }) {
 // Paleta oficial light (petróleo/laranja sobre branco).
 function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emitenteApi = null }) {
   const [emitente, setEmitente] = useState(undefined); // undefined=carregando, null=sem cadastro
+  const [historico, setHistorico] = useState([]);
+  const [emitindo, setEmitindo] = useState(false);
+  const [erroEmissao, setErroEmissao] = useState("");
+  const [cupom, setCupom] = useState(null); // nota selecionada para o cupom DANFE
   useEffect(() => {
     let vivo = true;
     (async () => { let d = null; try { d = await emitenteApi.fetch(lojaInfo?.id); } catch { /* migration 107 pendente */ } if (vivo) setEmitente(d); })();
     return () => { vivo = false; };
   }, [emitenteApi, lojaInfo?.id]);
+  useEffect(() => {
+    let vivo = true;
+    (async () => { let h = []; try { h = await fetchNfceEmitidas(lojaInfo?.id); } catch { /* migration 117 pendente */ } if (vivo) setHistorico(h); })();
+    return () => { vivo = false; };
+  }, [lojaInfo?.id]);
 
   const documento = normalizarDocumentoFiscal(lojaInfo?.documento || "");
   const ctxFiscal = { lojaFiscalRegras: importadas };
@@ -21081,6 +21091,43 @@ function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emiten
   const chave = (emitente && emitente.uf)
     ? montarChaveAcessoNfce({ uf: emitente.uf, aamm: aammDe(), cnpj: documento, serie: emitente.nfceSerie || 1, numero: 1, cNF: "00000001" })
     : { chave: null, erro: "Complete o emitente (UF e CNPJ) para simular a chave." };
+
+  // Emissão SIMULADA: numeração atômica no banco → documento/chave/protocolo/QR
+  // (puro) → registro no histórico. Nunca contata a SEFAZ nem tem valor fiscal.
+  async function emitir() {
+    if (emitindo) return;
+    setErroEmissao("");
+    setEmitindo(true);
+    try {
+      const { numero, serie, ambiente } = await reservarNumeroNfce(lojaInfo?.id);
+      const emi = { ...emitente, nfceSerie: serie, nfceAmbiente: ambiente };
+      const res = emitirNfceSimulada({ emitente: emi, documento, venda, numero, ctxFiscal });
+      if (!res.ok) throw new Error(res.erro || "Não foi possível emitir a simulação.");
+      const nota = {
+        ambiente: res.ambiente, serie: res.serie, numero: res.numero, chave: res.chave,
+        protocolo: res.autorizacao?.nProt, status: res.autorizacao?.status,
+        valorTotal: res.totais?.vNF ?? 0, qtdItens: res.totais?.qtdItens ?? 0,
+        qrUrl: res.qrUrl, documento: res.documento, emitidaEm: new Date().toISOString(),
+      };
+      try {
+        await registrarNfceSimulada(lojaInfo?.id, nota);
+        const h = await fetchNfceEmitidas(lojaInfo?.id);
+        setHistorico(h);
+      } catch (e) {
+        // Migration 117 pendente: mostra o cupom mesmo sem persistir (aviso).
+        if (e?.code === "MIGRACAO_PENDENTE" || e?.code === "42883") {
+          setErroEmissao("Emissão gerada em memória — instale a migration 117 para guardar o histórico.");
+        } else { throw e; }
+      }
+      setCupom(nota);
+    } catch (e) {
+      setErroEmissao(e?.code === "SEM_EMITENTE"
+        ? "Cadastre o emitente fiscal (Minha Empresa) antes de emitir."
+        : (e?.message || "Falha ao emitir a NFC-e simulada."));
+    } finally {
+      setEmitindo(false);
+    }
+  }
 
   if (emitente === undefined) return <div className="rounded-2xl border border-[#D1D5DB] bg-white p-8 text-center text-sm text-[#6B7280]" style={{ fontFamily: "Inter, sans-serif" }}>Carregando emitente…</div>;
 
@@ -21158,6 +21205,131 @@ function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emiten
         ) : (
           <p className="rounded-xl border border-[rgba(243,133,37,0.35)] bg-[rgba(243,133,37,0.07)] px-3 py-2 text-[12px] font-semibold text-[#B45309]">{chave.erro}</p>
         )}
+      </div>
+
+      {/* Emissão simulada — numera, autoriza (fake) e gera o cupom */}
+      <div className="rounded-2xl border border-[#D1D5DB] bg-white p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-[13px] font-bold uppercase tracking-wide text-[#012E46]">Emitir NFC-e (simulação)</h4>
+            <p className="text-[12px] text-[#6B7280]">Numera a nota, gera a chave definitiva, simula a autorização e monta o cupom. Sem SEFAZ, sem valor fiscal.</p>
+          </div>
+          <button
+            type="button" onClick={emitir} disabled={!pv.apto || emitindo}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "#012E46", color: "#FFFFFF" }}
+            title={pv.apto ? "Emitir NFC-e simulada" : "Resolva as pendências antes de emitir"}>
+            {emitindo ? "Emitindo…" : "🧾 Emitir simulação"}
+          </button>
+        </div>
+        {!pv.apto && <p className="rounded-xl border border-[rgba(243,133,37,0.35)] bg-[rgba(243,133,37,0.07)] px-3 py-2 text-[12px] font-semibold text-[#B45309]">Resolva as pendências acima para habilitar a emissão simulada.</p>}
+        {erroEmissao && <p className="mt-2 rounded-xl border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-[12px] font-semibold text-[#C81E4A]">{erroEmissao}</p>}
+
+        {historico.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-2 text-[12px] font-bold text-[#111111]">Notas emitidas (simulação) · {historico.length}</p>
+            <div className="space-y-2">
+              {historico.map((n) => (
+                <button key={n.id ?? n.chave} type="button" onClick={() => setCupom(n)}
+                  className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-left text-[13px] text-[#6B7280] transition hover:border-[#012E46]">
+                  <span className="rounded-full bg-[rgba(1,46,70,0.08)] px-2 py-0.5 text-[11px] font-bold text-[#012E46]">Nº {n.numero}/{n.serie}</span>
+                  <span className="min-w-[120px] flex-1 truncate font-mono text-[11px] text-[#111111]">{formatarChaveNfce(n.chave)}</span>
+                  <span>{formatCurrency(n.valorTotal)}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${n.status === "autorizada" ? "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "bg-[rgba(200,30,74,0.08)] text-[#C81E4A]"}`}>{n.status === "autorizada" ? "✔ Autorizada" : "Rejeitada"}</span>
+                  <span className="text-[11px] text-[#012E46]">Ver cupom →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {cupom && <DanfeNfceCupom nota={cupom} emitente={emitente} lojaInfo={lojaInfo} onFechar={() => setCupom(null)} />}
+    </div>
+  );
+}
+
+// ── Cupom DANFE-NFC-e (simulado) + QR Code ──────────────────
+// Renderiza o cupom fiscal em modal, com QR gerado do qr_url. Marcado como
+// SIMULAÇÃO em todo lugar — nunca deve parecer um documento fiscal válido.
+function DanfeNfceCupom({ nota, emitente = null, lojaInfo = null, onFechar }) {
+  const [qrImg, setQrImg] = useState("");
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      if (!nota?.qrUrl) return;
+      try {
+        const QRCode = (await import("qrcode")).default;
+        const img = await QRCode.toDataURL(nota.qrUrl, { width: 240, margin: 1, errorCorrectionLevel: "M", color: { dark: "#012E46", light: "#ffffff" } });
+        if (vivo) setQrImg(img);
+      } catch { /* qrcode indisponível: cupom segue sem imagem */ }
+    })();
+    return () => { vivo = false; };
+  }, [nota?.qrUrl]);
+
+  const doc = nota?.documento || {};
+  const itens = doc.det || [];
+  const emit = doc.emit || {};
+  const nomeEmit = emit.razaoSocial || emit.nomeFantasia || emitente?.razaoSocial || lojaInfo?.nome || "Emitente";
+  const dataFmt = (() => { try { return new Date(nota?.emitidaEm || doc?.ide?.dhEmi).toLocaleString("pt-BR"); } catch { return ""; } })();
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" style={{ fontFamily: "Inter, sans-serif" }} onClick={onFechar}>
+      <div className="max-h-[90vh] w-full max-w-[380px] overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* Faixa de simulação */}
+        <div className="rounded-t-2xl bg-[#F38525] px-4 py-2 text-center">
+          <p className="text-[12px] font-bold text-white">🧪 SIMULAÇÃO — SEM VALIDADE FISCAL</p>
+        </div>
+
+        {/* Corpo do cupom (fonte mono, estilo bobina) */}
+        <div className="px-5 py-4 text-[12px] text-[#111111]">
+          <div className="mb-2 text-center">
+            <p className="text-[13px] font-bold text-[#012E46]">{nomeEmit}</p>
+            {emit.documento && <p className="text-[11px] text-[#6B7280]">CNPJ {emit.documento}</p>}
+            {(emit.logradouro || emit.municipio) && <p className="text-[11px] text-[#6B7280]">{[emit.logradouro, emit.numero, emit.bairro].filter(Boolean).join(", ")} — {emit.municipio}/{emit.uf}</p>}
+          </div>
+          <div className="my-2 border-t border-dashed border-[#D1D5DB]" />
+          <p className="text-center text-[11px] font-semibold text-[#012E46]">DANFE NFC-e — Documento Auxiliar (simulado)</p>
+          <p className="text-center text-[11px] text-[#6B7280]">mod. 65 · série {nota.serie} · nº {nota.numero}</p>
+          <div className="my-2 border-t border-dashed border-[#D1D5DB]" />
+
+          {/* Itens */}
+          <div className="space-y-1">
+            {itens.map((it) => (
+              <div key={it.nItem} className="flex items-start justify-between gap-2">
+                <span className="flex-1"><span className="text-[#6B7280]">{it.nItem}.</span> {it.nome} <span className="text-[#6B7280]">{it.quantidade}× {formatCurrency(it.valorUnitario)}</span></span>
+                <span className="font-semibold">{formatCurrency(it.valorTotal)}</span>
+              </div>
+            ))}
+            {itens.length === 0 && <p className="text-center text-[11px] text-[#6B7280]">Sem itens no documento.</p>}
+          </div>
+
+          <div className="my-2 border-t border-dashed border-[#D1D5DB]" />
+          <div className="flex items-center justify-between text-[13px] font-bold text-[#012E46]"><span>TOTAL</span><span>{formatCurrency(nota.valorTotal)}</span></div>
+          <div className="flex items-center justify-between text-[11px] text-[#6B7280]"><span>Forma de pagamento</span><span>{doc?.pag?.forma || "Dinheiro"}</span></div>
+          <div className="my-2 border-t border-dashed border-[#D1D5DB]" />
+
+          {/* Chave + protocolo */}
+          <p className="text-[10px] font-semibold uppercase text-[#6B7280]">Chave de acesso</p>
+          <p className="break-all font-mono text-[11px] text-[#012E46]">{formatarChaveNfce(nota.chave)}</p>
+          <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-[11px] text-[#6B7280]">
+            <span>Protocolo {nota.protocolo || "—"}</span>
+            <span className={`rounded-full px-2 py-0.5 font-bold ${nota.status === "autorizada" ? "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "bg-[rgba(200,30,74,0.08)] text-[#C81E4A]"}`}>{nota.status === "autorizada" ? "✔ Autorizada (sim.)" : "Rejeitada"}</span>
+          </div>
+          {dataFmt && <p className="mt-0.5 text-[11px] text-[#6B7280]">Emitida em {dataFmt}</p>}
+
+          {/* QR Code */}
+          {qrImg && (
+            <div className="mt-3 flex flex-col items-center">
+              <img src={qrImg} alt="QR Code NFC-e (simulado)" className="h-40 w-40" />
+              <p className="mt-1 text-center text-[10px] font-semibold text-[#B45309]">QR de simulação — não consultável na SEFAZ.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2 border-t border-[#E5E7EB] px-5 py-3">
+          <button type="button" onClick={onFechar} className="min-h-11 flex-1 rounded-xl px-4 py-2 text-[13px] font-semibold" style={{ background: "#012E46", color: "#FFFFFF" }}>Fechar</button>
+        </div>
       </div>
     </div>
   );

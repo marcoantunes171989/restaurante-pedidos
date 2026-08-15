@@ -2387,6 +2387,86 @@ export function escutarLojaFiscalEmitente(onMudanca, lojaId = null) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  loja_fiscal_nfce (migration 117) — NFC-e SIMULADAS (sem valor fiscal).
+//  Numeração ATÔMICA por RPC (lock do emitente); registro por RPC. Tolerante
+//  se a 117 não estiver aplicada (a UI segue funcionando na pré-validação).
+// ════════════════════════════════════════════════════════════
+export function dbParaNfce(r) {
+  if (!r) return null
+  return {
+    id: r.id,
+    lojaId: r.loja_id ?? null,
+    ambiente: r.ambiente ?? 'simulacao',
+    serie: r.serie ?? 1,
+    numero: r.numero ?? null,
+    chave: r.chave ?? '',
+    protocolo: r.protocolo ?? null,
+    status: r.status ?? 'autorizada',
+    valorTotal: r.valor_total != null ? Number(r.valor_total) : 0,
+    qtdItens: r.qtd_itens ?? 0,
+    qrUrl: r.qr_url ?? '',
+    documento: r.documento ?? {},
+    emitidaEm: r.emitida_em ?? null,
+  }
+}
+
+// Aloca o próximo número da NFC-e (atômico no banco). Lança com .code em erro
+// controlado (SEM_EMITENTE, FORBIDDEN) para a UI orientar o usuário.
+export async function reservarNumeroNfce(lojaId) {
+  if (lojaId == null) throw Object.assign(new Error('Selecione a empresa.'), { code: 'INVALID_INPUT' })
+  const { data, error } = await supabase.rpc('app_reservar_numero_nfce', { p_loja_id: lojaId })
+  if (error) {
+    if (error.code === '42883' || error.code === '42P01') {
+      throw Object.assign(new Error('Recurso de emissão ainda não instalado no banco (migration 117 pendente).'), { code: 'MIGRACAO_PENDENTE' })
+    }
+    throw error
+  }
+  if (!data?.ok) throw Object.assign(new Error(data?.code || 'Falha ao reservar número.'), { code: data?.code || 'ERRO' })
+  return { numero: data.numero, serie: data.serie, ambiente: data.ambiente }
+}
+
+// Registra a nota simulada já montada (documento/chave/protocolo/QR).
+export async function registrarNfceSimulada(lojaId, nota) {
+  if (lojaId == null) throw Object.assign(new Error('Selecione a empresa.'), { code: 'INVALID_INPUT' })
+  const { data, error } = await supabase.rpc('app_registrar_nfce_simulada', {
+    p_loja_id: lojaId,
+    p_ambiente: nota.ambiente || 'simulacao',
+    p_serie: nota.serie ?? 1,
+    p_numero: nota.numero,
+    p_chave: nota.chave,
+    p_protocolo: nota.protocolo ?? null,
+    p_status: nota.status || 'autorizada',
+    p_valor: nota.valorTotal ?? 0,
+    p_qtd: nota.qtdItens ?? 0,
+    p_qr_url: nota.qrUrl || '',
+    p_documento: nota.documento || {},
+  })
+  if (error) throw error
+  if (!data?.ok) throw Object.assign(new Error(data?.code || 'Falha ao registrar a nota.'), { code: data?.code || 'ERRO' })
+  return data.id
+}
+
+export async function fetchNfceEmitidas(lojaId) {
+  if (lojaId == null) return []
+  const { data, error } = await supabase
+    .from('loja_fiscal_nfce').select('*')
+    .eq('loja_id', lojaId).order('emitida_em', { ascending: false }).limit(100)
+  if (error) {
+    if (error.code !== '42P01') console.warn('fetchNfceEmitidas:', error.message)
+    return []
+  }
+  return (data || []).map(dbParaNfce)
+}
+
+export function escutarNfceEmitidas(onMudanca, lojaId = null) {
+  const reload = async () => { try { onMudanca(await fetchNfceEmitidas(lojaId)) } catch { /* migration 117 pendente */ } }
+  const canal = supabase.channel('ch_loja_fiscal_nfce_'+Math.random().toString(36).slice(2))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_nfce' }, reload)
+    .subscribe((s) => { if (s === 'SUBSCRIBED' && lojaId != null) reload() })
+  return () => supabase.removeChannel(canal)
+}
+
+// ════════════════════════════════════════════════════════════
 //  tab_comandas — registro de comandas geradas (validação)
 // ════════════════════════════════════════════════════════════
 export async function fetchComandas() {

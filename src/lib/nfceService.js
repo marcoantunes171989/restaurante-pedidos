@@ -13,7 +13,7 @@
 
 import { resolverFiscalProduto, pendenciasFiscais } from "./fiscalService";
 import {
-  pendenciasEmitenteNfce, codigoUf,
+  pendenciasEmitenteNfce, codigoUf, rotuloAmbienteNfce,
   normalizarDocumentoFiscal, documentoEhAlfanumerico, documentoSuportadoParaChave,
   serieNfceValida,
 } from "./emitenteFiscalService";
@@ -134,4 +134,151 @@ export function preValidarNfce(rascunho) {
     ? "Apto para pré-validação (simulação). Emissão real depende de certificado/CSC (fase futura)."
     : `Pendências: ${pendEmit.length} do emitente, ${itensPend.length} item(ns).${semItens ? " Venda sem itens." : ""}`;
   return { apto, ambiente: rascunho.ambiente, pendenciasEmitente: pendEmit, itensComPendencia: itensPend, semItens, resumo };
+}
+
+// ════════════════════════════════════════════════════════════
+//  EMISSÃO SIMULADA (mod. 65) — passo seguinte à pré-validação.
+//  Imita o ciclo NUMERAR → DOCUMENTO → AUTORIZAR sem certificado/CSC/SEFAZ.
+//  Tudo determinístico e SEM valor fiscal. O número da nota é alocado fora
+//  (contador por loja/série, no banco) e entra aqui já resolvido.
+// ════════════════════════════════════════════════════════════
+
+// tpAmb do leiaute: 1=produção, 2=homologação. Simulação NUNCA é produção →
+// mapeia para 2 (sem valor fiscal); o rótulo "simulacao" fica no marcador próprio.
+export function tpAmbDeAmbiente(ambiente) {
+  return String(ambiente) === "producao" ? 1 : 2;
+}
+
+// cNF determinístico a partir do número emitido (na emissão real é aleatório).
+function cnfDoNumero(numero, serie) {
+  const semente = soDig(numero) + soDig(serie);
+  return cnfDeSemente(semente || "1");
+}
+
+/**
+ * Monta o documento fiscal simulado da NFC-e (estrutura do leiaute mod. 65).
+ * Reaproveita o rascunho (itens + resolução fiscal) e a chave de acesso.
+ * @returns {{ ok:boolean, erro:string|null, documento:object|null, chave:string|null }}
+ */
+export function montarDocumentoNfce({ emitente = null, documento = "", venda = {}, numero, ctxFiscal = {}, dataEmissao } = {}) {
+  const nNF = parseInt(soDig(numero), 10);
+  if (!Number.isFinite(nNF) || nNF <= 0) {
+    return { ok: false, erro: "Número da nota inválido (a numeração é alocada na emissão).", documento: null, chave: null };
+  }
+  const dhEmi = dataEmissao || new Date().toISOString();
+  const rascunho = montarRascunhoNfce({ emitente, documento, venda: { ...venda, numero: nNF, dataEmissao: dhEmi }, ctxFiscal });
+  const docFiscal = normalizarDocumentoFiscal(documento || emitente?.documento || "");
+  const serie = emitente?.nfceSerie || 1;
+  const ambiente = emitente?.nfceAmbiente || "simulacao";
+  const tpAmb = tpAmbDeAmbiente(ambiente);
+  const cNF = cnfDoNumero(nNF, serie);
+  const ch = montarChaveAcessoNfce({ uf: emitente?.uf, aamm: aammDe(dhEmi), cnpj: docFiscal, serie, numero: nNF, tpEmis: 1, cNF });
+  if (ch.erro) return { ok: false, erro: ch.erro, documento: null, chave: null };
+
+  const det = rascunho.itens.map((it) => ({
+    nItem: it.seq,
+    nome: it.nome,
+    quantidade: it.quantidade,
+    valorUnitario: it.valorUnitario,
+    valorTotal: it.valorTotal,
+    fiscal: it.fiscal,
+  }));
+  const vProd = rascunho.totais.totalProdutos;
+
+  const documentoNfce = {
+    versao: "4.00",
+    ide: {
+      cUF: codigoUf(emitente?.uf), natOp: "Venda ao consumidor", mod: 65,
+      serie, nNF, dhEmi, tpAmb, tpEmis: 1, cNF, cDV: ch.dv, chave: ch.chave,
+      ambienteLabel: rotuloAmbienteNfce(ambiente), ambiente,
+    },
+    emit: {
+      documento: docFiscal,
+      razaoSocial: emitente?.razaoSocial || emitente?.nomeFantasia || "",
+      nomeFantasia: emitente?.nomeFantasia || "",
+      inscricaoEstadual: emitente?.inscricaoEstadual || "",
+      uf: emitente?.uf || "", municipio: emitente?.municipio || "",
+      logradouro: emitente?.logradouro || "", numero: emitente?.numero || "",
+      bairro: emitente?.bairro || "", cep: emitente?.cep || "",
+    },
+    dest: { identificado: false, descricao: "Consumidor não identificado" },
+    det,
+    total: { qtdItens: det.length, vProd, vNF: vProd },
+    pag: { forma: venda.formaPagamento || "Dinheiro", valor: vProd },
+  };
+  return { ok: true, erro: null, documento: documentoNfce, chave: ch.chave };
+}
+
+// nProt (protocolo) simulado: 15 dígitos, determinístico a partir da chave.
+// Prefixo 9 sinaliza SIMULAÇÃO (protocolos reais começam por 1/2/3 = ambiente).
+function protocoloSimulado(chave, dhEmi) {
+  const base = soDig(chave) + soDig(aammDe(dhEmi));
+  let h = 0;
+  for (let i = 0; i < base.length; i++) h = (h * 31 + base.charCodeAt(i)) % 1e14;
+  return "9" + pad(String(h), 14);
+}
+
+/**
+ * Simula a autorização da NFC-e (resposta da SEFAZ). SEM contato real.
+ * Em simulação, apta → "autorizada" (cStat 100). Nunca tem valor fiscal.
+ * @returns {{ status:'autorizada'|'rejeitada', cStat:number, xMotivo:string,
+ *             nProt:string|null, dhRecbto:string, simulacao:true }}
+ */
+export function simularAutorizacaoNfce({ chave, ambiente = "simulacao", dataEmissao, apto = true } = {}) {
+  const dhRecbto = dataEmissao || new Date().toISOString();
+  if (!apto || !chave) {
+    return { status: "rejeitada", cStat: 999, xMotivo: "Rejeição (simulação): rascunho não apto à emissão.", nProt: null, dhRecbto, ambiente, simulacao: true };
+  }
+  return {
+    status: "autorizada",
+    cStat: 100,
+    xMotivo: "Autorizado o uso da NFC-e (SIMULAÇÃO — sem valor fiscal).",
+    nProt: protocoloSimulado(chave, dhRecbto),
+    dhRecbto, ambiente, simulacao: true,
+  };
+}
+
+/**
+ * URL do QR Code de consulta da NFC-e. Na emissão real o parâmetro `p` leva
+ * o hash do CSC (SHA-1); em SIMULAÇÃO não há CSC, então marcamos como tal —
+ * o QR mostra a chave para conferência, sem forjar assinatura.
+ */
+export function montarUrlQrCodeNfce({ chave, ambiente = "simulacao", uf = "" } = {}) {
+  const ch = soDig(chave);
+  if (ch.length !== 44) return "";
+  const tpAmb = tpAmbDeAmbiente(ambiente);
+  const uParam = String(uf || "").trim().toUpperCase() || "NA";
+  // versão 2 do QR; sem cIdToken/cHash reais (simulação).
+  return `https://nfce.simulacao.local/${uParam}/consulta?p=${ch}|2|${tpAmb}|SIMULACAO`;
+}
+
+/**
+ * Orquestra a emissão SIMULADA de ponta a ponta (número já alocado):
+ * rascunho → pré-validação → documento → autorização → QR. Puro.
+ * @returns {{ ok, erro, apto, chave, documento, autorizacao, qrUrl, totais, numero, serie, ambiente }}
+ */
+export function emitirNfceSimulada({ emitente = null, documento = "", venda = {}, numero, ctxFiscal = {}, dataEmissao } = {}) {
+  const dhEmi = dataEmissao || new Date().toISOString();
+  const rascunho = montarRascunhoNfce({ emitente, documento, venda, ctxFiscal });
+  const pv = preValidarNfce(rascunho);
+  if (!pv.apto) {
+    return { ok: false, erro: pv.resumo, apto: false, preValidacao: pv, chave: null, documento: null, autorizacao: null, qrUrl: "" };
+  }
+  const doc = montarDocumentoNfce({ emitente, documento, venda, numero, ctxFiscal, dataEmissao: dhEmi });
+  if (!doc.ok) return { ok: false, erro: doc.erro, apto: true, preValidacao: pv, chave: null, documento: null, autorizacao: null, qrUrl: "" };
+  const autorizacao = simularAutorizacaoNfce({ chave: doc.chave, ambiente: doc.documento.ide.ambiente, dataEmissao: dhEmi, apto: true });
+  const qrUrl = montarUrlQrCodeNfce({ chave: doc.chave, ambiente: doc.documento.ide.ambiente, uf: emitente?.uf });
+  return {
+    ok: true, erro: null, apto: true, preValidacao: pv,
+    chave: doc.chave, documento: doc.documento, autorizacao, qrUrl,
+    totais: doc.documento.total, numero: doc.documento.ide.nNF,
+    serie: doc.documento.ide.serie, ambiente: doc.documento.ide.ambiente,
+  };
+}
+
+// Formata a chave de 44 dígitos em grupos de 4 (leitura no cupom).
+export function formatarChaveNfce(chave) {
+  const d = soDig(chave);
+  if (d.length !== 44) return String(chave || "");
+  return d.replace(/(.{4})/g, "$1 ").trim();
 }
