@@ -137,16 +137,16 @@ export function ActiveFiltersSummary({ grupos, onClearAll, className = "" }) {
 // Cabeçalho de página: título (Sora), descrição curta, indicadores e ação principal
 export function PageHeader({ icone = null, titulo, descricao, indicadores = [], acao = null }) {
   return (
-    <div className="rounded-[2rem] border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
+    <header className="pp-page-header rounded-[1.5rem] border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1,46,70,0.05)] sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
+          <h1 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
             {icone && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
             {titulo}
-          </h3>
+          </h1>
           {descricao && <p className="mt-1 text-sm leading-6 text-[var(--pp-text-muted)]">{descricao}</p>}
         </div>
-        {acao && <div className="shrink-0">{acao}</div>}
+        {acao && <div className="pp-page-header-action shrink-0">{acao}</div>}
       </div>
       {indicadores.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -160,7 +160,7 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
           ))}
         </div>
       )}
-    </div>
+    </header>
   );
 }
 

@@ -6941,7 +6941,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
             Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
             cresce para p-5/p-6 em telas maiores. */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5 lg:p-6">
+        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area pp-admin-content flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5 lg:p-6">
           {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
@@ -7480,7 +7480,7 @@ function CardapioQrConfigAdmin({ products = [], setores = [], salvarProdutoQr = 
         acao={<PrimeButton variante="ghost" onClick={irParaProdutos}>Editar produtos</PrimeButton>}
       />
 
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="pp-page-header rounded-[1.5rem] border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1,46,70,0.05)] sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
@@ -14881,10 +14881,10 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
-            <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
+            <h1 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[#012E46]">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]"><IconCrm /></span>
               CRM — Clientes
-            </h3>
+            </h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Clientes identificados nos pedidos do cardápio digital. Analise frequência, consumo, faturamento, recorrência e oportunidades de relacionamento para aumentar vendas e fidelização.</p>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -14901,10 +14901,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
           <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap gap-1.5">
               {[["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"], ["todos", "Tudo"]].map(([v, t]) => (
-                <button key={v} onClick={() => setPreset(v)}
-                  className={`rounded-xl border px-3.5 py-2 text-xs font-black transition ${preset === v ? "border-blue-400 bg-blue-500 text-white" : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>
-                  {t}
-                </button>
+                <FilterChip key={v} size="sm" selected={preset === v} label={t} onClick={() => setPreset(v)} />
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -15509,13 +15506,9 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
 
   return (
     <main className="space-y-5">
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]"><IconCardapio /></span>
-          Cardápio Digital Externo
-        </h3>
-        <p className="mt-0.5 text-sm text-slate-400">Cardápio do cliente no celular — ver, pedir e acompanhar. Empresa: <b className="text-white">{lojaInfo?.nome || "—"}</b></p>
-      </div>
+      <PageHeader icone={<IconCardapio />} titulo="Cardápio Digital Externo"
+        descricao={`Cardápio do cliente no celular — visualizar, pedir e acompanhar. Empresa: ${lojaInfo?.nome || "—"}.`}
+        indicadores={[{ valor: ativo ? "Ativo" : "Inativo", rotulo: "canal externo", tom: ativo ? "ok" : "alerta" }, { valor: modo === "ambos" ? "Interno e externo" : modo === "externo" ? "Externo" : "Interno", rotulo: "modo de operação" }]} />
 
       {/* Modo de uso — SOMENTE LEITURA. Fonte única: Cadastro da Empresa → Operação.
           Esta tela apenas CONSULTA; a edição acontece no cadastro unificado. */}
@@ -16814,7 +16807,10 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
 
   const emEdicao = editandoId != null;
   const valorNum = Number(String(form.valor).replace(/\./g, "").replace(",", ".")) || Number(String(form.valor).replace(",", ".")) || 0;
-  const podeSalvar = String(form.codigo).trim().length >= 3 && valorNum > 0 && !salvando;
+  const percentualInvalido = form.tipo === "percentual" && valorNum > 100;
+  const podeSalvar = String(form.codigo).trim().length >= 3 && valorNum > 0 && !percentualInvalido && !salvando;
+  const totalAtivos = cupons.filter((c) => c.ativo !== false).length;
+  const totalEsgotados = cupons.filter((c) => c.quantidadeTotal != null && Math.max(0, c.quantidadeTotal - (c.quantidadeUsada || 0)) <= 0).length;
 
   function iniciarEdicao(c) {
     setFeedback(null);
@@ -16834,7 +16830,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
 
   async function salvar() {
     if (!podeSalvar) {
-      setFeedback({ tipo: "erro", texto: "Preencha o código (mín. 3 letras) e o valor do desconto." });
+      setFeedback({ tipo: "erro", texto: percentualInvalido ? "O desconto percentual não pode ultrapassar 100%." : "Preencha o código (mín. 3 caracteres) e o valor do desconto." });
       return;
     }
     if (form.inicioEm && form.fimEm && form.fimEm < form.inicioEm) {
@@ -16885,15 +16881,24 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
 
   return (
     <main className="space-y-5">
-      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Códigos de desconto da loja — canal (interno/externo/ambos), vigência por data e horário, quantidade e aplicação no PDV." />
+      <PageHeader icone={<IconPromocao />} titulo="Cupons" descricao="Crie códigos de desconto, controle limites de uso e defina onde e quando cada benefício poderá ser aplicado."
+        indicadores={[
+          { valor: cupons.length, rotulo: cupons.length === 1 ? "cupom" : "cupons" },
+          { valor: totalAtivos, rotulo: "ativos", tom: "ok" },
+          { valor: cupons.length - totalAtivos, rotulo: "inativos" },
+          { valor: totalEsgotados, rotulo: "esgotados", tom: totalEsgotados ? "erro" : "gold" },
+        ]} />
 
-      <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5">
-        <h3 className="mb-3 text-sm font-black text-white">{emEdicao ? "Editar cupom" : "Novo cupom"}</h3>
+      <section className="rounded-[1.75rem] border border-[#012E46]/10 bg-white p-4 shadow-sm sm:p-5" aria-label={emEdicao ? "Editar cupom" : "Novo cupom"}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <div><h3 className="text-base font-black text-[#012E46]">{emEdicao ? "Editar cupom" : "Novo cupom"}</h3><p className="mt-0.5 text-xs text-slate-500">Campos com regras de aplicação são conferidos novamente no fechamento.</p></div>
+          {emEdicao && <span className="rounded-full bg-[#F38525]/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#9A4B0C]">Modo de edição</span>}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <CampoCupom label="Código" valor={form.codigo} onChange={(v) => setForm({ ...form, codigo: v.toUpperCase().replace(/\s/g, "") })} placeholder="PRIME10" />
           <div>
-            <label className="mb-1 block text-[11px] font-bold text-slate-400">Tipo de desconto</label>
-            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60">
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#012E46]/60">Tipo de desconto</label>
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })} className="w-full rounded-xl border border-[#012E46]/15 bg-[#F7FAFC] px-3 py-2.5 text-sm text-[#012E46] outline-none transition focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10">
               <option value="percentual">Percentual (%)</option>
               <option value="valor">Valor fixo (R$)</option>
             </select>
@@ -16902,8 +16907,8 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
           <CampoCupom label="Consumo mínimo (R$)" valor={form.minimoCompra} onChange={(v) => setForm({ ...form, minimoCompra: v })} placeholder="0,00" />
           <CampoCupom label="Quantidade disponível" valor={form.quantidadeTotal} onChange={(v) => setForm({ ...form, quantidadeTotal: v.replace(/\D/g, "") })} placeholder="vazio = ilimitado" />
           <div>
-            <label className="mb-1 block text-[11px] font-bold text-slate-400">Utilização</label>
-            <select value={form.canal} onChange={(e) => setForm({ ...form, canal: e.target.value })} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60">
+            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#012E46]/60">Utilização</label>
+            <select value={form.canal} onChange={(e) => setForm({ ...form, canal: e.target.value })} className="w-full rounded-xl border border-[#012E46]/15 bg-[#F7FAFC] px-3 py-2.5 text-sm text-[#012E46] outline-none transition focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10">
               <option value="ambos">Interno e externo</option>
               <option value="interno">Somente interno (mesa)</option>
               <option value="externo">Somente externo (delivery)</option>
@@ -16915,6 +16920,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
           <CampoCupom label="Horário final" tipo="time" valor={form.horaFim} onChange={(v) => setForm({ ...form, horaFim: v })} />
           <CampoCupom label="Descrição" valor={form.descricao} onChange={(v) => setForm({ ...form, descricao: v })} placeholder="Campanha Pedido Prime" />
         </div>
+        {percentualInvalido && <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">O percentual máximo permitido é 100%.</p>}
         {feedback && (
           <p
             role="status"
@@ -16932,7 +16938,7 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
             type="button"
             disabled={!podeSalvar}
             onClick={salvar}
-            className="btn-laranja inline-flex min-h-11 items-center justify-center rounded-2xl px-5 text-sm font-black text-[#012E46] disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-[#F38525] px-5 text-sm font-black text-white transition hover:bg-[#df741b] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
           >
             {salvando ? "Salvando…" : emEdicao ? "Salvar cupom" : "Criar cupom"}
           </button>
@@ -16940,18 +16946,19 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
             <button
               type="button"
               onClick={() => { setEditandoId(null); setForm(VAZIO); setFeedback(null); }}
-              className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300"
+              className="rounded-xl border border-[#012E46]/15 bg-white px-4 py-2 text-sm font-bold text-[#012E46] hover:bg-slate-50"
             >
               Cancelar
             </button>
           )}
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">Código em maiúsculas. O PDV valida canal, data, horário, mínimo e quantidade ao aplicar e de novo no fechamento. Horário vazio = qualquer hora do dia.</p>
-      </div>
+        <p className="mt-3 rounded-xl bg-[#012E46]/[0.04] px-3 py-2 text-[11px] leading-5 text-slate-600"><b className="text-[#012E46]">Como funciona:</b> o código é salvo em maiúsculas. O PDV valida canal, vigência, horário, consumo mínimo e quantidade ao aplicar e no fechamento. Horário vazio significa qualquer hora do dia.</p>
+      </section>
 
       {cupons.length === 0 ? (
-        <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] py-14 text-center">
-          <p className="font-black text-white">Nenhum cupom cadastrado.</p>
+        <div className="rounded-[2rem] border border-[#012E46]/10 bg-white py-14 text-center shadow-sm">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F38525]/10 text-[#F38525]"><IconPromocao /></span>
+          <p className="mt-3 font-black text-[#012E46]">Nenhum cupom cadastrado.</p>
           <p className="text-sm text-slate-500">Crie um código para o caixa aplicar no fechamento da conta.</p>
         </div>
       ) : (
@@ -16961,19 +16968,19 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
             const esgotado = restantes != null && restantes <= 0;
             const canalLabel = c.canal === "interno" ? "Interno (mesa)" : c.canal === "externo" ? "Externo (delivery)" : "Interno e externo";
             return (
-              <div key={c.id} className={`flex flex-col rounded-[1.5rem] border p-5 ${c.ativo && !esgotado ? "border-gold-400/30 bg-gold-400/[0.05]" : "border-white/10 bg-white/[0.03] opacity-70"}`}>
+              <article key={c.id} className={`flex flex-col rounded-[1.5rem] border bg-white p-5 shadow-sm transition hover:shadow-md ${c.ativo && !esgotado ? "border-[#F38525]/40" : "border-[#012E46]/10 opacity-75"}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate font-black text-white">{c.codigo}</p>
+                    <p className="truncate font-black tracking-wide text-[#012E46]">{c.codigo}</p>
                     <p className="truncate text-xs text-slate-400">{c.descricao || "Sem descrição"}</p>
                   </div>
-                  <span className="shrink-0 rounded-lg bg-white/10 px-2 py-1 text-xs font-black text-white">
+                  <span className="shrink-0 rounded-lg bg-[#F38525]/10 px-2.5 py-1 text-xs font-black text-[#9A4B0C]">
                     {c.tipo === "valor" ? formatCurrency(c.valor) : `${c.valor}%`}
                   </span>
                 </div>
-                <ul className="mt-3 space-y-1 text-xs text-slate-400">
-                  <li>Utilização: <strong className="text-white">{canalLabel}</strong></li>
-                  <li>Usados: <strong className="text-white">{c.quantidadeUsada || 0}</strong>{c.quantidadeTotal != null ? ` de ${c.quantidadeTotal}` : " (ilimitado)"}</li>
+                <ul className="mt-3 flex-1 space-y-1 text-xs leading-5 text-slate-500">
+                  <li>Utilização: <strong className="text-[#012E46]">{canalLabel}</strong></li>
+                  <li>Usados: <strong className="text-[#012E46]">{c.quantidadeUsada || 0}</strong>{c.quantidadeTotal != null ? ` de ${c.quantidadeTotal}` : " (ilimitado)"}</li>
                   {restantes != null && <li className={esgotado ? "text-rose-400" : ""}>Disponíveis: <strong>{restantes}</strong></li>}
                   {c.minimoCompra > 0 && <li>Mínimo: {formatCurrency(c.minimoCompra)}</li>}
                   {(c.inicioEm || c.fimEm) && (
@@ -16989,12 +16996,12 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
                     </li>
                   )}
                 </ul>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => iniciarEdicao(c)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">Editar</button>
-                  <button type="button" onClick={() => toggleCupom(c.id)} className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-slate-200">{c.ativo ? "Desativar" : "Ativar"}</button>
-                  <button type="button" onClick={() => aoRemover(c.id)} className="rounded-lg border border-rose-500/30 px-3 py-1.5 text-xs font-bold text-rose-300">Excluir</button>
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-[#012E46]/10 pt-3">
+                  <button type="button" onClick={() => iniciarEdicao(c)} className="rounded-xl border border-[#F38525]/35 bg-[#F38525]/10 px-3 py-2 text-xs font-bold text-[#9A4B0C] hover:bg-[#F38525]/20">Editar</button>
+                  <button type="button" onClick={() => toggleCupom(c.id)} className="rounded-xl border border-[#012E46]/15 bg-white px-3 py-2 text-xs font-bold text-[#012E46] hover:bg-slate-50">{c.ativo ? "Desativar" : "Ativar"}</button>
+                  <button type="button" onClick={() => aoRemover(c.id)} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100">Excluir</button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
@@ -17006,13 +17013,13 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
 function CampoCupom({ label, valor, onChange, placeholder = "", tipo = "text" }) {
   return (
     <div>
-      <label className="mb-1 block text-[11px] font-bold text-slate-400">{label}</label>
+      <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-[#012E46]/60">{label}</label>
       <input
         type={tipo}
         value={valor}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60"
+        className="w-full rounded-xl border border-[#012E46]/15 bg-[#F7FAFC] px-3 py-2.5 text-sm text-[#012E46] outline-none transition placeholder:text-slate-400 focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10"
       />
     </div>
   );
@@ -18066,15 +18073,10 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
   return (
     <main className="space-y-5">
       {/* Cabeçalho */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="page-title flex items-center gap-3 text-2xl font-bold tracking-tight text-dash-navy">
-            Programa de Fidelidade
-            <span className={`rounded-full px-2.5 py-1 text-xs font-black ${programaAtivo ? "bg-[#5E8C31]/15 text-[#3F6021]" : "bg-[var(--pp-border)] text-[var(--pp-text-muted)]"}`}>{programaAtivo ? "Ativo" : "Inativo"}</span>
-          </h2>
-          <p className="mt-1 text-sm text-[var(--pp-text-muted)]">Gerencie regras de pontuação, recompensas e acompanhe a performance do seu programa.</p>
-        </div>
-        <div className="relative">
+      <PageHeader icone={<FidIco.presente />} titulo="Programa de Fidelidade"
+        descricao="Gerencie regras de pontuação, recompensas e acompanhe a performance do programa."
+        indicadores={[{ valor: programaAtivo ? "Ativo" : "Inativo", rotulo: "status", tom: programaAtivo ? "ok" : "alerta" }]}
+        acao={<div className="relative">
           <button onClick={() => setConfigAberto((v) => !v)} className="inline-flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-dash-navy transition hover:bg-[var(--pp-bg)] [&>svg]:h-4 [&>svg]:w-4"><FidIco.config /> Configurações do Programa</button>
           {configAberto && (
             <>
@@ -18092,8 +18094,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
               </div>
             </>
           )}
-        </div>
-      </div>
+        </div>} />
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -19129,16 +19130,10 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
   return (
     <main className="space-y-5">
       {/* ── Cabeçalho ─────────────────────────────────────── */}
-      <div className="rounded-[2rem] border border-white/10 bg-blue-950/40 p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-gold-400/40 bg-gold-400/10 text-gold-300 [&>svg]:h-6 [&>svg]:w-6"><IcoEscudo /></span>
-            <div className="min-w-0">
-              <h3 className="page-title text-xl font-bold tracking-tight text-white sm:text-2xl">Auditoria Gerencial</h3>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">Acompanhe acessos, alterações, exclusões, caixa, plano, licença e permissões em tempo real.</p>
-            </div>
-          </div>
-          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+      <PageHeader icone={<IcoEscudo />} titulo="Auditoria Gerencial"
+        descricao="Acompanhe acessos, alterações, exclusões, caixa, plano, licença e permissões em tempo real."
+        indicadores={[{ valor: kpis.total, rotulo: "eventos no período" }, { valor: fmtDataHora(ultimaAtt.toISOString()), rotulo: "última atualização", tom: "gold" }]}
+        acao={<div className="flex flex-col items-stretch gap-2 sm:items-end">
             <div className="flex flex-wrap gap-2 sm:justify-end">
               <button onClick={atualizar} disabled={atualizando}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4">
@@ -19149,10 +19144,7 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
                 <IcoDownload /> Exportar relatório
               </button>
             </div>
-            <p className="text-[11px] text-slate-500">Última atualização: {fmtDataHora(ultimaAtt.toISOString())}</p>
-          </div>
-        </div>
-      </div>
+          </div>} />
 
       {/* ── KPIs ──────────────────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

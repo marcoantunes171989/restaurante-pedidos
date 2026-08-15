@@ -1315,6 +1315,69 @@ h1, h2, h3, .brand-title, .page-title, .font-display,
 .pp-admin-module .pp-kpi            { font-size: 20px; font-weight: 700; line-height: 1.2; }
 .pp-admin-module .pp-caption        { font-size: 12px; font-weight: 400; line-height: 1.4; }
 
+/* Base única dos módulos administrativos. Esta camada elimina diferenças
+   residuais entre telas antigas e novas sem alterar componentes funcionais. */
+.pp-admin-module .pp-admin-content {
+  color: var(--pp-text-body);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+}
+.pp-admin-module .pp-admin-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea) {
+  border-color: rgba(1, 46, 70, 0.14) !important;
+  background-color: #FFFFFF !important;
+  color: #012E46 !important;
+  font-family: inherit;
+  font-size: 14px;
+  transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.pp-admin-module .pp-admin-content :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea):focus {
+  border-color: #012E46 !important;
+  box-shadow: 0 0 0 3px rgba(1, 46, 70, 0.10) !important;
+  outline: none !important;
+}
+.pp-admin-module .pp-admin-content :where(input, textarea)::placeholder {
+  color: #94A3B8 !important;
+  opacity: 1;
+}
+.pp-admin-module .pp-admin-content :where(input, select, textarea):disabled {
+  background-color: #F1F5F9 !important;
+  color: #64748B !important;
+  cursor: not-allowed;
+}
+.pp-admin-module .pp-admin-content :where(label) {
+  color: #52606D;
+}
+.pp-admin-module .pp-admin-content :where(table) {
+  font-variant-numeric: tabular-nums;
+}
+.pp-admin-module .pp-admin-content :where(thead) {
+  background-color: #F7FAFC;
+  color: #52606D;
+}
+.pp-admin-module .pp-admin-content :where(tbody tr) {
+  transition: background-color .15s ease;
+}
+.pp-admin-module .pp-admin-content :where(tbody tr):hover {
+  background-color: rgba(1, 46, 70, 0.025);
+}
+.pp-admin-module .pp-admin-content :where(button, [role="button"]):focus-visible {
+  outline: 2px solid #012E46;
+  outline-offset: 2px;
+}
+.pp-admin-module .pp-admin-content .pp-page-header {
+  width: 100%;
+}
+@media (max-width: 639px) {
+  .pp-admin-module .pp-admin-content .pp-page-header-action,
+  .pp-admin-module .pp-admin-content .pp-page-header-action > button,
+  .pp-admin-module .pp-admin-content .pp-page-header-action > a {
+    width: 100%;
+  }
+  .pp-admin-module .pp-admin-content :where(table) {
+    font-size: 12px;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════
    NÚMEROS do painel administrativo — TAMANHO PADRÃO ÚNICO E PEQUENO
    (skill numeros-admin). Todo número grande (KPI, total, contagem, %)
