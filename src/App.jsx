@@ -6685,8 +6685,8 @@ function AdminUserActions({ currentUser, isSuperAdmin, lojaInfo, onSair }) {
   return (
     <div className="flex min-w-0 items-center gap-2 font-[inherit]">
       <div className="hidden min-w-0 text-right sm:block">
-        <p className="max-w-52 truncate text-[13px] font-bold leading-5 text-[#012E46]">{nome}</p>
-        <p className="max-w-52 truncate text-[11px] font-medium leading-4 text-[#637985]">
+        <p className="max-w-52 truncate text-[11px] font-bold leading-4 text-[#012E46]">{nome}</p>
+        <p className="max-w-52 truncate text-[10px] font-normal leading-3.5 text-[#637985]">
           {isSuperAdmin ? "Administrador geral" : (lojaInfo?.nome || currentUser?.role || "Usuário")}
         </p>
       </div>
@@ -6694,7 +6694,7 @@ function AdminUserActions({ currentUser, isSuperAdmin, lojaInfo, onSair }) {
         {iniciais || "U"}
       </div>
       <button type="button" onClick={onSair} aria-label="Sair do sistema" title="Sair do sistema"
-        className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#DDE4E8] bg-white px-3.5 text-xs font-bold text-[#012E46] transition hover:border-[#F38525] hover:bg-[#FFF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#DDE4E8] bg-white px-3 text-[11px] font-bold text-[#012E46] transition hover:border-[#F38525] hover:bg-[#FFF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
         <span aria-hidden="true">↪</span><span className="hidden sm:inline">Sair</span>
       </button>
     </div>
