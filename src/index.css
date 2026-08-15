@@ -1626,19 +1626,26 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-mesa-welcome .pp-welcome-stage {
   isolation: isolate;
   overflow: visible;
+  display: grid;
+  grid-template-columns: 18% minmax(0, 1fr) 18%;
+  column-gap: 8px;
+  width: 112%;
+  max-width: none !important;
+  margin-left: -6%;
 }
 .pp-mesa-welcome .pp-welcome-stage > .pp-welcome-card {
   z-index: 2;
-  flex: 0 0 82%;
-  width: 82%;
-  max-width: 82% !important;
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  max-width: 100% !important;
 }
 .pp-mesa-welcome .pp-welcome-side {
-  position: absolute;
+  position: relative;
   z-index: 1;
-  top: 0;
-  bottom: 0;
-  width: 24%;
+  inset: auto;
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid #E6E6E6;
   border-radius: 1.2rem;
@@ -1646,13 +1653,13 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  opacity: .96;
+  opacity: .9;
   transition: opacity .2s ease, transform .2s ease;
 }
 .pp-mesa-welcome .pp-welcome-side:hover { opacity: 1; }
 .pp-mesa-welcome .pp-welcome-side:active { transform: scale(.98); }
-.pp-mesa-welcome .pp-welcome-side-left { left: -13%; }
-.pp-mesa-welcome .pp-welcome-side-right { right: -13%; }
+.pp-mesa-welcome .pp-welcome-side-left { grid-column: 1; grid-row: 1; }
+.pp-mesa-welcome .pp-welcome-side-right { grid-column: 3; grid-row: 1; }
 .pp-mesa-welcome .pp-welcome-side img {
   display: block;
   width: 100%;
@@ -1738,17 +1745,20 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   width: clamp(29px, 4vh, 34px) !important;
   height: clamp(29px, 4vh, 34px) !important;
 }
+.pp-welcome-ext .pp-welcome-status > div > span:last-child > span:first-child { font-size: 11px !important; }
+.pp-welcome-ext .pp-welcome-status > div > span:last-child > span:last-child { font-size: 9px !important; }
 .pp-welcome-ext .pp-welcome-card { border-radius: 1.15rem; }
 .pp-welcome-ext .pp-welcome-foto {
   aspect-ratio: 1.55 / 1;
   min-height: 165px;
   max-height: min(33dvh, 260px);
 }
-.pp-welcome-ext .pp-welcome-cta { min-height: 44px; margin-top: .45rem; font-size: 13px; border-radius: .8rem; }
+.pp-welcome-ext .pp-welcome-cta { min-height: 42px; margin-top: .4rem; font-size: 11px; border-radius: .8rem; }
 .pp-welcome-ext .pp-welcome-benefits { min-height: 44px; }
 .pp-welcome-ext footer { margin-top: .35rem; }
 .pp-welcome-ext footer p:last-child { display: none; }
 @media (max-width: 360px), (max-height: 720px) {
+  .pp-mesa-welcome .pp-welcome-stage { grid-template-columns: 17% minmax(0, 1fr) 17%; column-gap: 6px; width: 110%; margin-left: -5%; }
   .pp-welcome-ext .pp-welcome-benefits { min-height: 50px; padding-block: 0.45rem; }
   .pp-welcome-ext .pp-welcome-benefits > div { gap: 0.25rem; }
   .pp-welcome-ext .pp-welcome-benefits > div > span:first-child { width: 27px; height: 27px; }

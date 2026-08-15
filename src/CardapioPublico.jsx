@@ -1657,22 +1657,10 @@ export default function CardapioPublico() {
                 <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden">
                   <CkIconEstrela width={23} height={23} className="mt-0.5 shrink-0 text-[#F38525]" />
                   <div className="min-w-0">
-                    <h2 id="pp-destaques-titulo" className="truncate text-[clamp(14px,2.1vh,16px)] font-black text-[#012E46]">Destaques da casa</h2>
-                    <p className="text-[10px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
+                    <h2 id="pp-destaques-titulo" className="truncate text-[clamp(12px,1.8vh,14px)] font-black text-[#012E46]">Destaques da casa</h2>
+                    <p className="text-[9px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
                   </div>
                 </div>
-                {nSlides > 1 && (
-                  <div className="flex shrink-0 gap-1.5">
-                    <button type="button" onClick={() => irSlide(-1)} aria-label="Produto anterior"
-                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[#012E46] transition active:scale-95">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-                    </button>
-                    <button type="button" onClick={() => irSlide(1)} aria-label="Próximo produto"
-                      className="pp-welcome-cta flex h-8 w-8 items-center justify-center rounded-full btn-laranja text-[#012E46] transition active:scale-95">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-                    </button>
-                  </div>
-                )}
               </div>
 
               <div className="pp-welcome-stage relative flex min-h-0 flex-1 items-stretch justify-center">
@@ -1762,7 +1750,7 @@ export default function CardapioPublico() {
             </div>}
 
             <button type="button" onClick={() => setEtapa("cardapio")}
-              className="pp-welcome-cta mt-2 flex w-full min-h-[48px] min-w-0 items-center gap-2.5 rounded-2xl btn-laranja px-3 text-[14px] font-black text-[#012E46] transition active:opacity-95 sm:px-4">
+              className="pp-welcome-cta mt-2 flex w-full min-h-[48px] min-w-0 items-center gap-2.5 rounded-2xl btn-laranja px-3 text-[12px] font-black text-[#012E46] transition active:opacity-95 sm:px-4">
               <CkIconRecibo width={16} height={16} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate text-left">Ver cardápio completo</span>
               <span className="shrink-0" aria-hidden="true">→</span>
