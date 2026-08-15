@@ -6686,16 +6686,16 @@ function AdminUserActions({ currentUser, isSuperAdmin, lojaInfo, onSair }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <div className="hidden min-w-0 text-right sm:block">
-        <p className="max-w-48 truncate text-xs font-black leading-tight text-[#012E46]">{nome}</p>
-        <p className="max-w-48 truncate text-[10px] leading-tight text-[#637985]">
+        <p className="max-w-52 truncate text-[13px] font-bold leading-5 text-[#012E46]">{nome}</p>
+        <p className="max-w-52 truncate text-[11px] font-medium leading-4 text-[#637985]">
           {isSuperAdmin ? "Administrador geral" : (lojaInfo?.nome || currentUser?.role || "Usuário")}
         </p>
       </div>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#012E46] text-[11px] font-black tracking-wide text-white shadow-sm" aria-hidden="true">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#012E46] text-xs font-extrabold tracking-wide text-white shadow-sm" aria-hidden="true">
         {iniciais || "U"}
       </div>
       <button type="button" onClick={onSair} aria-label="Sair do sistema" title="Sair do sistema"
-        className="inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-[#DDE4E8] bg-white px-3 text-xs font-bold text-[#012E46] transition hover:border-[#F38525] hover:bg-[#FFF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[#DDE4E8] bg-white px-3.5 text-xs font-bold text-[#012E46] transition hover:border-[#F38525] hover:bg-[#FFF8F2] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
         <span aria-hidden="true">↪</span><span className="hidden sm:inline">Sair</span>
       </button>
     </div>
@@ -6711,15 +6711,15 @@ function AdminStatusBar({ currentUser, lojaInfo }) {
   }, []);
   const dataHora = agora.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
   return (
-    <footer className="flex min-h-7 shrink-0 items-center justify-between gap-3 border-t border-[#DDE4E8] bg-[#F7F9FA] px-3 py-1 text-[9.5px] font-semibold text-[#637985] sm:px-5" aria-label="Informações do sistema">
+    <footer className="flex min-h-9 shrink-0 items-center justify-between gap-3 border-t border-[#DDE4E8] bg-[#F7F9FA] px-3 py-1.5 text-[10.5px] font-medium leading-4 text-[#526A76] sm:px-5 sm:text-[11px]" aria-label="Informações do sistema">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="inline-flex shrink-0 items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />PostgreSQL</span>
-        <span className="hidden max-w-48 truncate md:inline">Empresa: <b className="text-[#012E46]">{lojaInfo?.nome || "Nenhuma selecionada"}</b></span>
-        <span className="hidden max-w-40 truncate lg:inline">Usuário: <b className="text-[#012E46]">{currentUser?.name || "—"}</b></span>
+        <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#012E46]"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />PostgreSQL</span>
+        <span className="hidden max-w-52 truncate md:inline">Empresa: <b className="font-semibold text-[#012E46]">{lojaInfo?.nome || "Nenhuma selecionada"}</b></span>
+        <span className="hidden max-w-44 truncate lg:inline">Usuário: <b className="font-semibold text-[#012E46]">{currentUser?.name || "—"}</b></span>
       </div>
       <div className="flex shrink-0 items-center gap-3 tabular-nums">
-        <time dateTime={agora.toISOString()}>{dataHora}</time>
-        <span className="hidden rounded-md bg-[#E9EEF1] px-1.5 py-0.5 font-mono text-[9px] text-[#012E46] sm:inline">v{versao}</span>
+        <time className="font-medium text-[#012E46]" dateTime={agora.toISOString()}>{dataHora}</time>
+        <span className="hidden rounded-md bg-[#E9EEF1] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#012E46] sm:inline">v{versao}</span>
       </div>
     </footer>
   );
@@ -6976,8 +6976,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
             </button>
             <div className="hidden min-w-0 lg:block">
-              <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-[#84949C]">Painel administrativo</p>
-              <p className="truncate text-xs font-black text-[#012E46]">{menu.flatMap((grupo) => grupo.itens).find((item) => item.id === ativo)?.label || "Dashboard"}</p>
+              <p className="truncate text-[11px] font-semibold uppercase leading-4 tracking-[0.12em] text-[#637985]">Painel administrativo</p>
+              <p className="truncate text-sm font-bold leading-5 text-[#012E46]">{menu.flatMap((grupo) => grupo.itens).find((item) => item.id === ativo)?.label || "Dashboard"}</p>
             </div>
           </div>
           <AdminUserActions currentUser={currentUser} isSuperAdmin={isSuperAdmin} lojaInfo={lojaInfo} onSair={onSair} />
