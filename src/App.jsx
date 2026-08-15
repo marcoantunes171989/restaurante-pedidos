@@ -5879,23 +5879,24 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
     else if (e.key === "Escape") { e.preventDefault(); onClose(); }
   };
   return (
-    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#012E46]/55 px-4 pt-[14vh] backdrop-blur-sm" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[var(--pp-border)] px-4 py-3.5 transition-colors duration-150 focus-within:border-[#012E46]">
+    <div className="fixed inset-0 z-[120] flex items-start justify-center bg-[#012E46]/55 px-3 pt-[10vh] backdrop-blur-sm sm:px-4 sm:pt-[14vh]" onClick={onClose} onKeyDown={onKey} style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Busca rápida de telas" className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#012E46]/15 bg-white shadow-2xl">
+        <div className="flex items-center gap-3 border-b border-[#012E46]/10 px-4 py-3 transition-colors focus-within:border-[#012E46]">
           <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--pp-text-muted)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
-            placeholder="Buscar telas e ações…  (ex.: produtos, caixa, clientes)"
-            className="w-full bg-transparent text-[15px] text-[var(--pp-text)] outline-none placeholder:text-[var(--pp-text-muted)]" />
+            placeholder="Digite uma tela ou ação…"
+            aria-label="Buscar telas e ações"
+            className="w-full bg-transparent text-sm text-[#012E46] outline-none placeholder:text-slate-400" />
           <span className="shrink-0 rounded-md border border-[var(--pp-border)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-text-muted)]">ESC</span>
         </div>
-        <div ref={listRef} className="max-h-[52vh] space-y-0.5 overflow-y-auto p-2">
+        <div ref={listRef} className="max-h-[58vh] space-y-1 overflow-y-auto p-2">
           {itens.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-[var(--pp-text-muted)]">Nada encontrado para “{q}”.</p>
           ) : itens.map((it, i) => {
             const on = i === idx;
             return (
               <button key={it.id + i} data-on={on ? "1" : "0"} onMouseEnter={() => setIdx(i)} onClick={() => escolher(it)}
-                className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46] ${on ? "border-[#012E46] bg-[rgba(1, 46, 70,0.10)]" : "border-transparent hover:border-[rgba(1, 46, 70,0.35)] hover:bg-[rgba(1, 46, 70,0.05)]"}`}>
+                className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46] ${on ? "border-[#012E46]/20 bg-[#E8F0F3]" : "border-transparent hover:bg-[#F4F7F8]"}`}>
                 <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors duration-150 ${on ? "border-[#012E46]/40 bg-[rgba(1, 46, 70,0.10)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>
                   {it.sair
                     ? <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg>
@@ -5910,9 +5911,9 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
             );
           })}
         </div>
-        <div className="flex items-center justify-between border-t border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-[11px] text-[var(--pp-text-muted)]">
-          <span className="font-semibold">Pedido <span className="text-[#012E46]">Prime</span> · navegação rápida</span>
-          <span>↑↓ navegar · ↵ abrir · Ctrl K abrir/fechar</span>
+        <div className="flex flex-wrap items-center justify-between gap-1 border-t border-[#012E46]/10 bg-[#F7F9FA] px-4 py-2 text-[10px] text-slate-500">
+          <span className="font-semibold text-[#012E46]">Navegação rápida</span>
+          <span>↑↓ selecionar · Enter abrir · Esc fechar</span>
         </div>
       </div>
     </div>
@@ -14405,16 +14406,15 @@ function LicencaAdmin({ lojas = [], usuarios = [], setLicencaEmpresa, setValidad
       <PageHeader
         icone={<IconLicencas />}
         titulo="Licenças de Uso"
-        descricao="Controle de liberação e suspensão do acesso de cada empresa à plataforma."
+        descricao="Gerencie validade, liberação e suspensão de acesso por empresa, preservando usuários e histórico."
         indicadores={[
           { valor: empresas.length, rotulo: empresas.length === 1 ? "empresa" : "empresas" },
           { valor: liberadas, rotulo: "liberadas", tom: "ok" },
           { valor: suspensas, rotulo: "suspensas", tom: "erro" },
         ]}
       />
-      <p className="rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-        Ao <b>suspender a licença</b>, os usuários da empresa não poderão acessar o sistema — verão a mensagem
-        <i> "A licença desta empresa está temporariamente suspensa. Entre em contato com o administrador do sistema."</i> O administrador geral continua com acesso liberado.
+      <p className="rounded-2xl border border-[#F38525]/25 bg-[#FFF7ED] px-4 py-3 text-xs text-[#012E46]">
+        <b>Como funciona:</b> suspender bloqueia novos acessos da empresa sem apagar cadastros ou histórico. O administrador geral permanece com acesso para manutenção.
       </p>
 
       {/* Busca + lista */}
@@ -14647,30 +14647,27 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
   return (
     <main className="space-y-5">
       {/* Cabeçalho + versão liberada */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <h3 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-white">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]"><IconVersoes /></span>
-          Controle de Versões
-        </h3>
-        <p className="mt-1 text-sm text-slate-400">Acompanhe a versão liberada da plataforma e a versão aplicada em cada aparelho.</p>
+      <section className="space-y-4">
+        <PageHeader icone={<IconVersoes />} titulo="Controle de Versões"
+          descricao="Compare a versão publicada com a versão instalada em cada navegador ou dispositivo." />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Versão liberada</p>
-            <p className="mt-1 font-mono text-lg font-black text-white">{ref}</p>
+            <p className="mt-1 font-mono text-lg font-black text-[#012E46]">{ref}</p>
           </div>
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Aparelhos atualizados</p>
-            <p className="mt-1 text-lg font-black text-emerald-200">{atualizados}<span className="text-sm text-slate-400">/{lista.length}</span></p>
+            <p className="mt-1 text-lg font-black text-emerald-700">{atualizados}<span className="text-sm text-slate-500">/{lista.length}</span></p>
           </div>
           <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Desatualizados</p>
-            <p className="mt-1 text-lg font-black text-amber-200">{desatualizados}</p>
+            <p className="mt-1 text-lg font-black text-amber-700">{desatualizados}</p>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Lista de dispositivos */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-[2rem] border border-[#012E46]/10 bg-white p-5 shadow-sm">
         {carregando && <p className="py-8 text-center text-sm text-slate-500">Carregando aparelhos…</p>}
         {!carregando && lista.length === 0 && (
           <p className="py-8 text-center text-sm text-slate-500">Nenhum aparelho registrado ainda. Ao abrir o app em um aparelho, ele aparece aqui.</p>
@@ -14679,7 +14676,7 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
           {lista.map((d) => {
             const ok = d.versao === ref;
             return (
-              <div key={d.deviceId} className="flex flex-col gap-2 rounded-3xl border border-white/10 bg-slate-950/40 p-3.5 sm:flex-row sm:items-center sm:gap-3">
+              <div key={d.deviceId} className="flex flex-col gap-2 rounded-2xl border border-[#012E46]/10 bg-[#F9FBFC] p-3.5 sm:flex-row sm:items-center sm:gap-3">
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-lg ${d.standalone ? "bg-blue-500/15" : "bg-white/[0.06]"}`}>{d.standalone ? "📱" : "🌐"}</span>
                 <div className="min-w-0 flex-1">
                   {editId === d.deviceId ? (
@@ -14690,13 +14687,13 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
                       <button onClick={() => salvarNome(d.deviceId)} className="shrink-0 rounded-xl bg-blue-500 px-3 py-1.5 text-xs font-black text-white">Salvar</button>
                     </div>
                   ) : (
-                    <p className="truncate text-sm font-black text-white">
+                    <p className="truncate text-sm font-bold text-[#012E46]">
                       {d.nome || "Aparelho sem nome"}
                       <button onClick={() => { setEditId(d.deviceId); setEditNome(d.nome || ""); }} className="ml-2 text-[11px] font-bold text-slate-500 hover:text-blue-300">✏️ renomear</button>
                     </p>
                   )}
                   <p className="truncate text-xs text-slate-400">
-                    {d.userEmail || "—"} · {d.standalone ? "App instalado" : "Navegador"} · {nomeLoja(d.lojaId)}
+                    {d.userEmail || "Usuário não identificado"} · {d.standalone ? "App instalado" : "Navegador"} · {nomeLoja(d.lojaId)}
                   </p>
                   <p className="truncate text-[11px] text-slate-500">
                     🕒 {dataHora(d.ultimaAtividade)} <span className="text-slate-600">({tempoRelativo(d.ultimaAtividade)})</span>
@@ -14716,7 +14713,7 @@ function VersoesAdmin({ lojas = [], lojaFiltro = null }) {
           })}
         </div>
         <p className="mt-4 text-xs text-slate-500">
-          Atualização é automática: o app recarrega a versão liberada ao reabrir e mostra o aviso "Nova versão disponível". Aparelhos desatualizados se atualizam sozinhos no próximo uso.
+          A atualização é aplicada no próximo carregamento. Use o nome do aparelho para identificar rapidamente tablets, caixas e computadores da operação.
         </p>
       </div>
 
@@ -16120,7 +16117,7 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
       <PageHeader
         icone={<IconEmpresas />}
         titulo="Empresas"
-        descricao="Gestão multiempresa da plataforma: prefixo de comanda, modo de uso, plano e licença."
+        descricao="Cadastre e acompanhe empresas, prefixos de comandas, modalidade de uso e situação operacional."
         indicadores={[
           { valor: lojas.length, rotulo: lojas.length === 1 ? "empresa" : "empresas" },
           { valor: lojas.filter((l) => l.active !== false).length, rotulo: "ativas", tom: "ok" },
@@ -16168,11 +16165,11 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
                 onClick={() => { if (l.active !== false) setInativar(l); else toggleLoja(l.id); }}
                 disabled={l.active !== false && lojaInfo?.id === l.id}
                 title={l.active !== false ? "Inativar empresa" : "Reativar empresa"}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${l.active !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${l.active !== false ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-red-100 text-red-700 hover:bg-red-200"}`}>
                 {l.active !== false ? "Ativa" : "Inativa"}
               </button>
               <button onClick={() => setEditando(l)} title="Editar empresa (dados + fiscal)"
-                className="shrink-0 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-white/10">✏️ Editar</button>
+                className="shrink-0 rounded-xl border border-[#012E46]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#012E46] hover:bg-[#E8F0F3]">✏️ Editar</button>
             </div>
           ))}
         </div>
@@ -19197,16 +19194,16 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
     <main className="space-y-5">
       {/* ── Cabeçalho ─────────────────────────────────────── */}
       <PageHeader icone={<IcoEscudo />} titulo="Auditoria Gerencial"
-        descricao="Acompanhe acessos, alterações, exclusões, caixa, plano, licença e permissões em tempo real."
+        descricao="Rastreie acessos e alterações críticas com filtros por usuário, entidade, risco e período."
         indicadores={[{ valor: kpis.total, rotulo: "eventos no período" }, { valor: fmtDataHora(ultimaAtt.toISOString()), rotulo: "última atualização", tom: "gold" }]}
         acao={<div className="flex flex-col items-stretch gap-2 sm:items-end">
             <div className="flex flex-wrap gap-2 sm:justify-end">
               <button onClick={atualizar} disabled={atualizando}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/10 disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4">
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#012E46]/20 bg-white px-4 py-2.5 text-sm font-bold text-[#012E46] transition hover:bg-[#F4F7F8] disabled:opacity-50 [&>svg]:h-4 [&>svg]:w-4">
                 <span className={atualizando ? "animate-spin" : ""}><IcoRefresh /></span> Atualizar dados
               </button>
               <button onClick={exportar}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 shadow-lg shadow-gold-900/30 transition hover:bg-gold-300 [&>svg]:h-4 [&>svg]:w-4">
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#012E46] bg-[#012E46] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#0B4561] [&>svg]:h-4 [&>svg]:w-4">
                 <IcoDownload /> Exportar relatório
               </button>
             </div>
@@ -19237,8 +19234,8 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
           <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data inicial</span><input type="date" value={ini} onChange={(e) => setIni(e.target.value)} className={inp} /></label>
           <label className="flex flex-col gap-1"><span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data final</span><input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className={inp} /></label>
-          <button onClick={() => setPagina(1)} className="self-end rounded-2xl bg-gold-400 px-5 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300">Aplicar filtros</button>
-          <button onClick={limpar} className="self-end rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10">Limpar</button>
+          <button onClick={() => setPagina(1)} className="self-end rounded-xl border border-[#012E46] bg-[#012E46] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-[#0B4561]">Aplicar filtros</button>
+          <button onClick={limpar} className="self-end rounded-xl border border-[#012E46]/20 bg-white px-5 py-2.5 text-sm font-bold text-[#012E46] transition hover:bg-[#F4F7F8]">Limpar</button>
         </div>
       </div>
 
@@ -19285,7 +19282,7 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
                       <td className="whitespace-nowrap px-3 py-3 text-slate-400">{e.ip} • {e.dispositivo}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-[12px] text-slate-400">{fmtDataHora(e.quandoISO)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-right">
-                        <button onClick={() => setSelId(e.id)} className="rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-bold text-gold-300 transition hover:bg-gold-400/20">Ver detalhes</button>
+                        <button onClick={() => setSelId(e.id)} className="rounded-xl border border-[#012E46]/20 bg-white px-3 py-1.5 text-xs font-bold text-[#012E46] transition hover:bg-[#E8F0F3]">Ver detalhes</button>
                       </td>
                     </tr>
                   ))}

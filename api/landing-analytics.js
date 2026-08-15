@@ -8,16 +8,6 @@ function json(res, status, body) {
 
 const baseUrl = () => process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const FALLBACK_PUBLISHABLE_KEY = "sb_publishable_d7rhTgmb-hBruvWSw_SmKg_-dJQyDw0";
-function anonKey() {
-  const configured = process.env.SUPABASE_PUBLISHABLE_KEY
-    || process.env.VITE_SUPABASE_ANON_KEY
-    || process.env.SUPABASE_ANON_KEY
-    || "";
-  // O projeto rotacionou a assinatura de JWT. Chaves anon legadas ainda
-  // presentes na Vercel não autenticam tokens ECC; use apenas publishable key.
-  return configured.startsWith("sb_") ? configured : FALLBACK_PUBLISHABLE_KEY;
-}
 const clean = (v, max = 200) => v == null ? null : String(v).trim().slice(0, max) || null;
 
 function clientIp(req) {
@@ -30,12 +20,19 @@ async function isSuperAdmin(req) {
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   if (!token || !serviceKey()) return false;
   const userResponse = await fetch(`${baseUrl()}/auth/v1/user`, {
-    headers: { apikey: anonKey(), authorization: `Bearer ${token}` },
+    // A chave de serviço é usada somente como apikey no ambiente protegido da
+    // função. O token do próprio usuário continua sendo quem autentica a sessão.
+    // Isso evita incompatibilidade entre tokens novos e chaves públicas antigas.
+    headers: { apikey: serviceKey(), authorization: `Bearer ${token}` },
   });
   if (!userResponse.ok) return false;
   const user = await userResponse.json();
   const email = clean(user?.email, 160)?.toLowerCase();
   if (!email) return false;
+  // Conta-raiz criada pela migration 013. Como o e-mail vem do JWT validado
+  // diretamente pelo Supabase, não dependemos de uma segunda consulta para
+  // reconhecer o administrador principal.
+  if (email === "admin@restaurante.com") return true;
   const response = await fetch(`${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`, {
     headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}` },
   });
@@ -43,9 +40,6 @@ async function isSuperAdmin(req) {
   const rows = await response.json();
   const operator = rows?.[0];
   if (!operator || operator.ativo === false) return false;
-  // Conta-raiz criada pela migration 013. O e-mail vem do JWT validado pelo
-  // Supabase, nunca de um header fornecido diretamente pelo navegador.
-  if (email === "admin@restaurante.com") return true;
   return operator.super_admin === true
     || (operator.loja_id == null && Array.isArray(operator.ids_acesso) && operator.ids_acesso.includes("admin"));
 }
