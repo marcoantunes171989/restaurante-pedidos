@@ -257,7 +257,7 @@ export default function DashboardGerencial({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-lg font-black tracking-tight text-[#012E46] sm:text-xl">
-              Central de Decisão
+              Dashboard
             </h1>
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${flash ? "bg-[#F38525] text-[#012E46]" : "bg-[#012E46] text-white"}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${flash ? "animate-ping bg-[#012E46]" : "bg-[#5E8C31]"}`} />
