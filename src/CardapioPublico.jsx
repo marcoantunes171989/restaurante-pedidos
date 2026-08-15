@@ -1719,11 +1719,16 @@ export default function CardapioPublico() {
                     </div>
                   );
                 })()}
-                {!modoExterno && <div className="min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3.5 py-2.5">
-                  <p className="truncate text-[clamp(15px,2.3vh,18px)] font-black leading-tight text-[#012E46]">{produtoAtivo.name}</p>
-                  <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B7280]">{descCurta(produtoAtivo)}</p>
-                  <p className="mt-1 text-[clamp(15px,2.2vh,18px)] font-black text-[#F38525]">{formatCurrency(produtoAtivo.price)}</p>
-                </div>}
+                <div className="pp-welcome-product-info min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3 py-2">
+                  <p className="truncate text-[clamp(13px,2vh,16px)] font-black leading-tight text-[#012E46]">{produtoAtivo.name}</p>
+                  <p className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-[#6B7280]">{descCurta(produtoAtivo)}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="inline-flex min-w-0 items-center gap-1 truncate text-[9px] font-semibold text-[#6B7280]">
+                      <CkIconRelogio width={10} height={10} className="shrink-0" /> {produtoAtivo.time || "Consulte o preparo"}
+                    </span>
+                    <span className="shrink-0 text-[13px] font-black text-[#F38525]">{formatCurrency(produtoAtivo.price)}</span>
+                  </div>
+                </div>
               </div>
               </div>
 
