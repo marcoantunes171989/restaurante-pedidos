@@ -5498,6 +5498,7 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
   const formas = Object.entries(porForma).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor);
   const maxForma = Math.max(1, ...formas.map((f) => f.valor));
   const CHIPS = [["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["tudo", "Tudo"]];
+  const PALETA_FORMAS = ["#012E46", "#0B5B75", "#23879D", "#2E7D62", "#5A7180", "#F38525"];
 
   // ── Programa de Pontos (Fidelidade) — reflete a REGRA ATUAL em tempo real.
   // Ao salvar uma nova regra no painel Fidelidade, `fidRegra` muda e estes
@@ -5535,12 +5536,12 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
         descricao="Receitas, valores em aberto e formas de pagamento — consolidados dos pedidos do período." />
       {/* Filtro de período — controle segmentado ENQUADRADO: botões emoldurados,
           largura igual, 2 colunas no celular e 4 no desktop (responsivo). */}
-      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-white/[0.03] p-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#DDE4E8] bg-[#F7F9FA] p-2 sm:grid-cols-4">
         {CHIPS.map(([id, l]) => {
           const on = preset === id;
           return (
             <button key={id} type="button" onClick={() => setPreset(id)} aria-pressed={on}
-              className={`min-h-10 rounded-xl border px-3 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400 ${on ? "border-gold-400 bg-gold-400 text-white shadow" : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"}`}>
+              className={`min-h-10 rounded-xl border px-3 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525] ${on ? "border-[#012E46] bg-[#012E46] text-white shadow-sm" : "border-[#DDE4E8] bg-white text-[#475467] hover:border-[#AFC2CC] hover:bg-[#F7F9FA]"}`}>
               {l}
             </button>
           );
@@ -5558,14 +5559,14 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
           <EmptyState titulo="Sem receitas no período" dica="Não há pedidos pagos no período selecionado." />
         ) : (
           <div className="mt-4 space-y-3">
-            {formas.map((f) => (
+            {formas.map((f, indice) => (
               <div key={f.nome}>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-semibold text-white">{f.nome}</span>
-                  <span className="font-black text-gold-300">{formatCurrency(f.valor)}</span>
+                  <span className="font-semibold text-[#012E46]">{f.nome}</span>
+                  <span className="font-black text-[#012E46]">{formatCurrency(f.valor)}</span>
                 </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-gradient-to-r from-gold-500 to-gold-400" style={{ width: `${(f.valor / maxForma) * 100}%` }} />
+                <div className="mt-1 h-2 overflow-hidden rounded-full bg-[#EEF3F5]">
+                  <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${(f.valor / maxForma) * 100}%`, backgroundColor: PALETA_FORMAS[indice % PALETA_FORMAS.length] }} />
                 </div>
               </div>
             ))}
