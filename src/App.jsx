@@ -16659,10 +16659,10 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
 
       {/* Cards principais */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-[1.5rem] border border-gold-400/30 bg-gold-400/[0.07] p-5">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-gold-400/80">Plano atual</p>
+        <div className="rounded-[1.5rem] border border-[#AFC2CC] bg-[#F7F9FA] p-5">
+          <p className="text-[11px] font-bold uppercase tracking-widest text-[#475467]">Plano atual</p>
           <p className="page-title mt-2 text-xl font-bold text-white">{planoAtual ? planoAtual.nome : "Não configurado"}</p>
-          <p className="mt-0.5 text-sm font-black text-gold-400">{planoAtual?.precoBase != null ? `A partir de ${formatCurrency(planoAtual.precoBase)}/mês` : (planoAtual?.isPersonalizado ? "Sob consulta" : "Acesso completo")}</p>
+          <p className="mt-0.5 text-sm font-black text-[#012E46]">{planoAtual?.precoBase != null ? `A partir de ${formatCurrency(planoAtual.precoBase)}/mês` : (planoAtual?.isPersonalizado ? "Sob consulta" : "Acesso completo")}</p>
         </div>
         <CardMetrica compact titulo="Status da assinatura" valor={st.rotulo} cor={tomBadge} />
         <CardMetrica compact titulo="Validade" valor={assinaturaAtual?.dataFim ? new Date(assinaturaAtual.dataFim).toLocaleDateString("pt-BR") : "—"} sub={st.diasTrial != null ? `Trial: ${Math.max(0, st.diasTrial)} dia(s)` : ""} cor="text-white" />
@@ -16695,9 +16695,9 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
       {/* Ações comerciais */}
       <div className="flex flex-wrap gap-3">
         <button onClick={() => falar(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e quero fazer upgrade do meu plano no Pedido Prime.`)}
-          className="font-display rounded-2xl bg-gold-400 px-5 py-3 text-sm font-bold text-blue-950 hover:bg-gold-300 transition active:scale-95 shadow-lg shadow-gold-900/30">⬆ Solicitar upgrade</button>
+          className="font-display rounded-xl border border-[#012E46] bg-[#012E46] px-5 py-3 text-sm font-bold text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] active:scale-95">⬆ Solicitar upgrade</button>
         <button onClick={() => falar(`Olá! Sou da empresa ${lojaInfo?.nome || ""} e preciso de suporte com o Pedido Prime.`)}
-          className="rounded-2xl border border-gold-400/40 bg-gold-400/10 px-5 py-3 text-sm font-black text-gold-200 hover:bg-gold-400/20 transition">Falar com suporte</button>
+          className="rounded-xl border border-[#AFC2CC] bg-white px-5 py-3 text-sm font-black text-[#012E46] transition hover:border-[#012E46] hover:bg-[#F7F9FA]">Falar com suporte</button>
       </div>
 
       {/* Painel do super admin: define o plano/assinatura da empresa em foco */}
@@ -19440,13 +19440,13 @@ function ConfiguracoesAdmin({ lojaInfo }) {
         <p className="mt-1 text-sm text-slate-400">Configure como a taxa de serviço será sugerida/cobrada no caixa. A regra definida aqui será aplicada automaticamente no fechamento.</p>
         <label className="mt-4 flex items-center justify-between gap-2 cursor-pointer">
           <span className="text-sm font-bold text-slate-200">Cobrar taxa de serviço</span>
-          <input type="checkbox" checked={taxaCfg.enabled} onChange={(e) => atualizarTaxa({ enabled: e.target.checked })} className="h-5 w-5 accent-gold-400" />
+          <input type="checkbox" checked={taxaCfg.enabled} onChange={(e) => atualizarTaxa({ enabled: e.target.checked })} className="h-5 w-5 accent-[#012E46]" />
         </label>
         <label className="mt-3 block">
           <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Percentual da taxa</span>
           <input type="number" min="0" max="100" step="1" value={taxaCfg.percent}
             onChange={(e) => atualizarTaxa({ percent: Math.max(0, Number(e.target.value) || 0) })}
-            className="w-32 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white outline-none focus:border-gold-400/60" />
+            className="w-32 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white outline-none focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/10" />
         </label>
         <div className="mt-3">
           <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Regra de cobrança</span>
@@ -23270,19 +23270,22 @@ function CargoCadastroModal({ onSalvar, onFechar }) {
 function CargoEditModal({ cargo, onSalvar, onFechar }) {
   const [nome, setNome] = useState(cargo.nome || "");
   const [descricao, setDescricao] = useState(cargo.descricao || "");
-  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-gold-400/60";
+  const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-white outline-none focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/10";
   const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <h2 className="text-lg font-black text-white">✏️ Editar cargo</h2>
+          <div className="flex items-center gap-2.5"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E8F0F3] text-[#012E46]">✎</span><div><h2 className="text-lg font-black text-white">Editar cargo</h2><p className="text-[11px] text-slate-500">Atualize o nome e a finalidade deste perfil.</p></div></div>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
         <div className="px-6 py-4 space-y-3">
-          <div><label className={lbl}>Nome</label><input value={nome} onChange={(e) => setNome(e.target.value)} className={inp} autoFocus /></div>
-          <div><label className={lbl}>Descrição</label><input value={descricao} onChange={(e) => setDescricao(e.target.value)} className={inp} /></div>
-          <button onClick={() => nome.trim() && onSalvar({ nome: nome.trim(), descricao: descricao.trim() })} disabled={!nome.trim()} className="w-full rounded-2xl bg-emerald-500 py-4 text-sm font-black text-white hover:bg-emerald-400 disabled:opacity-50">💾 Salvar alterações</button>
+          <div><label className={lbl}>Nome do cargo *</label><input value={nome} onChange={(e) => setNome(e.target.value)} className={inp} autoFocus /></div>
+          <div><label className={lbl}>Descrição das responsabilidades</label><input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex.: acesso ao financeiro e fechamento de contas" className={inp} /></div>
+        </div>
+        <div className="flex gap-3 border-t border-white/10 px-6 py-4">
+          <button onClick={onFechar} className="flex-1 rounded-xl border border-[#DDE4E8] bg-white py-3 text-sm font-black text-[#012E46] transition hover:bg-[#F7F9FA]">Cancelar</button>
+          <button onClick={() => nome.trim() && onSalvar({ nome: nome.trim(), descricao: descricao.trim() })} disabled={!nome.trim()} className="flex-[2] rounded-xl border border-[#012E46] bg-[#012E46] py-3 text-sm font-black text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] disabled:cursor-not-allowed disabled:border-[#CBD5DA] disabled:bg-[#E8EDF0] disabled:text-[#8798A1]">Salvar alterações</button>
         </div>
       </div>
     </div>
