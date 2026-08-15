@@ -1731,6 +1731,7 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   border-bottom: 6px solid #012E46;
 }
 .pp-welcome-ext .pp-welcome-inner {
+  --pp-welcome-photo-height: clamp(165px, 45vw, 230px);
   max-width: min(470px, 100%);
   padding-left: clamp(0.75rem, 3.5vw, 1rem);
   padding-right: clamp(0.75rem, 3.5vw, 1rem);
@@ -1753,11 +1754,17 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
 .pp-welcome-ext .pp-welcome-status > div > span:last-child > span:last-child { font-size: 9px !important; }
 .pp-welcome-ext .pp-welcome-card { border-radius: 1.15rem; }
 .pp-welcome-ext .pp-welcome-foto {
-  aspect-ratio: 1.55 / 1;
-  min-height: 165px;
-  max-height: min(33dvh, 260px);
+  flex: 0 0 var(--pp-welcome-photo-height);
+  height: var(--pp-welcome-photo-height);
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
 }
 .pp-welcome-ext .pp-welcome-card { align-self: start; }
+.pp-welcome-ext .pp-welcome-side {
+  align-self: start;
+  height: var(--pp-welcome-photo-height);
+}
 .pp-welcome-ext .pp-welcome-product-info { min-height: 76px; }
 .pp-welcome-ext .pp-welcome-cta { min-height: 42px; margin-top: .4rem; font-size: 11px; border-radius: .8rem; }
 .pp-welcome-ext .pp-welcome-benefits { min-height: 44px; }
