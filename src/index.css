@@ -1757,7 +1757,8 @@ select::-ms-expand { display: none; } /* IE/Edge antigo */
   min-height: 165px;
   max-height: min(33dvh, 260px);
 }
-.pp-welcome-ext .pp-welcome-product-info { min-height: 62px; }
+.pp-welcome-ext .pp-welcome-card { align-self: start; }
+.pp-welcome-ext .pp-welcome-product-info { min-height: 76px; }
 .pp-welcome-ext .pp-welcome-cta { min-height: 42px; margin-top: .4rem; font-size: 11px; border-radius: .8rem; }
 .pp-welcome-ext .pp-welcome-benefits { min-height: 44px; }
 .pp-welcome-ext footer { margin-top: .35rem; }

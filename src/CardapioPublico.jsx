@@ -1678,10 +1678,14 @@ export default function CardapioPublico() {
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => setDetalhe(produtoAtivo)}
+                onClick={() => {
+                  setEtapa("cardapio");
+                  setDetalhe(produtoAtivo);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
+                    setEtapa("cardapio");
                     setDetalhe(produtoAtivo);
                   }
                 }}
@@ -1726,8 +1730,9 @@ export default function CardapioPublico() {
                     <span className="inline-flex min-w-0 items-center gap-1 truncate text-[9px] font-semibold text-[#6B7280]">
                       <CkIconRelogio width={10} height={10} className="shrink-0" /> {produtoAtivo.time || "Consulte o preparo"}
                     </span>
-                    <span className="shrink-0 text-[13px] font-black text-[#F38525]">{formatCurrency(produtoAtivo.price)}</span>
+                    <span className="shrink-0 text-[13px] font-black text-[#012E46]">{formatCurrency(produtoAtivo.price)}</span>
                   </div>
+                  <p className="mt-1 truncate border-t border-[#EEF1F3] pt-1 text-[9px] font-semibold text-[#52606D]">Toque para ver detalhes e adicionar</p>
                 </div>
               </div>
               </div>
