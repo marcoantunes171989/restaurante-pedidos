@@ -183,6 +183,7 @@ export default function CardapioPublico() {
   const [comanda, setComanda]     = useState(comURL);
   const [cliente, setCliente]     = useState("");
   const [telefone, setTelefone]   = useState("");
+  const [observacaoPedido, setObservacaoPedido] = useState("");
   const clienteSalvoRef = useRef(false); // telefone já tem cadastro (write-only, não usado na renderização)
   const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
@@ -1158,7 +1159,8 @@ export default function CardapioPublico() {
         const fresco = await rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesa), mesaId: mesaCadastrada.id });
         if (fresco?.ocupada) { setStatusMesa(fresco); return; }
       }
-      const itens = cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation }));
+      const obsPedido = observacaoPedido.trim().slice(0, 500);
+      const itens = cart.map((i, indice) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation, ...(indice === 0 && obsPedido ? { orderObservation: obsPedido } : {}) }));
       // Forma de pagamento (aba "Pagamento" — vale para pedido interno e
       // externo, EXCETO consumo no local: nesse caso o pagamento acontece só
       // no fechamento da conta, então não exige escolha nenhuma agora —
@@ -1208,7 +1210,7 @@ export default function CardapioPublico() {
         status: "received", paymentStatus: "open",
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
-        pagamentoForma: formaSel?.label ?? null, pagamentoMomento: momentoPagto, pagamentoTrocoPara: trocoParaNum,
+        pagamentoForma: formaSel?.label ?? null, pagamentoMomento: momentoPagto, pagamentoTrocoPara: trocoParaNum, observation: obsPedido,
       };
     } else {
       // Pedido na mesa (QR da mesa): exige mesa + comanda
@@ -1265,7 +1267,7 @@ export default function CardapioPublico() {
           else window.location.href = urlWhatsapp;
         }
       }
-      setCart([]); setTrocoResposta(""); setTrocoValor(""); setAba("conta");
+      setCart([]); setTrocoResposta(""); setTrocoValor(""); setObservacaoPedido(""); setAba("conta");
       setMsg({ t: "success", m: usarPedidoWhatsapp
         ? "Pedido registrado. O WhatsApp foi aberto para continuar o atendimento com a empresa."
         : modoExterno && tipoPedido === "local"
@@ -2260,6 +2262,15 @@ export default function CardapioPublico() {
                       <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
                         className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
                   </div>
+                  <label className="block">
+                    <span className="mb-1.5 flex items-center justify-between gap-2 text-xs font-bold text-[var(--client-text-secondary)]">
+                      <span>Observação do pedido <span className="font-normal text-[var(--client-text-muted)]">(opcional)</span></span>
+                      <span className="font-normal tabular-nums text-[var(--client-text-muted)]">{observacaoPedido.length}/500</span>
+                    </span>
+                    <textarea value={observacaoPedido} onChange={(e) => setObservacaoPedido(e.target.value.slice(0, 500))} maxLength={500} rows={3}
+                      placeholder="Ex.: retirar no horário combinado ou outra orientação para o estabelecimento"
+                      className="w-full resize-y rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm leading-5 text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" />
+                  </label>
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">

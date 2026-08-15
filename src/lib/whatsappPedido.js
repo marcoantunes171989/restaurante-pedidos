@@ -33,6 +33,8 @@ export function montarMensagemPedidoWhatsApp({ pedido, pedidoId, total, formaPag
     linhas.push(`${item.quantity}x ${item.name} — ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format((Number(item.price) || 0) * (Number(item.quantity) || 0))}`);
     detalhesItem(item).forEach((d) => linhas.push(`  ${d}`));
   });
+  const observacaoPedido = String(pedido.observation || pedido.items?.find((item) => item.orderObservation)?.orderObservation || "").trim();
+  if (observacaoPedido) linhas.push("", "*OBSERVAÇÃO DO PEDIDO*", observacaoPedido);
   linhas.push("", `*Total: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(total) || 0)}*`);
   if (formaPagamento) linhas.push(`Pagamento: ${formaPagamento}${momentoPagamento ? ` — ${momentoPagamento}` : ""}`);
   linhas.push("", "Aguardo a confirmação e as orientações para dar continuidade ao atendimento.");

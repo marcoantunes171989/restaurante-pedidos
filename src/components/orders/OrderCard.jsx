@@ -83,6 +83,7 @@ export default function OrderCard({
   destacado = false, cardRef,
 }) {
   const org = origemDe(o);
+  const observacaoPedido = o.items?.find((item) => item.orderObservation)?.orderObservation;
   const [tableBase, tableSub] = String(o.table || "").split(" · ");
   const [verSetor, setVerSetor] = useState(false); // revela QUAL setor falta ao tocar na faixa
 
@@ -111,6 +112,11 @@ export default function OrderCard({
           <div className="flex items-center gap-2 text-sm text-[var(--pp-text-body)]">
             <CreditCard aria-hidden="true" size={14} className="shrink-0 text-[var(--pp-text-muted)]" />
             {o.pagamentoForma}{o.pagamentoMomento ? ` · ${o.pagamentoMomento}` : ""}
+          </div>
+        )}
+        {observacaoPedido && (
+          <div className="rounded-xl border border-[var(--pp-warning-border)] bg-[var(--pp-warning-soft)] px-3 py-2 text-xs leading-5 text-[var(--pp-warning-text)]">
+            <b>Observação do pedido:</b> {observacaoPedido}
           </div>
         )}
       </div>

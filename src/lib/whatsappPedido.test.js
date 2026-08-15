@@ -9,13 +9,15 @@ describe("pedido pelo WhatsApp", () => {
 
   it("monta mensagem com cliente, itens, observação, pagamento e total", () => {
     const mensagem = montarMensagemPedidoWhatsApp({
-      pedido: { id: "PED-10", customer: "Ana", clienteTelefone: "11999999999", table: "Externo · Retirada", items: [{ name: "X-Salada", quantity: 2, price: 20, observation: "Sem cebola" }] },
+      pedido: { id: "PED-10", customer: "Ana", clienteTelefone: "11999999999", table: "Externo · Retirada", observation: "Retirar às 19h", items: [{ name: "X-Salada", quantity: 2, price: 20, observation: "Sem cebola" }] },
       total: 40, formaPagamento: "PIX", momentoPagamento: "Na retirada",
     });
     expect(mensagem).toContain("*PEDIDO PED-10*");
     expect(mensagem).toContain("Cliente: Ana");
     expect(mensagem).toContain("2x X-Salada");
     expect(mensagem).toContain("Obs.: Sem cebola");
+    expect(mensagem).toContain("*OBSERVAÇÃO DO PEDIDO*");
+    expect(mensagem).toContain("Retirar às 19h");
     expect(mensagem).toContain("*Total: R$ 40,00*");
     expect(mensagem).toContain("Pagamento: PIX — Na retirada");
   });
