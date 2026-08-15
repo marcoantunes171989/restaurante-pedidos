@@ -261,6 +261,19 @@ class RootErrorBoundary extends Component {
   constructor(p) { super(p); this.state = { erro: null } }
   static getDerivedStateFromError(erro) { return { erro } }
   componentDidCatch(erro, info) { console.error('Erro fatal de render:', erro, info) }
+  async recuperar() {
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration?.()
+      if (reg?.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map((key) => caches.delete(key)))
+      }
+    } catch { /* o recarregamento ainda funciona sem cache/SW */ }
+    const url = new URL(window.location.href)
+    url.searchParams.set('recuperar', Date.now().toString())
+    window.location.replace(url.toString())
+  }
   render() {
     if (this.state.erro) {
       return (
@@ -270,7 +283,7 @@ class RootErrorBoundary extends Component {
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: '8px 0' }}>Ops! Algo deu errado ao abrir esta tela</h1>
             <p style={{ fontSize: 14, color: '#cbd5e1' }}>Tente recarregar. Se continuar, envie a mensagem abaixo ao suporte.</p>
             <pre style={{ marginTop: 12, textAlign: 'left', whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, color: '#fca5a5', background: 'rgba(0,0,0,.3)', borderRadius: 12, padding: 12, maxHeight: 200, overflow: 'auto' }}>{String(this.state.erro?.stack || this.state.erro?.message || this.state.erro)}</pre>
-            <button onClick={() => window.location.reload()} style={{ marginTop: 16, background: '#F38525', color: '#0A1424', fontWeight: 800, border: 'none', borderRadius: 16, padding: '12px 20px', cursor: 'pointer' }}>Recarregar</button>
+            <button onClick={() => this.recuperar()} style={{ marginTop: 16, background: '#F38525', color: '#0A1424', fontWeight: 800, border: 'none', borderRadius: 16, padding: '12px 20px', cursor: 'pointer' }}>Recarregar versão atual</button>
           </div>
         </div>
       )

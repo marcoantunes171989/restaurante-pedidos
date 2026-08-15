@@ -964,7 +964,7 @@ export default function RestaurantePedidoApp() {
     if (opMatch) {
       // Bookmark/redirect em /operacional NÃO pode sequestrar admin, cozinha,
       // caixa etc. Só perfil exclusivamente operacional pousa aqui.
-      if (!perfilExclusivoOperacional(user)) {
+      if (!temAcessoOperacional(user)) {
         irParaFallbackSeguro(user);
         return;
       }
@@ -981,7 +981,7 @@ export default function RestaurantePedidoApp() {
       // também tenha o acesso técnico "tablet" marcado (ex.: dono/gestor com todos os
       // acessos), a navegação AUTOMÁTICA (deep-link/voltar) nunca deve levar quem tem
       // acesso admin para essa tela — só entra manualmente pelo menu, se quiser.
-      const liberado = alvo === "opmobile" ? perfilExclusivoOperacional(user)
+      const liberado = alvo === "opmobile" ? temAcessoOperacional(user)
         : alvo === "tablet" ? (canAccess(user, "tablet") && !canAccess(user, "admin"))
         : canAccess(user, alvo);
       if (!liberado) { irParaFallbackSeguro(user); return; }
@@ -1002,7 +1002,7 @@ export default function RestaurantePedidoApp() {
     if (pathname === "/login" || pathname === "/") return;
     // /operacional na URL NÃO sobrescreve o pouso natural de quem tem menu
     // principal (admin/PDV/cozinha…).
-    if (/^\/operacional(\/|$)/.test(pathname) && !perfilExclusivoOperacional(currentUser)) {
+    if (/^\/operacional(\/|$)/.test(pathname) && !temAcessoOperacional(currentUser)) {
       irParaFallbackSeguro(currentUser);
       return;
     }
@@ -1245,7 +1245,7 @@ export default function RestaurantePedidoApp() {
       } else if (deepAdmin && deepAdmin[1] !== "cozinha" && canAccess(credOk, "admin")) {
         setActiveTab("admin");
         setAdminSection(deepAdmin[1]);
-      } else if (redirectOperacional && perfilExclusivoOperacional(credOk)) {
+      } else if (redirectOperacional && temAcessoOperacional(credOk)) {
         setActiveTab("opmobile");
       } else {
         const home = abaInicialDoUsuario(credOk);
@@ -6722,8 +6722,11 @@ function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assina
               <SidebarItem key={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
                 title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
                 onClick={() => {
-                  if (it.id === "operacaomobile" && window.innerWidth >= 768) window.open(`${window.location.origin}/operacional`, "_blank", "noopener");
-                  else setAdminSection(it.id);
+                  if (it.id === "operacaomobile") {
+                    const rota = `${window.location.origin}/operacional`;
+                    if (window.innerWidth >= 768) window.open(rota, "_blank", "noopener");
+                    else window.location.assign(rota);
+                  } else setAdminSection(it.id);
                   onNavigate?.();
                 }} />
             );
