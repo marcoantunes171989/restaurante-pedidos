@@ -52,19 +52,17 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
   }
 
   return (
-    <div className="pp-anim-up relative w-full max-w-[400px] shrink-0">
+    <div className="pp-anim-up relative w-full max-w-[390px] shrink-0">
       <form
         onSubmit={handleSubmit}
         autoComplete="off"
         noValidate
-        className="relative flex flex-col gap-3.5 overflow-hidden rounded-[20px] border border-[var(--login-border)] bg-[var(--login-surface)] p-[clamp(1.1rem,2.4vh,1.5rem)]"
-        style={{ boxShadow: "var(--login-shadow)" }}
+        className="relative flex flex-col gap-3.5 bg-transparent p-1 sm:p-2"
       >
-        <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-[var(--login-primary)]" />
-
-        <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center"><LogoPP size={48} /></div>
-          <h1 className="font-display mt-2.5 text-xl font-black tracking-tight text-[var(--login-text-primary)]">
+        <div className="mb-2 text-left">
+          <div className="mb-8 flex h-11 items-center md:hidden"><LogoPP size={42} /></div>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#F38525]">Área administrativa</span>
+          <h1 className="font-display mt-2 text-[1.65rem] font-extrabold tracking-[-0.025em] text-[#012E46]">
             {(() => {
               // "Prime" em laranja (só nesta tela) — mantém o resto no grafite.
               const t = FORM.titulo;
@@ -72,8 +70,7 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
               return i === -1 ? t : <>{t.slice(0, i)}<span className="text-[#F38525]">{t.slice(i)}</span></>;
             })()}
           </h1>
-          <p className="mt-1 text-[13px] text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>
-          <p className="mt-1 text-xs text-[var(--login-text-secondary)] md:hidden">{FORM.fraseValorMobile}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--login-text-secondary)]">{FORM.subtitulo}</p>
         </div>
 
         {/* Aviso persistente de indisponibilidade do servidor — só aparece quando
@@ -135,20 +132,20 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
         <LoginAlert id="login-mensagem" message={message} />
 
         <button type="submit" disabled={entrando}
-          className="mt-0.5 flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] btn-petroleo px-5 text-sm font-black text-white transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:active:scale-100">
+          className="mt-1 flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] btn-petroleo px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(1,46,70,0.16)] transition duration-200 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0">
           {entrando ? <><IconSpinner /> {FORM.botaoEntrando}</> : FORM.botaoEntrar}
         </button>
       </form>
 
       {onQrClick && (
         <>
-          <div className="my-4 flex items-center gap-3">
+          <div className="my-3.5 flex items-center gap-3">
             <span className="h-px flex-1 bg-[var(--login-border)]" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--login-text-secondary)]">ou</span>
             <span className="h-px flex-1 bg-[var(--login-border)]" />
           </div>
           <button type="button" onClick={onQrClick}
-            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[11px] border border-[var(--login-border)] bg-[var(--login-surface)] text-sm font-bold text-[var(--login-text-primary)] transition hover:bg-[var(--login-surface-secondary)]">
+            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[11px] border border-[#012E46]/15 bg-white text-sm font-semibold text-[#012E46] transition hover:border-[#012E46]/30 hover:bg-[#F7F9FA]">
             <IconQr /> {FORM.botaoQr}
           </button>
         </>

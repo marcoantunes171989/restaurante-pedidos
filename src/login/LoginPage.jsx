@@ -37,13 +37,13 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
     // .tema-claro-area` só casa quando estão em elementos diferentes.
     <div data-theme="light">
       <div
-        className="pp-login-shell tema-claro-area pp-brand-manrope relative flex h-dvh max-h-dvh w-full items-stretch overflow-hidden text-[var(--login-text-primary)]"
+        className="pp-login-shell tema-claro-area pp-brand-manrope relative flex min-h-dvh w-full items-stretch overflow-x-hidden text-[var(--login-text-primary)]"
         style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", backgroundColor: "var(--login-background)", boxSizing: "border-box", margin: 0 }}
       >
         <LoginBrandPanel />
 
         <main
-          className="relative z-10 flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center overflow-y-auto px-[clamp(1.25rem,4vw,1.5rem)]"
+          className="relative z-10 flex min-h-dvh w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-[#FBFCFC] px-[clamp(1.25rem,5vw,4rem)]"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + clamp(0.75rem, 2vh, 1.5rem))", paddingBottom: "calc(env(safe-area-inset-bottom) + clamp(1rem, 2.5vh, 2rem))" }}
         >
           <LoginForm
@@ -54,7 +54,7 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
             dbReady={dbReady}
             onQrClick={() => setScanLogin(true)}
           />
-          <div className="w-full max-w-[400px]">
+          <div className="w-full max-w-[390px]">
             <LoginFooter onVoltar={voltarAoSite} />
           </div>
         </main>

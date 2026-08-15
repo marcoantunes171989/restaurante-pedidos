@@ -5,8 +5,8 @@
 
 export const INSTITUCIONAL = {
   selo: "Gestão gastronômica inteligente",
-  headline: "Sua operação inteira, em um só lugar.",
-  descricao: "Conecte pedidos, salão, cozinha, caixa e gestão para trabalhar com mais agilidade e controle.",
+  headline: "Gestão que acompanha o ritmo da sua operação.",
+  descricao: "Pedidos, salão, cozinha, caixa e indicadores conectados em uma experiência simples para a equipe e completa para a gestão.",
   beneficios: [
     { icon: "central", texto: "Operação centralizada" },
     { icon: "tempo", texto: "Visão em tempo real" },
@@ -34,7 +34,7 @@ export const ESTABELECIMENTOS = {
 
 export const FORM = {
   titulo: "Bem-vindo ao Pedido Prime",
-  subtitulo: "Acesse sua conta para continuar.",
+  subtitulo: "Entre com suas credenciais para acessar seu ambiente de gestão.",
   fraseValorMobile: "Pedidos, cozinha, caixa e gestão conectados.",
   labelEmail: "E-mail",
   placeholderEmail: "seu@email.com",
