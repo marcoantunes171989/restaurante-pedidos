@@ -23,6 +23,7 @@ const LEMBRETE_MS = 30 * 60 * 1000; // 30 min
 
 export default function PwaUpdateBanner({ swAtivado }) {
   const [visivel, setVisivel] = useState(false);
+  const [aberto, setAberto] = useState(false);
   const [atualizando, setAtualizando] = useState(false);
   const [novaVersao, setNovaVersao] = useState(null);
   const lembreteRef = useRef(null);
@@ -31,7 +32,17 @@ export default function PwaUpdateBanner({ swAtivado }) {
   const versaoAtual = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
 
   // Nova versão detectada (pelo SW) → marca como pendente e mostra o banner.
-  useEffect(() => { if (swAtivado) { pendenteRef.current = true; queueMicrotask(() => setVisivel(true)); } }, [swAtivado]);
+  useEffect(() => {
+    if (!swAtivado) return;
+    pendenteRef.current = true;
+    queueMicrotask(() => { setVisivel(true); setAberto(true); });
+  }, [swAtivado]);
+
+  useEffect(() => {
+    if (!aberto || atualizando) return;
+    const timer = window.setTimeout(() => setAberto(false), 9000);
+    return () => window.clearTimeout(timer);
+  }, [aberto, atualizando]);
 
   useEffect(() => {
     if (!visivel) return;
@@ -45,6 +56,7 @@ export default function PwaUpdateBanner({ swAtivado }) {
           if (m[1] === versaoAtual) {
             pendenteRef.current = false;
             setVisivel(false);
+            setAberto(false);
             setNovaVersao(null);
           } else setNovaVersao(m[1]);
         }
@@ -73,9 +85,9 @@ export default function PwaUpdateBanner({ swAtivado }) {
 
   // "Depois": esconde e re-oferece a cada 30 min (enquanto a versão continuar pendente).
   function adiar() {
-    setVisivel(false);
+    setAberto(false);
     clearTimeout(lembreteRef.current);
-    lembreteRef.current = setTimeout(() => { if (pendenteRef.current) setVisivel(true); }, LEMBRETE_MS);
+    lembreteRef.current = setTimeout(() => { if (pendenteRef.current) setAberto(true); }, LEMBRETE_MS);
   }
 
   // "Atualizar agora": ÚNICO ponto onde a atualização acontece. Ativa o novo SW
@@ -105,8 +117,8 @@ export default function PwaUpdateBanner({ swAtivado }) {
   if (!visivel) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[130] flex justify-center p-3 sm:justify-end sm:p-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}>
-      <div role="status" aria-live="polite" aria-label="Atualização do Pedido Prime" className="pointer-events-auto w-full max-w-[380px] rounded-2xl border border-[#012E46]/15 bg-white p-3 shadow-[0_16px_40px_rgba(1,46,70,0.18)]">
+    <div className="pointer-events-none fixed bottom-9 right-3 z-[130] flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2 sm:bottom-4 sm:right-4">
+      {aberto && <div role="status" aria-live="polite" aria-label="Atualização do Pedido Prime" className="pointer-events-auto w-[min(360px,calc(100vw-1.5rem))] rounded-2xl border border-[#012E46]/15 bg-white p-3 shadow-[0_16px_40px_rgba(1,46,70,0.18)]">
         <div className="flex items-center gap-3">
           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#012E46]/10 text-[#012E46] ${atualizando ? "animate-spin" : ""}`}>
             <RefreshCw aria-hidden="true" size={16} />
@@ -123,7 +135,14 @@ export default function PwaUpdateBanner({ swAtivado }) {
           <span className="text-[10px] text-slate-400">Leva apenas alguns segundos</span>
           <button type="button" onClick={adiar} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#012E46] transition hover:bg-[#012E46]/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#012E46]">Lembrar depois</button>
         </div>}
-      </div>
+      </div>}
+      {!atualizando && <button type="button" onClick={() => setAberto((valor) => !valor)} aria-expanded={aberto} aria-label={aberto ? "Recolher aviso de atualização" : "Há uma nova atualização disponível"} title="Nova atualização disponível"
+        className="pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-[#012E46] text-white shadow-[0_8px_24px_rgba(1,46,70,0.24)] transition hover:-translate-y-0.5 hover:bg-[#06425f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
+        <RefreshCw aria-hidden="true" size={17} />
+        <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-[#F38525]" aria-hidden="true">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+        </span>
+      </button>}
     </div>
   );
 }
