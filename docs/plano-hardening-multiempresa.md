@@ -5,6 +5,20 @@
 > migration própria, aditiva quando possível, revisada e aplicada primeiro em
 > homologação. Ordem pensada para **não quebrar a operação atual**.
 
+## Já endurecido na revisão da 118 (não são pendências)
+
+A revisão pré-homologação da 118 **já** entregou, apenas no domínio V2 (aditivo):
+- **RLS**: `SELECT` só a `authenticated` (super OU própria loja); **`anon` sem
+  acesso financeiro**; escrita só via RPC (definer).
+- **Autorização funcional** por `permissoes_acoes` (módulo `cashier`, ação
+  `receber_pagamento`, default-allow retrocompatível).
+- **FK composta** `pagamento_alocacoes(loja_id,pedido_id) → tab_pedidos(loja_id,id)`
+  (índice único aditivo em `tab_pedidos(loja_id,id)`) — impede cross-tenant no banco.
+- **Append-only real** em `pagamento_eventos` (trigger + FK RESTRICT).
+- Idempotência concorrente (advisory lock + `unique`), saldo/parcial no servidor.
+
+Os itens abaixo continuam pendentes e afetam as tabelas **legadas** (fora do V2).
+
 ## 0. Pré-condição — diagnóstico e backfill
 
 - Rodar `supabase/diagnostics/payment-v2-preflight.sql` em homolog **e** produção.

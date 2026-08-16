@@ -79,10 +79,14 @@ describe("validarPagamentoV2 (espelho das regras do servidor)", () => {
   it("soma das alocações diferente do pagamento → inválido", () => {
     expect(validarPagamentoV2({ valorBruto: 30, alocacoes: [{ pedido_id: "A", valor: 20 }, { pedido_id: "B", valor: 9 }] }).valido).toBe(false);
   });
-  it("pagamento parcial coerente (bruto = soma, menor que a conta) → válido", () => {
-    // Parcial: paga-se 15 de uma conta maior, alocado num pedido. O 'parcial' é
-    // em relação à CONTA; internamente a transação é consistente (soma == bruto).
-    expect(validarPagamentoV2({ valorBruto: 15, alocacoes: [{ pedido_id: "A", valor: 15 }] }).valido).toBe(true);
+  it("consistência do CLIENTE para pagamento parcial: só valida soma==bruto (NÃO decide 'pago')", () => {
+    // A validação do cliente confirma apenas a consistência interna (soma == bruto).
+    // Quem calcula saldo, decide parcial × quitado e marca status_pagamento='pago'
+    // é o SERVIDOR (RPC), com base em pagamento_alocacoes + pagamento_transacoes.
+    // Este teste NÃO afirma que o pedido foi quitado.
+    const r = validarPagamentoV2({ valorBruto: 15, alocacoes: [{ pedido_id: "A", valor: 15 }] });
+    expect(r.valido).toBe(true);
+    expect(r).not.toHaveProperty("pedidoPago"); // o cliente não decide quitação
   });
 });
 
@@ -91,6 +95,18 @@ describe("mensagemErroPagamentoV2", () => {
     expect(mensagemErroPagamentoV2("PAYMENT_V2_CROSS_TENANT: ...")).toMatch(/não permitida/i);
     expect(mensagemErroPagamentoV2("PAYMENT_V2_PEDIDO_CANCELADO: ...")).toMatch(/cancelado/i);
     expect(mensagemErroPagamentoV2("PAYMENT_V2_SOMA_INVALIDA: ...")).toMatch(/não confere/i);
+  });
+  it("cobre os NOVOS códigos (autorização, caixa, forma, saldo)", () => {
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_FORBIDDEN: x")).toMatch(/permissão/i);
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_CAIXA_FECHADO: x")).toMatch(/caixa não está aberto/i);
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_CAIXA_CROSS_TENANT: x")).toMatch(/outra empresa/i);
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_FORMA_INATIVA: x")).toMatch(/inativa/i);
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_FORMA_CROSS_TENANT: x")).toMatch(/outra empresa/i);
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_PEDIDO_JA_PAGO: x")).toMatch(/quitado/i);
+    expect(mensagemErroPagamentoV2("PAYMENT_V2_EXCEDE_SALDO: x")).toMatch(/saldo/i);
+  });
+  it("mensagem genérica para código desconhecido", () => {
+    expect(mensagemErroPagamentoV2("algo inesperado")).toMatch(/não foi possível/i);
   });
 });
 

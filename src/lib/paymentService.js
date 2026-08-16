@@ -33,11 +33,21 @@ export const EVENTOS_PAGAMENTO_V2 = [
 
 const round2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
 
-// UUID v4 (idempotency key). crypto.randomUUID em browsers/Node 19+; fallback seguro.
+// UUID v4 (idempotency key). Preferência: crypto.randomUUID (browsers/Node 19+);
+// depois crypto.getRandomValues (CSPRNG); Math.random é o ÚLTIMO recurso.
 export function novaIdempotencyKey() {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  } catch { /* fallback */ }
+  } catch { /* tenta getRandomValues */ }
+  try {
+    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+      const b = crypto.getRandomValues(new Uint8Array(16));
+      b[6] = (b[6] & 0x0f) | 0x40; // versão 4
+      b[8] = (b[8] & 0x3f) | 0x80; // variante
+      const h = Array.from(b, (x) => x.toString(16).padStart(2, "0"));
+      return `${h[0]}${h[1]}${h[2]}${h[3]}-${h[4]}${h[5]}-${h[6]}${h[7]}-${h[8]}${h[9]}-${h[10]}${h[11]}${h[12]}${h[13]}${h[14]}${h[15]}`;
+    }
+  } catch { /* último recurso abaixo */ }
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
@@ -84,9 +94,19 @@ export function validarPagamentoV2({ valorBruto, valorTaxa = 0, alocacoes = [] }
 }
 
 // Mapeia códigos de erro da RPC (prefixo PAYMENT_V2_*) → mensagem amigável.
+// Não vaza detalhe técnico. Ordem: mais específico primeiro.
 export function mensagemErroPagamentoV2(msg = "") {
   const m = String(msg || "");
-  if (/PAYMENT_V2_FORBIDDEN|PAYMENT_V2_CROSS_TENANT/.test(m)) return "Operação não permitida para esta empresa.";
+  if (/PAYMENT_V2_FORBIDDEN/.test(m)) return "Você não tem permissão para receber pagamentos.";
+  if (/PAYMENT_V2_CAIXA_CROSS_TENANT/.test(m)) return "Caixa de outra empresa.";
+  if (/PAYMENT_V2_CAIXA_FECHADO/.test(m)) return "O caixa não está aberto.";
+  if (/PAYMENT_V2_CAIXA_INVALIDO/.test(m)) return "Caixa inválido.";
+  if (/PAYMENT_V2_FORMA_CROSS_TENANT/.test(m)) return "Forma de pagamento de outra empresa.";
+  if (/PAYMENT_V2_FORMA_INATIVA/.test(m)) return "Forma de pagamento inativa.";
+  if (/PAYMENT_V2_FORMA_INVALIDA/.test(m)) return "Forma de pagamento inválida.";
+  if (/PAYMENT_V2_PEDIDO_JA_PAGO/.test(m)) return "Há pedido já quitado na seleção.";
+  if (/PAYMENT_V2_EXCEDE_SALDO/.test(m)) return "O valor excede o saldo em aberto do pedido.";
+  if (/PAYMENT_V2_CROSS_TENANT/.test(m)) return "Operação não permitida para esta empresa.";
   if (/PAYMENT_V2_PEDIDO_INEXISTENTE/.test(m)) return "Pedido não encontrado.";
   if (/PAYMENT_V2_PEDIDO_CANCELADO/.test(m)) return "Há pedido cancelado na seleção.";
   if (/PAYMENT_V2_SOMA_INVALIDA/.test(m)) return "A soma dos valores não confere com o total.";

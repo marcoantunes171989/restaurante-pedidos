@@ -1,160 +1,178 @@
-# Arquitetura — Fundação Financeira V2
+# Arquitetura — Fundação Financeira V2 (revisada/endurecida)
 
 > Domínio de pagamentos **multiempresa, transacional, auditável e idempotente**,
-> **aditivo** (não substitui o legado). Introduzido pela **migration 118** +
-> `src/lib/paymentService.js`, atrás da flag `PAYMENT_V2_ENABLED` (default `false`).
-> Esta etapa **não** implementa gateway/PIX/cartão/NFC-e reais.
+> **aditivo** (não substitui o legado). Migration **118** + `src/lib/paymentService.js`,
+> atrás da flag `PAYMENT_V2_ENABLED` (default `false`). Esta etapa **não** implementa
+> gateway/PIX/cartão/NFC-e reais. Migration **ainda não aplicada** (revisão pré-homologação).
 
 ## 1. Visão geral
 
-O legado `tab_pagamentos` é **preservado** (nada é apagado). O novo domínio vive
-em três tabelas e uma RPC transacional:
+Legado `tab_pagamentos` **preservado** (nada apagado). Novo domínio:
 
 | Objeto | Papel |
 |---|---|
-| `pagamento_transacoes` | 1 registro por operação de pagamento (idempotente por loja) |
+| `pagamento_transacoes` | 1 registro por operação (idempotente por `(loja_id, idempotency_key)`) |
 | `pagamento_alocacoes` | rateio **N:N** pagamento × pedido |
-| `pagamento_eventos` | trilha **append-only** (auditoria/rastreabilidade) |
+| `pagamento_eventos` | trilha **append-only** (trigger bloqueia UPDATE/DELETE) |
+| `app_pedido_valor_total(jsonb)` | valor canônico do pedido (= `orderTotal` do app) |
+| `app_pode_receber_pagamento(bigint)` | autorização por `permissoes_acoes` |
 | `app_registrar_pagamento_v2(...)` | RPC `SECURITY DEFINER` — cria tudo **atomicamente** |
 
 ## 2. Diagrama
 
 ```mermaid
 flowchart TD
-  UI["Fluxo preparado (flag ON)"] -->|"paymentService.registrarPagamentoV2"| RPC["app_registrar_pagamento_v2<br/>SECURITY DEFINER"]
-  RPC -->|"idempotency_key existe?"| IDEM{"(loja_id, idempotency_key)"}
-  IDEM -->|"sim"| RET["retorna transação existente<br/>(sem duplicar)"]
-  IDEM -->|"não"| LOCK["SELECT ... FOR UPDATE nos pedidos"]
-  LOCK --> VAL["valida tenant + não-cancelado<br/>soma alocações == valor_bruto"]
-  VAL --> TX[("TRANSAÇÃO ÚNICA")]
-  TX --> T1["INSERT pagamento_transacoes"]
-  TX --> T2["INSERT pagamento_alocacoes"]
-  TX --> T3["INSERT pagamento_eventos (CREATED, PAID)"]
-  TX --> T4["UPDATE tab_pedidos.status_pagamento"]
-  TX --> T5["INSERT tab_caixa_mov (venda)"]
-  TX -->|"qualquer erro"| RB["RAISE → ROLLBACK total"]
+  UI["Fluxo preparado (flag ON)"] -->|"paymentService.registrarPagamentoV2"| RPC["app_registrar_pagamento_v2"]
+  RPC --> AUTH{"autorizado?<br/>app_pode_receber_pagamento"}
+  AUTH -->|"não"| F1["FORBIDDEN"]
+  AUTH -->|"sim"| ADV["pg_advisory_xact_lock(loja,key)"]
+  ADV --> IDEM{"(loja,key) já existe?"}
+  IDEM -->|"sim"| RET["retorna transação existente (idempotente)"]
+  IDEM -->|"não"| VJSON["valida JSON (estrito) + soma == bruto"]
+  VJSON --> VCX["valida caixa (existe/loja/aberto)"]
+  VCX --> VFP["valida forma (existe/loja/ativo)"]
+  VFP --> INS["INSERT transação (status/timestamps coerentes)"]
+  INS --> LOCK["lock pedidos ORDER BY id FOR UPDATE"]
+  LOCK --> SALDO["saldo = total_canônico − pago_V2(PAID)"]
+  SALDO --> ALOC["INSERT alocações + UPDATE pedido só se saldo=0"]
+  ALOC --> EV["INSERT eventos CREATED(→PENDING), PAID(PENDING→PAID)"]
+  EV --> CX["INSERT caixa_mov (venda) se aplicável"]
+  RPC -->|"qualquer erro"| RB["RAISE → ROLLBACK total"]
 ```
 
-## 3. Status e eventos
+## 3. Idempotência TÉCNICA × Saldo FINANCEIRO (distinção central)
 
-**Status da transação** (`chk_pt_status`): `PENDING`, `PROCESSING`, `AUTHORIZED`,
-`PAID`, `DECLINED`, `CANCELLED`, `REFUNDED`, `PARTIALLY_REFUNDED`, `EXPIRED`,
-`ERROR`. No fluxo **manual** atual, a transação nasce já `PAID`; os demais estados
-existem para o futuro (gateway/PIX).
+- **Idempotência técnica** (retry/duplo clique): `UNIQUE (loja_id, idempotency_key)`.
+  O cliente gera a `idempotency_key` **uma vez por intenção** e reusa em retries; a
+  RPC devolve a transação existente sem duplicar. **Não** protege pagamentos
+  *diferentes* do mesmo pedido.
+- **Saldo financeiro** (duplo pagamento de negócio): a RPC calcula, no servidor,
+  `saldo = valor_total_canônico − valor_já_pago_V2` e **rejeita** pedido já quitado
+  (`PAYMENT_V2_PEDIDO_JA_PAGO`) ou alocação que exceda o saldo
+  (`PAYMENT_V2_EXCEDE_SALDO`). Duas `idempotency_key` distintas disputando o último
+  saldo **não** conseguem cobrar duas vezes (lock + recomputação de saldo).
 
-**Eventos** (`chk_pe_tipo`, append-only): `CREATED`, `PROCESSING`, `AUTHORIZED`,
-`PAID`, `DECLINED`, `CANCELLED`, `REFUNDED`, `ERROR`. Manual gera `CREATED` + `PAID`.
+## 4. Autorização funcional
 
-Valores financeiros são **sempre ≥ 0** (`chk_pt_valores_nao_neg`); estornos serão
-representados por transações/eventos próprios (`REFUNDED`), nunca por valor negativo.
-Invariante: `valor_liquido = valor_bruto - valor_taxa` (`chk_pt_liquido`).
+`app_pode_receber_pagamento(loja)`: **super_admin** OU usuário **ativo da própria
+loja** com módulo de caixa (`admin`/`cashier`/`op_caixa` em `ids_acesso`) e ação
+`receber_pagamento`. A ação é **nova**; o modelo `permissoes_acoes` trata *chave
+ausente = todas as ações permitidas* (default-allow, igual ao app), então usuários
+existentes **permanecem autorizados** (retrocompatível). Só bloqueia quando o admin
+configurar explicitamente as ações do módulo `cashier` **sem** `receber_pagamento`.
+Não depende de validação do frontend.
 
-## 4. Idempotência
+## 5. Valor canônico e saldo do pedido
 
-- **Chave:** `UNIQUE (loja_id, idempotency_key)` em `pagamento_transacoes`.
-- O cliente gera `idempotency_key` (UUID) **uma vez por intenção de pagamento** e a
-  reusa em retries. A RPC, ao encontrar a chave, **retorna a transação existente**
-  (`idempotente: true`) sem duplicar — elimina duplo pagamento por retry/duplo clique.
-- `provider_event_id` tem índice único parcial para **idempotência futura de webhook**.
+`app_pedido_valor_total(itens)` = **Σ (price × quantity)** dos itens persistidos —
+espelho exato de `orderTotal()` do app. `price` é o **preço unitário final** já
+gravado (promoções/combos/opções embutidas; o JSON persistido **não** tem campo de
+desconto/adicional separado). Aceita chaves pt/en, é `IMMUTABLE` e defensivo (nunca
+lança). `valor_já_pago_V2` conta **apenas** transações `status='PAID'` (valor
+efetivamente confirmado). Fórmula documentada; o frontend **nunca** é autoridade.
 
-## 5. Atomicidade
+## 6. Pagamento parcial
 
-A RPC roda como **uma transação**: inserts (transação + alocações + eventos),
-`UPDATE` dos pedidos e movimento de caixa acontecem **juntos**. Qualquer falha
-(`RAISE EXCEPTION`) faz **ROLLBACK total** — nunca há pedido "pago" sem pagamento,
-pagamento sem alocação, nem alocação cross-tenant persistida.
+Suportado: uma alocação parcial **não** marca `status_pagamento='pago'`. A RPC só
+marca `pago` quando `saldo_restante = 0`. Enquanto `saldo_restante > 0`, o pedido
+permanece operacionalmente **não quitado** (mantém o `status_pagamento` atual —
+**não** foi criado status legado `parcial`, pois o CHECK de `tab_pedidos` só admite
+`aberto|solicitado|pago` e há consumidores desse enum). A **fonte da verdade** do
+parcial é `pagamento_alocacoes` + `pagamento_transacoes`. **UI futura:** para exibir
+“PARCIAL” sem quebrar o legado, calcular `saldo = app_pedido_valor_total − Σ
+alocações PAID` e rotular `0 < pago < total` como parcial — apenas visual, sem novo
+status no banco.
 
-## 6. RLS e isolamento multiempresa
+## 7. Atomicidade e ordem de lock
 
-- Todas as tabelas V2: **RLS habilitada**; policy de `SELECT` = `super OR loja_id =
-  app_loja_id()`.
-- **Cliente não escreve direto** — `INSERT/UPDATE/DELETE` revogados de `anon`/
-  `authenticated`. Toda escrita passa pela RPC `SECURITY DEFINER`, que **resolve a
-  loja no servidor** (`app_loja_id()`/super) e **não confia** no `loja_id` do
-  frontend.
-- `pagamento_eventos`: `SELECT` para a própria loja; **sem** policy de escrita para o
-  cliente ⇒ **append-only** efetivo (só a RPC grava). `UPDATE/DELETE` proibidos.
-- A RPC busca e **bloqueia os pedidos no servidor** (`FOR UPDATE`), confirma que
-  pertencem à loja e que não estão cancelados.
+Toda a operação é **uma transação**: inserts + `UPDATE` de pedidos + caixa acontecem
+juntos; qualquer `RAISE` faz **ROLLBACK total**. Os pedidos são bloqueados em **ordem
+determinística** (`ORDER BY id FOR UPDATE`) após validar o shape, rejeitar
+`pedido_id` duplicado e extrair os IDs únicos — reduz risco de **deadlock** em
+pagamentos concorrentes com múltiplos pedidos.
 
-## 7. Modelo N:N pagamento × pedido
+## 8. Concorrência / idempotência concorrente
 
-`pagamento_alocacoes` liga um pagamento a um ou mais pedidos, com `valor` por pedido.
-- `UNIQUE (pagamento_id, pedido_id)` impede alocação duplicada.
-- `CHECK (valor > 0)`.
-- **Consistência de tenant garantida no servidor:** `pagamento.loja_id =
-  alocacao.loja_id = pedido.loja_id` (a RPC valida; não vem do frontend).
-- **Soma:** `Σ alocações = valor_bruto` (validado na RPC). Cobre "alocação maior que
-  o pagamento" e "soma diferente do pagamento". Pagamento **parcial** (menor que a
-  conta) é suportado — o parcial é em relação à conta; a transação permanece
-  internamente consistente.
+- `pg_advisory_xact_lock(hash(loja, key))` **serializa** duas chamadas simultâneas
+  com a mesma `(loja, idempotency_key)`: a segunda espera e cai no `SELECT` que
+  devolve a transação existente — **uma** transação, sem erro técnico ao usuário.
+- **Rede de segurança**: mesmo assim, um `unique_violation` é capturado e re-seleciona
+  a transação existente (retorna idempotente).
+- Disputa pelo **último saldo** (keys diferentes): o `FOR UPDATE` no pedido serializa;
+  a segunda recomputa saldo=0 → `PEDIDO_JA_PAGO`/`EXCEDE_SALDO`.
 
-## 8. Fluxo legado (preservado)
+## 9. Caixa e forma de pagamento (validados no servidor)
 
-`registrarPagamento` (insert direto em `tab_pagamentos`) e `baixarComandas`
-continuam **exatamente iguais** com a flag desligada. O legado **não** é removido.
-`tab_pagamentos` segue como histórico. A migração de leitura/relatórios para V2 é
-incremental e fora desta etapa.
+- **Caixa** (se informado): existe, `loja_id = loja` e `status='aberto'` — senão
+  `PAYMENT_V2_CAIXA_INVALIDO | _CROSS_TENANT | _FECHADO`. Nunca ignora caixa inválido.
+- **Forma** (se informada): existe, `ativo=true` e (quando tenant-specific, i.e.
+  `loja_id` não nulo) pertence à loja — senão `PAYMENT_V2_FORMA_INVALIDA |
+  _CROSS_TENANT | _INATIVA`. Forma global (`loja_id` nulo) é aceita.
 
-## 9. Feature flag
+## 10. State machine e eventos imutáveis
 
-`PAYMENT_V2_ENABLED` (em `src/lib/paymentService.js`, override
-`VITE_PAYMENT_V2_ENABLED=true`). **Default `false`.**
-- `false` → nenhum comportamento muda; a RPC nem é chamada.
-- `true` → **apenas** os fluxos explicitamente preparados podem chamar
-  `registrarPagamentoV2(...)`. Nenhum fluxo antigo foi trocado automaticamente.
+- Transação manual nasce `PAID`. A trilha registra a transição **cronológica**:
+  `CREATED (null→PENDING)` e, quando confirmado agora, `PAID (PENDING→PAID)` — sem o
+  artefato antigo “CREATED null→PAID + PAID PENDING→PAID”.
+- **Append-only real**: trigger `trg_pagamento_eventos_imutavel` bloqueia
+  `UPDATE/DELETE` em `pagamento_eventos` para **todos** (inclusive o dono). FK
+  `pagamento_eventos → pagamento_transacoes` é **RESTRICT** (nunca apaga evento em
+  cascata). Estornos/cancelamentos futuros são **novos eventos/estados**, nunca
+  edição/remoção. `pagamento_alocacoes → pagamento_transacoes` é `CASCADE` (filho),
+  mas como a transação não é apagada (eventos RESTRICT), as alocações também
+  persistem — cancelamento é por **estado**, não por DELETE.
 
-## 10. Estratégia de migração
+## 11. Timestamps
 
-1. Rodar `supabase/diagnostics/payment-v2-preflight.sql` (homolog e prod) — medir
-   órfãos (`loja_id NULL`, FKs, tenant inferível).
-2. Aplicar a **118** em homologação; rodar os testes de integração (§13).
-3. Backfill seguro de `loja_id` legado (candidatos com tenant único inferível) —
-   **migration posterior**, com revisão humana (nunca inventar loja).
-4. Endurecimento (`loja_id NOT NULL`, FK `RESTRICT`) — **migration posterior**
-   (ver `plano-hardening-multiempresa.md`).
-5. Preparar 1 fluxo piloto (ex.: baixa de comanda no caixa) para usar V2 com a flag
-   ON em homologação; comparar com o legado; então promover.
+`processado_em` só é setado quando o estado é `PROCESSING/AUTHORIZED/PAID`;
+`confirmado_em` só quando `PAID`. Uma transação `PENDING` (futuro gateway) **não**
+parece processada/confirmada.
 
-## 11. Estratégia para gateway (futuro)
+## 12. RLS, grants e consistência multiempresa
 
-- `provider`/`provider_transaction_id`/`nsu`/`tid`/`authorization_code` já existem.
-- Autorização assíncrona: transação nasce `PENDING`→`PROCESSING`→`AUTHORIZED`→`PAID`
-  (ou `DECLINED`), cada passo é um **evento**. Webhook do provider grava via
-  RPC/back-end autorizado usando `provider_event_id` (idempotência de webhook).
-- Segredos do gateway ficam **no servidor** (Vercel/Edge), nunca no frontend.
+- **RLS** habilitada nas 3 tabelas; `SELECT` **apenas a `authenticated`** sob
+  `super OR loja_id = app_loja_id()`. **`anon` sem nenhum acesso financeiro**
+  (revoke all). Escrita direta revogada de `authenticated` — só a RPC (definer)
+  grava. RPC: `REVOKE FROM PUBLIC` + `GRANT EXECUTE TO authenticated`.
+- **Consistência de tenant no banco**: FK **composta** `pagamento_alocacoes
+  (loja_id, pedido_id) → tab_pedidos(loja_id, id)` (habilitada por índice único
+  aditivo em `tab_pedidos(loja_id,id)`) impede fisicamente alocação cross-tenant.
+  A RPC garante `pagamento.loja = alocacao.loja = pedido.loja = caixa.loja =
+  forma.loja(quando tenant-specific)` antes de persistir.
 
-## 12. Estratégia para Pix (futuro)
+## 13. Fluxo legado (preservado) e feature flag
 
-- `pix_e2e_id` (EndToEndId) já reservado + índice. Cobrança gera `PENDING`;
-  confirmação (webhook/consulta) muda para `PAID` com evento e `pix_e2e_id`.
-- Conciliação por `pix_e2e_id`; idempotência por `idempotency_key`.
+`registrarPagamento`/`baixarComandas` continuam **iguais** com a flag desligada
+(default). `PAYMENT_V2_ENABLED=true` habilita a RPC **apenas** em fluxos
+explicitamente preparados. Nenhum fluxo antigo foi trocado nesta etapa. `App.jsx` e
+`src/lib/supabase.js` **não** foram alterados.
 
-## 13. Testes
+## 14. Estratégia de migração / gateway / Pix / fiscal
 
-**Unitários (Vitest — `src/lib/paymentService.test.js`, rodam sem banco):** flag
-off; catálogos de status/eventos; idempotency key; normalização/soma; validação
-(bruto ≤ 0, taxa negativa, líquido negativo, sem alocação, sem pedido_id, valor ≤ 0,
-alocação > pagamento, soma ≠ pagamento, parcial coerente); mapeamento de erros;
-fiação da RPC (mock) incluindo reuso de idempotency_key e `MIGRACAO_PENDENTE`.
+- **Migração:** preflight (`payment-v2-preflight.sql`, só leitura) → aplicar 118 em
+  homologação → integração (`payment-v2-integration.sql`) → backfill seguro (loja
+  inferível, migration posterior) → endurecimento (`plano-hardening-multiempresa.md`).
+- **Gateway:** `provider/provider_transaction_id/nsu/tid/authorization_code` prontos;
+  ciclo `PENDING→PROCESSING→AUTHORIZED→PAID/DECLINED` por eventos; webhook idempotente
+  por `provider_event_id`; segredos no servidor.
+- **Pix:** `pix_e2e_id` reservado; cobrança `PENDING`→confirmação `PAID`.
+- **Fiscal:** a NFC-e/NF-e reais consumirão `pagamento_transacoes` (forma/valor pago,
+  grupo `pag/detPag`), vinculando ao documento (`loja_fiscal_nfce`/futura `_nfe`),
+  no mesmo padrão de tenant forte e numeração atômica da 117.
 
-**Integração (SQL, rodar em HOMOLOGAÇÃO — comportamento de banco):**
-- mesma `idempotency_key` 2× → **uma** transação;
-- loja A tentando pedido da loja B → `PAYMENT_V2_CROSS_TENANT`;
-- pedido inexistente → erro; pedido cancelado → erro;
-- soma das alocações ≠ pagamento → erro;
-- duas chamadas concorrentes (mesma key) → sem duplicidade (unique + FOR UPDATE);
-- erro no meio (ex.: pedido de outra loja na lista) → **nada** persistido;
-- `pagamento_eventos` é **append-only** (UPDATE/DELETE negados ao cliente);
-- RLS: sessão da loja A **não lê** pagamento da loja B.
+## 15. Testes
 
-> Estes exigem um banco com sessões JWT de duas lojas — executar no projeto de
-> homologação após aplicar a 118. Não rodam no Vitest (sem banco).
+**Unitários (Vitest — `paymentService.test.js`, sem banco):** flag off; catálogos;
+idempotency key (v4, CSPRNG); normalização/soma; validação (bruto≤0, taxa negativa,
+líquido negativo, sem alocação, sem pedido_id, valor≤0, alocação>pagamento,
+soma≠pagamento, **parcial coerente = só valida soma, NÃO decide quitação**);
+mapeamento dos **novos códigos** (FORBIDDEN, CAIXA_*, FORMA_*, JA_PAGO, EXCEDE_SALDO);
+fiação da RPC (mock) incl. `MIGRACAO_PENDENTE`. **Os unitários não substituem os SQL.**
 
-## 14. Integração futura com o fiscal
-
-A NFC-e/NF-e reais consumirão o **pagamento** como fonte da forma de pagamento e do
-valor efetivamente pago (grupo `pag`/`detPag` do leiaute), vinculando
-`pagamento_transacoes` ao documento fiscal emitido (`loja_fiscal_nfce`/futura
-`loja_fiscal_nfe`) — mantendo o mesmo padrão de tenant forte e numeração atômica já
-usado na 117. A trilha `pagamento_eventos` alimenta a conciliação fiscal-financeira.
+**Integração (SQL — `supabase/tests/payment-v2-integration.sql`, HOMOLOGAÇÃO, com
+ROLLBACK):** valor canônico; pagamento integral; sem permissão→FORBIDDEN; parcial não
+quita; 2º pagamento quita; excede saldo / já pago; idempotência sequencial;
+cancelado; cross-tenant (pedido/caixa/forma); forma inativa; soma inválida; pedido
+inexistente; JSON inválido/duplicado; evento imutável; rollback após erro no meio.
+**Concorrência real** (mesma key simultânea; duas keys pelo último saldo) via
+instruções **Sessão A / Sessão B** no rodapé do script.
