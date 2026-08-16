@@ -106,6 +106,7 @@ export function mensagemErroPagamentoV2(msg = "") {
   if (/PAYMENT_V2_FORMA_INVALIDA/.test(m)) return "Forma de pagamento inválida.";
   if (/PAYMENT_V2_PEDIDO_JA_PAGO/.test(m)) return "Há pedido já quitado na seleção.";
   if (/PAYMENT_V2_EXCEDE_SALDO/.test(m)) return "O valor excede o saldo em aberto do pedido.";
+  if (/PAYMENT_V2_PEDIDO_VALOR_INVALIDO/.test(m)) return "O pedido tem itens com preço/quantidade inválidos.";
   if (/PAYMENT_V2_CROSS_TENANT/.test(m)) return "Operação não permitida para esta empresa.";
   if (/PAYMENT_V2_PEDIDO_INEXISTENTE/.test(m)) return "Pedido não encontrado.";
   if (/PAYMENT_V2_PEDIDO_CANCELADO/.test(m)) return "Há pedido cancelado na seleção.";

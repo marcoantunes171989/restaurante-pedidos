@@ -15,13 +15,14 @@
 --  ⚠️ NÃO aplicar em produção. Rodar o preflight, revisar, aplicar em HOMOLOGAÇÃO.
 -- ════════════════════════════════════════════════════════════
 
--- (1) PRÉ-REQUISITOS — as TRÊS funções usadas pela RPC precisam existir.
+-- (1) PRÉ-REQUISITOS — as QUATRO funções usadas pela RPC/autorização precisam existir.
 do $$
 begin
-  if to_regprocedure('public.app_is_super()')    is null
-   or to_regprocedure('public.app_loja_id()')     is null
-   or to_regprocedure('public.app_usuario_id()')  is null then
-    raise exception 'Pré-requisito ausente: app_is_super()/app_loja_id()/app_usuario_id() (migrations 064/096/097). Aplique-as antes da 118.';
+  if to_regprocedure('public.app_is_super()')     is null
+   or to_regprocedure('public.app_loja_id()')      is null
+   or to_regprocedure('public.app_usuario_id()')   is null
+   or to_regprocedure('public.app_caller_email()') is null then
+    raise exception 'Pré-requisito ausente: app_is_super()/app_loja_id()/app_usuario_id()/app_caller_email() (migrations 064/096/097). Aplique-as antes da 118.';
   end if;
 end $$;
 
@@ -38,21 +39,48 @@ $$;
 --     total = Σ (price × quantity), onde `price` é o preço UNITÁRIO FINAL já
 --     persistido em tab_pedidos.itens (promoções/combos/opções embutidos no
 --     próprio price; não há campo de desconto/adicional separado no JSON).
---     Aceita chaves pt/en (price|preco|valor, quantity|quantidade). Defensivo:
---     nunca lança; itens/valores inválidos contam como 0/1. IMMUTABLE/testável.
+--     Aceita as chaves REAIS pt/en (price|preco|valor, quantity|quantidade).
+--     FAIL-CLOSED: NÃO assume valores para JSON inválido. Rejeita (erro
+--     PAYMENT_V2_PEDIDO_VALOR_INVALIDO) quando: itens não-array, item não-objeto,
+--     preço ausente/inválido/negativo, quantidade ausente/inválida/≤0. Nunca usa
+--     quantidade 1 silenciosamente. Determinística/testável.
 -- ────────────────────────────────────────────────────────────
 create or replace function public.app_pedido_valor_total(p_itens jsonb)
-returns numeric language sql immutable set search_path = public as $$
-  select coalesce(round(sum(
-      coalesce(public.app_to_numeric(it->>'price'),
-               public.app_to_numeric(it->>'preco'),
-               public.app_to_numeric(it->>'valor'), 0)
-    * coalesce(public.app_to_numeric(it->>'quantity'),
-               public.app_to_numeric(it->>'quantidade'), 1)
-  ), 2), 0)
-  from jsonb_array_elements(
-        case when jsonb_typeof(p_itens) = 'array' then p_itens else '[]'::jsonb end) it
-  where jsonb_typeof(it) = 'object';
+returns numeric language plpgsql immutable set search_path = public as $$
+declare
+  it     jsonb;
+  v_preco numeric;
+  v_qtd   numeric;
+  v_total numeric := 0;
+begin
+  if p_itens is null or jsonb_typeof(p_itens) <> 'array' then
+    raise exception 'PAYMENT_V2_PEDIDO_VALOR_INVALIDO: itens não é um array.';
+  end if;
+  for it in select value from jsonb_array_elements(p_itens) loop
+    if jsonb_typeof(it) <> 'object' then
+      raise exception 'PAYMENT_V2_PEDIDO_VALOR_INVALIDO: item estruturalmente inválido.';
+    end if;
+    v_preco := coalesce(public.app_to_numeric(it->>'price'),
+                        public.app_to_numeric(it->>'preco'),
+                        public.app_to_numeric(it->>'valor'));
+    v_qtd   := coalesce(public.app_to_numeric(it->>'quantity'),
+                        public.app_to_numeric(it->>'quantidade'));
+    if v_preco is null then
+      raise exception 'PAYMENT_V2_PEDIDO_VALOR_INVALIDO: preço ausente/inválido em item.';
+    end if;
+    if v_preco < 0 then
+      raise exception 'PAYMENT_V2_PEDIDO_VALOR_INVALIDO: preço negativo em item.';
+    end if;
+    if v_qtd is null then
+      raise exception 'PAYMENT_V2_PEDIDO_VALOR_INVALIDO: quantidade ausente/inválida em item.';
+    end if;
+    if v_qtd <= 0 then
+      raise exception 'PAYMENT_V2_PEDIDO_VALOR_INVALIDO: quantidade <= 0 em item.';
+    end if;
+    v_total := v_total + v_preco * v_qtd;
+  end loop;
+  return round(v_total, 2);
+end;
 $$;
 
 -- ════════════════════════════════════════════════════════════
@@ -87,7 +115,10 @@ create table if not exists public.pagamento_transacoes (
     'PENDING','PROCESSING','AUTHORIZED','PAID','DECLINED',
     'CANCELLED','REFUNDED','PARTIALLY_REFUNDED','EXPIRED','ERROR')),
   constraint chk_pt_valores_nao_neg check (valor_bruto >= 0 and valor_taxa >= 0 and valor_liquido >= 0),
-  constraint chk_pt_liquido check (valor_liquido = valor_bruto - valor_taxa)
+  constraint chk_pt_liquido check (valor_liquido = valor_bruto - valor_taxa),
+  -- (3) Enabler da FK composta tenant-safe pagamento×alocação (id já é PK ⇒
+  --     (loja_id,id) trivialmente único; loja_id é NOT NULL aqui).
+  constraint uq_pt_loja_id unique (loja_id, id)
 );
 -- Idempotência FORTE por loja.
 create unique index if not exists uq_pt_loja_idem on public.pagamento_transacoes (loja_id, idempotency_key);
@@ -115,13 +146,21 @@ end $$;
 create table if not exists public.pagamento_alocacoes (
   id            uuid primary key default gen_random_uuid(),
   loja_id       bigint not null references public.tab_lojas(id) on delete restrict,
-  pagamento_id  uuid not null references public.pagamento_transacoes(id) on delete cascade,
+  pagamento_id  uuid not null,
   pedido_id     text not null,
   valor         numeric(14,2) not null,
   criado_em     timestamptz not null default now(),
   constraint chk_pa_valor_pos check (valor > 0),
-  -- (14) Consistência de tenant no BANCO: a alocação só referencia um pedido
-  -- cujo loja_id casa exatamente (impede alocação cross-tenant fisicamente).
+  -- (3) Consistência de tenant pagamento×alocação NO BANCO: a alocação só
+  -- referencia um pagamento cujo loja_id casa exatamente ⇒
+  -- alocacao.loja_id = pagamento.loja_id. ON DELETE CASCADE (política financeira:
+  -- alocação é registro FILHO do pagamento; na prática o pagamento nunca é
+  -- apagado — a FK RESTRICT de pagamento_eventos impede excluir a transação —,
+  -- então o cascade é apenas semântico).
+  constraint fk_pa_pagamento_tenant foreign key (loja_id, pagamento_id)
+    references public.pagamento_transacoes (loja_id, id) on delete cascade,
+  -- (14) Consistência de tenant pedido×alocação NO BANCO: a alocação só
+  -- referencia um pedido cujo loja_id casa exatamente (impede cross-tenant).
   constraint fk_pa_pedido_tenant foreign key (loja_id, pedido_id)
     references public.tab_pedidos (loja_id, id) on delete restrict
 );

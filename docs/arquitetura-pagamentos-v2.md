@@ -67,9 +67,14 @@ Não depende de validação do frontend.
 `app_pedido_valor_total(itens)` = **Σ (price × quantity)** dos itens persistidos —
 espelho exato de `orderTotal()` do app. `price` é o **preço unitário final** já
 gravado (promoções/combos/opções embutidas; o JSON persistido **não** tem campo de
-desconto/adicional separado). Aceita chaves pt/en, é `IMMUTABLE` e defensivo (nunca
-lança). `valor_já_pago_V2` conta **apenas** transações `status='PAID'` (valor
-efetivamente confirmado). Fórmula documentada; o frontend **nunca** é autoridade.
+desconto/adicional separado). Aceita as chaves reais pt/en (`price|preco|valor`,
+`quantity|quantidade`). **FAIL-CLOSED:** não assume valores para JSON inválido —
+**rejeita** com `PAYMENT_V2_PEDIDO_VALOR_INVALIDO` quando: itens não-array, item
+não-objeto, preço ausente/inválido/negativo, quantidade ausente/inválida/≤0 (nunca
+usa quantidade 1 silenciosamente). Como o RPC usa essa função para o saldo, um
+pedido com item inválido faz o pagamento **abortar** (rollback, sem transação).
+`valor_já_pago_V2` conta **apenas** transações `status='PAID'`. O frontend **nunca**
+é autoridade sobre o valor.
 
 ## 6. Pagamento parcial
 
@@ -134,11 +139,14 @@ parece processada/confirmada.
   `super OR loja_id = app_loja_id()`. **`anon` sem nenhum acesso financeiro**
   (revoke all). Escrita direta revogada de `authenticated` — só a RPC (definer)
   grava. RPC: `REVOKE FROM PUBLIC` + `GRANT EXECUTE TO authenticated`.
-- **Consistência de tenant no banco**: FK **composta** `pagamento_alocacoes
-  (loja_id, pedido_id) → tab_pedidos(loja_id, id)` (habilitada por índice único
-  aditivo em `tab_pedidos(loja_id,id)`) impede fisicamente alocação cross-tenant.
-  A RPC garante `pagamento.loja = alocacao.loja = pedido.loja = caixa.loja =
-  forma.loja(quando tenant-specific)` antes de persistir.
+- **Consistência de tenant no banco (duas FKs compostas)**:
+  `pagamento_alocacoes(loja_id, pedido_id) → tab_pedidos(loja_id, id)` **e**
+  `pagamento_alocacoes(loja_id, pagamento_id) → pagamento_transacoes(loja_id, id)`
+  (habilitadas por `UNIQUE(loja_id,id)` aditivas em `tab_pedidos` e
+  `pagamento_transacoes`). Juntas garantem **fisicamente**
+  `pagamento.loja_id = alocacao.loja_id = pedido.loja_id`, impossibilitando
+  alocação cross-tenant no banco. A RPC ainda garante `caixa.loja` e
+  `forma.loja(quando tenant-specific)` antes de persistir.
 
 ## 13. Fluxo legado (preservado) e feature flag
 
@@ -170,9 +178,15 @@ mapeamento dos **novos códigos** (FORBIDDEN, CAIXA_*, FORMA_*, JA_PAGO, EXCEDE_
 fiação da RPC (mock) incl. `MIGRACAO_PENDENTE`. **Os unitários não substituem os SQL.**
 
 **Integração (SQL — `supabase/tests/payment-v2-integration.sql`, HOMOLOGAÇÃO, com
-ROLLBACK):** valor canônico; pagamento integral; sem permissão→FORBIDDEN; parcial não
-quita; 2º pagamento quita; excede saldo / já pago; idempotência sequencial;
-cancelado; cross-tenant (pedido/caixa/forma); forma inativa; soma inválida; pedido
-inexistente; JSON inválido/duplicado; evento imutável; rollback após erro no meio.
+ROLLBACK):** valor canônico + **fail-closed** (quantity ausente/0/negativa; price
+ausente/inválido/negativo; itens não-array; item não-objeto) e pedido inválido não
+gera transação; pagamento integral; sem permissão→FORBIDDEN; parcial não quita; 2º
+pagamento quita; excede saldo / já pago; idempotência sequencial; cancelado;
+cross-tenant (pedido/caixa/forma); forma inativa; soma inválida; pedido inexistente;
+JSON inválido/duplicado; evento imutável; rollback após erro no meio.
+**RLS/GRANTS com papéis efetivos (`SET ROLE authenticated`/`anon`):** Loja A não lê
+pagamento da Loja B; `authenticated` sem INSERT/UPDATE/DELETE direto; UPDATE/DELETE
+de evento negado; `anon` sem acesso financeiro. (`set_config(request.jwt.claims)`
+sozinho não prova RLS rodando como owner — por isso o teste troca o **papel**.)
 **Concorrência real** (mesma key simultânea; duas keys pelo último saldo) via
 instruções **Sessão A / Sessão B** no rodapé do script.

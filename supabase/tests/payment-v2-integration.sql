@@ -65,6 +65,46 @@ begin
      and public.app_pedido_valor_total((select itens from public.tab_pedidos where id='PV2-P2')) = 50.00
   then raise notice 'PASS: valor canônico (30/50)'; else raise notice 'FAIL: valor canônico'; end if;
 
+  -- ── T0b: VALOR CANÔNICO FAIL-CLOSED (cada caso deve LANÇAR, sem persistir) ──
+  declare
+    c text; ok boolean;
+    casos jsonb[] := array[
+      '[{"name":"X","price":10}]'::jsonb,                       -- quantity ausente
+      '[{"name":"X","price":10,"quantity":0}]'::jsonb,          -- quantity zero
+      '[{"name":"X","price":10,"quantity":-2}]'::jsonb,         -- quantity negativa
+      '[{"name":"X","quantity":1}]'::jsonb,                     -- price ausente
+      '[{"name":"X","price":"abc","quantity":1}]'::jsonb,       -- price inválido
+      '[{"name":"X","price":-5,"quantity":1}]'::jsonb,          -- price negativo
+      '{"nao":"array"}'::jsonb,                                 -- itens não-array
+      '[123]'::jsonb                                            -- item não-objeto
+    ];
+    v jsonb;
+  begin
+    foreach v in array casos loop
+      ok := false;
+      begin
+        perform public.app_pedido_valor_total(v);
+      exception when others then
+        if SQLERRM like '%PAYMENT_V2_PEDIDO_VALOR_INVALIDO%' then ok := true; end if;
+      end;
+      if ok then raise notice 'PASS: valor inválido rejeitado (%)', v
+      else raise notice 'FAIL: valor inválido NÃO rejeitado (%)', v; end if;
+    end loop;
+  end;
+
+  -- T0c: RPC com pedido de itens inválidos → erro + NENHUMA transação persistida.
+  declare v_antes0 int; v_depois0 int; begin
+    insert into public.tab_pedidos (id, mesa, comanda, status, status_pagamento, itens, loja_id)
+      values ('PV2-PBAD','9','PV2-CBAD','recebido','aberto','[{"name":"N","price":10,"quantity":0}]'::jsonb, v_lojaA);
+    select count(*) into v_antes0 from public.pagamento_transacoes where loja_id=v_lojaA;
+    perform set_config('request.jwt.claims', claimsOk, true);
+    begin
+      perform public.app_registrar_pagamento_v2(gen_random_uuid(), '[{"pedido_id":"PV2-PBAD","valor":10}]'::jsonb, 10, v_lojaA);
+    exception when others then null; end;
+    select count(*) into v_depois0 from public.pagamento_transacoes where loja_id=v_lojaA;
+    if v_antes0 = v_depois0 then raise notice 'PASS: T0c pedido com item inválido não gera transação'; else raise notice 'FAIL: T0c persistiu transação'; end if;
+  end;
+
   -- ── T1: usuário autorizado paga P1 integral (30) ──────────
   perform set_config('request.jwt.claims', claimsOk, true);
   v_res := public.app_registrar_pagamento_v2(
@@ -210,6 +250,77 @@ begin
 end $$;
 
 -- ROLLBACK: nada é persistido.
+rollback;
+
+-- ════════════════════════════════════════════════════════════
+--  RLS / GRANTS COM PAPÉIS EFETIVOS (SET ROLE) — prova REAL de isolamento.
+--  ⚠️ set_config(request.jwt.claims) sozinho NÃO prova RLS quando o editor roda
+--  como owner/postgres (o owner IGNORA RLS). Aqui trocamos o PAPEL efetivo para
+--  'authenticated' e 'anon' — só então a RLS/os grants são aplicados de fato.
+--  Rode conectado como owner/postgres (SQL Editor) para poder SET ROLE. ROLLBACK.
+-- ════════════════════════════════════════════════════════════
+begin;
+do $$
+declare v_a bigint; v_b bigint; v_pa uuid; v_pb uuid;
+begin
+  insert into public.tab_lojas (nome, prefixo) values ('PV2 RLS A','PV2RA') returning id into v_a;
+  insert into public.tab_lojas (nome, prefixo) values ('PV2 RLS B','PV2RB') returning id into v_b;
+  perform set_config('pv2.loja_a', v_a::text, true);
+  perform set_config('pv2.loja_b', v_b::text, true);
+  insert into public.tab_usuarios (nome,email,perfil,ativo,ids_acesso,loja_id,permissoes_acoes)
+    values ('PV2 RLS UserA','pv2.rls.a@teste.local','Operador',true,array['cashier'],v_a,'{}'::jsonb);
+  -- Pagamentos diretos (owner) — 1 por loja — só para testar leitura isolada.
+  insert into public.pagamento_transacoes (loja_id,valor_bruto,valor_taxa,valor_liquido,status,provider,idempotency_key)
+    values (v_a,10,0,10,'PAID','manual',gen_random_uuid()) returning id into v_pa;
+  insert into public.pagamento_transacoes (loja_id,valor_bruto,valor_taxa,valor_liquido,status,provider,idempotency_key)
+    values (v_b,20,0,20,'PAID','manual',gen_random_uuid()) returning id into v_pb;
+  insert into public.pagamento_eventos (loja_id,pagamento_id,tipo,status_novo) values (v_a,v_pa,'CREATED','PAID');
+end $$;
+
+-- Papel AUTHENTICATED simulando a sessão da Loja A.
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('email','pv2.rls.a@teste.local','role','authenticated')::text, true);
+do $$
+declare v_a bigint := current_setting('pv2.loja_a')::bigint;
+        v_b bigint := current_setting('pv2.loja_b')::bigint;
+        n_a int; n_b int; blocked boolean;
+begin
+  select count(*) into n_a from public.pagamento_transacoes where loja_id = v_a;
+  select count(*) into n_b from public.pagamento_transacoes where loja_id = v_b;
+  if n_a >= 1 and n_b = 0 then raise notice 'PASS: RLS — Loja A vê a própria, NÃO vê a Loja B'; else raise notice 'FAIL: RLS leitura (A=% B=%)', n_a, n_b; end if;
+
+  blocked := false;
+  begin
+    insert into public.pagamento_transacoes (loja_id,valor_bruto,valor_taxa,valor_liquido,status,provider,idempotency_key)
+      values (v_a,1,0,1,'PAID','manual',gen_random_uuid());
+  exception when others then blocked := true; end;
+  if blocked then raise notice 'PASS: authenticated NÃO faz INSERT direto'; else raise notice 'FAIL: INSERT direto permitido'; end if;
+
+  blocked := false;
+  begin update public.pagamento_eventos set tipo='PAID' where loja_id = v_a; exception when others then blocked := true; end;
+  if blocked then raise notice 'PASS: authenticated NÃO faz UPDATE de evento'; else raise notice 'FAIL: UPDATE de evento permitido'; end if;
+
+  blocked := false;
+  begin delete from public.pagamento_eventos where loja_id = v_a; exception when others then blocked := true; end;
+  if blocked then raise notice 'PASS: authenticated NÃO faz DELETE de evento'; else raise notice 'FAIL: DELETE de evento permitido'; end if;
+end $$;
+reset role;
+
+-- Papel ANON — sem NENHUM acesso financeiro.
+set local role anon;
+select set_config('request.jwt.claims', '{}', true);
+do $$
+declare n int; denied boolean := false;
+begin
+  begin
+    select count(*) into n from public.pagamento_transacoes;
+    if n = 0 then denied := true; end if;   -- RLS sem policy p/ anon → 0 linhas
+  exception when others then denied := true; -- ou permission denied (revoke all)
+  end;
+  if denied then raise notice 'PASS: anon sem acesso financeiro'; else raise notice 'FAIL: anon leu % linhas', n; end if;
+end $$;
+reset role;
+
 rollback;
 
 -- ════════════════════════════════════════════════════════════
