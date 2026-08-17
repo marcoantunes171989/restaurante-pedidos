@@ -2898,7 +2898,9 @@ export async function atualizarUsuariosPorLoja(lojaId, campos) {
   if (error) throw error
 }
 
-export function escutarUsuarios(onMudanca) {
+export function escutarUsuarios(onMudanca, onStatus) {
+  // Debounce: rajadas de UPDATE no SQL Editor (ou sync em massa) viram um reload.
+  let timer = null
   const reload = async () => {
     try {
       const lista = await fetchUsuarios()
@@ -2907,12 +2909,20 @@ export function escutarUsuarios(onMudanca) {
       onMudanca(lista)
     } catch { /* silencioso */ }
   }
+  const agendar = () => {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => { timer = null; reload() }, 120)
+  }
   const canal = supabase.channel('ch_usuarios_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, reload)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_usuarios' }, reload)
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_usuarios' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_usuarios' }, agendar)
+    .subscribe((s) => {
+      if (typeof onStatus === 'function') onStatus(s)
+      if (s === 'SUBSCRIBED') reload()
+    })
+  return () => {
+    if (timer) clearTimeout(timer)
+    supabase.removeChannel(canal)
+  }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2937,18 +2947,27 @@ export async function atualizarAcesso(id, campos) {
   if (error) throw error
 }
 
-export function escutarAcessos(onMudanca) {
+export function escutarAcessos(onMudanca, onStatus) {
+  let timer = null
   const reload = async () => {
     const { data, error } = await supabase
       .from('tab_acessos').select('*').order('id', { ascending: true })
     if (!error && data) onMudanca(data.map(dbParaAcesso))
   }
+  const agendar = () => {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => { timer = null; reload() }, 120)
+  }
   const canal = supabase.channel('ch_acessos_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_acessos' }, reload)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_acessos' }, reload)
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_acessos' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_acessos' }, agendar)
+    .subscribe((s) => {
+      if (typeof onStatus === 'function') onStatus(s)
+      if (s === 'SUBSCRIBED') reload()
+    })
+  return () => {
+    if (timer) clearTimeout(timer)
+    supabase.removeChannel(canal)
+  }
 }
 
 // ════════════════════════════════════════════════════════════
