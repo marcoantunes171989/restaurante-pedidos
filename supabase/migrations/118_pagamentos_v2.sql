@@ -13,6 +13,17 @@
 --    • app_registrar_pagamento_v2(...)    — RPC transacional/idempotente/tenant-safe
 --
 --  ⚠️ NÃO aplicar em produção. Rodar o preflight, revisar, aplicar em HOMOLOGAÇÃO.
+--
+--  SINCRONIZADO COM O ESTADO HOMOLOGADO (PostgreSQL):
+--    • uq_pedidos_loja_id: sem construção de índice bloqueante — usa a constraint
+--      já existente, OU anexa um índice UNIQUE(loja_id,id) pré-preparado
+--      (CONCURRENTLY) via USING INDEX, OU aborta com PAYMENT_V2_PRECHECK.
+--    • Grants: anon SEM execute em app_to_numeric / app_pedido_valor_total /
+--      app_pode_receber_pagamento / app_registrar_pagamento_v2 (PUBLIC revogado);
+--      authenticated com execute conforme o contrato homologado.
+--    • PAYMENT_V2_ENABLED permanece false (flag no cliente; nada é ativado aqui).
+--  Relatório de compatibilidade backend↔frontend incorporado ao repositório:
+--    docs/auditoria-backend-frontend-payment-v2.md
 -- ════════════════════════════════════════════════════════════
 
 -- (1) PRÉ-REQUISITOS — as QUATRO funções usadas pela RPC/autorização precisam existir.
@@ -33,6 +44,9 @@ create or replace function public.app_to_numeric(p text)
 returns numeric language sql immutable as $$
   select case when p ~ '^\s*-?[0-9]+(\.[0-9]+)?\s*$' then btrim(p)::numeric else null end;
 $$;
+-- Grants homologados: sem PUBLIC (⇒ anon SEM execute); apenas authenticated.
+revoke all on function public.app_to_numeric(text) from public;
+grant execute on function public.app_to_numeric(text) to authenticated;
 
 -- ────────────────────────────────────────────────────────────
 -- (5) VALOR CANÔNICO DO PEDIDO — espelha orderTotal() do app:
@@ -82,6 +96,9 @@ begin
   return round(v_total, 2);
 end;
 $$;
+-- Grants homologados: sem PUBLIC (⇒ anon SEM execute); apenas authenticated.
+revoke all on function public.app_pedido_valor_total(jsonb) from public;
+grant execute on function public.app_pedido_valor_total(jsonb) to authenticated;
 
 -- ════════════════════════════════════════════════════════════
 -- TABELAS
@@ -128,18 +145,62 @@ create index if not exists idx_pt_provider_txn on public.pagamento_transacoes (p
 create index if not exists idx_pt_pix_e2e on public.pagamento_transacoes (pix_e2e_id);
 create index if not exists idx_pt_forma on public.pagamento_transacoes (forma_pagamento_id);
 
--- (14) Enabler para FK composta tenant-safe: constraint UNIQUE (loja_id,id) em
---      tab_pedidos. Aditivo e idempotente — `id` já é PK, então (loja_id,id) é
---      trivialmente único (não altera dados; nunca falha por duplicidade). Uma
---      FK do Postgres exige CONSTRAINT única (um índice único não basta).
+-- (14) Enabler da FK composta tenant-safe: EXIGE a constraint UNIQUE (loja_id,id)
+--      em tab_pedidos (uma FK do Postgres precisa de CONSTRAINT única — índice
+--      único sozinho não basta). SINCRONIZADO COM O ESTADO HOMOLOGADO:
+--      NÃO constrói índice bloqueante automaticamente. Em produção, o índice deve
+--      ser criado CONCURRENTLY (fora desta migration) e depois anexado.
+--        (a) constraint uq_pedidos_loja_id já existe  → segue (no-op idempotente);
+--        (b) existe índice UNIQUE, VÁLIDO/PRONTO e ainda NÃO vinculado a
+--            constraint, exatamente sobre (loja_id,id) → anexa via
+--            ADD CONSTRAINT ... UNIQUE USING INDEX (sem reconstruir/bloquear);
+--        (c) nenhuma estrutura segura → ABORTA com PAYMENT_V2_PRECHECK.
 do $$
+declare
+  v_idx name;
 begin
-  if not exists (
+  -- (a) Constraint já existe (caso do ambiente homologado) → nada a fazer.
+  if exists (
     select 1 from pg_constraint
-    where conrelid = 'public.tab_pedidos'::regclass and conname = 'uq_pedidos_loja_id'
+    where conrelid = 'public.tab_pedidos'::regclass
+      and conname  = 'uq_pedidos_loja_id'
   ) then
-    alter table public.tab_pedidos add constraint uq_pedidos_loja_id unique (loja_id, id);
+    return;
   end if;
+
+  -- (b) Índice UNIQUE já PREPARADO (ex.: criado CONCURRENTLY), válido, pronto,
+  --     não-parcial, sem expressões, ainda SEM constraint dona, e exatamente
+  --     sobre as colunas (loja_id, id) nesta ordem → anexa sem reconstruir.
+  select ic.relname into v_idx
+  from pg_index i
+  join pg_class ic on ic.oid = i.indexrelid
+  where i.indrelid = 'public.tab_pedidos'::regclass
+    and i.indisunique
+    and i.indisvalid
+    and i.indisready
+    and i.indislive
+    and i.indpred  is null           -- não parcial
+    and i.indexprs is null           -- sem expressões
+    and not exists (                 -- ainda não é dono de uma constraint
+      select 1 from pg_constraint c where c.conindid = i.indexrelid
+    )
+    and (
+      select array_agg(a.attname::text order by k.ord)
+      from unnest(i.indkey::int2[]) with ordinality as k(attnum, ord)
+      join pg_attribute a on a.attrelid = i.indrelid and a.attnum = k.attnum
+    ) = array['loja_id','id']
+  limit 1;
+
+  if v_idx is not null then
+    execute format(
+      'alter table public.tab_pedidos add constraint uq_pedidos_loja_id unique using index %I',
+      v_idx);
+    return;
+  end if;
+
+  -- (c) Sem constraint e sem índice seguro pré-preparado → aborta.
+  --     NUNCA constrói índice bloqueante aqui.
+  raise exception 'PAYMENT_V2_PRECHECK: tab_pedidos não possui a constraint uq_pedidos_loja_id nem um índice UNIQUE(loja_id,id) VÁLIDO/PRONTO desvinculado. Crie o índice CONCURRENTLY (fora desta migration) e reexecute — não construa índice bloqueante automaticamente.';
 end $$;
 
 -- 2) pagamento_alocacoes (N:N pagamento × pedido)
