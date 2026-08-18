@@ -6327,12 +6327,11 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
       </div>
 
       {/* Chips de status */}
-      <div className="flex flex-wrap gap-2">
+      <div className="pp-filter-panel flex flex-wrap gap-2" role="group" aria-label="Filtrar comandas por status">
         {CHIPS.map((c) => (
-          <button key={c.id} onClick={() => comReset(setFiltro)(c.id)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-bold transition ${filtro === c.id ? "border-[#F38525] bg-[#F38525] text-[#012E46] shadow-sm" : "border-[var(--pp-border)] bg-white text-dash-navy hover:border-[#F38525]/50 hover:text-[#F38525]"}`}>
-            {c.label}{c.dot && <span className={`h-1.5 w-1.5 rounded-full ${filtro === c.id ? "bg-white" : "bg-[#F38525]"}`} />}
-          </button>
+          <FilterChip key={c.id} size="sm" selected={filtro === c.id}
+            label={c.label} tone={c.dot ? "warning" : null}
+            onClick={() => comReset(setFiltro)(c.id)} />
         ))}
       </div>
 
