@@ -46,6 +46,7 @@ returns numeric language sql immutable as $$
 $$;
 -- Grants homologados: sem PUBLIC (⇒ anon SEM execute); apenas authenticated.
 revoke all on function public.app_to_numeric(text) from public;
+revoke all on function public.app_to_numeric(text) from anon;
 grant execute on function public.app_to_numeric(text) to authenticated;
 
 -- ────────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ end;
 $$;
 -- Grants homologados: sem PUBLIC (⇒ anon SEM execute); apenas authenticated.
 revoke all on function public.app_pedido_valor_total(jsonb) from public;
+revoke all on function public.app_pedido_valor_total(jsonb) from anon;
 grant execute on function public.app_pedido_valor_total(jsonb) to authenticated;
 
 -- ════════════════════════════════════════════════════════════
@@ -145,9 +147,12 @@ create index if not exists idx_pt_provider_txn on public.pagamento_transacoes (p
 create index if not exists idx_pt_pix_e2e on public.pagamento_transacoes (pix_e2e_id);
 create index if not exists idx_pt_forma on public.pagamento_transacoes (forma_pagamento_id);
 
--- (14) Enabler da FK composta tenant-safe: EXIGE a constraint UNIQUE (loja_id,id)
---      em tab_pedidos (uma FK do Postgres precisa de CONSTRAINT única — índice
---      único sozinho não basta). SINCRONIZADO COM O ESTADO HOMOLOGADO:
+-- (14) Enabler da FK composta tenant-safe: EXIGE uma constraint UNIQUE (loja_id,id)
+--      em tab_pedidos como ALVO da FK. Nota técnica: no Postgres o alvo de uma FK
+--      é uma CONSTRAINT única/PK — um índice único isolado não é aceito
+--      DIRETAMENTE como alvo; porém um índice único já preparado SUSTENTA a FK
+--      quando PROMOVIDO a constraint via ADD CONSTRAINT ... UNIQUE USING INDEX
+--      (é exatamente o caminho (b) abaixo). SINCRONIZADO COM O ESTADO HOMOLOGADO:
 --      NÃO constrói índice bloqueante automaticamente. Em produção, o índice deve
 --      ser criado CONCURRENTLY (fora desta migration) e depois anexado.
 --        (a) constraint uq_pedidos_loja_id já existe  → segue (no-op idempotente);
@@ -351,6 +356,7 @@ begin
 end;
 $$;
 revoke all on function public.app_pode_receber_pagamento(bigint) from public;
+revoke all on function public.app_pode_receber_pagamento(bigint) from anon;
 grant execute on function public.app_pode_receber_pagamento(bigint) to authenticated;
 
 -- ════════════════════════════════════════════════════════════
@@ -626,6 +632,7 @@ end;
 $$;
 
 revoke all on function public.app_registrar_pagamento_v2(uuid, jsonb, numeric, bigint, text, text, bigint, bigint, numeric, jsonb, boolean) from public;
+revoke all on function public.app_registrar_pagamento_v2(uuid, jsonb, numeric, bigint, text, text, bigint, bigint, numeric, jsonb, boolean) from anon;
 grant execute on function public.app_registrar_pagamento_v2(uuid, jsonb, numeric, bigint, text, text, bigint, bigint, numeric, jsonb, boolean) to authenticated;
 
 comment on table public.pagamento_transacoes is 'Pagamentos V2 (multiempresa, idempotente por loja+key). Escrita só via app_registrar_pagamento_v2.';

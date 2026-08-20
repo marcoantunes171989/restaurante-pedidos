@@ -171,27 +171,47 @@ Duplicações **plano/preço** = **CACHE** com banco canônico (aceitável, docu
 - (C) **JSONB novo** — seguiria (B), porém **sem** tipagem/constraint no banco.
 
 **Recomendação: (A) colunas tipadas + CHECK + auditoria.** Por ser **parâmetro
-financeiro**, a integridade deve ser garantida pelo banco, o que o JSONB não faz:
+financeiro**, a integridade deve ser garantida pelo banco, o que o JSONB não faz.
+
+**A migration NÃO pode carimbar default histórico** (10%/true/opcional) nos
+registros existentes como se fosse a config que a loja usava. Por isso: **valores
+nullable** + flag explícita **`taxa_servico_configurada boolean default false`**.
+Assim, "linha existente sem config" é representada por `configurada = false`
+(desconhecido), não por um 10% inventado.
 
 ```sql
 -- migration NNN_taxa_servico_loja.sql (ADITIVA) — PROJETO, não criada.
+-- NÃO atribui histórico: flag = false e valores NULL para todas as lojas atuais.
 alter table public.tab_lojas
-  add column if not exists taxa_servico_ativa    boolean      not null default true,
-  add column if not exists taxa_servico_percent  numeric(5,2) not null default 10
-    check (taxa_servico_percent >= 0 and taxa_servico_percent <= 100),
-  add column if not exists taxa_servico_regra     text        not null default 'opcional'
-    check (taxa_servico_regra in ('opcional','obrigatoria')),
-  add column if not exists taxa_servico_rateio    text        not null default 'proporcional_itens'
-    check (taxa_servico_rateio in ('proporcional_itens','igualitario')),
+  -- Marca se a loja JÁ definiu a taxa explicitamente (evita inventar histórico).
+  add column if not exists taxa_servico_configurada boolean not null default false,
+  -- Valores nullable: NULL = nunca configurado (usar default só em runtime).
+  add column if not exists taxa_servico_ativa    boolean      null,
+  add column if not exists taxa_servico_percent  numeric(5,2) null
+    check (taxa_servico_percent is null or (taxa_servico_percent >= 0 and taxa_servico_percent <= 100)),
+  add column if not exists taxa_servico_regra     text        null
+    check (taxa_servico_regra is null or taxa_servico_regra in ('opcional','obrigatoria')),
+  add column if not exists taxa_servico_rateio    text        null
+    check (taxa_servico_rateio is null or taxa_servico_rateio in ('proporcional_itens','igualitario')),
   add column if not exists taxa_servico_atualizada_em     timestamptz,
   add column if not exists taxa_servico_atualizada_por_id bigint references public.tab_usuarios(id);
 ```
 
-- **Auditoria:** registrar alteração do percentual em `tab_auditoria` (já existe,
-  migration 045) — quem/quando/valor anterior→novo.
-- **Camada de acesso:** ler do banco (autoridade); `localStorage` vira **CACHE**.
+**Regra de resolução (runtime) — precedência:**
+
+| Estado | Fonte usada |
+|---|---|
+| `taxa_servico_configurada = true` | **Banco é a autoridade** (usa os valores da linha) |
+| `configurada = false` **e** existe `localStorage` | **Compatibilidade temporária** (usa o localStorage; não grava sozinho) |
+| `configurada = false` **e** sem localStorage | **Default apenas em runtime** (ex.: 10% opcional) — **não** persiste |
+| Usuário **salva explicitamente** na tela | Persiste no banco + `configurada = true` + `atualizada_em/por_id` + **auditoria** |
+
+- **Auditoria:** registrar a alteração em `tab_auditoria` (já existe, migration 045)
+  — quem/quando/valor anterior→novo.
+- **Camada de acesso:** quando `configurada = true`, ler do banco (autoridade);
+  senão, `localStorage` é só **compatibilidade/CACHE**, nunca autoridade.
 - **RLS:** herda `tab_lojas` (escrita restrita a admin da loja / super).
-- **NÃO assumir JSONB.** Domínios validados no banco (0–100, enums, boolean).
+- **NÃO assumir JSONB.** **NÃO inventar histórico.** Domínios validados no banco.
 
 ### 4.2 P1 — Observação da mesa: reusar coluna existente
 
@@ -240,9 +260,12 @@ usou. O `localStorage` é **inacessível ao servidor**. Portanto, para A, B, C, 
   usuário (ex.: a loja regravar pela tela);
 - **registros ambíguos permanecem apenas reportados**, nunca alterados.
 
-Consequência prática: aplica-se o **default seguro** (ex.: taxa 10% opcional) até a
-loja regravar; cada regravação pela tela passa a valer no banco. Preflight
-somente-leitura confirma quais lojas já têm valor no banco (nenhuma, colunas novas).
+Consequência prática (taxa de serviço, §4.1): todas as lojas nascem com
+`taxa_servico_configurada = false` e valores **NULL** — nenhum 10%/true/opcional é
+gravado no banco. O default (ex.: 10% opcional) só existe **em runtime**, no
+frontend, enquanto `configurada = false`; a primeira gravação explícita pela tela
+é que passa a valer no banco (`configurada = true`). Preflight somente-leitura
+confirma quais lojas já têm `configurada = true` (nenhuma, colunas novas).
 
 ---
 
