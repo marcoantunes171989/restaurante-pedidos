@@ -5,6 +5,17 @@ import { ArrowRight } from "lucide-react";
 //  Primitivas compartilhadas da landing (botão, reveal, wordmark,
 //  cabeçalho de seção). Paleta oficial: petróleo #012E46 + laranja #F38525.
 //  Sem logotipo/monograma — wordmark tipográfico apenas.
+//
+//  Escala tipográfica da landing (fonte única — usar sempre estes
+//  componentes em vez de recriar tamanho/peso soltos por seção):
+//    display-xl → Hero h1 (HeroSection, inline, Anton)
+//    display-lg → SectionHeading h2 (Anton)
+//    heading-md → CardTitle (Inter 18px/700)
+//    body-lg    → Hero subtítulo (Inter 16-20px/400)
+//    body-md    → SectionHeading desc / descrição de card (Inter 16px/400)
+//    body-sm    → texto de apoio (Inter 14px/400)
+//    label      → SectionEyebrow (Inter 11px/700 uppercase)
+//    button     → Botao (Inter 16px/700)
 // ════════════════════════════════════════════════════════════
 
 export function Reveal({ children, className = "", delay = 0, as: Tag = "div" }) {
@@ -37,7 +48,7 @@ export function Reveal({ children, className = "", delay = 0, as: Tag = "div" })
 
 const BOTAO_ESTILOS = {
   primary:
-    "btn-laranja !rounded-xl !px-6 !py-3.5 !text-sm !font-bold !shadow-lg !shadow-[#F38525]/25",
+    "btn-laranja !rounded-xl !px-6 !py-3.5 !text-base !font-bold !shadow-lg !shadow-[#F38525]/25",
   outline:
     "border border-white/70 bg-transparent text-white hover:bg-white/10",
   outlineDark:
@@ -56,7 +67,7 @@ export function Botao({
   showArrow = false,
   ...rest
 }) {
-  const cls = `inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold tracking-wide transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F38525] focus-visible:ring-offset-2 ${BOTAO_ESTILOS[variant] || BOTAO_ESTILOS.primary} ${className}`;
+  const cls = `inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-bold tracking-wide transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F38525] focus-visible:ring-offset-2 ${BOTAO_ESTILOS[variant] || BOTAO_ESTILOS.primary} ${className}`;
   const body = (
     <>
       {children}
@@ -113,7 +124,7 @@ export function SectionHeading({
   return (
     <Reveal className={`max-w-3xl ${alignCls} ${className}`}>
       {badge ? <SectionEyebrow tom="laranja">{badge}</SectionEyebrow> : null}
-      <h2 className={`pp-landing-display mt-3 text-[clamp(1.85rem,1.2rem+2.4vw,3rem)] leading-[1.05] tracking-[0.02em] ${titleCls}`}>
+      <h2 className={`pp-landing-display mt-3 text-[clamp(1.85rem,1.2rem+2.2vw,2.75rem)] leading-[1.05] tracking-[0.02em] ${titleCls}`}>
         {titulo}
         {tituloAccent ? (
           <>
@@ -124,6 +135,15 @@ export function SectionHeading({
       </h2>
       {desc ? <p className={`mt-4 max-w-2xl text-base leading-7 ${align === "center" ? "mx-auto" : ""} ${descCls}`}>{desc}</p> : null}
     </Reveal>
+  );
+}
+
+/** Título de card de funcionalidade/benefício/etapa — Inter 18px/700, único em toda a landing. */
+export function CardTitle({ children, claro = false, className = "" }) {
+  return (
+    <h3 className={`text-lg font-bold ${claro ? "text-white" : "text-[#012E46]"} ${className}`}>
+      {children}
+    </h3>
   );
 }
 

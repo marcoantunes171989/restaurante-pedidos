@@ -70,14 +70,14 @@ export default function HeroSection() {
       <div className="mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-16 pt-28 sm:pt-32 lg:px-8 lg:pb-20">
         <div className="relative z-10 max-w-3xl">
           <Reveal>
-            <h1 className="pp-landing-display text-[clamp(2.75rem,1.4rem+5vw,5.25rem)] leading-[0.9] tracking-[0.01em]">
+            <h1 className="pp-landing-display text-[clamp(2.25rem,1.35rem+4vw,4.5rem)] leading-[1.05] tracking-[0.01em]">
               <span className="block text-[#F38525]">{HERO.destaqueLaranja}</span>
               <span className="mt-1 block text-white">{HERO.destaqueBranco}</span>
             </h1>
           </Reveal>
 
           <Reveal delay={90}>
-            <p className="mt-5 max-w-xl text-base leading-7 text-white/90 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base leading-7 text-white/90 sm:text-lg lg:text-xl">
               {HERO.subtitulo}
             </p>
           </Reveal>

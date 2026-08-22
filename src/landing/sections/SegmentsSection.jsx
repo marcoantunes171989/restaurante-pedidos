@@ -1,5 +1,5 @@
 import { Activity, Headset, Receipt, Store } from "lucide-react";
-import { Picture, Reveal, SectionHeading } from "../ui";
+import { CardTitle, Picture, Reveal, SectionHeading } from "../ui";
 import { METRICAS, SEGMENTOS } from "../content";
 
 const METRIC_ICONS = {
@@ -38,7 +38,7 @@ export default function SegmentsSection() {
                   <span className="inline-flex text-[#F38525]">
                     <Icon className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />
                   </span>
-                  <p className="mt-2.5 text-sm font-bold leading-snug text-[#012E46]">{item.titulo}</p>
+                  <CardTitle className="mt-2.5 !text-base leading-snug">{item.titulo}</CardTitle>
                   <p className="mt-1 text-xs leading-5 text-[#012E46]/65">{item.desc}</p>
                 </Reveal>
               );
