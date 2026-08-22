@@ -6,7 +6,7 @@ import {
   ShoppingCart,
   Users,
 } from "lucide-react";
-import { Reveal, SectionHeading } from "../ui";
+import { CardTitle, Reveal, SectionHeading } from "../ui";
 import { SOLUCOES } from "../content";
 
 const ICONS = {
@@ -41,9 +41,9 @@ export default function SolutionsSection() {
                 <span className="inline-flex text-[#012E46] transition duration-300 group-hover:text-[#F38525]">
                   <Icon className="h-8 w-8" strokeWidth={1.45} aria-hidden="true" />
                 </span>
-                <h3 className="mt-5 text-lg font-bold tracking-tight text-[#012E46]">
+                <CardTitle className="mt-5 tracking-tight">
                   {item.titulo}
-                </h3>
+                </CardTitle>
                 <p className="mt-2 max-w-sm text-sm leading-6 text-[#012E46]/68">
                   {item.desc}
                 </p>

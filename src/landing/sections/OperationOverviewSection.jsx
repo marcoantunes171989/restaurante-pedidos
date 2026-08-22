@@ -1,5 +1,5 @@
 import { LayoutDashboard, MonitorSmartphone, QrCode, Tablet } from "lucide-react";
-import { Reveal, SectionHeading } from "../ui";
+import { CardTitle, Reveal, SectionHeading } from "../ui";
 import { VISAO_OPERACAO } from "../content";
 
 const icons = { layoutDashboard: LayoutDashboard, tablet: Tablet, qrCode: QrCode, monitorSmartphone: MonitorSmartphone };
@@ -11,7 +11,7 @@ export default function OperationOverviewSection() {
       <div className="mt-12 grid gap-4 md:grid-cols-2">{VISAO_OPERACAO.contextos.map((item, index) => {
         const Icon = icons[item.icon] || LayoutDashboard;
         return <Reveal as="article" key={item.titulo} delay={index * 60} className="group rounded-3xl border border-white/15 bg-white/[.07] p-5 backdrop-blur-sm transition hover:border-[#F38525]/60 hover:bg-white/[.1] sm:p-6">
-          <div className="flex items-start gap-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F38525] text-[#012E46]"><Icon className="h-6 w-6" strokeWidth={1.7} /></span><div><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#F38525]">Etapa {String(index + 1).padStart(2, "0")}</p><h3 className="mt-1 text-lg font-black text-white sm:text-xl">{item.titulo}</h3></div></div>
+          <div className="flex items-start gap-4"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#F38525] text-[#012E46]"><Icon className="h-6 w-6" strokeWidth={1.7} /></span><div><p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#F38525]">Etapa {String(index + 1).padStart(2, "0")}</p><CardTitle claro className="mt-1">{item.titulo}</CardTitle></div></div>
           <p className="mt-4 text-sm leading-6 text-white/75">{item.desc}</p><p className="mt-4 border-t border-white/10 pt-3 text-xs font-bold uppercase tracking-[.1em] text-[#F38525]">{item.destaque}</p>
         </Reveal>;
       })}</div>

@@ -75,7 +75,7 @@ export default function LandingHeader({ onEntrar, transparente = false }) {
                 key={n.id}
                 type="button"
                 onClick={() => irPara(n.id)}
-                className={`relative rounded-lg px-3 py-2 text-[13px] font-semibold uppercase tracking-[0.14em] transition ${
+                className={`relative rounded-lg px-3 py-2 text-[15px] font-medium uppercase tracking-[0.1em] transition ${
                   on ? "text-[#F38525]" : "text-white/90 hover:bg-white/10 hover:text-white"
                 }`}
               >

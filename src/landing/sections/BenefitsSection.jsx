@@ -1,5 +1,5 @@
 import { LineChart, TrendingDown, TrendingUp, Zap } from "lucide-react";
-import { Picture, Reveal, SectionHeading } from "../ui";
+import { CardTitle, Picture, Reveal, SectionHeading } from "../ui";
 import { BENEFICIOS } from "../content";
 
 const ICONS = {
@@ -44,7 +44,7 @@ export default function BenefitsSection() {
                     <Icon className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
                   </span>
                   <div className="pt-0.5">
-                    <h3 className="text-base font-bold text-white">{item.titulo}</h3>
+                    <CardTitle claro>{item.titulo}</CardTitle>
                     <p className="mt-1 text-sm leading-6 text-white/75">{item.desc}</p>
                   </div>
                 </Reveal>
