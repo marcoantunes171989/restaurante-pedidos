@@ -10,7 +10,7 @@ name: Vercel Production Deploy
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
