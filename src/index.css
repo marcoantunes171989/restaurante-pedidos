@@ -1246,7 +1246,7 @@ a[class~="bg-[#012E46]"] > *,
 }
 .card-premium:hover { transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
 .button-primary {
-  background-color: #F38525; color: #FFFFFF; border-radius: 12px; font-weight: 700;
+  background-color: #F38525; color: #012E46; border-radius: 12px; font-weight: 700;
   transition: background-color .15s ease;
 }
 .button-primary:hover { background-color: #F38525; }

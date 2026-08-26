@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:changed": "node scripts/lint_changed.mjs",
     "test": "vitest run",
     "test:e2e": "node e2e/categorias.cjs",
+    "test:contrast": "node e2e/contraste-controles.cjs",
     "preview": "vite preview",
-    "deploy:check": "npm run build && npm run test",
+    "deploy:check": "npm run build && npm run test && npm run lint:changed && python3 scripts/audit_button_contrast.py . && npm run test:contrast",
     "deploy:prod": "npm run deploy:check && npx vercel --prod"
   },
   "dependencies": {
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@sparticuz/chromium": "^149.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",

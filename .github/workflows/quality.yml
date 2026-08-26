@@ -1,0 +1,44 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint changed files
+        run: npm run lint:changed
+        env:
+          LINT_BASE_REF: origin/master
+
+      - name: Audit control contrast
+        run: python3 scripts/audit_button_contrast.py .
+
+      - name: Runtime contrast regression
+        run: npm run test:contrast
