@@ -63,6 +63,7 @@ import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe, emitirNfceSimulada, formatarChaveNfce } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
 import { useScrollLock } from "./lib/scrollLock";
+import { abrirOperacaoMobile } from "./lib/operacaoMobileNav";
 import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
 import { filtrarPorLojaEstrita } from "./lib/lojaScope";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
@@ -7013,12 +7014,10 @@ function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assina
             const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
             return (
               <SidebarItem key={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
-                title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre em nova aba (tela cheia), como o link externo" : undefined)}
+                title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre a Central Operacional (tela cheia)" : undefined)}
                 onClick={() => {
                   if (it.id === "operacaomobile") {
-                    const rota = `${window.location.origin}/operacional`;
-                    if (window.innerWidth >= 768) window.open(rota, "_blank", "noopener");
-                    else window.location.assign(rota);
+                    abrirOperacaoMobile();
                   } else setAdminSection(it.id);
                   onNavigate?.();
                 }} />
