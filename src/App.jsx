@@ -12,7 +12,7 @@ import {
   fetchLojas, atualizarLoja, salvarFuncionamentoLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
   fetchComandas, inserirComandas, escutarComandas, excluirComanda, renomearComanda, toggleComandaAtivo,
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
-  fetchMesas, inserirMesa, atualizarMesa, excluirMesa, escutarMesas,
+  fetchMesas, inserirMesa, atualizarMesa, excluirMesa,
   fetchClientes, escutarClientes, upsertCliente,
   baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
@@ -21,7 +21,7 @@ import {
   registrarDispositivo, fetchDispositivos, escutarDispositivos, renomearDispositivo, removerDispositivo,
   fetchPlanos, fetchAssinaturas, fetchPlanoModulos, escutarAssinaturas, salvarAssinatura,
   fetchPromocoes, inserirPromocao, atualizarPromocao, excluirPromocao, escutarPromocoes,
-  fetchCupons, inserirCupom, atualizarCupom, excluirCupom, escutarCupons, validarCupom, consumirCupom,
+  fetchCupons, inserirCupom, atualizarCupom, excluirCupom, validarCupom, consumirCupom,
   fetchGruposOpcoes, fetchOpcoes, inserirGrupoOpcoes, atualizarGrupoOpcoes, excluirGrupoOpcoes, inserirOpcao, atualizarOpcao, excluirOpcao, escutarGruposOpcoes, escutarOpcoes,
   fetchFiscalIcms, inserirFiscalIcms, atualizarFiscalIcms, excluirFiscalIcms, escutarFiscalIcms,
   fetchFiscalNcm, inserirFiscalNcm, atualizarFiscalNcm, excluirFiscalNcm, escutarFiscalNcm, inserirFiscalNcmLote,
@@ -71,7 +71,7 @@ import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
-import { mensagemErroAcesso, mensagemPorCodigoAuth } from "./login/authMessages";
+import { mensagemErroAcesso } from "./login/authMessages";
 import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
 import { acessosIniciaisDoPerfil } from "./lib/usuarioForm";
 import { numeroWhatsAppValido } from "./lib/whatsappPedido";
@@ -599,6 +599,7 @@ export default function RestaurantePedidoApp() {
   const [lojas, setLojas] = useState([]);
   const [cargos, setCargos] = useState([]);
   const [mesas, setMesas] = useState([]);
+  const [mesasErro, setMesasErro] = useState("");           // erro de carregamento (RPC) — distinto de "zero mesas" (migration 122)
   const [clientes, setClientes] = useState([]);
   const [dispositivos, setDispositivos] = useState([]);
   const [comandas, setComandas] = useState([]);            // comandas geradas (registro p/ validação)
@@ -607,7 +608,8 @@ export default function RestaurantePedidoApp() {
   const [assinaturas, setAssinaturas] = useState([]);      // assinatura por empresa
   const [planoModulos, setPlanoModulos] = useState([]);    // vínculo plano × módulo
   const [promocoes, setPromocoes] = useState([]);          // promoções por empresa (migration 039)
-  const [cupons, setCupons] = useState([]);                // cupons de desconto por loja (migration 075)
+  const [cupons, setCupons] = useState([]);                // cupons de desconto por loja (migration 075/121)
+  const [cuponsErro, setCuponsErro] = useState("");         // erro de carregamento (RPC) — distinto de "zero cupons"
   const [gruposOpcoes, setGruposOpcoes] = useState([]);    // grupos de adicionais/variações (migration 040)
   const [opcoes, setOpcoes] = useState([]);                // opções dos grupos
   const [fiscalIcms, setFiscalIcms] = useState([]);        // regras de ICMS (migration 081)
@@ -643,6 +645,10 @@ export default function RestaurantePedidoApp() {
   const [auditoria, setAuditoria] = useState([]);          // trilha de auditoria (migration 045)
   const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
   const [dbReady, setDbReady] = useState(false);
+  // Erro REAL de backend (timeout/rede durante o carregamento autenticado) —
+  // distinto de "ainda sem sessão", que não deve acender o aviso de offline
+  // na tela de login (ver bootstrap abaixo e o guard C1 na LoginPage).
+  const [erroBackend, setErroBackend] = useState(false);
   const [conexaoOk, setConexaoOk] = useState(true); // status do canal realtime de pedidos (usado no indicador do Caixa)
   const [loading, setLoading]     = useState(true);
   const [entregandoId, setEntregandoId] = useState(null); // id do pedido sendo marcado como entregue agora (desabilita o botão dele)
@@ -658,7 +664,46 @@ export default function RestaurantePedidoApp() {
       try {
         // Sob Supabase Auth, garante que a sessão (JWT) esteja anexada ANTES de
         // carregar os dados — assim, com RLS estrita, vêm os dados da empresa.
-        if (usandoSupabaseAuth()) { try { await aguardarSessao(); } catch {} }
+        // Sem sessão (usuário ainda não logou), as tabelas administrativas são
+        // protegidas por RLS: uma leitura como anon retorna 42501 (permission
+        // denied), que NÃO é "backend indisponível" — é o esperado. Nesse caso
+        // pula o carregamento protegido (sem consultar/realtime nas tabelas
+        // administrativas como anon) e deixa a tela de login aparecer normal,
+        // sem o aviso de offline. Os dados reais são carregados com o JWT do
+        // usuário logo após o login (fluxo já existente: reload em /login com
+        // `pp_restore_once`, que refaz este bootstrap já com sessão ativa).
+        //
+        // supabase-js persiste o JWT em localStorage por conta própria — pode
+        // sobrar sessão lá (aba fechada sem logout, restore de ambiente, etc.)
+        // mesmo sem o marcador PRÓPRIO do app (`pp_sessao_ativa`/tab-scoped,
+        // sessionStorage) indicar sessão ativa nesta aba. Tratar esse JWT
+        // órfão como "sessão real" faria o lote protegido abaixo rodar com um
+        // token que pode falhar (RLS/claims), o que cai no catch geral e
+        // acende `erroBackend` — um falso "backend offline" na tela de login
+        // mesmo com o backend saudável (o JWT novo do login funciona normal
+        // logo em seguida). Por isso só confiamos em `aguardarSessao()` se
+        // também existir o marcador da aba — mesmo padrão já usado no efeito
+        // de restauração de sessão logo abaixo.
+        let sessaoAuth = null;
+        if (usandoSupabaseAuth()) {
+          let marcadorSessaoAtiva = false;
+          try {
+            marcadorSessaoAtiva =
+              sessionStorage.getItem(CHAVE_SESSAO_ATIVA) === "1" ||
+              sessionStorage.getItem(CHAVE_RESTORE_ONCE) === "1";
+          } catch { /* sessionStorage indisponível */ }
+          if (marcadorSessaoAtiva) {
+            try { sessaoAuth = await aguardarSessao(); } catch { sessaoAuth = null; }
+          }
+          if (!sessaoAuth) {
+            setLoading(false);
+            // Sem marcador da aba (ou sem sessão real): não é falha de
+            // backend — nunca deixa um `erroBackend` de um ciclo anterior
+            // (ex.: StrictMode) acender o aviso indevidamente aqui.
+            setErroBackend(false);
+            return;
+          }
+        }
         // Carrega tudo em paralelo — com timeout de segurança: se o Supabase
         // travar (sem responder nem falhar), a corrida rejeita em ~10s e o app
         // cai no fallback local (catch abaixo), garantindo que a tela de login
@@ -679,7 +724,10 @@ export default function RestaurantePedidoApp() {
         try { setCategoriasDb(await fetchCategorias()); } catch { /* migration 010 pendente */ }
         try { setLojas(await fetchLojas()); } catch { /* migration 011 pendente */ }
         try { setCargos(await fetchCargos()); } catch { /* migration 014 pendente */ }
-        try { setMesas(await fetchMesas()); } catch { /* migration 027 pendente */ }
+        // Mesas (migration 122): app_listar_mesas exige a loja em foco
+        // (obrigatória para super, derivada do JWT p/ não-super) — não dá pra
+        // buscar "tudo" uma vez só como os demais módulos. Carga e refresh
+        // ficam no useEffect dedicado logo após a definição de lojaAtual.
         try { setClientes(await fetchClientes()); } catch { /* migration 028 pendente */ }
         try { setDispositivos(await fetchDispositivos()); } catch { /* migration 024 pendente */ }
         try { setComandas(await fetchComandas()); setComandasCarregadas(true); } catch { /* migration 019 pendente */ }
@@ -687,7 +735,10 @@ export default function RestaurantePedidoApp() {
         try { setAssinaturas(await fetchAssinaturas()); } catch { /* migration 037 pendente */ }
         try { setPlanoModulos(await fetchPlanoModulos()); } catch { /* migration 037 pendente */ }
         try { setPromocoes(await fetchPromocoes()); } catch { /* migration 039 pendente */ }
-        try { setCupons(await fetchCupons()); } catch { /* migration 075 pendente */ }
+        // Cupons (migration 121): app_listar_cupons exige a loja em foco
+        // (obrigatória para super, derivada do JWT p/ não-super) — não dá pra
+        // buscar "tudo" uma vez só como os demais módulos. Carga e refresh
+        // ficam no useEffect dedicado logo após a definição de lojaAtual.
         try { setGruposOpcoes(await fetchGruposOpcoes()); } catch { /* migration 040 pendente */ }
         try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
         try { setFiscalIcms(await fetchFiscalIcms()); } catch { /* migration 081 pendente */ }
@@ -732,13 +783,15 @@ export default function RestaurantePedidoApp() {
         try { unsubs.push(escutarCategorias(setCategoriasDb)); } catch {}
         try { unsubs.push(escutarLojas(setLojas)); } catch {}
         try { unsubs.push(escutarCargos(setCargos)); } catch {}
-        try { unsubs.push(escutarMesas(setMesas)); } catch {}
+        // Mesas: sem Realtime direto (tab_mesas fechada a clientes na
+        // migration 122) — ver useEffect dedicado perto de addMesa/editarMesa.
         try { unsubs.push(escutarClientes(setClientes)); } catch {}
         try { unsubs.push(escutarDispositivos(setDispositivos)); } catch {}
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
         try { unsubs.push(escutarAssinaturas(setAssinaturas)); } catch {}
         try { unsubs.push(escutarPromocoes(setPromocoes)); } catch {}
-        try { unsubs.push(escutarCupons(setCupons)); } catch { /* migration 075 pendente */ }
+        // Cupons: sem Realtime direto (tab_cupons fechada a clientes na
+        // migration 121) — ver useEffect dedicado perto de cuponsLoja.
         try { unsubs.push(escutarGruposOpcoes(setGruposOpcoes)); } catch {}
         try { unsubs.push(escutarOpcoes(setOpcoes)); } catch {}
         try { unsubs.push(escutarFiscalIcms(setFiscalIcms)); } catch { /* migration 081 pendente */ }
@@ -779,6 +832,7 @@ export default function RestaurantePedidoApp() {
         setCargos(initialCargos);
         setDbReady(false);
         setLoading(false);
+        setErroBackend(true);
       }
     }
 
@@ -814,8 +868,13 @@ export default function RestaurantePedidoApp() {
           }
         } catch { /* sessionStorage indisponível */ }
 
+        // Não depende de `dbReady`: o bootstrap protegido agora só roda com
+        // o marcador da aba presente (ver efeito de carregamento inicial),
+        // então uma sessão órfã (JWT sem `pp_sessao_ativa`) nunca deixa
+        // `dbReady` virar true — mas ainda precisa ser detectada aqui para
+        // ser encerrada corretamente logo abaixo.
         let emailJwt = null;
-        if (dbReady && usandoSupabaseAuth()) {
+        if (usandoSupabaseAuth()) {
           try { emailJwt = await getSessionEmail(); } catch { emailJwt = null; }
         }
 
@@ -1070,8 +1129,11 @@ export default function RestaurantePedidoApp() {
     let cancelado = false;
     (async () => {
       try {
+        // Mesas NÃO entram nesta chamada em lote (migration 122): app_listar_mesas
+        // exige a loja em foco (obrigatória p/ super, derivada do JWT p/ não-super) —
+        // a carga/refresh fica isolada no useEffect dedicado ([dbReady, lojaAtual]).
         const [
-          listaU, listaC, ords, prods, ls, formas, cats, mesasL, clientesL,
+          listaU, listaC, ords, prods, ls, formas, cats, clientesL,
           comandasL, setoresL,
         ] = await Promise.all([
           fetchUsuarios().catch(() => null),
@@ -1081,7 +1143,6 @@ export default function RestaurantePedidoApp() {
           fetchLojas().catch(() => null),
           fetchFormasPagamento().catch(() => null),
           fetchCategorias().catch(() => null),
-          fetchMesas().catch(() => null),
           fetchClientes().catch(() => null),
           fetchComandas().catch(() => null),
           fetchSetoresCozinha().catch(() => null),
@@ -1094,7 +1155,6 @@ export default function RestaurantePedidoApp() {
         if (Array.isArray(ls) && ls.length) setLojas(ls);
         if (Array.isArray(formas) && formas.length) setFormasPagamento(formas);
         if (Array.isArray(cats) && cats.length) setCategoriasDb(cats);
-        if (Array.isArray(mesasL) && mesasL.length) setMesas(mesasL);
         if (Array.isArray(clientesL) && clientesL.length) setClientes(clientesL);
         if (Array.isArray(comandasL) && comandasL.length) {
           setComandas(comandasL);
@@ -1282,9 +1342,20 @@ export default function RestaurantePedidoApp() {
       }
     } catch { /* best-effort — segue para validação normal */ }
 
-    // Fonte da verdade: tab_usuarios (e-mail + senha), validada SEMPRE no
-    // servidor (RPC app_validar_login ou API /api/login-banco). Fase 7.2:
-    // sem comparação de senha no cliente e sem fallback em memória.
+    // Modo Supabase Auth endurecido: autentica no Auth PRIMEIRO — nenhuma
+    // leitura protegida por RLS é tentada antes de existir um JWT, e o
+    // perfil só é resolvido (autenticado) depois do signIn confirmar.
+    // validarLoginNoBanco() é EXCLUSIVA do modo legacy: no HML endurecido,
+    // app_validar_login não é exposta para `anon` e /api/login-banco não
+    // roda localmente, então chamá-la antes do Auth sempre resulta DB_ERROR.
+    if (usandoSupabaseAuth()) {
+      return loginComSupabaseAuth(email, senha);
+    }
+
+    // ── Modo legacy: fonte da verdade é tab_usuarios (e-mail + senha),
+    // validada SEMPRE no servidor (RPC app_validar_login ou API
+    // /api/login-banco). Fase 7.2: sem comparação de senha no cliente e
+    // sem fallback em memória.
     let credOk;
     try {
       const v = await validarLoginNoBanco(email, senha);
@@ -1323,48 +1394,68 @@ export default function RestaurantePedidoApp() {
     // uma resposta, nem persistida, nem exibida, nem registrada em log.
     const credSessao = { ...credOk, password: senha };
 
-    // Persiste sessão da aba. Antes do reload Auth, prende URL em /login para
-    // o histórico da tela anterior NÃO virar destino do restore silencioso.
+    // Persiste sessão da aba. Prende URL em /login para o histórico da tela
+    // anterior NÃO virar destino do restore silencioso.
     try {
       sessionStorage.setItem(CHAVE_SESSAO_ATIVA, "1");
       sessionStorage.setItem(CHAVE_SESSAO_EMAIL, email);
     } catch { /* ignore */ }
     forcarUrlLogin();
 
-    // Sessão Supabase Auth (JWT) é necessária para RLS ler o banco na tela.
-    // Fase 7.2.3 — FAIL-CLOSED: se o 1º signIn falhar, o servidor repara o Auth
-    // (self-healing) com a senha DIGITADA. Se o reparo NÃO confirmar, não
-    // fingimos login sem JWT — mostramos erro de infra (não "senha inválida").
-    if (usandoSupabaseAuth()) {
-      let r = await loginSupabaseAuth(email, senha);
-      if (!r.ok) {
-        let heal;
-        try {
-          const resp = await fetch("/api/login-banco", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ email, senha }),
-          });
-          heal = await resp.json().catch(() => ({ ok: false, code: "SERVER_ERROR" }));
-        } catch { heal = { ok: false, code: "SERVER_ERROR" }; }
-        if (!heal.ok) {
-          registrarLoginNegado({ email, motivo: heal.code || "AUTH_SYNC_FAILED" });
-          return notify("error", mensagemPorCodigoAuth(heal.code));
-        }
-        r = await loginSupabaseAuth(email, senha);
-      }
-      if (r.ok) {
-        try { sessionStorage.setItem(CHAVE_RESTORE_ONCE, "1"); } catch {}
-        forcarUrlLogin();
-        window.location.replace(`${window.location.origin}/login`);
-        return;
-      }
-      // Auth reparado mas a sessão ainda não veio: NÃO entra sem JWT.
-      registrarLoginNegado({ email, motivo: "AUTH_SESSION_FAILED" });
-      return notify("error", mensagemPorCodigoAuth("AUTH_SESSION_FAILED"));
+    if (!aplicarLogin(credSessao, { forcarHome: true })) return;
+  }
+
+  // ── Login Supabase Auth (modo endurecido) ───────────────────────
+  // Ordem obrigatória: signInWithPassword no Auth → só com JWT confirmado
+  // é que o perfil é resolvido (fetchUsuarioPorEmail, autenticado — mesmo
+  // caminho já usado pelo restore de sessão no F5, ver linha ~865). Sem
+  // sessão, NENHUMA leitura de tab_usuarios é tentada como `anon`. Falha de
+  // credencial NUNCA cai para validarLoginNoBanco nem para /api/login-banco
+  // (o self-healing dessa rota permanece só dentro de validarLoginNoBanco,
+  // fora deste caminho, e não é chamado no modo Supabase Auth).
+  async function loginComSupabaseAuth(email, senha) {
+    const r = await loginSupabaseAuth(email, senha);
+    if (!r.ok) {
+      const raw = String(r.error || "").toLowerCase();
+      const infra = /fetch|network|timeout|conex|offline|service_role|não configurada/.test(raw);
+      registrarLoginNegado({ email, motivo: infra ? "Falha ao autenticar (infra)" : "Credenciais inválidas" });
+      return notify("error", mensagemErroAcesso(r.error));
     }
 
-    if (!aplicarLogin(credSessao, { forcarHome: true })) return;
+    // JWT confirmado: prende a sessão da aba ANTES de resolver o perfil,
+    // para um F5 no meio do caminho não reabrir a tela de login "deslogada".
+    try {
+      sessionStorage.setItem(CHAVE_SESSAO_ATIVA, "1");
+      sessionStorage.setItem(CHAVE_SESSAO_EMAIL, email);
+    } catch { /* ignore */ }
+    forcarUrlLogin();
+
+    // Perfil resolvido SOMENTE com a sessão Auth ativa (RPC/SELECT sob RLS
+    // autenticado) — nunca com a chave anon e nunca com dado mockado.
+    let credOk = null;
+    try { credOk = await fetchUsuarioPorEmail(email); } catch { credOk = null; }
+
+    // Fail-closed: sem perfil, perfil inativo ou leitura autenticada que
+    // falhou → desfaz a sessão Auth recém-criada e não libera acesso.
+    if (!credOk || credOk.active === false) {
+      registrarLoginNegado({ email, motivo: credOk ? "Usuário inativo" : "Perfil não encontrado/validável" });
+      limparMarcadoresSessaoLocal();
+      try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+      return notify("error", credOk
+        ? "Usuário inativo, entre em contato com o administrador do sistema."
+        : "E-mail ou senha incorretos.");
+    }
+
+    // A lista global de usuários NUNCA guarda senha (fetchUsuarioPorEmail já
+    // não a retorna).
+    setUsers((cur) => (cur.some((u) => u.id === credOk.id) ? cur : [credOk, ...cur]));
+
+    // Reload existente restaura a sessão: o bootstrap autenticado assume
+    // dbReady=true e aplicarLogin roda no restore silencioso pós-credenciais
+    // (mesmo fluxo de sempre, ver useEffect de restauração ~linha 817).
+    try { sessionStorage.setItem(CHAVE_RESTORE_ONCE, "1"); } catch {}
+    forcarUrlLogin();
+    window.location.replace(`${window.location.origin}/login`);
   }
 
   async function logout() {
@@ -2249,12 +2340,56 @@ export default function RestaurantePedidoApp() {
     notify("success", "Promoção excluída.");
   }
 
-  // ── Cupons de desconto (migration 075) ─────────────────────
+  // ── Cupons de desconto (migration 075/121) ──────────────────
   // A regra fica por loja; a disponibilidade (quantidade) é sempre conferida
   // no banco — na validação e de novo, de forma atômica, no fechamento.
   // Feedback de sucesso/erro também volta no retorno { ok, erro } porque o
   // toast global fica atrás do Admin (fixed inset-0) e o operador não via.
+  //
+  // Listagem: a RPC app_listar_cupons já devolve só a loja autorizada — este
+  // filtro é só uma segunda camada de exibição (não é a fronteira de
+  // segurança; essa é server-side, na RPC).
   const cuponsLoja = cupons.filter((c) => c.lojaId == null || lojaAtual == null || c.lojaId === lojaAtual);
+  // Mapeia mensagens de erro das RPCs de cupons (migration 121) para texto
+  // amigável. RPC ausente (migration 121 pendente) cai no branch genérico.
+  function mensagemErroCupom(e, acaoGenerica) {
+    const msg = String(e?.message || e || "");
+    if (/duplicate|unique|idx_cupons/i.test(msg)) return "Já existe um cupom com esse código nesta loja.";
+    if (/does not exist|schema cache|PGRST20[24]/i.test(msg)) return "RPC de cupons ainda não existe no Supabase. Rode a migration 121 no SQL Editor.";
+    if (/not_authenticated/i.test(msg)) return "Sessão expirada — faça login novamente.";
+    if (/forbidden/i.test(msg)) return "Você não tem permissão para administrar cupons desta loja.";
+    if (/loja_obrigatoria|loja_invalida/i.test(msg)) return "Selecione uma empresa válida antes de continuar.";
+    if (/codigo_invalido/i.test(msg)) return "Informe um código de cupom com pelo menos 3 caracteres.";
+    if (/percentual_invalido/i.test(msg)) return "O desconto percentual não pode ultrapassar 100%.";
+    if (/valor_invalido/i.test(msg)) return "Informe um valor de desconto maior que zero.";
+    if (/periodo_invalido/i.test(msg)) return "A data final não pode ser anterior à data inicial.";
+    if (/quantidade_total_invalida/i.test(msg)) return "A quantidade disponível não pode ser negativa nem menor que a quantidade já utilizada.";
+    if (/cupom_possui_usos/i.test(msg)) return "Este cupom já possui utilizações registradas e não pode ser excluído. Desative o cupom para impedir novos usos.";
+    if (/cupom_nao_encontrado/i.test(msg)) return "Cupom não encontrado (pode já ter sido removido).";
+    return acaoGenerica + msg;
+  }
+  // Cupons são carregados via RPC escopada por loja (não dá pra "buscar tudo
+  // uma vez" como os demais módulos) — refaz a busca sempre que a loja em
+  // foco muda (super admin trocando "empresa em foco") ou quando o bootstrap
+  // termina. Super sem loja em foco: zero linhas sem nem chamar a RPC (a tela
+  // de cupons já fica atrás do aviso "selecione a empresa" nesse caso).
+  useEffect(() => {
+    let cancelado = false;
+    if (!dbReady) return undefined;
+    (async () => {
+      if (lojaAtual == null) {
+        if (!cancelado) { setCupons([]); setCuponsErro(""); }
+        return;
+      }
+      try {
+        const lista = await fetchCupons(lojaAtual);
+        if (!cancelado) { setCupons(lista); setCuponsErro(""); }
+      } catch (e) {
+        if (!cancelado) { setCupons([]); setCuponsErro(mensagemErroCupom(e, "Erro ao carregar cupons: ")); }
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [dbReady, lojaAtual]);
   async function addCupom(dados) {
     if (!canAccess(currentUser, "admin")) {
       const erro = "Usuário sem permissão administrativa.";
@@ -2284,19 +2419,12 @@ export default function RestaurantePedidoApp() {
     };
     if (dbReady) {
       try {
-        const r = await inserirCupom(novo);
+        const r = await inserirCupom(novo, lojaAtual);
         setCupons((cur) => [r, ...cur.filter((c) => c.id !== r.id)]);
         notify("success", `Cupom ${r.codigo} criado e salvo no banco.`);
         return { ok: true, cupom: r };
       } catch (e) {
-        const msg = String(e?.message || e || "");
-        const erro = /duplicate|unique|idx_cupons/i.test(msg)
-          ? "Já existe um cupom com esse código nesta loja."
-          : /relation|does not exist|schema cache|tab_cupons/i.test(msg)
-            ? "Tabela de cupons ainda não existe no Supabase. Rode a migration 075 no SQL Editor."
-            : /canal|hora_inicio|hora_fim|076/i.test(msg)
-              ? "Campos de canal/horário do cupom ainda não existem. Rode a migration 076 no SQL Editor."
-              : "Erro ao criar cupom no banco: " + msg;
+        const erro = mensagemErroCupom(e, "Erro ao criar cupom no banco: ");
         notify("error", erro);
         return { ok: false, erro };
       }
@@ -2316,7 +2444,6 @@ export default function RestaurantePedidoApp() {
       ...dados,
       codigo: String(dados.codigo || "").trim().toUpperCase(),
       quantidadeTotal: dados.quantidadeTotal === "" || dados.quantidadeTotal == null ? null : dados.quantidadeTotal,
-      lojaId: dados.lojaId ?? lojaAtual,
     };
     const prev = cupons.find((c) => c.id === id);
     setCupons((cur) => cur.map((c) => (c.id === id ? { ...c, ...patch } : c)));
@@ -2325,7 +2452,7 @@ export default function RestaurantePedidoApp() {
         await atualizarCupom(id, patch);
       } catch (e) {
         if (prev) setCupons((cur) => cur.map((c) => (c.id === id ? prev : c)));
-        const erro = "Erro ao salvar cupom: " + (e.message || e);
+        const erro = mensagemErroCupom(e, "Erro ao salvar cupom: ");
         notify("error", erro);
         return { ok: false, erro };
       }
@@ -2334,16 +2461,21 @@ export default function RestaurantePedidoApp() {
     return { ok: true };
   }
   async function toggleCupom(id) {
+    if (!canAccess(currentUser, "admin")) {
+      const erro = "Usuário sem permissão administrativa.";
+      notify("error", erro);
+      return { ok: false, erro };
+    }
     const c = cupons.find((x) => x.id === id);
     if (!c) return { ok: false, erro: "Cupom não encontrado." };
     const ativo = !c.ativo;
     setCupons((cur) => cur.map((x) => (x.id === id ? { ...x, ativo } : x)));
     if (dbReady) {
       try {
-        await atualizarCupom(id, { ...c, ativo, lojaId: c.lojaId ?? lojaAtual });
+        await atualizarCupom(id, { ...c, ativo });
       } catch (e) {
         setCupons((cur) => cur.map((x) => (x.id === id ? c : x)));
-        const erro = "Erro ao alterar status: " + (e.message || e);
+        const erro = mensagemErroCupom(e, "Erro ao alterar status: ");
         notify("error", erro);
         return { ok: false, erro };
       }
@@ -2363,7 +2495,7 @@ export default function RestaurantePedidoApp() {
         await excluirCupom(id);
       } catch (e) {
         if (prev) setCupons((cur) => [prev, ...cur]);
-        const erro = "Erro ao excluir cupom: " + (e.message || e);
+        const erro = mensagemErroCupom(e, "Erro ao excluir cupom: ");
         notify("error", erro);
         return { ok: false, erro };
       }
@@ -2708,7 +2840,7 @@ export default function RestaurantePedidoApp() {
     const idSet = new Set(ids.map(String));
     setProducts((cur) => cur.map((p) => idSet.has(String(p.id)) ? { ...p, ...alteracoes } : p));
     if (dbReady) {
-      try { await atualizarProdutosFiscalLote(ids, patch); } catch (e) { notify("error", "Erro na atualização em lote: " + (e.message || e)); return; }
+      try { await atualizarProdutosFiscalLote(ids, patch, lojaAtual); } catch (e) { notify("error", "Erro na atualização em lote: " + (e.message || e)); return; }
       try { const salvos = await inserirFiscalLoteLog(registros); setFiscalLoteLog((cur) => [...salvos, ...cur]); } catch { /* migration 084 pendente — segue sem histórico */ }
     }
     auditar("editar_lote", "produto", null, { loteId, qtd: ids.length, campos: chaves, alteracoes: registros.length });
@@ -2722,7 +2854,7 @@ export default function RestaurantePedidoApp() {
     if (!ids?.length) return notify("error", "Selecione ao menos um produto.");
     const idSet = new Set(ids.map(String));
     setProducts((cur) => cur.map((p) => idSet.has(String(p.id)) ? { ...p, lojaFiscalRegraId: configId ?? null } : p));
-    if (dbReady) try { await atualizarProdutosFiscalLote(ids, { loja_fiscal_regra_id: configId ?? null }); } catch (e) { notify("error", "Erro ao vincular: " + (e.message || e)); return; }
+    if (dbReady) try { await atualizarProdutosFiscalLote(ids, { loja_fiscal_regra_id: configId ?? null }, lojaAtual); } catch (e) { notify("error", "Erro ao vincular: " + (e.message || e)); return; }
     auditar("vincular_fiscal", "produto", null, { qtd: ids.length, configId: configId ?? null });
     notify("success", configId ? `${ids.length} produto(s) vinculado(s) à configuração fiscal.` : `${ids.length} produto(s) desvinculado(s).`);
     return true;
@@ -2739,7 +2871,7 @@ export default function RestaurantePedidoApp() {
     for (const [pid, campos] of porProduto) {
       const patch = {}; for (const k of Object.keys(campos)) patch[MAPA_FISCAL_COL[k]] = campos[k];
       setProducts((cur) => cur.map((p) => String(p.id) === String(pid) ? { ...p, ...campos } : p));
-      if (dbReady) try { await atualizarProdutosFiscalLote([pid], patch); } catch (e) { notify("error", "Erro ao reverter: " + (e.message || e)); return; }
+      if (dbReady) try { await atualizarProdutosFiscalLote([pid], patch, lojaAtual); } catch (e) { notify("error", "Erro ao reverter: " + (e.message || e)); return; }
     }
     const ids = alvo.map((l) => l.id);
     setFiscalLoteLog((cur) => cur.map((l) => ids.includes(l.id) ? { ...l, revertido: true, revertidoEm: new Date().toISOString() } : l));
@@ -3335,7 +3467,57 @@ export default function RestaurantePedidoApp() {
     notify("success", `Cargo "${c?.nome || ""}" excluído.`);
   }
 
-  // ── Mesas ────────────────────────────────────────────────
+  // ── Mesas (migration 122) ───────────────────────────────
+  // Mapeia mensagens de erro das RPCs de mesas (migration 122) para texto
+  // amigável — nunca deixa o erro bruto do Postgres/PostgREST chegar à tela.
+  function mensagemErroMesa(e, acaoGenerica) {
+    const msg = String(e?.message || e || "");
+    if (/duplicate|unique|idx_tab_mesas_numero_loja|mesa_numero_duplicado/i.test(msg)) return "Já existe uma mesa com esse número nesta loja.";
+    if (/does not exist|schema cache|PGRST20[24]/i.test(msg)) return "RPC de mesas ainda não existe no Supabase. Rode a migration 122 no SQL Editor.";
+    if (/not_authenticated/i.test(msg)) return "Sessão expirada — faça login novamente.";
+    if (/forbidden/i.test(msg)) return "Você não tem permissão para administrar mesas desta loja.";
+    if (/loja_obrigatoria|loja_invalida/i.test(msg)) return "Selecione uma empresa válida antes de continuar.";
+    if (/mesa_numero_invalido/i.test(msg)) return "Informe um número de mesa válido (1–999).";
+    if (/mesa_possui_historico/i.test(msg)) return "Esta mesa possui movimentações registradas e não pode ser excluída. Desative a mesa para preservar o histórico.";
+    // mesa_exclusao_nao_permitida (migration 122, hardening final): exclusão física
+    // de mesas é proibida por política (não há mesa_id persistente em nenhuma tabela
+    // histórica — checagem por texto pode dar falso negativo/positivo). O botão
+    // "Excluir" foi removido de MesaAdmin; este mapeamento fica como defesa para
+    // qualquer chamada antiga/manual à RPC.
+    if (/mesa_exclusao_nao_permitida/i.test(msg)) return "Para preservar o histórico da operação, mesas não podem ser excluídas. Desative a mesa quando ela não estiver mais em uso.";
+    if (/mesa_nao_encontrada/i.test(msg)) return "Mesa não encontrada (pode já ter sido removida).";
+    return acaoGenerica + msg;
+  }
+  // Mesas são carregadas via RPC escopada por loja (app_listar_mesas exige a
+  // loja em foco — obrigatória p/ super, derivada do JWT p/ não-super) — não
+  // dá pra "buscar tudo uma vez" como os demais módulos. Refaz a busca sempre
+  // que a loja em foco muda (super trocando "empresa em foco") ou quando o
+  // bootstrap termina. mesasErro distingue erro REAL de carregamento (RPC/
+  // rede) de "zero mesas cadastradas" — nunca engolido em catch silencioso
+  // (causa raiz original desta migration: permission denied virava "Nenhuma
+  // mesa cadastrada" no TabletTableAccess).
+  useEffect(() => {
+    let cancelado = false;
+    if (!dbReady) return undefined;
+    (async () => {
+      if (lojaAtual == null) {
+        if (!cancelado) { setMesas([]); setMesasErro(""); }
+        return;
+      }
+      try {
+        const lista = await fetchMesas(lojaAtual);
+        if (!cancelado) { setMesas(lista); setMesasErro(""); }
+      } catch (e) {
+        if (!cancelado) {
+          const erro = mensagemErroMesa(e, "Erro ao carregar mesas: ");
+          setMesas([]);
+          setMesasErro(erro);
+          notify("error", erro);
+        }
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [dbReady, lojaAtual]);
   async function addMesa({ numero, nome, capacidade, localizacao }) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const n = parseInt(numero, 10);
@@ -3349,10 +3531,16 @@ export default function RestaurantePedidoApp() {
       setMesas((cur) => [...cur, saved]);
       notify("success", `Mesa ${String(n).padStart(2, "0")} cadastrada.`);
       return true;
-    } catch (e) { notify("error", "Erro ao cadastrar mesa: " + e.message); }
+    } catch (e) { notify("error", mensagemErroMesa(e, "Erro ao cadastrar mesa: ")); }
   }
+  // Envia o registro COMPLETO para app_atualizar_mesa (é um UPDATE total, não
+  // um patch): mescla o formulário (numero/nome/capacidade/localizacao) com o
+  // estado atual da mesa para não zerar observacao/permiteTablet/permiteQr
+  // nem reativar (ou desativar) `active` sem querer.
   async function editarMesa(id, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const atual = mesas.find((m) => m.id === id);
+    if (!atual) return notify("error", "Mesa não encontrada (pode já ter sido removida).");
     const n = parseInt(dados.numero, 10);
     if (!n || n < 1 || n > 999) return notify("error", "Número de mesa inválido.");
     const lojaId = lojaAtual ?? null;
@@ -3361,21 +3549,50 @@ export default function RestaurantePedidoApp() {
     const capacidade = dados.capacidade ? parseInt(dados.capacidade, 10) : null;
     const localizacao = (dados.localizacao || "").trim() || null;
     setMesas((cur) => cur.map((m) => m.id === id ? { ...m, numero: n, nome, capacidade, localizacao } : m));
-    if (dbReady) try { await atualizarMesa(id, { numero: n, nome: nome || null, capacidade, localizacao }); } catch (e) { notify("error", "Erro: " + e.message); return; }
+    if (dbReady) {
+      try {
+        await atualizarMesa(id, { ...atual, numero: n, nome, capacidade, localizacao });
+      } catch (e) {
+        setMesas((cur) => cur.map((m) => m.id === id ? atual : m));
+        notify("error", mensagemErroMesa(e, "Erro ao salvar mesa: "));
+        return;
+      }
+    }
     notify("success", `Mesa ${String(n).padStart(2, "0")} atualizada.`);
   }
+  // Também envia o registro completo (mesma razão de editarMesa) — sem isso,
+  // atualizarMesa(id, { ativo: active }) não batia com o contrato de
+  // app_atualizar_mesa (que lê `m.active`, não `m.ativo`) e sempre reenviava
+  // ativo=true, nunca desativando a mesa de fato.
   async function toggleMesa(id) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const m = mesas.find((x) => x.id === id);
-    const active = !m?.active;
+    if (!m) return;
+    const active = !m.active;
     setMesas((cur) => cur.map((x) => x.id === id ? { ...x, active } : x));
-    if (dbReady) try { await atualizarMesa(id, { ativo: active }); } catch {}
+    if (dbReady) {
+      try {
+        await atualizarMesa(id, { ...m, active });
+      } catch (e) {
+        setMesas((cur) => cur.map((x) => x.id === id ? m : x));
+        notify("error", mensagemErroMesa(e, "Erro ao alterar status: "));
+      }
+    }
   }
   async function removerMesa(id) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
     const m = mesas.find((x) => x.id === id);
+    if (!m) return;
     setMesas((cur) => cur.filter((x) => x.id !== id));
-    if (dbReady) try { await excluirMesa(id); } catch (e) { notify("error", "Erro ao excluir: " + e.message); return; }
+    if (dbReady) {
+      try {
+        await excluirMesa(id);
+      } catch (e) {
+        setMesas((cur) => [...cur, m]);
+        notify("error", mensagemErroMesa(e, "Erro ao excluir mesa: "));
+        return;
+      }
+    }
     notify("success", `Mesa ${String(m?.numero || "").padStart(2, "0")} excluída.`);
   }
 
@@ -3560,7 +3777,12 @@ export default function RestaurantePedidoApp() {
   }
 
   if (!currentUser) {
-    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} dbReady={dbReady} />;
+    // `dbReady` aqui significaria "dados administrativos já carregados", o que
+    // é falso sempre que ainda não há sessão (C1) — não é o mesmo que backend
+    // offline. O aviso de indisponibilidade na tela de login deve refletir só
+    // uma falha REAL de conectividade/backend (`erroBackend`), nunca a mera
+    // ausência de sessão antes do login.
+    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} dbReady={!erroBackend} />;
   }
 
   // Bloqueio total da empresa: trial vencido (ou status "blocked"). Super admin nunca bloqueia.
@@ -3756,7 +3978,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -4480,7 +4702,11 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
     if (!podeAdicionar || enviandoRef.current) return;
     enviandoRef.current = true;
     setStatusEnvio("enviando");
-    const selectedOptions = gruposProduto.flatMap((g) => (escolhas[g.id] || []).map((oid) => { const o = opcoesDoGrupo(g.id).find((op) => op.id === oid); return { grupo: g.nome, nome: o?.nome || "", preco: o?.precoDelta || 0 }; }));
+    // optionId/grupoId (aditivo): usados pelo cardápio público para montar o
+    // contrato V2 do pedido (src/CardapioPublico.jsx) — o servidor resolve
+    // nome/preço a partir do id, nunca confia nos campos grupo/nome/preco
+    // abaixo (mantidos só para exibição/compatibilidade das telas internas).
+    const selectedOptions = gruposProduto.flatMap((g) => (escolhas[g.id] || []).map((oid) => { const o = opcoesDoGrupo(g.id).find((op) => op.id === oid); return { grupo: g.nome, nome: o?.nome || "", preco: o?.precoDelta || 0, optionId: oid, grupoId: g.id }; }));
     const payload = {
       ...produto,
       price: produto.price + extrasTotal + opcoesTotal, // preço unitário com adicionais + opções
@@ -6841,7 +7067,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -7072,14 +7298,14 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "access"     && <AccessAdmin    accesses={accesses} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleAccessStatus={toggleAccessStatus} />}
           {ativo === "link"       && <UserAccessAdmin users={filtraLoja(users)} accesses={accesses} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} lojaInfo={lojaInfo} lojas={lojas} isSuperAdmin={isSuperAdmin} />}
           {ativo === "categorias" && (precisaEmpresa ? avisoEmpresa : <CategoriaAdmin categoriasDb={categoriasDb} produtos={products} setores={setores} impressoras={impressoras} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} editarCategoriaCampos={editarCategoriaCampos} />)}
-          {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
+          {ativo === "mesas"      && (precisaEmpresa ? avisoEmpresa : <MesaAdmin mesas={mesas} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} orders={orders} />)}
           {ativo === "comandas-gestao" && (precisaEmpresa ? avisoEmpresa : <ComandasGestaoAdmin orders={filtraLoja(orders)} products={filtraLoja(products)} lojaPrefixo={lojaInfo?.prefixo || ""} lojaId={lojaInfo?.id} />)}
           {ativo === "comandas"   && (precisaEmpresa ? avisoEmpresa : <GeradorComandas prefixoLoja={lojaInfo?.prefixo || "CMD"} empresa={lojaInfo?.nome || "Restaurante"} onGerar={registrarComandas} comandasRegistradas={comandasRegistradas} orders={orders} onExcluirComanda={excluirComandaFn} onRenomearComanda={renomearComandaFn} onToggleComanda={toggleComandaFn} lojaId={lojaInfo?.id} logoSalvo={lojaInfo?.logoUrl || ""} onSalvarLogo={(url) => salvarLogoEmpresa(lojaInfo?.id, url)} onIrCardapioExterno={() => setAdminSection("cardapioext")} />)}
           {ativo === "pagamento"  && (precisaEmpresa ? avisoEmpresa : <PagamentoAdmin formasPagamento={formasPagamento} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} />)}
           {ativo === "config"     && <ConfiguracoesAdmin lojaInfo={lojaInfo} />}
           {ativo === "plano"      && <MeuPlanoAdmin planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} lojaInfo={lojaInfo} isSuperAdmin={isSuperAdmin} lojaAtual={lojaInfo?.id} definirAssinatura={definirAssinatura} assinaturas={assinaturas} lojas={lojas} />}
           {ativo === "promocoes"  && (precisaEmpresa ? avisoEmpresa : <PromocoesAdmin promocoes={promocoes} produtos={products} categoriasDb={categoriasDb} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} />)}
-          {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
+          {ativo === "cupons"     && (precisaEmpresa ? avisoEmpresa : <CuponsAdmin cupons={cupons} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupom} toggleCupom={toggleCupom} removerCupom={removerCupom} />)}
           {ativo === "central-fiscal" && <CentralFiscalAdmin dados={centralFiscal} api={centralFiscalApi} regras={fiscalRegras} versoes={fiscalRegraVersoes} regrasApi={regrasFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} templatesApi={templatesFiscalApi} ehSuper={isSuperAdmin} />}
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} emitenteFiscalApi={emitenteFiscalApi} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
@@ -16854,7 +17080,7 @@ export function promocaoVigente(p, agora = new Date()) {
  * o estoque do cupom: o caixa só consegue aplicar enquanto houver saldo, e o
  * consumo é conferido de novo no banco na hora de fechar a conta.
  */
-function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerCupom }) {
+function CuponsAdmin({ cupons = [], cuponsErro = "", addCupom, editarCupom, toggleCupom, removerCupom }) {
   const VAZIO = {
     codigo: "", descricao: "", tipo: "percentual", valor: "", minimoCompra: "",
     quantidadeTotal: "", inicioEm: "", fimEm: "", horaInicio: "", horaFim: "",
@@ -16865,6 +17091,23 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
   const [salvando, setSalvando] = useState(false);
   // Feedback na própria tela — o toast global do hub fica atrás do Admin fullscreen.
   const [feedback, setFeedback] = useState(null); // { tipo: 'ok'|'erro', texto }
+  // Auto-dismiss só de SUCESSO (tipo 'ok') — erro fica até o usuário agir ou
+  // uma ação nova substituir o feedback. Cada setFeedback({...}) cria um
+  // objeto novo, então a troca de mensagem (mesmo com texto igual) já
+  // reinicia o efeito: o cleanup cancela o timer antigo antes do novo
+  // começar, então uma mensagem mais recente nunca é apagada pelo timer de
+  // uma mensagem anterior.
+  useEffect(() => {
+    if (!feedback || feedback.tipo !== "ok") return undefined;
+    const timer = setTimeout(() => setFeedback(null), 4000);
+    return () => clearTimeout(timer);
+  }, [feedback]);
+  // Confirmação de exclusão — cupom pendente de confirmação (ou null), estado
+  // de processamento (trava duplo clique) e erro server-side (ex.:
+  // cupom_possui_usos) exibido DENTRO do modal, que só fecha após sucesso.
+  const [excluirAlvo, setExcluirAlvo] = useState(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const [erroExclusao, setErroExclusao] = useState("");
 
   const emEdicao = editandoId != null;
   const valorNum = Number(String(form.valor).replace(/\./g, "").replace(",", ".")) || Number(String(form.valor).replace(",", ".")) || 0;
@@ -16934,10 +17177,39 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
     }
   }
 
-  async function aoRemover(id) {
-    const r = await removerCupom(id);
-    if (r && r.ok === false) setFeedback({ tipo: "erro", texto: r.erro || "Falha ao excluir." });
-    else setFeedback({ tipo: "ok", texto: "Cupom excluído." });
+  async function aoAlternar(c) {
+    const querAtivar = !c.ativo;
+    const r = await toggleCupom(c.id);
+    if (r && r.ok === false) {
+      setFeedback({ tipo: "erro", texto: r.erro || "Falha ao alterar status." });
+      return;
+    }
+    setFeedback({ tipo: "ok", texto: querAtivar ? "Cupom ativado." : "Cupom desativado." });
+  }
+  function pedirExclusao(c) {
+    setErroExclusao("");
+    setExcluirAlvo(c);
+  }
+  function cancelarExclusao() {
+    if (excluindo) return; // não fecha no meio de uma chamada em andamento
+    setExcluirAlvo(null);
+    setErroExclusao("");
+  }
+  async function confirmarExclusao() {
+    if (!excluirAlvo || excluindo) return; // trava clique duplo
+    setExcluindo(true);
+    setErroExclusao("");
+    const r = await removerCupom(excluirAlvo.id);
+    setExcluindo(false);
+    if (r && r.ok === false) {
+      // Mantém o modal aberto (ex.: cupom_possui_usos) — a mensagem amigável
+      // já vem mapeada por mensagemErroCupom() em App.jsx. O cupom continua
+      // na lista (removerCupom só reverte o estado otimista em caso de erro).
+      setErroExclusao(r.erro || "Não foi possível excluir o cupom.");
+      return;
+    }
+    setExcluirAlvo(null);
+    setFeedback({ tipo: "ok", texto: "Cupom excluído." });
   }
 
   return (
@@ -17016,7 +17288,13 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
         <p className="mt-3 rounded-xl bg-[#012E46]/[0.04] px-3 py-2 text-[11px] leading-5 text-slate-600"><b className="text-[#012E46]">Como funciona:</b> o código é salvo em maiúsculas. O PDV valida canal, vigência, horário, consumo mínimo e quantidade ao aplicar e no fechamento. Horário vazio significa qualquer hora do dia.</p>
       </section>
 
-      {cupons.length === 0 ? (
+      {cuponsErro ? (
+        <div className="rounded-[2rem] border border-rose-300 bg-rose-50 py-14 text-center shadow-sm">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600"><IconPromocao /></span>
+          <p className="mt-3 font-black text-rose-700">Falha ao carregar os cupons.</p>
+          <p className="mx-auto max-w-md px-4 text-sm text-rose-600">{cuponsErro}</p>
+        </div>
+      ) : cupons.length === 0 ? (
         <div className="rounded-[2rem] border border-[#012E46]/10 bg-white py-14 text-center shadow-sm">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F38525]/10 text-[#F38525]"><IconPromocao /></span>
           <p className="mt-3 font-black text-[#012E46]">Nenhum cupom cadastrado.</p>
@@ -17059,13 +17337,28 @@ function CuponsAdmin({ cupons = [], addCupom, editarCupom, toggleCupom, removerC
                 </ul>
                 <div className="mt-4 flex flex-wrap gap-2 border-t border-[#012E46]/10 pt-3">
                   <button type="button" onClick={() => iniciarEdicao(c)} className="rounded-xl border border-[#F38525]/35 bg-[#F38525]/10 px-3 py-2 text-xs font-bold text-[#9A4B0C] hover:bg-[#F38525]/20">Editar</button>
-                  <button type="button" onClick={() => toggleCupom(c.id)} className="rounded-xl border border-[#012E46]/15 bg-white px-3 py-2 text-xs font-bold text-[#012E46] hover:bg-slate-50">{c.ativo ? "Desativar" : "Ativar"}</button>
-                  <button type="button" onClick={() => aoRemover(c.id)} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100">Excluir</button>
+                  <button type="button" onClick={() => aoAlternar(c)} className="rounded-xl border border-[#012E46]/15 bg-white px-3 py-2 text-xs font-bold text-[#012E46] hover:bg-slate-50">{c.ativo ? "Desativar" : "Ativar"}</button>
+                  <button type="button" onClick={() => pedirExclusao(c)} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-100">Excluir</button>
                 </div>
               </article>
             );
           })}
         </div>
+      )}
+
+      {excluirAlvo && (
+        <ConfirmModal
+          titulo="Excluir cupom?"
+          mensagem={<>Você está prestes a excluir o cupom <b className="font-black text-white">{excluirAlvo.codigo}</b>.<br />Esta ação não poderá ser desfeita.</>}
+          confirmar="Excluir cupom"
+          processando={excluindo}
+          textoProcessando="Excluindo..."
+          erro={erroExclusao}
+          focoInicial
+          escFecha
+          onConfirmar={confirmarExclusao}
+          onCancelar={cancelarExclusao}
+        />
       )}
     </main>
   );
@@ -19683,18 +19976,37 @@ function FormaPagamentoCadastroModal({ onSalvar, onFechar }) {
 }
 
 // Modal de confirmação reutilizável (exclusões)
-function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, perigo = true }) {
+// Props opcionais (todas com default = comportamento anterior, zero mudança
+// para os chamadores existentes): processando/textoProcessando desabilitam os
+// botões e trocam o texto de confirmar durante uma chamada em andamento (evita
+// duplo clique); erro mostra um aviso dentro do modal (ex.: falha server-side
+// que deve manter o modal aberto); focoInicial leva o teclado pro botão
+// Cancelar ao abrir; escFecha faz ESC dispará onCancelar. Nenhum desses
+// props é usado pelos ConfirmModal já existentes no app — só pelo fluxo novo
+// de exclusão de cupom.
+function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, perigo = true, processando = false, textoProcessando = "", erro = "", focoInicial = false, escFecha = false }) {
+  const cancelarRef = useRef(null);
+  useEffect(() => {
+    if (focoInicial) cancelarRef.current?.focus();
+  }, [focoInicial]);
+  useEffect(() => {
+    if (!escFecha) return;
+    const onKey = (e) => { if (e.key === "Escape" && !processando) onCancelar(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [escFecha, processando, onCancelar]);
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onCancelar}>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={processando ? undefined : onCancelar}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl">
         <div className="text-center">
           <span className="text-4xl">{perigo ? "⚠️" : "❓"}</span>
           <h2 className="mt-3 text-lg font-black text-white">{titulo}</h2>
           <p className="mt-2 text-sm text-slate-400">{mensagem}</p>
+          {erro && <p role="alert" className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">{erro}</p>}
         </div>
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <button onClick={onCancelar} className="rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10">Cancelar</button>
-          <button onClick={onConfirmar} className={`rounded-2xl py-3 text-sm font-black text-white ${perigo ? "bg-red-500 hover:bg-red-400" : "bg-blue-500 hover:bg-blue-400"}`}>{confirmar}</button>
+          <button ref={cancelarRef} onClick={onCancelar} disabled={processando} className="rounded-2xl border border-white/10 bg-white/[0.06] py-3 text-sm font-black text-slate-300 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">Cancelar</button>
+          <button onClick={onConfirmar} disabled={processando} className={`rounded-2xl py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60 ${perigo ? "bg-red-500 hover:bg-red-400" : "bg-blue-500 hover:bg-blue-400"}`}>{processando ? (textoProcessando || confirmar) : confirmar}</button>
         </div>
       </div>
     </div>
@@ -24043,9 +24355,8 @@ function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
 // ════════════════════════════════════════════════════════════
 //  Admin — Mesas (cadastro, edição, inativar, excluir)
 // ════════════════════════════════════════════════════════════
-function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, orders = [] }) {
+function MesaAdmin({ mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, orders = [] }) {
   const [editando, setEditando] = useState(null);
-  const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
   const [busca, setBusca]       = useState("");
   const [pagina, setPagina]     = useState(1);
@@ -24112,13 +24423,18 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
             className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-2.5 pl-11 pr-4 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]" />
         </div>
         <div className="space-y-2">
-          {mesas.length === 0 && (
+          {mesasErro ? (
+            <div className="rounded-2xl border border-rose-300 bg-rose-50 py-10 text-center">
+              <p className="font-black text-rose-700">Falha ao carregar as mesas.</p>
+              <p className="mx-auto mt-1 max-w-md px-4 text-sm text-rose-600">{mesasErro}</p>
+            </div>
+          ) : mesas.length === 0 && (
             <div className="rounded-2xl border border-dashed border-[var(--pp-border)] py-10 text-center">
               <p className="text-sm text-[var(--pp-text-muted)]">Nenhuma mesa cadastrada.</p>
               <button onClick={() => setCriando(true)} className="btn-laranja mt-3 rounded-xl px-4 py-2 text-xs font-black text-[#012E46]">+ Cadastrar mesa</button>
             </div>
           )}
-          {mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa encontrada.</p>}
+          {!mesasErro && mesas.length > 0 && mesasOrdenadas.length === 0 && <p className="py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma mesa encontrada.</p>}
           {mesasPagina.map((m) => {
             const abertos = pedidosAbertos(m);
             const ocupada = abertos > 0;
@@ -24148,11 +24464,9 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
                   className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition ${ocupada ? "border border-white/40 bg-white/15 text-white hover:bg-white/25" : "border border-[var(--pp-border)] bg-white text-[#F38525] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] hover:bg-[rgba(243, 133, 37,0.08)]"}`}>
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                 </button>
-                <button onClick={() => setExcluir(m)} disabled={abertos > 0}
-                  title={abertos > 0 ? "Há pedidos em aberto — inative em vez de excluir" : "Excluir mesa"} aria-label="Excluir mesa"
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition disabled:cursor-not-allowed disabled:opacity-40 ${ocupada ? "border border-white/40 bg-white/15 text-white" : "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] hover:bg-[rgba(200,30,74,0.08)]"}`}>
-                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" /></svg>
-                </button>
+                {/* Sem ação "Excluir": exclusão física de mesa é proibida por política no
+                    backend (app_excluir_mesa sempre recusa — migration 122, hardening final).
+                    Ciclo de vida é só Ativar/Desativar (botão acima), que preserva o histórico. */}
               </div>
             );
           })}
@@ -24177,13 +24491,6 @@ function MesaAdmin({ mesas = [], addMesa, editarMesa, toggleMesa, removerMesa, o
 
       {criando && <MesaCadastroModal onSalvar={salvarNova} onFechar={() => setCriando(false)} />}
       {editando && <MesaEditModal mesa={editando} onSalvar={(d) => { editarMesa(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
-      {excluir && (
-        <ConfirmModal titulo="Excluir mesa?"
-          mensagem={`Deseja excluir a Mesa ${String(excluir.numero).padStart(2, "0")}${excluir.nome ? ` (${excluir.nome})` : ""}? Esta ação não pode ser desfeita.`}
-          confirmar="Sim, excluir"
-          onConfirmar={() => { removerMesa(excluir.id); setExcluir(null); }}
-          onCancelar={() => setExcluir(null)} />
-      )}
     </main>
   );
 }

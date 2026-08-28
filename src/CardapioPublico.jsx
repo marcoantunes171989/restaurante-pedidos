@@ -1,16 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  fetchLojas, fetchProdutos, fetchCategorias, fetchPromocoes, fetchGruposOpcoes, fetchOpcoes, fetchSetoresCozinha, fetchMesas,
-  escutarLojas, inserirPedido, atualizarPedido, escutarPedidos,
+  fetchLojaPublica, fetchProdutosPublicos, fetchCategoriasPublicas, fetchGruposOpcoesPublicos, fetchOpcoesPublicas, fetchPromocoesPublicas,
+  escutarLojaPublica, atualizarPedido, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
-  rpcCriarPedidoPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
+  rpcCriarPedidoPublicoV2, rpcSetoresPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
-  inserirImpressoesCozinha,
 } from "./lib/supabase";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
-import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
 import {
   ProdutoModal, formatCurrency, fallbackImage, isValidCommand,
@@ -159,11 +157,6 @@ export default function CardapioPublico() {
   const [gruposOpcoes, setGruposOpcoes] = useState([]);
   const [opcoes, setOpcoes] = useState([]);
   const [setores, setSetores] = useState([]);
-  // Mesas cadastradas da empresa — valida "mesa existente e ativa". `null` =
-  // ainda não carregou ou a consulta falhou (nunca trava o acesso por causa
-  // disso: a autoridade real é o backend em pub_validar_pedido_mesa, que roda
-  // como security definer e não depende desta leitura do cliente).
-  const [mesasLoja, setMesasLoja] = useState(null);
   const [orders, setOrders]       = useState([]);
   const [pedidosOffline, setPedidosOffline] = useState(false); // true quando a atualização em tempo real dos pedidos está falhando (polling/realtime)
   // Consulta por comanda: só assume "sem pedidos" DEPOIS do 1º poll ter voltado
@@ -252,22 +245,47 @@ export default function CardapioPublico() {
     let vivo = true;
     (async () => {
       try {
-        // fetchMesas() pode falhar (rede/RLS) — não derruba o carregamento do
-        // resto do cardápio; nesse caso mesasTodas fica null (ver mesasLoja).
-        const [lojas, prods, cats, promos, grps, ops, sets, mesasTodas] = await Promise.all([fetchLojas(), fetchProdutos(), fetchCategorias(), fetchPromocoes().catch(() => []), fetchGruposOpcoes().catch(() => []), fetchOpcoes().catch(() => []), fetchSetoresCozinha().catch(() => []), fetchMesas().catch(() => null)]);
+        // Mesas: NÃO usa fetchMesas()/app_listar_mesas aqui — migration 122
+        // fechou tab_mesas e essa RPC é authenticated-only (o cardápio público
+        // é anônimo). A existência/status real da mesa do QR é resolvida
+        // direto por pub_status_mesa (security definer, migration 067) no
+        // effect de statusMesa logo abaixo — autoridade única do fluxo mesa,
+        // sem pré-checagem via leitura de tabela.
+        // Setores: NÃO usa fetchSetoresCozinha()/app_listar_setores_cozinha
+        // aqui — aquela RPC devolve a linha completa (incluindo metadados
+        // técnicos de impressão) e é destinada ao admin/staff autenticado.
+        // O cardápio público usa pub_setores_publico (migration 119),
+        // reduzida a id/nome/ordem/ativo, e só pode ser chamada DEPOIS que a
+        // loja é resolvida (precisa do lojaId).
+        // Loja/Categorias/Produtos/Grupos de opções/Opções/Promoções: migration 123 —
+        // RPC-only, tenant-scoped desde a origem (pub_loja_por_prefixo resolve
+        // a loja pelo prefixo; as demais recebem loja.id e revalidam contra
+        // tab_lojas.ativo). Nenhum SELECT direto nem lerRpcOuSelect aqui —
+        // erro de RPC propaga (cai no catch abaixo), nunca vira lista vazia
+        // silenciosa — exceto Promoções, que segue tolerante (catch local):
+        // é conteúdo não-crítico, uma falha na RPC de ofertas não deve
+        // derrubar o cardápio inteiro.
+        const l = await fetchLojaPublica(prefixo);
         if (!vivo) return;
-        const l = lojas.find((x) => x.prefixo === prefixo) || null;
         setLoja(l);
         if (l) {
-          setGruposOpcoes((grps || []).filter((g) => g.lojaId === l.id));
-          setOpcoes((ops || []).filter((o) => o.lojaId === l.id));
-          setSetores((sets || []).filter((s) => s.lojaId == null || s.lojaId === l.id));
-          setMesasLoja(mesasTodas === null ? null : (mesasTodas || []).filter((m) => m.lojaId === l.id));
+          const [cats, prods, promos, grps, ops] = await Promise.all([
+            fetchCategoriasPublicas(l.id), fetchProdutosPublicos(l.id),
+            fetchPromocoesPublicas(l.id).catch(() => []), fetchGruposOpcoesPublicos(l.id), fetchOpcoesPublicas(l.id),
+          ]);
+          if (!vivo) return;
+          setGruposOpcoes(grps || []);
+          setOpcoes(ops || []);
+          rpcSetoresPublico(l.id).then((lista) => { if (vivo) setSetores(lista); });
           // Modo mesa (QR) respeita visivelQr; link geral respeita visivelExterno (migration 034)
           const canalOk = (p) => mesaURL ? (p.visivelQr !== false) : (p.visivelExterno !== false);
-          setProdutos(prods.filter((p) => (p.lojaId == null || p.lojaId === l.id) && p.active && canalOk(p)));
-          setCategorias(cats.filter((c) => (c.lojaId == null || c.lojaId === l.id) && c.active !== false));
-          setPromocoes((promos || []).filter((p) => p.lojaId === l.id && p.ativo && p.mostrarCardapio));
+          // lojaId/ativo já são garantidos pela RPC (tenant-scoped + só ativos) — não
+          // precisa mais re-filtrar por loja/active aqui, só a regra de canal.
+          setProdutos((prods || []).filter(canalOk));
+          setCategorias(cats || []);
+          // loja/ativo/mostrarCardapio já são garantidos pela RPC (pub_promocoes_publico) —
+          // nenhum filtro extra necessário aqui.
+          setPromocoes(promos || []);
         }
       } catch { if (vivo) setLoja(null); }
     })();
@@ -294,7 +312,7 @@ export default function CardapioPublico() {
   useEffect(() => {
     if (!prefixo) return;
     let off;
-    try { off = escutarLojas((lojas) => { const l = (lojas || []).find((x) => x.prefixo === prefixo); if (l) setLoja(l); }); } catch {}
+    try { off = escutarLojaPublica(prefixo, (l) => { if (l) setLoja(l); }); } catch {}
     return () => { try { off && off(); } catch {} };
   }, [prefixo]);
 
@@ -344,25 +362,50 @@ export default function CardapioPublico() {
   // "Mesa existente e ativa" (tab_mesas) — protege contra QR obsoleto/mesa
   // removida ou um `?mesa=NN` digitado manualmente sem corresponder a
   // nenhuma mesa cadastrada. Sem mesaURL, não se aplica (canal externo).
-  // Prefere resolver por `mid` (id persistente, migration 066) quando presente
-  // — imune a renumeração; sem `mid` (QR antigo), cai no número (compatível
-  // com todo QR já impresso). `mesasLoja === null` = não deu pra confirmar
-  // (RLS/rede) → nunca bloqueia por causa disso, só quando a lista carregou
-  // e a mesa realmente não está nela.
-  const mesaCadastrada = mesasLoja === null ? null
-    : mesasLoja.find((m) => midURL ? String(m.id) === midURL : m.numero === Number(mesaURL));
-  const mesaValida = !mesaURL || mesasLoja === null || (!!mesaCadastrada && mesaCadastrada.active !== false && mesaCadastrada.permiteQr !== false);
+  // `mid` (id persistente, migration 066) vem direto da URL do QR impresso e
+  // é repassado como p_mesa_id para pub_status_mesa/pub_criar_pedido_v2
+  // (security definer) SEM nenhuma leitura de tabela no cliente: quem
+  // resolve/confirma se esse id pertence a esta loja é sempre o backend. Sem
+  // `mid` (QR antigo), a resolução cai no número (mesaURL). Com `mid`, o
+  // NÚMERO fica sujeito a uma renumeração posterior da mesa (app_atualizar_mesa
+  // não tem restrição) — por isso `mesa` (estado, ver logo abaixo) é
+  // resincronizado com o número CANÔNICO ATUAL devolvido por pub_status_mesa
+  // assim que ele resolve, em vez de ficar preso ao número cravado na URL.
+  const mesaIdURL = midURL ? Number(midURL) : null;
+  // `statusMesa === null` = ainda checando (nunca bloqueia por causa disso);
+  // resolvido = autoridade real de existência/ativa vem de pub_status_mesa.
+  const mesaValida = !mesaURL || statusMesa === null || (!!statusMesa.existe && !!statusMesa.ativa);
 
   // Status ao vivo da mesa (ocupada = tem pedido aberto não pago/cancelado
-  // nela, migration 067) — direto do backend, nunca de cache. Só se aplica
-  // ao canal mesa, com mesa real confirmada (mesaValida) e modo permitido.
+  // nela, migration 067) — direto do backend (pub_status_mesa resolve a mesa
+  // por id/número e loja, sem depender de leitura de tab_mesas no cliente).
+  // Só se aplica ao canal mesa, com modo permitido.
   useEffect(() => {
     let vivo = true;
-    if (!mesaURL || !loja || !podeMesa || !mesaValida || !mesaCadastrada) return;
-    rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesaURL), mesaId: mesaCadastrada.id })
+    if (!mesaURL || !loja || !podeMesa) return;
+    rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesaURL), mesaId: mesaIdURL })
       .then((s) => { if (vivo) setStatusMesa(s); });
     return () => { vivo = false; };
-  }, [mesaURL, loja, podeMesa, mesaValida, mesaCadastrada]);
+  }, [mesaURL, loja, podeMesa, mesaIdURL]);
+
+  // QR com `mid` + mesa renumerada depois de impresso (hardening final
+  // pré-HML): pub_status_mesa resolve por id e já devolve o NÚMERO CANÔNICO
+  // ATUAL (`s.numero`) — mas, sem este efeito, `mesa` (estado) ficaria preso
+  // ao número antigo cravado na URL para sempre. Isso faria pub_criar_pedido_v2
+  // receber p_mesa_id (atual) + p_mesa_numero (antigo da URL) DIVERGENTES, e
+  // a própria RPC (119, não alterada) rejeita esse par com "Mesa não
+  // encontrada ou inativa" — um cliente legítimo escaneando uma mesa válida,
+  // só renumerada, seria bloqueado no envio do pedido sem motivo real. Ao
+  // resincronizar `mesa` com o número devolvido assim que pub_status_mesa
+  // confirma a mesa, currentTable/chamados/pub_criar_pedido_v2 (todos
+  // derivados de `mesa`) passam a usar sempre o número atual — sem precisar
+  // reimprimir o QR. Só se aplica quando `mid` está presente: QR sem `mid`
+  // não tem "número canônico" separado para resincronizar.
+  useEffect(() => {
+    if (!mesaIdURL || !statusMesa?.existe || statusMesa.numero == null) return;
+    setMesa((atual) => (String(atual) === String(statusMesa.numero) ? atual : String(statusMesa.numero)));
+    /* eslint-disable-next-line */
+  }, [mesaIdURL, statusMesa]);
 
   // Configurações do pedido externo (aba "Pedido externo" — config_externo)
   const cfgExt = loja?.configExterno || {};
@@ -437,8 +480,8 @@ export default function CardapioPublico() {
       // último item ajusta o arredondamento para a soma bater exatamente no preço do combo
       let preco = idx === nItens - 1 ? Math.round((combo.precoCombo - acumulado) * 100) / 100 : Math.round(original * fator * 100) / 100;
       acumulado += preco;
-      return { name: it.name, price: preco, precoOriginal: original, economiaUnit: Math.max(0, original - preco), quantity: 1, category: it.category,
-        comboId: inst, comboNome: combo.promo.nome, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() + idx };
+      return { id: it.id, name: it.name, price: preco, precoOriginal: original, economiaUnit: Math.max(0, original - preco), quantity: 1, category: it.category,
+        comboId: inst, comboNome: combo.promo.nome, comboPromoId: combo.promo.id, removedIngredients: [], extraIngredients: [], selectedOptions: [], observation: "", _uid: Date.now() + Math.random() + idx };
     });
     setCart((c) => [...c, ...novos]);
     setMsg({ t: "success", m: `🍔 Combo "${combo.promo.nome}" adicionado!` });
@@ -1149,12 +1192,28 @@ export default function CardapioPublico() {
       // cache/concorrência: se a mesa ficou ocupada durante a navegação e o
       // cliente ainda não confirmou essa ocupação, pede confirmação agora e
       // NÃO envia o pedido ainda (o cliente confirma e clica em enviar de novo).
-      if (!modoExterno && mesaCadastrada && !ocupacaoConfirmada) {
-        const fresco = await rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesa), mesaId: mesaCadastrada.id });
+      if (!modoExterno && statusMesa?.existe && !ocupacaoConfirmada) {
+        const fresco = await rpcStatusMesa({ lojaId: loja.id, mesaNumero: Number(mesa), mesaId: mesaIdURL });
         if (fresco?.ocupada) { setStatusMesa(fresco); return; }
       }
       const obsPedido = observacaoPedido.trim().slice(0, 500);
       const itens = cart.map((i, indice) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation, ...(indice === 0 && obsPedido ? { orderObservation: obsPedido } : {}) }));
+      // Contrato PÚBLICO SEGURO V2 (migration 119 — pub_criar_pedido_v2):
+      // só identidade/quantidade/observação de cada item. NENHUM valor
+      // financeiro (price/subtotal) é enviado — o servidor recalcula tudo a
+      // partir do cadastro (preço, promoções, adicionais, opções). optionIds
+      // vem de selectedOptions[].optionId (gravado em App.jsx ProdutoModal);
+      // itens sem esse campo (carrinho antigo salvo antes desta mudança,
+      // restaurado do sessionStorage) simplesmente não enviam opção alguma.
+      const itensV2 = cart.map((i) => ({
+        productId: i.id,
+        quantity: i.quantity,
+        optionIds: (i.selectedOptions || []).map((o) => o.optionId).filter((id) => id != null),
+        extraIngredients: i.extraIngredients || [],
+        removedIngredients: i.removedIngredients || [],
+        observation: i.observation || "",
+        ...(i.comboPromoId != null ? { comboPromoId: i.comboPromoId } : {}),
+      }));
       // Forma de pagamento (aba "Pagamento" — vale para pedido interno e
       // externo, EXCETO consumo no local: nesse caso o pagamento acontece só
       // no fechamento da conta, então não exige escolha nenhuma agora —
@@ -1182,12 +1241,14 @@ export default function CardapioPublico() {
         }
       }
       let novo;
+      let tipoEntregaSel = null; // 'local'|'retirada'|'entrega' — enviado ao RPC V2 (rótulo de mesa; sem valor financeiro)
       if (modoExterno) {
       // Aplica as regras configuradas pela empresa (aba "Pedido externo")
       if (!aceitaExterno) return setMsg({ t: "error", m: "Esta empresa não está aceitando pedidos pelo cardápio no momento." });
       if (opcoesEntrega.length === 0) return setMsg({ t: "error", m: "Nenhuma forma de pedido (consumo, retirada ou entrega) está disponível no momento." });
       const opc = opcoesEntrega.find((o) => o.id === tipoPedido);
       if (!opc) return setMsg({ t: "error", m: "Escolha como deseja receber o pedido." });
+      tipoEntregaSel = opc.id;
       if (minimoExterno > 0 && totalCart < minimoExterno) return setMsg({ t: "error", m: `Pedido mínimo de ${formatCurrency(minimoExterno)}. Faltam ${formatCurrency(minimoExterno - totalCart)}.` });
       // Pedido externo (link de divulgação): exige NOME + TELEFONE
       if (!cliente.trim()) return setMsg({ t: "error", m: "Informe o seu nome." });
@@ -1232,21 +1293,25 @@ export default function CardapioPublico() {
     try {
       let pedidoId = novo.id;
       const mesaNumero = modoExterno ? null : (Number(mesa) || null);
-      const mesaId = modoExterno ? null : (mesaCadastrada?.id ?? null);
-      if (cardapioViaRpc()) { const r = await rpcCriarPedidoPublico({ lojaId: loja.id, mesa: novo.table, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "", itens, pagForma: formaSel?.label ?? null, pagMomento: momentoPagto, mesaNumero, mesaId, trocoPara: trocoParaNum }); if (r) pedidoId = r; }
-      else await inserirPedido(novo);
-      // Fila de impressão por setor (produto > categoria) — impressão automática na estação.
-      try {
-        const pedidoFila = { ...novo, id: pedidoId };
-        const { filas } = montarFilasImpressaoPedido(
-          pedidoFila,
-          { products: produtos, categories: categorias, setores, lojaId: loja.id },
-          modoExterno ? "externo" : "qr",
-        );
-        if (filas.length) await inserirImpressoesCozinha(filas);
-      } catch (errImp) {
-        console.warn("Fila impressão cardápio:", errImp?.message || errImp);
-      }
+      const mesaId = modoExterno ? null : mesaIdURL;
+      // Único caminho de criação do pedido público (correção P0.1): a
+      // segurança da gravação não pode depender da flag CARDAPIO_PUBLICO_VIA_RPC
+      // — não existe mais um caminho alternativo de inserção direta em
+      // tab_pedidos/tab_impressoes_cozinha pelo navegador. Preço, opções/
+      // adicionais, setor, impressora, regras de config_externo (aceita
+      // pedido/modalidade/pedido mínimo) e forma/momento de pagamento são
+      // validados e calculados no servidor (migration 119); a fila de
+      // impressão é gravada lá dentro, na mesma transação. Se a RPC falhar,
+      // o catch abaixo mostra um erro controlado ao cliente — SEM fallback
+      // para o RPC legado (pub_criar_pedido, hoje fechado para anon/
+      // authenticated) e SEM inserção direta pelo navegador.
+      const r = await rpcCriarPedidoPublicoV2({
+        lojaId: loja.id, canal: modoExterno ? "externo" : "interno", itens: itensV2,
+        mesaNumero, mesaId, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "",
+        tipoEntrega: tipoEntregaSel, formaPagamentoId: formaSel?.id ?? null,
+        trocoPara: trocoParaNum, observacaoPedido: obsPedido,
+      });
+      if (r) pedidoId = r;
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
       try { const pend = lerSetLS(SURVEY_PEND_KEY); pend.add(pedidoId); salvarSetLS(SURVEY_PEND_KEY, pend); } catch {}
@@ -1270,16 +1335,15 @@ export default function CardapioPublico() {
     } catch (e) {
       if (janelaWhatsapp && !janelaWhatsapp.closed) janelaWhatsapp.close();
       console.error("Erro ao criar pedido:", e);
-      // Mensagens conhecidas vindas da validação no servidor (pub_validar_pedido_mesa,
-      // migration 065) — mostradas como vieram; qualquer outra cai no texto genérico
-      // (evita expor erro técnico/bruto do Postgres ao cliente final).
-      const MSGS_BACKEND = new Set([
-        "Estabelecimento indisponível no momento.",
-        "Mesa não encontrada ou inativa. Verifique o QR Code.",
-        "O QR Code por mesa está disponível nos modos Interno ou Ambos.",
-        "O estabelecimento está fechado no momento. Consulte os horários de atendimento.",
-      ]);
-      setMsg({ t: "error", m: MSGS_BACKEND.has(e?.message) ? e.message : "Erro ao enviar o pedido. Tente novamente." });
+      // Convenção de erro controlado (migration 119, pub_criar_pedido_v2):
+      // toda validação de negócio intencional da RPC vem prefixada com
+      // "PPV2:" — só essas mensagens são mostradas ao cliente (sem o
+      // prefixo). Qualquer outra coisa (cast inesperado, falha de rede,
+      // erro bruto do Postgres/PostgREST) cai no aviso genérico — nunca
+      // expõe detalhe técnico interno ao cliente final.
+      const msgServidor = typeof e?.message === "string" ? e.message.trim() : "";
+      const msgControlada = msgServidor.startsWith("PPV2:") ? msgServidor.slice(5).trim() : "";
+      setMsg({ t: "error", m: msgControlada || "Erro ao enviar o pedido. Tente novamente." });
     }
     finally { setEnviando(false); }
     } finally { enviandoRef.current = false; }
@@ -1491,7 +1555,7 @@ export default function CardapioPublico() {
   if (mesaURL && !mesaValida) return <Centro><span className="text-5xl">🚫</span><p className="mt-3 font-black text-[var(--client-text-primary)]">QR Code inválido</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Esta mesa não foi encontrada ou está inativa. Fale com a equipe do estabelecimento.</p></Centro>;
   // Nunca libera o cardápio antes de saber se a mesa está ocupada — evita
   // qualquer flash do cardápio antes do modal de confirmação aparecer.
-  if (mesaURL && podeMesa && mesaCadastrada && statusMesa === null) return <Centro><Spinner /><p className="mt-3 text-sm text-[var(--client-text-secondary)]">Verificando a mesa…</p></Centro>;
+  if (mesaURL && podeMesa && statusMesa === null) return <Centro><Spinner /><p className="mt-3 text-sm text-[var(--client-text-secondary)]">Verificando a mesa…</p></Centro>;
   // Cliente recusou a confirmação de mesa ocupada — bloqueia e orienta a
   // escanear o QR certo (não deixa seguir para o cardápio).
   if (mesaURL && ocupacaoRecusada) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-[var(--client-text-primary)]">Confira o QR Code</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Escaneie o QR Code afixado na sua mesa para continuar.</p></Centro>;

@@ -3,20 +3,27 @@ import { acessosIniciaisDoPerfil } from './usuarioForm'
 import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
 import { fidelidadeHabilitada, numeroFidelidade } from './fidelidade'
 
-// Fallback embutido — garante que o app NUNCA fique em tela branca por env var ausente.
-// Em produção o ideal é vir do ambiente (VITE_SUPABASE_*), mas se faltar, usa estes valores.
-const FALLBACK_URL = 'https://rwnzggjxhxnfrhstbxkm.supabase.co'
-// Publishable key (nova geração, prefixo `sb_`). Substitui a antiga anon JWT (HS256),
-// que deixou de ser aceita após a rotação do JWT signing key do projeto (Legacy
-// HS256 → ECC). Publishable keys são públicas por design e sobrevivem à rotação.
-const FALLBACK_KEY = 'sb_publishable_d7rhTgmb-hBruvWSw_SmKg_-dJQyDw0'
+// Configuração fail-closed: vem SOMENTE de variáveis de ambiente. Sem fallback
+// embutido — se a URL ou a chave estiverem ausentes/inválidas, falha explicitamente
+// em vez de tentar outro ambiente (evita apontar silenciosamente para produção/HML
+// erradas).
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
-// Prioriza a env var SOMENTE se já for uma publishable key (`sb_...`). Assim, uma
-// chave anon legada/inválida ainda configurada na Vercel é ignorada em favor da
-// publishable correta acima — o deploy conserta produção sem ajuste manual da env.
-const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-const supabaseKey = (envKey && envKey.startsWith('sb_')) ? envKey : FALLBACK_KEY
+function ehUrlHttpsValida(url) {
+  try {
+    return new URL(url).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+if (!supabaseUrl || !ehUrlHttpsValida(supabaseUrl)) {
+  throw new Error('VITE_SUPABASE_URL ausente ou inválida: defina uma URL HTTPS do Supabase nas variáveis de ambiente.')
+}
+if (!supabaseKey) {
+  throw new Error('VITE_SUPABASE_ANON_KEY ausente: defina a chave nas variáveis de ambiente.')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -24,6 +31,20 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
  * Lê via RPC SECURITY DEFINER (se existir e trouxer linhas) e cai no SELECT.
  * Array vazio da RPC NÃO encerra a busca — evita UI “apagada” por RLS fraca.
  * Nunca altera registros: só leitura.
+ *
+ * AUDITORIA (pré-123): este fallback (RPC erro OU RPC [] → SELECT direto sem
+ * filtro de loja) é usado por fetchProdutos/fetchFormasPagamento/fetchComandas/
+ * fetchCargos/fetchUsuarios/fetchLojas/fetchPedidos/fetchClientes/
+ * fetchSetoresCozinha — todos fluxos STAFF (authenticated), fora do escopo da
+ * migration 123. Risco: se a RLS dessas tabelas não for deny-all-sem-RPC, uma
+ * falha transitória da RPC reabre leitura cross-tenant pelo SELECT de
+ * contingência. NÃO alterado nesta migration (mudar a semântica global daqui
+ * poderia regredir esses módulos staff sem uma auditoria dedicada a cada um).
+ * Fica registrado para a Migration 125 (ver relatório da auditoria pré-119).
+ * O caminho público novo (fetchLojaPublica/fetchCategoriasPublicas/
+ * fetchProdutosPublicos/fetchGruposOpcoesPublicos/fetchOpcoesPublicas, logo
+ * abaixo da seção de RPCs de pedido público) NÃO usa este helper — é RPC-only,
+ * erro de RPC sempre propaga.
  */
 async function lerRpcOuSelect(rpcName, selectFn) {
   let rpcRows = null
@@ -82,10 +103,13 @@ export async function uploadImagemProduto(file, lojaId = 'geral') {
 //  tab_produtos — CRUD + Realtime
 // ════════════════════════════════════════════════════════════
 export async function fetchProdutos() {
-  const { data, error } = await supabase
-    .from('tab_produtos').select('*').order('id', { ascending: true })
-  if (error) throw error
-  return data.map(dbParaProduto)
+  const rows = await lerRpcOuSelect('app_listar_produtos', async () => {
+    const { data, error } = await supabase
+      .from('tab_produtos').select('*').order('id', { ascending: true })
+    if (error) throw error
+    return data || []
+  })
+  return rows.map(dbParaProduto)
 }
 
 // Erro de coluna inexistente (ex.: 'adicionais' sem a migration 029)
@@ -93,56 +117,40 @@ function ehColunaAusente(err, coluna) {
   const m = String(err?.message || '').toLowerCase();
   return m.includes(coluna) || err?.code === 'PGRST204' || m.includes('column');
 }
+// Migration 124: tab_produtos fechada a authenticated/anon para escrita
+// (leitura já passava por app_listar_produtos desde a 120). CREATE/UPDATE
+// passam a usar app_criar_produto/app_atualizar_produto — payload jsonb com
+// allowlist explícita no servidor (mesmo conjunto de colunas de
+// produtoParaDb). loja_id vai como parâmetro separado (nunca dentro do
+// jsonb), resolvido/validado no servidor.
 export async function inserirProduto(p) {
   const linha = produtoParaDb(p);
-  let res = await supabase.from('tab_produtos').insert([linha]).select().single();
-  if (res.error && 'adicionais' in linha && ehColunaAusente(res.error, 'adicionais')) {
-    const { adicionais, ...semExtra } = linha;
-    res = await supabase.from('tab_produtos').insert([semExtra]).select().single();
-  }
-  // Migration 068 ainda não aplicada nesse banco: categoria_id não existe —
-  // insere sem ela (o produto fica só com o texto em `categoria`, como já
-  // funcionava antes desta migration).
-  if (res.error && 'categoria_id' in linha && ehColunaAusente(res.error, 'categoria_id')) {
-    const { categoria_id, ...semCategoriaId } = linha;
-    res = await supabase.from('tab_produtos').insert([semCategoriaId]).select().single();
-  }
-  // Fallback amplo: se ainda faltar QUALQUER coluna opcional (034/038/079 não
-  // aplicadas — fiscal, operacao, controla_estoque, etc.), insere sem todas
-  // elas. O cadastro sempre sucede; os campos passam a persistir após migrar.
-  if (res.error && COLS_PRODUTO_OPCIONAIS.some((c) => c in linha) && ehColunaAusente(res.error, 'column')) {
-    const semOpcionais = { ...linha };
-    COLS_PRODUTO_OPCIONAIS.forEach((c) => delete semOpcionais[c]);
-    res = await supabase.from('tab_produtos').insert([semOpcionais]).select().single();
-  }
-  if (res.error) throw res.error
-  return dbParaProduto(res.data)
+  const { loja_id, ...dados } = linha;
+  const { data, error } = await supabase.rpc('app_criar_produto', { p_loja_id: loja_id ?? null, p_dados: dados })
+  if (error) throw error
+  return dbParaProduto(data)
 }
 
-// Colunas opcionais (migrations 029/034/068/079) — removidas no fallback se o banco não as tiver
-const COLS_PRODUTO_OPCIONAIS = ['adicionais', 'controla_estoque', 'estoque_minimo', 'preco_promocional', 'visivel_tablet', 'visivel_qr', 'visivel_externo', 'is_featured', 'featured_label', 'featured_order', 'show_on_home', 'disponivel', 'setor_id', 'categoria_id', 'impressora_id', 'fiscal', 'operacao', 'ncm_id', 'cfop_id', 'pis_id', 'cofins_id', 'ipi_id', 'cest_id', 'loja_fiscal_regra_id'];
 export async function atualizarProduto(id, campos) {
-  let { error } = await supabase.from('tab_produtos').update(campos).eq('id', id)
-  if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in campos) && ehColunaAusente(error, 'column')) {
-    const rest = { ...campos };
-    COLS_PRODUTO_OPCIONAIS.forEach((c) => delete rest[c]);
-    ({ error } = await supabase.from('tab_produtos').update(rest).eq('id', id))
-  }
+  // loja_id nunca é enviado no patch — é imutável na RPC (allowlist do
+  // servidor nem sequer a aceita), mas removida aqui também por clareza.
+  const patch = { ...(campos || {}) };
+  delete patch.loja_id;
+  const { error } = await supabase.rpc('app_atualizar_produto', { p_produto_id: id, p_patch: patch })
   if (error) throw error
 }
 
 // Atualização fiscal em lote (migration 081/082) — aplica os mesmos campos de
-// vínculo (ncm_id/cfop_id/pis_id/cofins_id/ipi_id/cest_id) a vários produtos de
-// uma vez. Tolera colunas ausentes. `patch` já vem no formato de coluna do banco.
-export async function atualizarProdutosFiscalLote(ids, patch) {
+// vínculo (ncm_id/cfop_id/pis_id/cofins_id/ipi_id/cest_id/loja_fiscal_regra_id)
+// a vários produtos de uma vez, via app_atualizar_produtos_fiscal_lote
+// (migration 124) — tenant resolvido no servidor, WHERE loja_id = v_loja
+// garante que produto de outra loja nunca é alterado mesmo que o id apareça
+// em `ids` por engano. `patch` já vem no formato de coluna do banco.
+export async function atualizarProdutosFiscalLote(ids, patch, lojaId = null) {
   if (!Array.isArray(ids) || ids.length === 0 || !patch || Object.keys(patch).length === 0) return
-  let { error } = await supabase.from('tab_produtos').update(patch).in('id', ids)
-  if (error && COLS_PRODUTO_OPCIONAIS.some((c) => c in patch) && ehColunaAusente(error, 'column')) {
-    const rest = { ...patch }
-    COLS_PRODUTO_OPCIONAIS.forEach((c) => delete rest[c])
-    if (Object.keys(rest).length === 0) return
-    ;({ error } = await supabase.from('tab_produtos').update(rest).in('id', ids))
-  }
+  const { error } = await supabase.rpc('app_atualizar_produtos_fiscal_lote', {
+    p_loja_id: lojaId ?? null, p_produto_ids: ids, p_patch: patch,
+  })
   if (error) throw error
 }
 
@@ -207,32 +215,22 @@ export function escutarProdutos(onMudanca) {
 // Baixa de estoque: subtrai a quantidade vendida de cada produto (casando por
 // nome DENTRO da loja, evitando atingir produtos homônimos de outra empresa) e
 // registra a movimentação (estoque antes/depois) para o relatório gerencial.
-export async function baixarEstoque(itensVendidos, lojaId = null, comandas = []) {
+// Migration 124: tab_produtos fechada — a baixa (SELECT + UPDATE de estoque)
+// passa por app_baixar_estoque_produto (security definer, OPERACIONAL — não
+// exige perfil admin, é parte do fluxo normal de confirmação de pagamento).
+// `comandas` (3º argumento histórico) deixou de ser usado — não é mais
+// persistido em tab_estoque_mov (fora do allowlist de escrita da RPC).
+// Chamadores que ainda passam um 3º argumento (App.jsx) continuam
+// funcionando normalmente: JS ignora argumentos extras.
+export async function baixarEstoque(itensVendidos, lojaId = null) {
   // itensVendidos: [{ name, quantity }]
-  let q = supabase.from('tab_produtos').select('id,nome,estoque,estoque_minimo,loja_id')
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
-  const { data: produtos } = await q
-  if (!produtos) return { movimentos: [], alertas: [] }
-  // Soma quantidades por nome (um produto pode aparecer em vários pedidos)
   const somas = {}
   itensVendidos.forEach((it) => { somas[it.name] = (somas[it.name] || 0) + it.quantity })
-  const movimentos = []   // linhas para gravar (colunas do banco)
-  const alertas = []      // produtos que atingiram o mínimo / zeraram após a baixa
-  const comandasTxt = Array.isArray(comandas) ? comandas.join(', ') : (comandas || null)
-  await Promise.all(Object.entries(somas).map(async ([nome, qtd]) => {
-    const p = produtos.find((x) => x.nome === nome)
-    if (!p) return
-    const antes = p.estoque ?? 0
-    const depois = Math.max(0, antes - qtd)
-    const minimo = p.estoque_minimo ?? 0
-    await supabase.from('tab_produtos').update({ estoque: depois }).eq('id', p.id)
-    movimentos.push({ loja_id: p.loja_id ?? lojaId ?? null, produto_id: p.id, produto_nome: nome, quantidade: qtd, estoque_antes: antes, estoque_depois: depois, comandas: comandasTxt })
-    if (depois <= 0) alertas.push({ nome, estoque: depois, minimo, zerado: true })
-    else if (minimo > 0 && depois <= minimo) alertas.push({ nome, estoque: depois, minimo, zerado: false })
-  }))
-  // Registra as movimentações (tolerante: ignora se a tabela ainda não existir)
-  if (movimentos.length) { try { await supabase.from('tab_estoque_mov').insert(movimentos) } catch {} }
-  return { movimentos, alertas }
+  const itens = Object.entries(somas).map(([nome, qtd]) => ({ nome, quantidade: qtd }))
+  if (!itens.length) return { movimentos: [], alertas: [] }
+  const { data, error } = await supabase.rpc('app_baixar_estoque_produto', { p_loja_id: lojaId ?? null, p_itens: itens })
+  if (error) throw error
+  return { movimentos: data?.movimentos || [], alertas: data?.alertas || [] }
 }
 
 // Histórico de movimentações de estoque (tolerante: [] se a tabela não existir)
@@ -313,49 +311,64 @@ function promocaoParaDb(p) {
     dias_semana: Array.isArray(p.diasSemana) ? p.diasSemana : null,
     mostrar_cardapio: p.mostrarCardapio !== false, mostrar_tablet: p.mostrarTablet !== false, ativo: p.ativo !== false }
 }
-export async function fetchPromocoes() {
-  const { data, error } = await supabase.from('tab_promocoes').select('*').order('criado_em', { ascending: false })
-  if (error || !data) return []
-  return data.map(dbParaPromocao)
+// Migration 124: tab_promocoes fechada a authenticated/anon (mesmo motivo de
+// tab_cupons/121). LIST/CREATE/UPDATE/DELETE passam por app_listar_promocoes/
+// app_criar_promocao/app_atualizar_promocao/app_excluir_promocao (security
+// definer, tenant resolvido no servidor).
+export async function fetchPromocoes(lojaId = null) {
+  const { data, error } = await supabase.rpc('app_listar_promocoes', { p_loja_id: lojaId ?? null })
+  if (error) throw error
+  return (data || []).map(dbParaPromocao)
 }
-// Detecta erro de coluna inexistente (migration 062 ainda não aplicada).
-const semColunaProdutoIds = (e) => e && (e.code === 'PGRST204' || /produto_ids/i.test(e.message || ''))
 export async function inserirPromocao(p) {
   const linha = promocaoParaDb(p)
-  let { data, error } = await supabase.from('tab_promocoes').insert([linha]).select().single()
-  if (error && semColunaProdutoIds(error)) {
-    const { produto_ids, ...semIds } = linha
-    ;({ data, error } = await supabase.from('tab_promocoes').insert([semIds]).select().single())
-  }
+  const { data, error } = await supabase.rpc('app_criar_promocao', {
+    p_loja_id: linha.loja_id ?? null, p_nome: linha.nome, p_descricao: linha.descricao, p_tipo: linha.tipo,
+    p_desconto_percent: linha.desconto_percent, p_desconto_valor: linha.desconto_valor,
+    p_produto_id: linha.produto_id, p_produto_ids: linha.produto_ids ?? [], p_categoria_id: linha.categoria_id,
+    p_data_inicio: linha.data_inicio, p_data_fim: linha.data_fim, p_hora_inicio: linha.hora_inicio, p_hora_fim: linha.hora_fim,
+    p_dias_semana: linha.dias_semana, p_mostrar_cardapio: linha.mostrar_cardapio, p_mostrar_tablet: linha.mostrar_tablet,
+    p_ativo: linha.ativo,
+  })
   if (error) throw error
   return dbParaPromocao(data)
 }
 export async function atualizarPromocao(id, p) {
-  const linha = { ...promocaoParaDb(p), atualizado_em: new Date().toISOString() }
-  let { error } = await supabase.from('tab_promocoes').update(linha).eq('id', id)
-  if (error && semColunaProdutoIds(error)) {
-    const { produto_ids, ...semIds } = linha
-    ;({ error } = await supabase.from('tab_promocoes').update(semIds).eq('id', id))
-  }
+  const linha = promocaoParaDb(p)
+  const { error } = await supabase.rpc('app_atualizar_promocao', {
+    p_promocao_id: id, p_nome: linha.nome, p_descricao: linha.descricao, p_tipo: linha.tipo,
+    p_desconto_percent: linha.desconto_percent, p_desconto_valor: linha.desconto_valor,
+    p_produto_id: linha.produto_id, p_produto_ids: linha.produto_ids ?? [], p_categoria_id: linha.categoria_id,
+    p_data_inicio: linha.data_inicio, p_data_fim: linha.data_fim, p_hora_inicio: linha.hora_inicio, p_hora_fim: linha.hora_fim,
+    p_dias_semana: linha.dias_semana, p_mostrar_cardapio: linha.mostrar_cardapio, p_mostrar_tablet: linha.mostrar_tablet,
+    p_ativo: linha.ativo,
+  })
   if (error) throw error
 }
 export async function excluirPromocao(id) {
-  const { error } = await supabase.from('tab_promocoes').delete().eq('id', id)
+  const { error } = await supabase.rpc('app_excluir_promocao', { p_promocao_id: id })
   if (error) throw error
 }
+// Realtime direto em tab_promocoes deixou de ser viável (migration 124,
+// mesmo motivo de tab_cupons/121): RLS deny-all bloqueia SELECT, então
+// postgres_changes nunca entrega o evento. Fica só a carga inicial via
+// app_listar_promocoes, sem assinatura persistente — as próprias ações de
+// CRUD já atualizam o estado local no chamador (App.jsx).
 export function escutarPromocoes(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchPromocoes()) } catch {} }
-  const canal = supabase.channel('ch_promocoes_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_promocoes' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+  fetchPromocoes().then(onMudanca).catch(() => {})
+  return () => {}
 }
 
 // ════════════════════════════════════════════════════════════
-//  tab_cupons — cupons de desconto por loja (migration 075)
-//  Validação e consumo passam pelas funções cupom_validar /
-//  cupom_consumir: a quantidade disponível é conferida no banco,
-//  nunca só no front.
+//  tab_cupons — cupons de desconto por loja (migration 075/121)
+//  CRUD administrativo 100% via RPC SECURITY DEFINER (migration 121):
+//  tenant e autorização são resolvidos no servidor a partir do JWT,
+//  nunca confiados ao cliente. SEM fallback para SELECT/INSERT/UPDATE/
+//  DELETE direto — tab_cupons/tab_cupom_usos ficaram fechadas a
+//  anon/authenticated. Erro de RPC sempre propaga (throw); nunca vira
+//  [] silencioso — quem chama decide como exibir.
+//  Validação e consumo no PDV continuam por cupom_validar/cupom_consumir
+//  (migrations 075/076), inalterados.
 // ════════════════════════════════════════════════════════════
 function normalizarHoraCupom(h) {
   if (h == null || h === '') return null
@@ -382,59 +395,70 @@ function dbParaCupom(r) {
     horaFim: hf || '',
   }
 }
-function cupomParaDb(c) {
+function cupomParaRpc(c) {
   const canal = ['interno', 'externo', 'ambos'].includes(c.canal) ? c.canal : 'ambos'
   return {
-    loja_id: c.lojaId ?? null,
-    codigo: String(c.codigo || '').trim().toUpperCase(),
-    descricao: c.descricao || null,
-    tipo: c.tipo === 'valor' ? 'valor' : 'percentual',
-    valor: numBR(c.valor) ?? 0,
-    minimo_compra: numBR(c.minimoCompra) ?? 0,
-    quantidade_total: c.quantidadeTotal == null || c.quantidadeTotal === '' ? null : Math.max(0, parseInt(c.quantidadeTotal, 10) || 0),
-    inicio_em: c.inicioEm || null,
-    fim_em: c.fimEm || null,
-    ativo: c.ativo !== false,
-    canal,
-    hora_inicio: normalizarHoraCupom(c.horaInicio),
-    hora_fim: normalizarHoraCupom(c.horaFim),
+    p_codigo: String(c.codigo || '').trim().toUpperCase(),
+    p_descricao: c.descricao || null,
+    p_tipo: c.tipo === 'valor' ? 'valor' : 'percentual',
+    p_valor: numBR(c.valor) ?? 0,
+    p_minimo_compra: numBR(c.minimoCompra) ?? 0,
+    p_quantidade_total: c.quantidadeTotal == null || c.quantidadeTotal === '' ? null : Math.max(0, parseInt(c.quantidadeTotal, 10) || 0),
+    p_inicio_em: c.inicioEm || null,
+    p_fim_em: c.fimEm || null,
+    p_ativo: c.ativo !== false,
+    p_canal: canal,
+    p_hora_inicio: normalizarHoraCupom(c.horaInicio),
+    p_hora_fim: normalizarHoraCupom(c.horaFim),
   }
 }
-export async function fetchCupons() {
-  const { data, error } = await supabase.from('tab_cupons').select('*').order('criado_em', { ascending: false })
-  if (error || !data) return []
-  return data.map(dbParaCupom)
+/**
+ * Lista os cupons da loja autorizada (RPC app_listar_cupons — migration 121).
+ * lojaId é a "empresa em foco": obrigatório para super admin (a RPC nega —
+ * zero linhas — sem ele); ignorado pela RPC para não-super, que usa sempre a
+ * própria loja do JWT. Erro de permissão/RPC ausente propaga (throw) — nunca
+ * vira [] silencioso.
+ */
+export async function fetchCupons(lojaId = null) {
+  const { data, error } = await supabase.rpc('app_listar_cupons', { p_loja_id: lojaId ?? null })
+  if (error) throw error
+  return Array.isArray(data) ? data.map(dbParaCupom) : []
 }
-export async function inserirCupom(c) {
-  const linha = cupomParaDb(c)
-  let { data, error } = await supabase.from('tab_cupons').insert([linha]).select().single()
-  // Banco sem migration 076 (canal/horário) → tenta sem as colunas novas.
-  if (error && (ehColunaAusente(error, 'canal') || ehColunaAusente(error, 'hora_inicio') || ehColunaAusente(error, 'hora_fim'))) {
-    const { canal, hora_inicio, hora_fim, ...rest } = linha
-    ;({ data, error } = await supabase.from('tab_cupons').insert([rest]).select().single())
-  }
+/** Cria cupom via RPC app_criar_cupom. lojaId só é usado pela RPC quando o caller é super admin. */
+export async function inserirCupom(c, lojaId = null) {
+  const { data, error } = await supabase.rpc('app_criar_cupom', {
+    p_loja_id: lojaId ?? c.lojaId ?? null,
+    ...cupomParaRpc(c),
+  })
   if (error) throw error
   return dbParaCupom(data)
 }
+/** Atualiza cupom via RPC app_atualizar_cupom. loja_id é imutável — não é enviado. */
 export async function atualizarCupom(id, c) {
-  const linha = { ...cupomParaDb(c), atualizado_em: new Date().toISOString() }
-  let { error } = await supabase.from('tab_cupons').update(linha).eq('id', id)
-  if (error && (ehColunaAusente(error, 'canal') || ehColunaAusente(error, 'hora_inicio') || ehColunaAusente(error, 'hora_fim'))) {
-    const { canal, hora_inicio, hora_fim, ...rest } = linha
-    ;({ error } = await supabase.from('tab_cupons').update(rest).eq('id', id))
-  }
+  const { data, error } = await supabase.rpc('app_atualizar_cupom', {
+    p_cupom_id: id,
+    ...cupomParaRpc(c),
+  })
   if (error) throw error
+  return dbParaCupom(data)
 }
 export async function excluirCupom(id) {
-  const { error } = await supabase.from('tab_cupons').delete().eq('id', id)
+  const { data, error } = await supabase.rpc('app_excluir_cupom', { p_cupom_id: id })
   if (error) throw error
+  return data
 }
-export function escutarCupons(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchCupons()) } catch {} }
-  const canal = supabase.channel('ch_cupons_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cupons' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+/**
+ * Realtime direto em tab_cupons deixou de ser viável (migration 121): a
+ * tabela ficou fechada a anon/authenticated e a policy permissiva que
+ * deixava o postgres_changes repassar linhas virou "deny all". Até existir
+ * uma arquitetura de realtime autenticado (ex.: broadcast via RPC), fica só
+ * a carga inicial via app_listar_cupons — sem assinatura persistente. O
+ * chamador (App.jsx) refaz essa carga sempre que a loja em foco muda ou após
+ * cada operação de escrita (refresh controlado).
+ */
+export function escutarCupons(onMudanca, lojaId = null) {
+  fetchCupons(lojaId).then(onMudanca).catch(() => {})
+  return () => {}
 }
 /** Valida o código sem consumir — devolve { ok, motivo } ou os dados do desconto. */
 export async function validarCupom({ lojaId = null, codigo, valorConta = 0, canal = 'interno' }) {
@@ -474,59 +498,71 @@ function dbParaGrupo(r) {
 function dbParaOpcao(r) {
   return { id: r.id, lojaId: r.loja_id, grupoId: r.grupo_id, nome: r.nome, descricao: r.descricao ?? "", precoDelta: r.preco_delta != null ? Number(r.preco_delta) : 0, ordem: r.ordem ?? 0, ativo: r.ativo !== false }
 }
+// Migration 124: tab_grupos_opcoes/tab_opcoes fechadas a authenticated/anon.
+// LIST/CREATE/UPDATE/DELETE passam por app_listar_grupos_opcoes/
+// app_criar_grupo_opcoes/app_atualizar_grupo_opcoes/app_excluir_grupo_opcoes
+// e os equivalentes app_*_opcao (security definer, tenant resolvido no
+// servidor). LIST é OPERACIONAL (Tablet/ProdutoModal também consomem).
 export async function fetchGruposOpcoes(lojaId = null) {
-  let q = supabase.from('tab_grupos_opcoes').select('*').order('ordem', { ascending: true })
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
-  const { data, error } = await q
-  if (error || !data) return []
-  return data.map(dbParaGrupo)
+  const { data, error } = await supabase.rpc('app_listar_grupos_opcoes', { p_loja_id: lojaId ?? null })
+  if (error) throw error
+  return (data || []).map(dbParaGrupo)
 }
 export async function fetchOpcoes(lojaId = null) {
-  let q = supabase.from('tab_opcoes').select('*').order('ordem', { ascending: true })
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
-  const { data, error } = await q
-  if (error || !data) return []
-  return data.map(dbParaOpcao)
+  const { data, error } = await supabase.rpc('app_listar_opcoes', { p_loja_id: lojaId ?? null })
+  if (error) throw error
+  return (data || []).map(dbParaOpcao)
 }
 export async function inserirGrupoOpcoes(g) {
-  const { data, error } = await supabase.from('tab_grupos_opcoes').insert([{ loja_id: g.lojaId ?? null, produto_id: g.produtoId, nome: g.nome, min_select: g.minSelect ?? 0, max_select: g.maxSelect ?? 1, obrigatorio: !!g.obrigatorio, ordem: g.ordem ?? 0 }]).select().single()
+  const { data, error } = await supabase.rpc('app_criar_grupo_opcoes', {
+    p_loja_id: g.lojaId ?? null, p_produto_id: g.produtoId, p_nome: g.nome,
+    p_min_select: g.minSelect ?? 0, p_max_select: g.maxSelect ?? 1, p_obrigatorio: !!g.obrigatorio, p_ordem: g.ordem ?? 0,
+  })
   if (error) throw error
   return dbParaGrupo(data)
 }
 export async function atualizarGrupoOpcoes(id, g) {
-  const { error } = await supabase.from('tab_grupos_opcoes').update({ nome: g.nome, min_select: g.minSelect ?? 0, max_select: g.maxSelect ?? 1, obrigatorio: !!g.obrigatorio, ativo: g.ativo !== false, atualizado_em: new Date().toISOString() }).eq('id', id)
+  const { error } = await supabase.rpc('app_atualizar_grupo_opcoes', {
+    p_grupo_id: id, p_nome: g.nome, p_min_select: g.minSelect ?? 0, p_max_select: g.maxSelect ?? 1,
+    p_obrigatorio: !!g.obrigatorio, p_ativo: g.ativo !== false,
+  })
   if (error) throw error
 }
 export async function excluirGrupoOpcoes(id) {
-  const { error } = await supabase.from('tab_grupos_opcoes').delete().eq('id', id)
+  const { error } = await supabase.rpc('app_excluir_grupo_opcoes', { p_grupo_id: id })
   if (error) throw error
 }
 export async function inserirOpcao(o) {
-  const { data, error } = await supabase.from('tab_opcoes').insert([{ loja_id: o.lojaId ?? null, grupo_id: o.grupoId, nome: o.nome, descricao: o.descricao || null, preco_delta: Number(o.precoDelta) || 0, ordem: o.ordem ?? 0 }]).select().single()
+  const { data, error } = await supabase.rpc('app_criar_opcao', {
+    p_loja_id: o.lojaId ?? null, p_grupo_id: o.grupoId, p_nome: o.nome,
+    p_descricao: o.descricao || null, p_preco_delta: Number(o.precoDelta) || 0, p_ordem: o.ordem ?? 0,
+  })
   if (error) throw error
   return dbParaOpcao(data)
 }
 export async function atualizarOpcao(id, o) {
-  const { error } = await supabase.from('tab_opcoes').update({ nome: o.nome, descricao: o.descricao || null, preco_delta: Number(o.precoDelta) || 0, ativo: o.ativo !== false }).eq('id', id)
+  const { error } = await supabase.rpc('app_atualizar_opcao', {
+    p_opcao_id: id, p_nome: o.nome, p_descricao: o.descricao || null,
+    p_preco_delta: Number(o.precoDelta) || 0, p_ativo: o.ativo !== false,
+  })
   if (error) throw error
 }
 export async function excluirOpcao(id) {
-  const { error } = await supabase.from('tab_opcoes').delete().eq('id', id)
+  const { error } = await supabase.rpc('app_excluir_opcao', { p_opcao_id: id })
   if (error) throw error
 }
+// Realtime direto em tab_grupos_opcoes/tab_opcoes deixou de ser viável
+// (migration 124): RLS deny-all bloqueia SELECT, então postgres_changes
+// nunca entrega o evento. Fica só a carga inicial via RPC, sem assinatura
+// persistente — as próprias ações de CRUD já atualizam o estado local no
+// chamador (App.jsx).
 export function escutarGruposOpcoes(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchGruposOpcoes()) } catch {} }
-  const canal = supabase.channel('ch_grupos_op_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_grupos_opcoes' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+  fetchGruposOpcoes().then(onMudanca).catch(() => {})
+  return () => {}
 }
 export function escutarOpcoes(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchOpcoes()) } catch {} }
-  const canal = supabase.channel('ch_opcoes_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_opcoes' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+  fetchOpcoes().then(onMudanca).catch(() => {})
+  return () => {}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1168,6 +1204,18 @@ export async function fetchSetoresCozinha(lojaId = null) {
   }
   return data.map(dbParaSetor)
 }
+// Leitura pública REDUZIDA de setores (migration 119 — pub_setores_publico):
+// id/lojaId/nome/ordem/ativo, SEM nenhum dado técnico de impressão. Usada só
+// pelo cardápio público (CardapioPublico.jsx) — o admin/staff continua em
+// fetchSetoresCozinha() (app_listar_setores_cozinha, autenticado). Tolerante:
+// se a RPC ainda não existir nesse banco, retorna [] sem quebrar a tela.
+export async function rpcSetoresPublico(lojaId) {
+  try {
+    const { data, error } = await supabase.rpc('pub_setores_publico', { p_loja_id: lojaId ?? null })
+    if (error || !data) return []
+    return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, ordem: r.ordem ?? 0, ativo: r.ativo !== false }))
+  } catch { return [] }
+}
 export async function inserirSetorCozinha(s) {
   const { data, error } = await supabase.from('tab_setores_cozinha').insert([{
     loja_id: s.lojaId ?? null,
@@ -1498,6 +1546,31 @@ export async function rpcCriarPedidoPublico({ lojaId, mesa, comanda, cliente, te
   if (error) throw error
   return data
 }
+// Pedido público SEGURO V2 (migration 119 — pub_criar_pedido_v2). O browser
+// só envia identidade/quantidade/observação de cada item — preço, opções,
+// adicionais, setor, impressora, regras de config_externo (aceita pedido/
+// modalidade/pedido mínimo) e forma/momento de pagamento são resolvidos e
+// validados 100% no servidor (correção P0.1: formaPagamentoId é só o ID
+// semântico "pix"|"cartao"|"dinheiro" — o label e o momento são derivados
+// no banco, nunca aceitos como texto livre do cliente). SEM fallback para
+// o RPC legado (pub_criar_pedido, hoje fechado para anon/authenticated)
+// em caso de erro: falha aqui é erro controlado ao cliente, nunca
+// downgrade de segurança silencioso.
+export async function rpcCriarPedidoPublicoV2({
+  lojaId, canal, itens, mesaNumero = null, mesaId = null, comanda = null, cliente = null,
+  telefone = null, tipoEntrega = null, formaPagamentoId = null, trocoPara = null,
+  observacaoPedido = null,
+}) {
+  const { data, error } = await supabase.rpc('pub_criar_pedido_v2', {
+    p_loja_id: lojaId, p_canal: canal, p_itens: itens || [],
+    p_mesa_numero: mesaNumero, p_mesa_id: mesaId, p_comanda: comanda || null,
+    p_cliente: cliente || null, p_telefone: telefone || null, p_tipo_entrega: tipoEntrega || null,
+    p_forma_pagamento_id: formaPagamentoId || null, p_troco_para: trocoPara ?? null,
+    p_observacao_pedido: observacaoPedido || null,
+  })
+  if (error) throw error
+  return data
+}
 export async function rpcUpsertClientePublico({ lojaId, nome, telefone }) {
   const { error } = await supabase.rpc('pub_upsert_cliente', { p_loja_id: lojaId, p_nome: nome || null, p_telefone: telefone || null })
   if (error) throw error
@@ -1610,6 +1683,120 @@ export async function rpcFidelidadeRegra({ lojaId }) {
 export async function rpcCriarChamadoPublico({ lojaId, mesa, comanda, tipo }) {
   const { error } = await supabase.rpc('pub_criar_chamado', { p_loja_id: lojaId, p_mesa: mesa || null, p_comanda: comanda || null, p_tipo: tipo || 'garcom' })
   if (error) throw error
+}
+
+// ════════════════════════════════════════════════════════════
+//  Cardápio Público — leitura segura e tenant-scoped (migration 123)
+//  RPC-ONLY DE PROPÓSITO: nenhuma destas funções usa lerRpcOuSelect()
+//  nem cai para SELECT direto em caso de erro/[] — erro de RPC sempre
+//  propaga (throw), [] só quando a RPC teve sucesso e realmente não há
+//  linhas. lerRpcOuSelect() continua existindo para os fluxos internos/
+//  staff (fora do escopo desta migration — ver nota logo acima da sua
+//  definição); os novos fluxos públicos abaixo simplesmente não o usam.
+//
+//  Contrato SEPARADO do administrativo (app_listar_produtos/
+//  app_listar_lojas, migration 120): a projeção pública é reduzida
+//  (nunca custo/fiscal/estoque/documento/email_responsavel/etc. — ver
+//  migration 123) e por isso tem mappers próprios, não reaproveita
+//  dbParaProduto/dbParaLoja.
+// ════════════════════════════════════════════════════════════
+function dbParaLojaPublica(r) {
+  return {
+    id: r.id, nome: r.nome, prefixo: r.prefixo,
+    logoUrl: r.logo_url ?? null, modoUso: r.modo_uso ?? 'interno',
+    configExterno: r.config_externo ?? {}, funcionamento: r.funcionamento ?? null,
+  }
+}
+/** Resolve a loja pública pelo prefixo da URL (RPC pub_loja_por_prefixo, migration 123). null se não encontrar/inativa. */
+export async function fetchLojaPublica(prefixo) {
+  const { data, error } = await supabase.rpc('pub_loja_por_prefixo', { p_prefixo: prefixo })
+  if (error) throw error
+  const row = Array.isArray(data) ? data[0] : data
+  return row ? dbParaLojaPublica(row) : null
+}
+/**
+ * Live-refresh da loja pública. Migration 123 fecha SELECT direto de
+ * tab_lojas para anon (GRANT revogado + RLS deny-all) — postgres_changes
+ * respeita RLS do assinante, então um canal realtime em tab_lojas nunca mais
+ * entregaria evento pra anon (silenciosamente morto, não só "sem garantia").
+ * Por isso deixou de assinar postgres_changes: agora faz POLLING via
+ * fetchLojaPublica (RPC tenant-scoped, pub_loja_por_prefixo), mesmo padrão já
+ * usado no acompanhamento de pedidos em modo RPC (CardapioPublico.jsx). Sem
+ * abrir GRANT/RLS só para viabilizar realtime.
+ */
+export function escutarLojaPublica(prefixo, onMudanca) {
+  let vivo = true
+  const reload = async () => { try { const l = await fetchLojaPublica(prefixo); if (vivo && l) onMudanca(l) } catch { /* silencioso */ } }
+  reload()
+  const iv = setInterval(reload, 30000)
+  return () => { vivo = false; clearInterval(iv) }
+}
+/** Categorias ATIVAS da loja (RPC pub_categorias_publico, migration 123) — mesmo shape de dbParaCategoria, sem setor_id/impressora_id. */
+export async function fetchCategoriasPublicas(lojaId) {
+  const { data, error } = await supabase.rpc('pub_categorias_publico', { p_loja_id: lojaId })
+  if (error) throw error
+  // "ativo" nunca é projetado pela RPC (ela já só devolve categorias ativas) — mesmo
+  // padrão de dbParaProdutoPublico abaixo: sempre true para o que a RPC trouxe.
+  return Array.isArray(data) ? data.map((r) => ({ id: r.id, nome: r.nome, active: true, ordem: r.ordem, lojaId: r.loja_id ?? null })) : []
+}
+function dbParaProdutoPublico(r) {
+  return {
+    id: r.id, name: r.nome, category: r.categoria, categoriaId: r.categoria_id ?? null,
+    ordemExibicao: r.ordem_exibicao ?? null, price: Number(r.preco),
+    // "ativo" nunca é projetado pela RPC (ela já só devolve produtos ativos) — o
+    // filtro `p.active` do bootstrap do cardápio (CardapioPublico.jsx) continua
+    // funcionando porque este mapper sempre devolve true para o que a RPC trouxe.
+    active: true,
+    time: r.tempo_preparo, description: r.descricao, badge: r.destaque, imageUrl: r.url_imagem,
+    ingredients: Array.isArray(r.ingredientes) ? r.ingredientes : [],
+    adicionais: Array.isArray(r.adicionais) ? r.adicionais : [],
+    lojaId: r.loja_id ?? null,
+    visivelQr: r.visivel_qr !== false, visivelExterno: r.visivel_externo !== false,
+    isFeatured: r.is_featured === true, featuredLabel: r.featured_label ?? null, featuredOrder: r.featured_order ?? 0,
+    disponivel: r.disponivel !== false, setorId: r.setor_id ?? null,
+  }
+}
+/** Produtos ATIVOS da loja (RPC pub_produtos_publico, migration 123) — projeção reduzida, sem custo/fiscal/estoque/admin. */
+export async function fetchProdutosPublicos(lojaId) {
+  const { data, error } = await supabase.rpc('pub_produtos_publico', { p_loja_id: lojaId })
+  if (error) throw error
+  return Array.isArray(data) ? data.map(dbParaProdutoPublico) : []
+}
+/** Grupos de opções/adicionais ATIVOS da loja (RPC pub_grupos_opcoes_publico, migration 123). */
+export async function fetchGruposOpcoesPublicos(lojaId) {
+  const { data, error } = await supabase.rpc('pub_grupos_opcoes_publico', { p_loja_id: lojaId })
+  if (error) throw error
+  return Array.isArray(data) ? data.map(dbParaGrupo) : []
+}
+/** Opções ATIVAS da loja (RPC pub_opcoes_publico, migration 123). */
+export async function fetchOpcoesPublicas(lojaId) {
+  const { data, error } = await supabase.rpc('pub_opcoes_publico', { p_loja_id: lojaId })
+  if (error) throw error
+  return Array.isArray(data) ? data.map(dbParaOpcao) : []
+}
+/**
+ * Promoções ATIVAS e publicáveis no cardápio da loja (RPC pub_promocoes_publico,
+ * migration 123) — mesmo shape de dbParaPromocao, sem loja_id/mostrar_cardapio/
+ * mostrar_tablet (a RPC já filtra por loja e por mostrar_cardapio=true; nenhum
+ * consumidor público lê esses campos de volta). Substitui o antigo fetchPromocoes()
+ * (SELECT direto em tab_promocoes) nesse fluxo — RPC-only, tenant-scoped desde a origem.
+ */
+function dbParaPromocaoPublica(r) {
+  return {
+    id: r.id, nome: r.nome, descricao: r.descricao ?? "", tipo: r.tipo ?? "percentual",
+    descontoPercent: r.desconto_percent != null ? Number(r.desconto_percent) : null,
+    descontoValor: r.desconto_valor != null ? Number(r.desconto_valor) : null,
+    produtoId: r.produto_id ?? null, categoriaId: r.categoria_id ?? null,
+    produtoIds: Array.isArray(r.produto_ids) && r.produto_ids.length ? r.produto_ids : (r.produto_id ? [r.produto_id] : []),
+    dataInicio: r.data_inicio, dataFim: r.data_fim, horaInicio: r.hora_inicio, horaFim: r.hora_fim,
+    diasSemana: Array.isArray(r.dias_semana) ? r.dias_semana : null,
+    ativo: r.ativo !== false,
+  }
+}
+export async function fetchPromocoesPublicas(lojaId) {
+  const { data, error } = await supabase.rpc('pub_promocoes_publico', { p_loja_id: lojaId })
+  if (error) throw error
+  return Array.isArray(data) ? data.map(dbParaPromocaoPublica) : []
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2235,19 +2422,55 @@ export async function registrarLicencaHistorico({ lojaId, acao, motivo = null, u
 // ════════════════════════════════════════════════════════════
 //  tab_lojas — CRUD + Realtime (multi-empresa)
 // ════════════════════════════════════════════════════════════
-export async function fetchLojas() {
-  const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
-  if (error) throw error
-  return data.map((r) => ({ id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {}, funcionamento: r.funcionamento ?? null }))
+function dbParaLoja(r) {
+  return { id: r.id, nome: r.nome, prefixo: r.prefixo, active: r.ativo, plano: r.plano ?? 'free', emailResponsavel: r.email_responsavel ?? null, licencaBloqueada: r.licenca_bloqueada === true, logoUrl: r.logo_url ?? null, documento: r.documento ?? null, modoUso: r.modo_uso ?? 'interno', licencaValidade: r.licenca_validade ?? null, configExterno: r.config_externo ?? {}, configCrm: r.config_crm ?? {}, funcionamento: r.funcionamento ?? null }
 }
+export async function fetchLojas() {
+  // 1) RPC security definer app_listar_lojas (HML endurecido): identidade só via
+  // JWT/app_caller_email(); super_admin vê todas as lojas, usuário comum só a
+  // própria. authenticated-only (sem EXECUTE para anon) — por isso o SELECT
+  // legado abaixo continua obrigatório para manter o CardapioPublico (anon) OK.
+  // Array vazio NÃO encerra a busca (evita zerar a lista na UI/reload).
+  let rpcRows = null
+  try {
+    const { data, error } = await supabase.rpc('app_listar_lojas')
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data.map(dbParaLoja)
+    }
+    if (!error && Array.isArray(data)) rpcRows = data
+  } catch { /* RPC ausente/anon → SELECT legado */ }
+  const { data, error } = await supabase.from('tab_lojas').select('*').order('id', { ascending: true })
+  if (!error && Array.isArray(data) && data.length > 0) {
+    return data.map(dbParaLoja)
+  }
+  if (rpcRows) return rpcRows.map(dbParaLoja)
+  if (error) throw error
+  return (data || []).map(dbParaLoja)
+}
+// Migration 124: tab_lojas fechada a authenticated/anon. CREATE passa por
+// app_criar_loja (security definer, SUPER-ONLY). Função não tem chamador
+// hoje em App.jsx (dead code) — migrada mesmo assim para não deixar
+// acesso direto órfão à tabela protegida.
 export async function inserirLoja(loja) {
-  const { data, error } = await supabase
-    .from('tab_lojas').insert([{ nome: loja.nome, prefixo: loja.prefixo, ...(loja.plano ? { plano: loja.plano } : {}), ...(loja.emailResponsavel ? { email_responsavel: loja.emailResponsavel } : {}), ...(loja.documento ? { documento: loja.documento } : {}) }]).select().single()
+  const { data, error } = await supabase.rpc('app_criar_loja', {
+    p_nome: loja.nome, p_prefixo: loja.prefixo, p_plano: loja.plano || 'free',
+    p_email_responsavel: loja.emailResponsavel || null, p_documento: loja.documento || null,
+  })
   if (error) throw error
   return { id: data.id, nome: data.nome, prefixo: data.prefixo, active: data.ativo, plano: data.plano ?? 'free' }
 }
 
 // ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
+// Migration 124: os passos 2 (prefixo único) e 3 (criação da loja) passam a
+// ser resolvidos ATOMICAMENTE dentro de app_criar_loja (SUPER-ONLY —
+// consistente com o comentário original "somente o administrador geral
+// cadastra empresas"; canAccess/isSuperAdmin já gateiam a tela que chama
+// criarEmpresa() em App.jsx). loja_prefixo_duplicado substitui a checagem
+// manual anterior (TOCTOU entre dois round-trips do cliente).
+// O passo 1 (e-mail único) e o seed de tab_formas_pagamento permanecem
+// como estavam — tab_usuarios e tab_formas_pagamento estão fora do escopo
+// desta migration (domínio Auth/Usuários e não há regressão de acesso
+// nelas por esta tarefa).
 export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = '', email = '', senha = '', documento = null, modoUso = 'interno', logoUrl = '', cargoId = null, cargoNome = 'Gestor' }) {
   // Usuário gestor é opcional: quando informado, cria o login; senão, só a empresa
   // (os usuários são cadastrados depois na tela "Usuários").
@@ -2257,19 +2480,17 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = ''
     const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
     if (existe) throw new Error('Já existe um usuário com este e-mail.')
   }
-  // 2. Verifica prefixo único
-  const { data: pfx } = await supabase.from('tab_lojas').select('id').eq('prefixo', prefixo).maybeSingle()
-  if (pfx) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
-  // 3. Cria a loja
-  const baseLoja = { nome: nomeLoja, prefixo, plano: 'free', ...(email ? { email_responsavel: email } : {}), ...(documento ? { documento } : {}), modo_uso: modoUso || 'interno' }
+  // 2/3. Cria a loja (RPC valida prefixo único atomicamente — ver cabeçalho)
   let loja, e1
-  ;({ data: loja, error: e1 } = await supabase.from('tab_lojas')
-    .insert([{ ...baseLoja, ...(logoUrl ? { logo_url: logoUrl } : {}) }]).select().single())
-  // Fallback: se a coluna logo_url não existir nesta base, cria sem ela
-  if (e1 && logoUrl) {
-    ;({ data: loja, error: e1 } = await supabase.from('tab_lojas').insert([baseLoja]).select().single())
+  ;({ data: loja, error: e1 } = await supabase.rpc('app_criar_loja', {
+    p_nome: nomeLoja, p_prefixo: prefixo, p_plano: 'free',
+    p_email_responsavel: email || null, p_documento: documento || null,
+    p_modo_uso: modoUso || 'interno', p_logo_url: logoUrl || null,
+  }))
+  if (e1) {
+    if (/loja_prefixo_duplicado/.test(e1.message || '')) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
+    throw e1
   }
-  if (e1) throw e1
   const lojaId = loja.id
   // 4. Cria o gestor (acesso total) — via API que grava só HASH (fase 7.2.1),
   //    nunca senha em texto claro. Sincroniza Supabase Auth para o login/JWT.
@@ -2287,11 +2508,17 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = ''
       persistirPerfil: true,
     })
   }
-  // 5. Seed de categorias e formas de pagamento padrão para a nova loja
+  // 5. Seed de categorias e formas de pagamento padrão para a nova loja.
+  // tab_categorias fechada (migration 124) — seed passa por app_criar_categoria
+  // (o caller é super_admin nesta etapa, então pode criar na loja recém-criada).
+  // p_ordem preserva a sequência 1..5 original (pré-124: insert direto com
+  // `ordem: i + 1`) — sem isso as 5 categorias cairiam todas no default da
+  // coluna (0) e ficariam desordenadas/empatadas.
   try {
-    await supabase.from('tab_categorias').insert(
-      ['Entradas', 'Pratos principais', 'Lanches', 'Bebidas', 'Sobremesas'].map((nome, i) => ({ nome, ordem: i + 1, loja_id: lojaId }))
-    )
+    const categoriasPadraoSeed = ['Entradas', 'Pratos principais', 'Lanches', 'Bebidas', 'Sobremesas']
+    for (let i = 0; i < categoriasPadraoSeed.length; i++) {
+      await supabase.rpc('app_criar_categoria', { p_loja_id: lojaId, p_nome: categoriasPadraoSeed[i], p_ordem: i + 1 })
+    }
   } catch {}
   try {
     await supabase.from('tab_formas_pagamento').insert([
@@ -2303,36 +2530,43 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = ''
   } catch {}
   return { loja: { id: loja.id, nome: loja.nome, prefixo: loja.prefixo, active: loja.ativo, plano: loja.plano }, email }
 }
+// Migration 124: tab_lojas fechada a authenticated/anon. UPDATE passa por
+// app_atualizar_loja — payload jsonb com allowlist explícita no servidor
+// (nome/prefixo/documento/modo_uso/logo_url/ativo/config_externo/config_crm/
+// licenca_validade/licenca_bloqueada/licenca_motivo). `campos` já chega no
+// formato de coluna do banco em todos os 7 call sites atuais de App.jsx
+// (toggleLoja/salvarLogoEmpresa/salvarConfigExterno/salvarConfigCrm/
+// setValidadeLicenca/setLicencaEmpresa/editarLoja/salvarIdentidadeLoja) —
+// só repassa como patch, sem transformação.
 export async function atualizarLoja(id, campos) {
-  const { error } = await supabase.from('tab_lojas').update(campos).eq('id', id)
+  const { error } = await supabase.rpc('app_atualizar_loja', { p_loja_id: id, p_patch: campos || {} })
   if (error) throw error
 }
-// Salva o horário de funcionamento (migration 110). Tolerante se a coluna ainda
-// não existir (42703/PGRST204) — o cadastro segue funcionando sem quebrar.
+// Salva o horário de funcionamento (migration 110) via app_salvar_funcionamento_loja.
 export async function salvarFuncionamentoLoja(id, funcionamento) {
-  const { error } = await supabase.from('tab_lojas').update({ funcionamento }).eq('id', id)
-  if (error) {
-    if (error.code === '42703' || error.code === 'PGRST204') { console.warn('salvarFuncionamentoLoja: aplique a migration 110.'); return false }
-    throw error
-  }
+  const { error } = await supabase.rpc('app_salvar_funcionamento_loja', { p_loja_id: id, p_funcionamento: funcionamento })
+  if (error) throw error
   return true
 }
+// app_excluir_loja (124) nunca exclui fisicamente — mesma decisão
+// arquitetural de app_excluir_mesa (122): sem FK/CASCADE apontando para
+// tab_lojas no schema, DELETE físico deixaria dados órfãos silenciosamente.
+// Sempre lança 'loja_exclusao_nao_permitida'; use atualizarLoja(id,{ativo:false}).
 export async function excluirLoja(id) {
-  const { error } = await supabase.from('tab_lojas').delete().eq('id', id)
+  const { error } = await supabase.rpc('app_excluir_loja', { p_loja_id: id })
   if (error) throw error
 }
+// Realtime direto em tab_lojas para STAFF (authenticated) deixou de ser
+// viável (migration 124): RLS deny-all bloqueia SELECT, então
+// postgres_changes nunca entrega o evento. Fica só a carga inicial via
+// app_listar_lojas, sem assinatura persistente (mesmo padrão de
+// escutarCupons/121 e escutarMesas/122) — as próprias ações de CRUD já
+// atualizam o estado local no chamador (App.jsx). Não confundir com
+// escutarLojaPublica (anon, cardápio público) — essa já foi migrada para
+// polling via pub_loja_por_prefixo na migration 123, não é tocada aqui.
 export function escutarLojas(onMudanca) {
-  const reload = async () => {
-    try {
-      const lista = await fetchLojas()
-      if (Array.isArray(lista) && lista.length === 0) return
-      onMudanca(lista)
-    } catch { /* silencioso */ }
-  }
-  const canal = supabase.channel('ch_lojas_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_lojas' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+  fetchLojas().then((lista) => { if (Array.isArray(lista) && lista.length > 0) onMudanca(lista) }).catch(() => {})
+  return () => {}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2569,74 +2803,64 @@ function dbParaCategoria(r) {
     impressoraId: r.impressora_id ?? null,
   }
 }
-export async function fetchCategorias() {
-  const { data, error } = await supabase
-    .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
+// Migration 124: tab_categorias fechada a authenticated/anon (mesmo motivo
+// de tab_cupons/121 e tab_mesas/122 — a policy pública using(true) virou
+// "bomba latente"). LIST/CREATE/UPDATE/DELETE passam por
+// app_listar_categorias/app_criar_categoria/app_atualizar_categoria/
+// app_excluir_categoria (security definer, tenant resolvido no servidor).
+export async function fetchCategorias(lojaId = null) {
+  const { data, error } = await supabase.rpc('app_listar_categorias', { p_loja_id: lojaId ?? null })
   if (error) throw error
-  return data.map(dbParaCategoria)
+  return (data || []).map(dbParaCategoria)
 }
 export async function inserirCategoria(nome, lojaId = null, extras = {}) {
-  const linha = {
-    nome,
-    ...(lojaId ? { loja_id: lojaId } : {}),
-    ...(extras.setorId != null && extras.setorId !== '' ? { setor_id: extras.setorId } : {}),
-    ...(extras.impressoraId != null && extras.impressoraId !== '' ? { impressora_id: extras.impressoraId } : {}),
-  }
-  let { data, error } = await supabase.from('tab_categorias').insert([linha]).select().single()
-  // Migration 078 ainda não aplicada — tenta sem impressora_id.
-  if (error && /impressora_id|column/i.test(error.message || '') && linha.impressora_id !== undefined) {
-    const semImp = { ...linha }
-    delete semImp.impressora_id
-    ;({ data, error } = await supabase.from('tab_categorias').insert([semImp]).select().single())
-  }
+  const { data, error } = await supabase.rpc('app_criar_categoria', {
+    p_loja_id: lojaId ?? null,
+    p_nome: nome,
+    p_setor_id: extras.setorId != null && extras.setorId !== '' ? extras.setorId : null,
+    p_impressora_id: extras.impressoraId != null && extras.impressoraId !== '' ? extras.impressoraId : null,
+    // Opcional — só cadastrarEmpresa() informa (ordem sequencial do seed
+    // padrão). O formulário normal de "Nova categoria" não passa `ordem` em
+    // `extras`, então isso vira null e a RPC usa o default da coluna (0),
+    // exatamente como antes deste parâmetro existir.
+    p_ordem: extras.ordem != null ? extras.ordem : null,
+  })
   if (error) throw error
   return dbParaCategoria(data)
 }
 export async function atualizarCategoria(id, campos) {
-  const db = { ...campos }
-  if (Object.prototype.hasOwnProperty.call(campos, 'setorId')) {
-    db.setor_id = campos.setorId || null
-    delete db.setorId
-  }
-  if (Object.prototype.hasOwnProperty.call(campos, 'impressoraId')) {
-    db.impressora_id = campos.impressoraId || null
-    delete db.impressoraId
-  }
-  if (Object.prototype.hasOwnProperty.call(campos, 'active')) {
-    db.ativo = campos.active !== false
-    delete db.active
-  }
-  if (Object.prototype.hasOwnProperty.call(campos, 'nome')) {
-    db.nome = campos.nome
-  }
-  let { error } = await supabase.from('tab_categorias').update(db).eq('id', id)
-  if (error && /impressora_id|column/i.test(error.message || '') && Object.prototype.hasOwnProperty.call(db, 'impressora_id')) {
-    const semImp = { ...db }
-    delete semImp.impressora_id
-    ;({ error } = await supabase.from('tab_categorias').update(semImp).eq('id', id))
-  }
+  const patch = {}
+  if (Object.prototype.hasOwnProperty.call(campos, 'nome')) patch.nome = campos.nome
+  if (Object.prototype.hasOwnProperty.call(campos, 'setorId')) patch.setor_id = campos.setorId || null
+  if (Object.prototype.hasOwnProperty.call(campos, 'impressoraId')) patch.impressora_id = campos.impressoraId || null
+  if (Object.prototype.hasOwnProperty.call(campos, 'active')) patch.ativo = campos.active !== false
+  if (Object.prototype.hasOwnProperty.call(campos, 'ativo')) patch.ativo = campos.ativo !== false
+  const { error } = await supabase.rpc('app_atualizar_categoria', { p_categoria_id: id, p_patch: patch })
   if (error) throw error
 }
 export async function excluirCategoria(id) {
-  const { error } = await supabase.from('tab_categorias').delete().eq('id', id)
-  // Migration 068 — categoria_id tem FK "on delete restrict": o banco recusa
-  // apagar uma categoria com produto vinculado (código 23503). A tela já
-  // bloqueia isso antes de chamar aqui (ver CategoriaAdmin), mas traduz a
-  // mensagem mesmo assim — cobre a corrida rara de um produto ser vinculado
-  // por outro dispositivo entre abrir a confirmação e clicar em excluir.
-  if (error?.code === '23503') throw new Error('Esta categoria tem produtos vinculados. Remova ou mude a categoria desses produtos antes de excluir — ou apenas inative a categoria.')
-  if (error) throw error
-}
-export function escutarCategorias(onMudanca) {
-  const reload = async () => {
-    const { data, error } = await supabase
-      .from('tab_categorias').select('*').order('ordem', { ascending: true }).order('nome', { ascending: true })
-    if (!error && data) onMudanca(data.map(dbParaCategoria))
+  const { error } = await supabase.rpc('app_excluir_categoria', { p_categoria_id: id })
+  if (error) {
+    // Migration 068 — categoria_id tem FK "on delete restrict": a RPC traduz
+    // a violação (23503) em 'categoria_possui_produtos'. A tela já bloqueia
+    // isso antes de chamar aqui (ver CategoriaAdmin), mas a mensagem cobre a
+    // corrida rara de um produto ser vinculado por outro dispositivo entre
+    // abrir a confirmação e clicar em excluir.
+    if (/categoria_possui_produtos/.test(error.message || '')) {
+      throw new Error('Esta categoria tem produtos vinculados. Remova ou mude a categoria desses produtos antes de excluir — ou apenas inative a categoria.')
+    }
+    throw error
   }
-  const canal = supabase.channel('ch_categorias_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_categorias' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+}
+// Realtime direto em tab_categorias deixou de ser viável (migration 124,
+// mesmo motivo de tab_cupons/121 e tab_mesas/122): RLS deny-all bloqueia
+// SELECT, então postgres_changes nunca entrega o evento. Fica só a carga
+// inicial via app_listar_categorias, sem assinatura persistente — as
+// próprias ações de CRUD (inserirCategoria/atualizarCategoria/
+// excluirCategoria) já atualizam o estado local no chamador (App.jsx).
+export function escutarCategorias(onMudanca) {
+  fetchCategorias().then(onMudanca).catch(() => {})
+  return () => {}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2804,50 +3028,77 @@ export function escutarCargos(onMudanca) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  tab_mesas — CRUD + Realtime (migration 027)
+//  tab_mesas — RPCs seguras (migration 122)
+//  tab_mesas ficou fechada a clientes (anon/authenticated): listagem e
+//  CRUD passam por app_listar_mesas/app_criar_mesa/app_atualizar_mesa/
+//  app_excluir_mesa (mesmo padrão de app_listar_cupons/app_criar_cupom
+//  etc., migration 121). Nunca fazer SELECT/INSERT/UPDATE/DELETE direto
+//  em tab_mesas — a tabela não concede mais esses privilégios.
 // ════════════════════════════════════════════════════════════
 function mapMesa(r) {
   return { id: r.id, numero: r.numero, nome: r.nome || '', capacidade: r.capacidade ?? null, lojaId: r.loja_id ?? null, active: r.ativo,
     localizacao: r.localizacao || '', observacao: r.observacao || '', permiteTablet: r.permite_tablet !== false, permiteQr: r.permite_qr !== false }
 }
-export async function fetchMesas() {
-  const { data, error } = await supabase
-    .from('tab_mesas').select('*').order('loja_id', { ascending: true }).order('numero', { ascending: true })
+/**
+ * Lista as mesas da loja autorizada (RPC app_listar_mesas — migration 122).
+ * lojaId é a "empresa em foco": obrigatório para super admin (a RPC nega —
+ * zero linhas — sem ele); ignorado pela RPC para não-super, que usa sempre a
+ * própria loja do JWT. Erro de permissão/RPC ausente propaga (throw) — nunca
+ * vira [] silencioso; [] só quando a RPC teve sucesso e não há mesas.
+ */
+export async function fetchMesas(lojaId = null) {
+  const { data, error } = await supabase.rpc('app_listar_mesas', { p_loja_id: lojaId ?? null })
   if (error) throw error
-  return data.map(mapMesa)
+  return Array.isArray(data) ? data.map(mapMesa) : []
 }
-export async function inserirMesa({ numero, nome, capacidade, lojaId, localizacao, observacao }) {
-  const linha = { numero, nome: nome || null, capacidade: capacidade || null, loja_id: lojaId || null,
-    ...(localizacao ? { localizacao } : {}), ...(observacao ? { observacao } : {}) }
-  let res = await supabase.from('tab_mesas').insert([linha]).select().single()
-  // Tolerância: banco sem a migration 035 → tenta sem as colunas novas
-  if (res.error && (localizacao || observacao)) {
-    const { localizacao: _l, observacao: _o, ...semNovas } = linha
-    res = await supabase.from('tab_mesas').insert([semNovas]).select().single()
-  }
-  if (res.error) throw res.error
-  return mapMesa(res.data)
-}
-export async function atualizarMesa(id, campos) {
-  const { error } = await supabase.from('tab_mesas').update(campos).eq('id', id)
+/** Cria mesa via RPC app_criar_mesa. lojaId só é usado pela RPC quando o caller é super admin. */
+export async function inserirMesa({ numero, nome, capacidade, lojaId, localizacao, observacao, permiteTablet, permiteQr }) {
+  const { data, error } = await supabase.rpc('app_criar_mesa', {
+    p_loja_id: lojaId ?? null,
+    p_numero: numero,
+    p_nome: nome || null,
+    p_capacidade: capacidade || null,
+    p_localizacao: localizacao || null,
+    p_observacao: observacao || null,
+    p_permite_tablet: permiteTablet !== false,
+    p_permite_qr: permiteQr !== false,
+  })
   if (error) throw error
+  return mapMesa(data)
+}
+/** Atualiza mesa via RPC app_atualizar_mesa. Envia o registro COMPLETO (id/lojaId são imutáveis e não são enviados). */
+export async function atualizarMesa(id, m) {
+  const { data, error } = await supabase.rpc('app_atualizar_mesa', {
+    p_mesa_id: id,
+    p_numero: m.numero,
+    p_nome: m.nome || null,
+    p_capacidade: m.capacidade || null,
+    p_localizacao: m.localizacao || null,
+    p_observacao: m.observacao || null,
+    p_ativo: m.active !== false,
+    p_permite_tablet: m.permiteTablet !== false,
+    p_permite_qr: m.permiteQr !== false,
+  })
+  if (error) throw error
+  return mapMesa(data)
 }
 export async function excluirMesa(id) {
-  const { error } = await supabase.from('tab_mesas').delete().eq('id', id)
+  const { data, error } = await supabase.rpc('app_excluir_mesa', { p_mesa_id: id })
   if (error) throw error
+  return data
 }
-export function escutarMesas(onMudanca) {
-  const reload = async () => {
-    try {
-      const lista = await fetchMesas()
-      if (Array.isArray(lista) && lista.length === 0) return
-      onMudanca(lista)
-    } catch { /* silencioso */ }
-  }
-  const canal = supabase.channel('ch_mesas_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_mesas' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+/**
+ * Realtime direto em tab_mesas deixou de ser viável (migration 122): a
+ * tabela ficou fechada a anon/authenticated e a policy permissiva que
+ * deixava o postgres_changes repassar linhas virou "deny all". Mesmo
+ * tratamento já aplicado a tab_cupons (migration 121, escutarCupons): fica
+ * só a carga inicial via app_listar_mesas, sem assinatura persistente. O
+ * chamador (App.jsx) refaz essa carga sempre que a loja em foco muda ou
+ * após cada operação de escrita (refresh controlado).
+ */
+export function escutarMesas(onMudanca, lojaId = null) {
+  fetchMesas(lojaId).then(onMudanca).catch(() => {})
+  return () => {}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -3015,7 +3266,7 @@ function dbParaProduto(r) {
     categoriaId: r.categoria_id ?? null,
     ordemExibicao: r.ordem_exibicao ?? null, // migration 034 — existia sem uso; agora ordena o cardápio dentro da categoria
     price:       Number(r.preco),
-    cost:        Number(r.custo),
+    cost:        r.custo != null ? Number(r.custo) : null,
     active:      r.ativo,
     time:        r.tempo_preparo,
     description: r.descricao,
@@ -3109,9 +3360,11 @@ function dbParaPedido(r) {
   }
 }
 
-// ── Exclusões (requerem policy de DELETE — migration 007) ────
+// ── Exclusões ──────────────────────────────────────────────
+// Migration 124: tab_produtos fechada — DELETE passa por app_excluir_produto
+// (security definer, ownership checado no servidor antes do DELETE).
 export async function excluirProduto(id) {
-  const { error } = await supabase.from('tab_produtos').delete().eq('id', id)
+  const { error } = await supabase.rpc('app_excluir_produto', { p_produto_id: id })
   if (error) throw error
 }
 export async function excluirFormaPagamento(id) {
