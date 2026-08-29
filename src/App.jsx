@@ -1393,6 +1393,80 @@ export default function RestaurantePedidoApp() {
   }
   logoutRef.current = logout;
 
+  // ── Banco → tela: sessão acompanha tab_usuarios ──────────────────────
+  // Quando o cadastro muda no SQL Editor / outro dispositivo (senha, acessos,
+  // ativo, nome…), `users` atualiza via Realtime/polling. Aqui espelhamos no
+  // currentUser e encerramos a sessão se a conta sumir ou for inativada.
+  useEffect(() => {
+    if (!currentUser || !users.length) return;
+    const fresco = users.find((u) => u.id === currentUser.id);
+    if (!fresco) {
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "error", text: "Sua conta foi removida. Faça login novamente." });
+      return;
+    }
+    if (fresco.active === false) {
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "error", text: "Usuário inativo, entre em contato com o administrador do sistema." });
+      return;
+    }
+    const mesmo =
+      fresco.name === currentUser.name &&
+      fresco.email === currentUser.email &&
+      String(fresco.password ?? "") === String(currentUser.password ?? "") &&
+      fresco.role === currentUser.role &&
+      fresco.cargoId === currentUser.cargoId &&
+      fresco.lojaId === currentUser.lojaId &&
+      !!fresco.superAdmin === !!currentUser.superAdmin &&
+      fresco.active === currentUser.active &&
+      JSON.stringify(fresco.accessIds || []) === JSON.stringify(currentUser.accessIds || []) &&
+      JSON.stringify(fresco.permissoesAcoes || {}) === JSON.stringify(currentUser.permissoesAcoes || {});
+    if (!mesmo) setCurrentUser(fresco);
+  }, [users, currentUser]);
+
+  // Fallback: se o Realtime de usuários atrasar/falhar (tabela fora da
+  // publication, WebSocket caído), recarrega tab_usuarios periodicamente.
+  useEffect(() => {
+    if (!dbReady) return;
+    let ativo = true;
+    async function atualizar() {
+      try {
+        const usrs = await fetchUsuarios();
+        if (!ativo) return;
+        // Evita re-render a cada poll quando nada mudou no banco.
+        setUsers((cur) => {
+          if (cur.length !== usrs.length) return usrs;
+          for (let i = 0; i < usrs.length; i++) {
+            const a = cur[i], b = usrs[i];
+            if (!a || a.id !== b.id || a.name !== b.name || a.email !== b.email
+              || String(a.password ?? "") !== String(b.password ?? "")
+              || a.role !== b.role || a.cargoId !== b.cargoId || a.lojaId !== b.lojaId
+              || a.active !== b.active || !!a.superAdmin !== !!b.superAdmin
+              || JSON.stringify(a.accessIds || []) !== JSON.stringify(b.accessIds || [])
+              || JSON.stringify(a.permissoesAcoes || {}) !== JSON.stringify(b.permissoesAcoes || {})) {
+              return usrs;
+            }
+          }
+          return cur;
+        });
+      } catch { /* Realtime cobre quando disponível */ }
+    }
+    const intervalo = setInterval(atualizar, 4000);
+    const noFoco = () => {
+      if (document.visibilityState === "visible") atualizar();
+    };
+    document.addEventListener("visibilitychange", noFoco);
+    window.addEventListener("focus", noFoco);
+    return () => {
+      ativo = false;
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", noFoco);
+      window.removeEventListener("focus", noFoco);
+    };
+  }, [dbReady]);
+
   // ── Validação contínua da licença (em TODOS os dispositivos) ──────────
   // O realtime (escutarLojas) mantém `lojas` atualizado. Sempre que a licença
   // da empresa do usuário logado for suspensa (ou a empresa inativada) em
