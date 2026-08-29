@@ -81,3 +81,50 @@ describe("TabletTableAccess — associação inicial de mesa (fail-closed)", () 
     expect(el.querySelector('input[inputmode="numeric"]')).toBeTruthy();
   });
 });
+
+// Gate 8.29 — "Trocar" reabre esta tela mantendo a mesa atual associada
+// (tableNumber inalterado, Opção B da auditoria Gate 8.28). Estes testes
+// exercitam a grade de mesas (não a entrada manual) para cobrir a troca
+// direta 03→04 e o cancelamento (X) sem tocar a associação existente.
+describe("TabletTableAccess — troca direta de mesa (reaberta via 'Trocar')", () => {
+  const mesa03 = { id: 1, numero: 3 };
+  const mesa04 = { id: 2, numero: 4 };
+
+  it("escolher Mesa 04 com a Mesa 03 ainda associada dispara UMA única chamada com a mesa nova (sem mesa:null antes)", async () => {
+    const onConfirmar = vi.fn().mockResolvedValue(undefined);
+    const el = await renderTela({
+      onConfirmar, mesas: [mesa03, mesa04], tableNumber: "3", podeFechar: true, onFechar: vi.fn(),
+    });
+
+    // Mesa 03 aparece como "current" (ainda associada) — confirma que abrir
+    // o seletor via "Trocar" não desfez a associação existente.
+    expect(el.querySelector('[aria-label^="Mesa 3"]')?.getAttribute("aria-pressed")).toBe("true");
+
+    const cardMesa04 = el.querySelector('[aria-label^="Mesa 4"]');
+    await act(async () => { cardMesa04.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+
+    const botaoConfirmar = el.querySelector("button.btn-laranja");
+    await act(async () => {
+      botaoConfirmar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 500)); // confirmar() tem debounce interno de 450ms
+    });
+
+    expect(onConfirmar).toHaveBeenCalledTimes(1);
+    expect(onConfirmar).toHaveBeenCalledWith(4);
+    expect(onConfirmar).not.toHaveBeenCalledWith(null);
+  });
+
+  it("cancelar com X após 'Trocar' sem escolher outra mesa: nenhuma chamada de rede, mesa atual preservada", async () => {
+    const onConfirmar = vi.fn();
+    const onFechar = vi.fn();
+    const el = await renderTela({
+      onConfirmar, mesas: [mesa03, mesa04], tableNumber: "3", podeFechar: true, onFechar,
+    });
+
+    const botaoFechar = el.querySelector('[aria-label="Fechar seleção de mesa"]');
+    await act(async () => { botaoFechar.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+
+    expect(onFechar).toHaveBeenCalledTimes(1);
+    expect(onConfirmar).not.toHaveBeenCalled();
+  });
+});

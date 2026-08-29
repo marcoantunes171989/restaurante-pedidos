@@ -96,6 +96,7 @@ import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloquea
 import { MSG_DISPOSITIVO_BLOQUEADO } from "./lib/accessControl/constants";
 import { resolverTelaAcesso } from "./lib/accessControl/screens";
 import { obterDeviceIdEstavel } from "./lib/accessControl/deviceInfo";
+import { infoAparelhoAtual, liberarMesaDispositivoNoLogout } from "./lib/deviceLifecycle";
 import { ACCESS_EVENT } from "./lib/accessControl/constants";
 import EstacaoImpressaoAuto from "./components/EstacaoImpressaoAuto";
 import { montarFilasImpressaoPedido } from "./lib/impressaoCozinha";
@@ -392,15 +393,6 @@ function formatarDoc(s) {
 // ID único do aparelho (persistido no localStorage) — versões + bloqueio de acesso
 function obterDeviceId() {
   return obterDeviceIdEstavel();
-}
-
-// Metadados do aparelho reportados ao registrar/atualizar tab_dispositivos
-// (heartbeat periódico e associação explícita de mesa usam o mesmo cálculo).
-function infoAparelhoAtual() {
-  const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
-  const standalone = !!(window.matchMedia?.("(display-mode: standalone)")?.matches || window.matchMedia?.("(display-mode: fullscreen)")?.matches || window.navigator.standalone);
-  const plataforma = (navigator.userAgent || "").slice(0, 180);
-  return { versao, standalone, plataforma };
 }
 
 // Erros de INTEGRIDADE do heartbeat de dispositivo (migration 125): mesa
@@ -1115,6 +1107,11 @@ export default function RestaurantePedidoApp() {
   const activeTabRef = useRef("tablet");
   const adminSectionRef = useRef("dashboard");
   const logoutRef = useRef(() => {});
+  // Bloqueia o heartbeat de dispositivo (2min/focus/visibilitychange) durante
+  // o logout — sem isso, ele pode reenviar mesa:"<atual>" concorrentemente
+  // enquanto logout() libera a mesa explicitamente (tableNumber só é zerado
+  // no fim da sequência). Ver logout() abaixo.
+  const logoutEmAndamentoRef = useRef(false);
   useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; });
   // Voltar do navegador → SEMPRE tela de login (encerra sessão). Nunca troca
   // para outra tela do sistema (caixa→cozinha, admin→app, etc.).
@@ -1221,6 +1218,9 @@ export default function RestaurantePedidoApp() {
     const id = obterDeviceId();
     if (!id) return;
     const reportar = () => {
+      // Logout em andamento já cuida do cleanup explícito da mesa — não
+      // deixa o heartbeat concorrer e reescrever mesa:"<atual>" por cima.
+      if (logoutEmAndamentoRef.current) return;
       const { versao, standalone, plataforma } = infoAparelhoAtual();
       registrarDispositivo({ deviceId: id, versao, lojaId: lojaAtual ?? null, plataforma, standalone, mesa: (tableNumber && Number(tableNumber) > 0) ? tableNumber : null }).catch((e) => {
         // Erros transitórios (rede, RPC ainda sem sessão pronta) são
@@ -1485,6 +1485,18 @@ export default function RestaurantePedidoApp() {
   }
 
   async function logout() {
+    // Trava o heartbeat de dispositivo ANTES de tudo — impede que ele
+    // reenvie mesa:"<atual>" concorrentemente enquanto o cleanup explícito
+    // abaixo tenta liberar a mesa (ver reportar() no efeito de heartbeat).
+    logoutEmAndamentoRef.current = true;
+
+    // Libera a mesa deste aparelho ANTES de encerrar a sessão de acesso e o
+    // JWT — app_dispositivo_registrar (migration 125) exige session_token
+    // (sessionStorage) + JWT válidos para provar ownership; depois de
+    // encerrarSessaoAcesso()/logoutSupabaseAuth() essa prova não existe mais
+    // e o cleanup falharia sempre com device_session_mismatch.
+    await liberarMesaDispositivoNoLogout({ tableNumber, lojaId: lojaAtual ?? null });
+
     // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
     // peça a seleção da mesa novamente (e libere a mesa para outros).
     // Encerra a sessão de acesso ANTES do signOut (precisa do JWT ainda válido).
@@ -1507,6 +1519,8 @@ export default function RestaurantePedidoApp() {
     setCurrentUser(null);
     setActiveTab("tablet");
     setMessage({ type: "", text: "" });
+    // Libera o heartbeat para o próximo login (novo currentUser/dbReady).
+    logoutEmAndamentoRef.current = false;
   }
   logoutRef.current = logout;
 
