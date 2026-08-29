@@ -1111,21 +1111,36 @@ export default function RestaurantePedidoApp() {
   // o logout — sem isso, ele pode reenviar mesa:"<atual>" concorrentemente
   // enquanto logout() libera a mesa explicitamente (tableNumber só é zerado
   // no fim da sequência). Ver logout() abaixo.
+  // Gate 8.36.1: passou a ser SOMENTE um guard de reentrância — true durante
+  // a execução de logout(), false no resto do tempo (inclusive enquanto o
+  // usuário está na tela /login). Quem impede heartbeat/revogação fora de
+  // uma execução de logout é sessaoDispositivoPronta (abaixo), não este ref.
   const logoutEmAndamentoRef = useRef(false);
-  useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; });
+  // Gate 8.36.1: "a sessão necessária para registrar este dispositivo está
+  // pronta". false na tela de login, durante logout, e enquanto o login
+  // ainda não concluiu app_sessao_iniciar; true SOMENTE depois que
+  // app_sessao_iniciar concluir com sucesso (onSessionStarted, abaixo). É
+  // state (não ref) para provocar a remontagem do efeito de heartbeat de
+  // tab_dispositivos quando muda. Não confundir com dbReady.
+  const [sessaoDispositivoPronta, setSessaoDispositivoPronta] = useState(false);
+  const sessaoDispositivoProntaRef = useRef(false);
+  useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; sessaoDispositivoProntaRef.current = sessaoDispositivoPronta; });
   // Voltar do navegador → SEMPRE tela de login (encerra sessão). Nunca troca
   // para outra tela do sistema (caixa→cozinha, admin→app, etc.).
   // Se já estiver no login, só prende a URL em /login (histórico antigo).
   useEffect(() => {
-    const onPop = () => {
+    const onPop = async () => {
       if (!currentUserRef.current) {
         forcarUrlLogin();
         return;
       }
       popstateRef.current = true;
-      try { logoutRef.current(); } catch { /* ignore */ }
-      forcarUrlLogin();
-      setTimeout(() => { popstateRef.current = false; }, 0);
+      try {
+        await logoutRef.current();
+      } catch { /* ignore */ } finally {
+        forcarUrlLogin();
+        setTimeout(() => { popstateRef.current = false; }, 0);
+      }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -1193,8 +1208,23 @@ export default function RestaurantePedidoApp() {
   useUserSessionHeartbeat(currentUser, {
     trackCompanyContext: isSuperAdmin,
     lojaId: isSuperAdmin ? lojaAtual : currentUser?.lojaId,
+    // Consultado em tempo real pelo hook antes de revogar — suprime a
+    // revogação remota quando (a) um logout local já está em andamento
+    // (evita limpar o token/duplicar logout), OU (b) ainda não existe uma
+    // sessão de dispositivo pronta para este lifecycle (tela de login,
+    // login que ainda não concluiu app_sessao_iniciar, ou logout que já
+    // zerou a flag). Durante uma sessão ativa normal (ambos false/true) a
+    // revogação remota continua funcionando normalmente.
+    shouldSuppressRevocation: () => logoutEmAndamentoRef.current || !sessaoDispositivoPronta,
+    // Habilita a sessão do dispositivo somente quando app_sessao_iniciar
+    // concluiu com sucesso — NÃO mexe mais em logoutEmAndamentoRef (guard
+    // de reentrância puro de logout(), ver acima).
+    onSessionStarted: () => { setSessaoDispositivoPronta(true); },
     onSessionRevoked: () => {
-      try { logoutRef.current(); } catch { /* ignore */ }
+      // Defesa em profundidade: mesmo que o hook dispare a revogação, uma
+      // segunda execução de logout não pode ser criada por cima da primeira.
+      if (logoutEmAndamentoRef.current) return;
+      Promise.resolve(logoutRef.current()).catch(() => { /* ignore */ });
     },
   });
   // Permanência por tela (usuário + dispositivo + rota atual)
@@ -1214,13 +1244,21 @@ export default function RestaurantePedidoApp() {
   // Cada aparelho reporta sua versão atual ao Supabase, para o painel
   // "Controle de versões" comparar com a versão liberada.
   useEffect(() => {
-    if (!dbReady) return;
+    // Sem sessão de dispositivo pronta (deslogado/em logout/login ainda não
+    // concluiu app_sessao_iniciar) não há dispositivo autenticado para
+    // reportar — evita 401 repetitivo em /login (app_dispositivo_registrar
+    // é authenticated-only). setCurrentUser(null) ou
+    // setSessaoDispositivoPronta(false) desmontam este efeito (deps abaixo).
+    if (!dbReady || !currentUser?.id || !sessaoDispositivoPronta) return;
     const id = obterDeviceId();
     if (!id) return;
     const reportar = () => {
       // Logout em andamento já cuida do cleanup explícito da mesa — não
       // deixa o heartbeat concorrer e reescrever mesa:"<atual>" por cima.
-      if (logoutEmAndamentoRef.current) return;
+      // currentUserRef/sessaoDispositivoProntaRef (não os states) evitam
+      // closure obsoleta dentro do listener de focus/visibilitychange
+      // registrado por este efeito.
+      if (logoutEmAndamentoRef.current || !currentUserRef.current || !sessaoDispositivoProntaRef.current) return;
       const { versao, standalone, plataforma } = infoAparelhoAtual();
       registrarDispositivo({ deviceId: id, versao, lojaId: lojaAtual ?? null, plataforma, standalone, mesa: (tableNumber && Number(tableNumber) > 0) ? tableNumber : null }).catch((e) => {
         // Erros transitórios (rede, RPC ainda sem sessão pronta) são
@@ -1236,7 +1274,7 @@ export default function RestaurantePedidoApp() {
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", reportar);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
-  }, [dbReady, lojaAtual, tableNumber]);
+  }, [dbReady, currentUser?.id, lojaAtual, tableNumber, sessaoDispositivoPronta]);
 
   // Identificação do aparelho (CNPJ + referência) NÃO é mais obrigatória ao
   // entrar — não deve bloquear o login/uso (em nenhum dispositivo). A
@@ -1485,42 +1523,56 @@ export default function RestaurantePedidoApp() {
   }
 
   async function logout() {
+    // Idempotência: uma segunda chamada concorrente (ex.: popstate +
+    // revogação remota quase simultâneas) não deve reexecutar o lifecycle.
+    if (logoutEmAndamentoRef.current) return;
     // Trava o heartbeat de dispositivo ANTES de tudo — impede que ele
     // reenvie mesa:"<atual>" concorrentemente enquanto o cleanup explícito
     // abaixo tenta liberar a mesa (ver reportar() no efeito de heartbeat).
     logoutEmAndamentoRef.current = true;
+    // Bloqueia a sessão do dispositivo IMEDIATAMENTE, antes de qualquer
+    // await — só volta a true depois de um novo app_sessao_iniciar
+    // bem-sucedido (onSessionStarted do useUserSessionHeartbeat, acima).
+    setSessaoDispositivoPronta(false);
+    try {
+      // Libera a mesa deste aparelho ANTES de encerrar a sessão de acesso e o
+      // JWT — app_dispositivo_registrar (migration 125) exige session_token
+      // (sessionStorage) + JWT válidos para provar ownership; depois de
+      // encerrarSessaoAcesso()/logoutSupabaseAuth() essa prova não existe mais
+      // e o cleanup falharia sempre com device_session_mismatch.
+      await liberarMesaDispositivoNoLogout({ tableNumber, lojaId: lojaAtual ?? null });
 
-    // Libera a mesa deste aparelho ANTES de encerrar a sessão de acesso e o
-    // JWT — app_dispositivo_registrar (migration 125) exige session_token
-    // (sessionStorage) + JWT válidos para provar ownership; depois de
-    // encerrarSessaoAcesso()/logoutSupabaseAuth() essa prova não existe mais
-    // e o cleanup falharia sempre com device_session_mismatch.
-    await liberarMesaDispositivoNoLogout({ tableNumber, lojaId: lojaAtual ?? null });
-
-    // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
-    // peça a seleção da mesa novamente (e libere a mesa para outros).
-    // Encerra a sessão de acesso ANTES do signOut (precisa do JWT ainda válido).
-    try { await encerrarSessaoAcesso({ eventType: ACCESS_EVENT.LOGOUT }); } catch { /* best-effort */ }
-    try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
-    limparMarcadoresSessaoLocal();
-    forcarUrlLogin();
-    primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
-    rotaInicialRef.current = false; // permite reaplicar rota no próximo login/F5
-    // Aguarda signOut: JWT residual auto-restaurava a tela anterior no 2º login.
-    if (usandoSupabaseAuth()) {
-      try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+      // Ao sair, libera a mesa fixa deste aparelho para que o próximo login
+      // peça a seleção da mesa novamente (e libere a mesa para outros).
+      // Encerra a sessão de acesso ANTES do signOut (precisa do JWT ainda válido).
+      try { await encerrarSessaoAcesso({ eventType: ACCESS_EVENT.LOGOUT }); } catch { /* best-effort */ }
+      try { localStorage.removeItem("pp_tablet_mesa"); } catch {}
+      limparMarcadoresSessaoLocal();
+      forcarUrlLogin();
+      primeiraSyncRef.current = true; // próxima sessão recomeça normalizando a URL
+      rotaInicialRef.current = false; // permite reaplicar rota no próximo login/F5
+      // Aguarda signOut: JWT residual auto-restaurava a tela anterior no 2º login.
+      if (usandoSupabaseAuth()) {
+        try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+      }
+      setTableNumber("");
+      setLoginForm({ email: "", password: "" });
+      setAdminSection("dashboard");
+      setLojaContexto(null);
+      setOpmobileTab("central");
+      setCozinhaSetorInicial(null);
+      setCurrentUser(null);
+      setActiveTab("tablet");
+      setMessage({ type: "", text: "" });
+    } finally {
+      // Guard de reentrância APENAS: reseta assim que esta execução termina
+      // (sucesso ou falha inesperada), para não bloquear uma chamada de
+      // logout() futura legítima. Quem continua impedindo heartbeat/
+      // revogação fora de uma execução de logout é sessaoDispositivoPronta
+      // (permanece false até o próximo app_sessao_iniciar bem-sucedido) —
+      // não este ref.
+      logoutEmAndamentoRef.current = false;
     }
-    setTableNumber("");
-    setLoginForm({ email: "", password: "" });
-    setAdminSection("dashboard");
-    setLojaContexto(null);
-    setOpmobileTab("central");
-    setCozinhaSetorInicial(null);
-    setCurrentUser(null);
-    setActiveTab("tablet");
-    setMessage({ type: "", text: "" });
-    // Libera o heartbeat para o próximo login (novo currentUser/dbReady).
-    logoutEmAndamentoRef.current = false;
   }
   logoutRef.current = logout;
 
