@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { acessosIniciaisDoPerfil } from './usuarioForm'
 import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
 import { fidelidadeHabilitada, numeroFidelidade } from './fidelidade'
+import { ACCESS_SESSION_KEY } from './accessControl/constants.js'
 
 // Configuração fail-closed: vem SOMENTE de variáveis de ambiente. Sem fallback
 // embutido — se a URL ou a chave estiverem ausentes/inválidas, falha explicitamente
@@ -2756,37 +2757,46 @@ function mapDispositivo(r) {
     mesa: r.mesa ?? null,
   }
 }
-export async function registrarDispositivo({ deviceId, versao, userEmail = null, lojaId = null, plataforma = null, standalone = false, mesa = null }) {
+export async function registrarDispositivo({ deviceId, versao, lojaId = null, plataforma = null, standalone = false, mesa = null }) {
   if (!deviceId) return
-  const { error } = await supabase.from('tab_dispositivos').upsert([{
-    device_id: deviceId, versao, user_email: userEmail, loja_id: lojaId,
-    plataforma, standalone, mesa: mesa != null ? String(mesa) : null, ultima_atividade: new Date().toISOString(),
-  }], { onConflict: 'device_id' })
+  // Ownership (migration 125): a RPC exige prova de que este aparelho tem
+  // uma sessão ativa (tab_user_sessions) — mesmo session_token usado por
+  // app_sessao_*/app_page_stay_* (ACCESS_SESSION_KEY em sessionStorage).
+  // Sem token aqui, a RPC falha fechada (device_session_mismatch); nunca
+  // criamos um token paralelo.
+  let sessionToken = null
+  try { sessionToken = sessionStorage.getItem(ACCESS_SESSION_KEY) } catch { /* sessionStorage indisponível */ }
+  const { error } = await supabase.rpc('app_dispositivo_registrar', {
+    p_device_id: deviceId, p_versao: versao, p_plataforma: plataforma,
+    p_standalone: !!standalone, p_mesa: mesa != null ? String(mesa) : null, p_loja_id: lojaId,
+    p_session_token: sessionToken,
+  })
   if (error) throw error
 }
 export async function fetchDispositivos() {
-  const { data, error } = await supabase.from('tab_dispositivos').select('*').order('ultima_atividade', { ascending: false })
+  const { data, error } = await supabase.rpc('app_dispositivos_listar')
   if (error) throw error
   return (data || []).map(mapDispositivo)
 }
 export async function renomearDispositivo(deviceId, nome, lojaId = undefined) {
-  // upsert para funcionar mesmo se o aparelho ainda não foi registrado
-  const linha = { device_id: deviceId, nome }
-  if (lojaId !== undefined && lojaId !== null) linha.loja_id = lojaId
-  const { error } = await supabase.from('tab_dispositivos')
-    .upsert([linha], { onConflict: 'device_id' })
+  const { error } = await supabase.rpc('app_dispositivo_renomear', {
+    p_device_id: deviceId, p_nome: nome, p_loja_id: lojaId ?? null,
+  })
   if (error) throw error
 }
 export async function removerDispositivo(deviceId) {
-  const { error } = await supabase.from('tab_dispositivos').delete().eq('device_id', deviceId)
+  const { error } = await supabase.rpc('app_dispositivo_remover', { p_device_id: deviceId })
   if (error) throw error
 }
+// tab_dispositivos é fechada a clientes (migration 125) — Realtime via
+// postgres_changes exige SELECT direto sob RLS, incompatível com a
+// tabela fechada. Substituído por carga RPC + polling controlado.
 export function escutarDispositivos(onMudanca) {
-  const reload = async () => { try { onMudanca(await fetchDispositivos()) } catch {} }
-  const canal = supabase.channel('ch_dispositivos_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_dispositivos' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+  let vivo = true
+  const reload = async () => { try { const d = await fetchDispositivos(); if (vivo) onMudanca(d) } catch {} }
+  reload()
+  const iv = setInterval(reload, 30000)
+  return () => { vivo = false; clearInterval(iv) }
 }
 
 // ════════════════════════════════════════════════════════════

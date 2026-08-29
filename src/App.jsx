@@ -394,6 +394,25 @@ function obterDeviceId() {
   return obterDeviceIdEstavel();
 }
 
+// Metadados do aparelho reportados ao registrar/atualizar tab_dispositivos
+// (heartbeat periódico e associação explícita de mesa usam o mesmo cálculo).
+function infoAparelhoAtual() {
+  const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
+  const standalone = !!(window.matchMedia?.("(display-mode: standalone)")?.matches || window.matchMedia?.("(display-mode: fullscreen)")?.matches || window.navigator.standalone);
+  const plataforma = (navigator.userAgent || "").slice(0, 180);
+  return { versao, standalone, plataforma };
+}
+
+// Erros de INTEGRIDADE do heartbeat de dispositivo (migration 125): mesa
+// tomada por outro aparelho, ou a sessão local não bate mais com a
+// registrada no servidor. Diferente de falhas transitórias (rede, RPC
+// ainda sem sessão pronta), estes NÃO podem ser tolerados em silêncio
+// quando este tablet ainda acha que está vinculado a uma mesa — force
+// nova seleção em vez de continuar operando como se fosse dono da mesa.
+export function erroExigeNovaSelecaoMesa(mensagemErro) {
+  return /mesa_em_uso_outro_dispositivo|device_session_mismatch/.test(String(mensagemErro || ""));
+}
+
 function createCartItem(product) {
   return { ...product, quantity: 1, observation: "", selectedIngredients: [...(product.ingredients || [])], removedIngredients: [], extraIngredients: [], extraIngredientInput: "" };
 }
@@ -1201,17 +1220,23 @@ export default function RestaurantePedidoApp() {
     if (!dbReady) return;
     const id = obterDeviceId();
     if (!id) return;
-    const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
-    const standalone = !!(window.matchMedia?.("(display-mode: standalone)")?.matches || window.matchMedia?.("(display-mode: fullscreen)")?.matches || window.navigator.standalone);
-    const plataforma = (navigator.userAgent || "").slice(0, 180);
-    const reportar = () => registrarDispositivo({ deviceId: id, versao, userEmail: currentUser?.email || null, lojaId: lojaAtual ?? null, plataforma, standalone, mesa: (tableNumber && Number(tableNumber) > 0) ? tableNumber : null }).catch(() => {});
+    const reportar = () => {
+      const { versao, standalone, plataforma } = infoAparelhoAtual();
+      registrarDispositivo({ deviceId: id, versao, lojaId: lojaAtual ?? null, plataforma, standalone, mesa: (tableNumber && Number(tableNumber) > 0) ? tableNumber : null }).catch((e) => {
+        // Erros transitórios (rede, RPC ainda sem sessão pronta) são
+        // tolerados silenciosamente — o próximo heartbeat tenta de novo.
+        if (erroExigeNovaSelecaoMesa(e?.message) && tableNumber && Number(tableNumber) > 0) {
+          setTableNumber("");
+        }
+      });
+    };
     reportar();
     const iv = setInterval(reportar, 2 * 60 * 1000);
     const onVis = () => { if (document.visibilityState === "visible") reportar(); };
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", reportar);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
-  }, [dbReady, currentUser?.email, lojaAtual, tableNumber]);
+  }, [dbReady, lojaAtual, tableNumber]);
 
   // Identificação do aparelho (CNPJ + referência) NÃO é mais obrigatória ao
   // entrar — não deve bloquear o login/uso (em nenhum dispositivo). A
@@ -4051,7 +4076,14 @@ function TabletView({
   useEffect(() => {
     try { localStorage.removeItem(CHAVE_MESA_TABLET_ANTIGA); } catch { /* localStorage indisponível */ }
   }, []);
-  const definirMesaTablet = (numero) => {
+  const definirMesaTablet = async (numero) => {
+    // Associação inicial explícita da mesa é fail-closed: só entra no
+    // atendimento depois que app_dispositivo_registrar confirmar a
+    // persistência (RPC lança em caso de erro — deixa propagar para o
+    // catch em TabletTableAccess.confirmar/confirmarManual, que mantém
+    // o usuário na tela de seleção com o erro visível).
+    const { versao, standalone, plataforma } = infoAparelhoAtual();
+    await registrarDispositivo({ deviceId: obterDeviceId(), versao, lojaId: lojaInfo?.id ?? null, plataforma, standalone, mesa: numero });
     setTableNumber(String(numero));
     setTrocarMesaAberto(false);
   };

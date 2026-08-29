@@ -112,6 +112,16 @@ export default function TabletTableAccess({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mesasComStatus]);
 
+  // "mesa_em_uso" é o pré-check local (mesasComStatus); "mesa_em_uso_outro_dispositivo"
+  // é a mesma condição detectada no servidor (migration 125 — advisory lock +
+  // checagem de conflito), quando o pré-check local não pegou a corrida a tempo.
+  function mensagemErroMesa(e) {
+    const msg = e?.message || "";
+    return msg === "mesa_em_uso" || msg === "mesa_em_uso_outro_dispositivo"
+      ? "Esta mesa acabou de ser vinculada a outro dispositivo. Escolha outra mesa."
+      : "Não foi possível configurar este tablet agora. Tente novamente.";
+  }
+
   async function confirmar(mesaAlvo) {
     if (!mesaAlvo || enviandoRef.current) return;
     enviandoRef.current = true;
@@ -126,14 +136,29 @@ export default function TabletTableAccess({
       if (atual && atual.status === "occupiedDevice") {
         throw new Error("mesa_em_uso");
       }
-      onConfirmar(mesaAlvo.numero);
+      await onConfirmar(mesaAlvo.numero);
       setSucesso(true);
       await new Promise((r) => setTimeout(r, 550));
     } catch (e) {
       setSelecionada(null);
-      setErro(e?.message === "mesa_em_uso"
-        ? "Esta mesa acabou de ser vinculada a outro dispositivo. Escolha outra mesa."
-        : "Não foi possível configurar este tablet agora. Tente novamente.");
+      setErro(mensagemErroMesa(e));
+    } finally {
+      enviandoRef.current = false;
+      setEnviando(false);
+    }
+  }
+
+  async function confirmarManual() {
+    if (!(Number(mesaManual) > 0) || enviandoRef.current) return;
+    enviandoRef.current = true;
+    setEnviando(true);
+    setErro("");
+    try {
+      await onConfirmar(mesaManual);
+      setSucesso(true);
+      await new Promise((r) => setTimeout(r, 550));
+    } catch (e) {
+      setErro(mensagemErroMesa(e));
     } finally {
       enviandoRef.current = false;
       setEnviando(false);
@@ -188,17 +213,19 @@ export default function TabletTableAccess({
               <div className="space-y-3">
                 <p className="text-xs text-[var(--client-text-secondary)]">Nenhuma mesa cadastrada. Informe o número da mesa deste tablet:</p>
                 <input
-                  autoFocus type="tel" inputMode="numeric" value={mesaManual}
+                  autoFocus type="tel" inputMode="numeric" value={mesaManual} disabled={enviando || sucesso}
                   onChange={(e) => setMesaManual(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                  onKeyDown={(e) => { if (e.key === "Enter" && Number(mesaManual) > 0) onConfirmar(mesaManual); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") confirmarManual(); }}
                   placeholder="Nº da mesa"
-                  className="w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-3 text-center text-lg font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]"
+                  className="w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-4 py-3 text-center text-lg font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)] disabled:opacity-60"
                 />
+                {erro && <p role="alert" className="flex items-center justify-center gap-1.5 rounded-xl bg-[var(--client-error-soft)] px-3 py-2 text-xs font-bold text-[var(--client-error)]"><AlertTriangle aria-hidden="true" size={14} /> {erro}</p>}
                 <button
-                  onClick={() => Number(mesaManual) > 0 && onConfirmar(mesaManual)} disabled={!(Number(mesaManual) > 0)} type="button"
-                  className="w-full rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3.5 text-sm font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)] disabled:opacity-40"
+                  onClick={confirmarManual} disabled={!(Number(mesaManual) > 0) || enviando || sucesso} type="button" aria-busy={enviando}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3.5 text-sm font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)] disabled:opacity-40"
                 >
-                  Confirmar mesa
+                  {enviando && <Loader2 aria-hidden="true" size={17} className="animate-spin" />}
+                  {sucesso ? "Tablet configurado com sucesso" : enviando ? "Configurando tablet…" : "Confirmar mesa"}
                 </button>
               </div>
             ) : (
