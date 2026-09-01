@@ -3225,16 +3225,115 @@ export async function fetchPedidos() {
   return rows.map(dbParaPedido)
 }
 
+// Migration 132: tab_pedidos fechada (sem GRANT de INSERT para anon/
+// authenticated) — criação passa pela RPC app_criar_pedido (security
+// definer). Tenant é sempre resolvido no servidor a partir do usuário
+// autenticado (nunca confia em p.lojaId do browser, exceto quando o
+// caller é super admin). id/status/status_pagamento iniciais também
+// são decididos no servidor — não são enviados aqui.
 export async function inserirPedido(p) {
-  const { data, error } = await supabase
-    .from('tab_pedidos').insert([pedidoParaDb(p)]).select().single()
+  const { data, error } = await supabase.rpc('app_criar_pedido', {
+    p_mesa: p.table,
+    p_comanda: p.command,
+    p_itens: p.items ?? [],
+    p_cliente: p.customer ?? null,
+    p_cliente_telefone: p.clienteTelefone ?? null,
+    p_pagamento_forma: p.pagamentoForma ?? null,
+    p_pagamento_momento: p.pagamentoMomento ?? null,
+    p_pagamento_troco_para: p.pagamentoTrocoPara ?? null,
+    p_loja_id: p.lojaId ?? null,
+  })
   if (error) throw error
   return dbParaPedido(data)
 }
 
-export async function atualizarPedido(id, campos) {
-  const { error } = await supabase.from('tab_pedidos').update(campos).eq('id', id)
+// Migration 132: tab_pedidos fechada também para UPDATE (sem GRANT para
+// anon/authenticated) — toda atualização passa por RPCs semânticas e
+// restritas (security definer), uma por ação, em vez de um único
+// atualizarPedido(id, campos) genérico que aceitava qualquer coluna vinda
+// do browser. Pedido é sempre localizado por id; tenant do caller
+// não-super vem de tab_usuarios.loja_id no servidor (nenhuma destas
+// funções recebe loja_id como parâmetro).
+export async function atualizarStatusPedido(id, status, motivoCancelamento = null) {
+  const { data, error } = await supabase.rpc('app_pedido_atualizar_status', {
+    p_pedido_id: id,
+    p_status: status,
+    p_motivo_cancelamento: motivoCancelamento ?? null,
+  })
   if (error) throw error
+  return dbParaPedido(data)
+}
+
+// Migration 132 (revisão R0H-C5C5): não envia mais o objeto setor_status
+// inteiro — só o setor concluído + a lista de setores presentes no pedido.
+// O merge e o cálculo de "todosProntos"/novo status são feitos no SERVIDOR.
+export async function marcarSetorProntoPedido(id, setor, setoresPresentes = []) {
+  const { data, error } = await supabase.rpc('app_pedido_marcar_setor_pronto', {
+    p_pedido_id: id,
+    p_setor: setor,
+    p_setores_presentes: Array.isArray(setoresPresentes) && setoresPresentes.length ? setoresPresentes : null,
+  })
+  if (error) throw error
+  return dbParaPedido(data)
+}
+
+export async function atualizarItensPedido(id, itens) {
+  const { data, error } = await supabase.rpc('app_pedido_atualizar_itens', {
+    p_pedido_id: id,
+    p_itens: itens ?? [],
+  })
+  if (error) throw error
+  return dbParaPedido(data)
+}
+
+export async function atualizarClientePedido(id, cliente, clienteTelefone = null) {
+  const { data, error } = await supabase.rpc('app_pedido_atualizar_cliente', {
+    p_pedido_id: id,
+    p_cliente: cliente,
+    p_cliente_telefone: clienteTelefone ?? null,
+  })
+  if (error) throw error
+  return dbParaPedido(data)
+}
+
+export async function transferirMesaPedido(id, mesa) {
+  const { data, error } = await supabase.rpc('app_pedido_transferir_mesa', {
+    p_pedido_id: id,
+    p_mesa: mesa,
+  })
+  if (error) throw error
+  return dbParaPedido(data)
+}
+
+// Migration 132 (revisão R0H-C5C5): app_pedido_atualizar_pagamento foi
+// dividida em duas autoridades separadas — solicitar conta (fixa
+// status_pagamento='solicitado' no servidor) e marcar pago (fixa
+// status_pagamento='pago' no servidor) — nenhuma das duas aceita
+// status_pagamento arbitrário do browser.
+//
+// Migration 132 (revisão R0H-C5C6): solicitar conta é atômico por MESA —
+// requestBill exige TODOS os pedidos elegíveis da mesa entregues antes de
+// QUALQUER um virar 'solicitado' (currentTableOrders.every(...)). Uma RPC
+// por pedido em Promise.all não preservava essa invariável (falha parcial
+// podia deixar a mesa com parte 'solicitado' e parte 'aberto'). Esta RPC
+// trava e valida TODOS os pedidos da mesa antes de atualizar qualquer um.
+export async function solicitarContaMesa(mesa, lojaId = null) {
+  const { data, error } = await supabase.rpc('app_pedido_solicitar_conta_mesa', {
+    p_mesa: mesa,
+    p_loja_id: lojaId ?? null,
+  })
+  if (error) throw error
+  return (data || []).map(dbParaPedido)
+}
+
+export async function marcarPagoPedido(id, pagamentoForma = null, status = null) {
+  const { data, error } = await supabase.rpc('app_pedido_marcar_pago', {
+    p_pedido_id: id,
+    p_pagamento_forma: pagamentoForma ?? null,
+    p_status: status ?? null,
+  })
+  if (error) throw error
+  return dbParaPedido(data)
 }
 
 export function escutarPedidos(onMudanca, onStatus) {
@@ -3503,23 +3602,6 @@ function acessoParaDb(a) {
     descricao: a.desc,
     tipo:      a.type,
     ativo:     a.active ?? true,
-  }
-}
-
-function pedidoParaDb(p) {
-  return {
-    id:               p.id,
-    mesa:             p.table,
-    comanda:          p.command,
-    cliente:          p.customer ?? 'Visitante',
-    status:           STATUS_APP_PARA_DB[p.status]        ?? p.status,
-    status_pagamento: PAGT_APP_PARA_DB[p.paymentStatus]   ?? p.paymentStatus,
-    itens:            p.items ?? [],
-    ...(p.lojaId ? { loja_id: p.lojaId } : {}),
-    ...(p.clienteTelefone ? { cliente_telefone: p.clienteTelefone } : {}),
-    ...(p.pagamentoForma ? { pagamento_forma: p.pagamentoForma } : {}),
-    ...(p.pagamentoMomento ? { pagamento_momento: p.pagamentoMomento } : {}),
-    ...(p.pagamentoTrocoPara > 0 ? { pagamento_troco_para: p.pagamentoTrocoPara } : {}),
   }
 }
 

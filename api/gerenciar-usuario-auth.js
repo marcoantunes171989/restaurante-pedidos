@@ -131,25 +131,35 @@ async function updateTabUsuarioPorId(id, campos) {
   return Array.isArray(rows) ? rows[0] : rows;
 }
 
-// Fase 7.2.2 (§6): confirma que a credencial recém-gravada autentica de fato,
-// validando o HASH via RPC server-side. Não expõe senha nem hash.
-async function credencialValida(email, senha) {
-  if (!senha) return true; // nada a validar quando a senha não muda
+// Fase 2 (gate R0H-C5C10D3): confirma que o Auth foi REALMENTE provisionado
+// — não usa mais app_validar_login/tab_usuarios.senha_hash como prova (esse
+// caminho é legado; o login em AUTH_MODE=supabase autentica só via
+// auth.users). Relê o usuário pela mesma Admin API que o criou/atualizou e
+// confere id, e-mail e que a conta não está banida — sem jamais tentar
+// autenticar com a service role (isso seria "inventar login" server-side).
+// Nunca expõe senha, hash nem a service role no retorno/erro.
+async function confirmarAuthProvisionado(authId, emailEsperado) {
+  const alvo = String(emailEsperado || "").trim().toLowerCase();
+  if (!authId || !alvo) {
+    const err = new Error("Não foi possível confirmar o provisionamento do acesso.");
+    err.code = "AUTH_NOT_CONFIRMED";
+    throw err;
+  }
+  let resposta;
   try {
-    const r = await fetch(`${supabaseUrl()}/rest/v1/rpc/app_validar_login`, {
-      method: "POST",
-      headers: {
-        apikey: serviceKey(),
-        authorization: `Bearer ${serviceKey()}`,
-        "content-type": "application/json",
-        accept: "application/json",
-      },
-      body: JSON.stringify({ p_email: String(email || "").trim().toLowerCase(), p_senha: String(senha) }),
-    });
-    const data = await r.json().catch(() => null);
-    return !!(r.ok && data && data.ok === true);
+    resposta = await authAdmin(`/admin/users/${authId}`);
   } catch {
-    return false;
+    const err = new Error("Não foi possível reconfirmar o usuário no Auth após a gravação.");
+    err.code = "AUTH_NOT_CONFIRMED";
+    throw err;
+  }
+  const u = resposta?.user || resposta || {};
+  const emailUsuario = String(u.email || "").trim().toLowerCase();
+  const banido = !!u.banned_until && new Date(u.banned_until) > new Date();
+  if (u.id !== authId || emailUsuario !== alvo || banido) {
+    const err = new Error("A conta no Auth não corresponde ao esperado após a gravação.");
+    err.code = "AUTH_NOT_CONFIRMED";
+    throw err;
   }
 }
 
@@ -380,10 +390,9 @@ export default async function handler(req, res) {
           if (usuario?.id) await definirSenhaHash(usuario.id, senha);
         }
 
-        // §6: confirma que a senha recém-gravada autentica (hash + perfil).
-        if (persistirPerfil && !(await credencialValida(email, senha))) {
-          throw new Error("Credencial não validou após a criação (hash/perfil inconsistente).");
-        }
+        // Fase 2: confirma que o Auth foi provisionado de fato (não o
+        // hash legado) — releitura via Admin API, sem tentar autenticar.
+        await confirmarAuthProvisionado(authId, email);
 
         return json(res, 200, semSegredo({ ok: true, id: authId, atualizado: !!existente, usuario }));
       } catch (e) {
@@ -443,6 +452,7 @@ export default async function handler(req, res) {
       if (senha && alvoId) await definirSenhaHash(alvoId, senha);
       // Alinha Supabase Auth. Se a SENHA mudou, a sincronização é OBRIGATÓRIA
       // (fail-closed, §12/§15); para só metadata/nome/e-mail, é best-effort.
+      let authIdTocado = null;
       if (senha || (emailNovo && emailNovo !== String(rowApp.email || "").toLowerCase()) || nome) {
         try {
           let authUser = await encontrarAuthPorEmail(rowApp.email);
@@ -459,8 +469,9 @@ export default async function handler(req, res) {
             if (senha) patch.password = senha;
             if (emailNovo && emailNovo !== String(authUser.email || "").toLowerCase()) patch.email = emailNovo;
             await authAdmin(`/admin/users/${authUser.id}`, { method: "PUT", body: patch });
+            authIdTocado = authUser.id;
           } else if (senha) {
-            await authAdmin("/admin/users", {
+            const criado = await authAdmin("/admin/users", {
               method: "POST",
               body: {
                 email: emailNovo,
@@ -469,6 +480,7 @@ export default async function handler(req, res) {
                 user_metadata: { nome: nome || rowApp.nome, loja_id: rowApp.loja_id },
               },
             });
+            authIdTocado = criado?.id || criado?.user?.id || null;
           }
         } catch (e) {
           if (senha) {
@@ -481,12 +493,17 @@ export default async function handler(req, res) {
           console.warn("[gerenciar-usuario-auth] Auth best-effort (perfil):", e?.message || e);
         }
       }
-      // §6: confirma que a nova senha autentica de fato (quando houve troca).
-      if (senha && !(await credencialValida(emailNovo, senha))) {
-        return json(res, 500, {
-          error: "A nova senha não pôde ser confirmada. Tente novamente.",
-          code: "PASSWORD_INCONSISTENT",
-        });
+      // Fase 2: confirma que o Auth foi provisionado de fato (não mais
+      // app_validar_login/senha_hash — sistema que o login não usa mais).
+      if (senha) {
+        try {
+          await confirmarAuthProvisionado(authIdTocado, emailNovo);
+        } catch {
+          return json(res, 500, {
+            error: "A nova senha não pôde ser confirmada. Tente novamente.",
+            code: "PASSWORD_INCONSISTENT",
+          });
+        }
       }
       return json(res, 200, semSegredo({ ok: true, usuario }));
     }
@@ -569,12 +586,19 @@ export default async function handler(req, res) {
         // Credencial (se enviada) → apenas hash (bcrypt), nunca texto claro.
         if (senha && usuario?.id) await definirSenhaHash(usuario.id, senha);
       }
-      // §6: confirma que a nova senha autentica de fato (quando houve troca).
-      if (senha && !(await credencialValida(email, senha))) {
-        return json(res, 500, {
-          error: "A nova senha não pôde ser confirmada. Tente novamente.",
-          code: "PASSWORD_INCONSISTENT",
-        });
+      // Fase 2: confirma que o Auth foi provisionado de fato — releitura via
+      // Admin API (id + e-mail + conta não banida). Não usa mais
+      // app_validar_login/tab_usuarios.senha_hash como prova: esse é o
+      // sistema legado que o login em AUTH_MODE=supabase não consulta.
+      if (senha) {
+        try {
+          await confirmarAuthProvisionado(authId, email);
+        } catch {
+          return json(res, 500, {
+            error: "A nova senha não pôde ser confirmada. Tente novamente.",
+            code: "PASSWORD_INCONSISTENT",
+          });
+        }
       }
       return json(res, 200, semSegredo({ ok: true, id: authId, usuario }));
     }

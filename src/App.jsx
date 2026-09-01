@@ -6,7 +6,9 @@ import {
   inserirFiscalLoteLog, fetchFiscalLoteLog, marcarFiscalLoteLogRevertido, escutarFiscalLoteLog,
   fetchUsuarios,  inserirUsuario,  atualizarUsuario,  atualizarUsuariosPorLoja,  escutarUsuarios,
   fetchAcessos,   inserirAcesso,   atualizarAcesso,   escutarAcessos,
-  fetchPedidos,   inserirPedido,   atualizarPedido,   escutarPedidos,
+  fetchPedidos,   inserirPedido,   escutarPedidos,
+  atualizarStatusPedido, marcarSetorProntoPedido, atualizarItensPedido,
+  atualizarClientePedido, transferirMesaPedido, solicitarContaMesa, marcarPagoPedido,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
   fetchLojas, atualizarLoja, salvarFuncionamentoLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
@@ -1768,11 +1770,10 @@ export default function RestaurantePedidoApp() {
     if (status === "ready")     extra.prontoEmISO  = agora;
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status, ...extra } : o));
     const statusDb = STATUS_APP_PARA_DB[status] ?? status;
-    const campos = { status: statusDb };
-    if (status === "preparing") campos.preparo_em = agora;
-    if (status === "ready")     campos.pronto_em  = agora;
     if (dbReady) {
-      try { await atualizarPedido(oid, campos); }
+      // preparo_em/pronto_em são decididos no SERVIDOR pela RPC (now())
+      // a partir do novo status — não envia mais o timestamp do browser.
+      try { await atualizarStatusPedido(oid, statusDb); }
       catch (err) { console.error("Erro ao atualizar status:", err); }
     }
   }
@@ -1802,7 +1803,7 @@ export default function RestaurantePedidoApp() {
     // Remove da view ativa imediatamente (UI responsiva)
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "delivered" } : o));
     // Salva no banco pelo mesmo caminho confiável de updateOrderStatus: helper
-    // atualizarPedido() + mapeamento oficial STATUS_APP_PARA_DB (delivered →
+    // atualizarStatusPedido() + mapeamento oficial STATUS_APP_PARA_DB (delivered →
     // 'entregue'), não chamamos updateOrderStatus() diretamente porque ela
     // engole erros silenciosamente (sem repassar falha pra quem chamou) — e
     // aqui precisamos saber se deu certo pra desfazer a atualização otimista
@@ -1811,7 +1812,7 @@ export default function RestaurantePedidoApp() {
     const statusDb = STATUS_APP_PARA_DB.delivered; // 'entregue'
     if (dbReady) {
       try {
-        await atualizarPedido(oid, { status: statusDb });
+        await atualizarStatusPedido(oid, statusDb);
       } catch (err) {
         console.error("Erro ao marcar como entregue:", err);
         // Desfaz a atualização otimista — sem isso, o card ficava mostrando
@@ -1831,7 +1832,7 @@ export default function RestaurantePedidoApp() {
     if (!(canAccess(currentUser, "cashier") || canAccess(currentUser, "kitchen"))) return notify("error", "Usuário sem permissão.");
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "delivered" } : o));
     if (dbReady) {
-      try { await atualizarPedido(oid, { status: "entregue" }); }
+      try { await atualizarStatusPedido(oid, "entregue"); }
       catch (err) { console.error("Erro ao confirmar retirada:", err); }
     }
   }
@@ -1850,10 +1851,9 @@ export default function RestaurantePedidoApp() {
     const novoStatus = todosProntos ? "ready" : (alvo.status === "received" ? "preparing" : alvo.status);
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, setorStatus: novoSetor, status: novoStatus, ...(todosProntos ? { prontoEmISO: agora } : {}) } : o));
     if (dbReady) {
-      const campos = { setor_status: novoSetor };
-      if (novoStatus !== alvo.status) campos.status = STATUS_APP_PARA_DB[novoStatus] ?? novoStatus;
-      if (todosProntos) campos.pronto_em = agora;
-      try { await atualizarPedido(oid, campos); } catch (err) { console.error("Erro ao marcar setor pronto:", err); }
+      // Servidor recalcula o merge/todosProntos/status a partir de setor +
+      // presentes (nunca recebe o setor_status inteiro do browser).
+      try { await marcarSetorProntoPedido(oid, setor, presentes); } catch (err) { console.error("Erro ao marcar setor pronto:", err); }
     }
   }
 
@@ -1862,7 +1862,7 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "cancelled", cancelReason: motivo } : o));
     if (dbReady) {
-      try { await atualizarPedido(oid, { status: "cancelado", motivo_cancelamento: motivo }); }
+      try { await atualizarStatusPedido(oid, "cancelado", motivo); }
       catch (err) { console.error("Erro ao cancelar pedido:", err); }
     }
     auditar("cancelar", "pedido", null, { pedido: oid, motivo });
@@ -1880,7 +1880,7 @@ export default function RestaurantePedidoApp() {
     }
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "cancelled", cancelReason: motivo } : o));
     if (dbReady) {
-      try { await atualizarPedido(oid, { status: "cancelado", motivo_cancelamento: motivo }); }
+      try { await atualizarStatusPedido(oid, "cancelado", motivo); }
       catch (err) { console.error("Erro ao cancelar pedido (tablet):", err); }
     }
     notify("success", "Pedido cancelado.");
@@ -1895,7 +1895,10 @@ export default function RestaurantePedidoApp() {
     }
     setOrders((cur) => cur.map((o) => o.table === currentTable ? { ...o, paymentStatus: "requested" } : o));
     if (dbReady) try {
-      await Promise.all(currentTableOrders.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado" })));
+      // Atômico por mesa: servidor trava e revalida TODOS os pedidos da
+      // mesa antes de marcar qualquer um como 'solicitado' (mesma
+      // invariável do every(...) acima, agora também fail-closed no banco).
+      await solicitarContaMesa(currentTable, lojaAtual);
     } catch {}
     if (canAccess(currentUser, "cashier")) setActiveTab("cashier");
     registrarChamadoFn("conta");
@@ -1975,14 +1978,14 @@ export default function RestaurantePedidoApp() {
   }
 
   // Edição de itens da conta no caixa (ajuste de conta). Atualiza o pedido em
-  // memória e persiste a coluna JSON tab_pedidos.itens via atualizarPedido.
+  // memória e persiste a coluna JSON tab_pedidos.itens via atualizarItensPedido.
   // NOTA: é ajuste de conta — NÃO gera ticket de cozinha nem baixa de estoque.
   async function editarItensPedido(orderId, novosItens) {
     if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para editar a conta.");
     const anterior = ordersAll.find((o) => o.id === orderId)?.items;
     setOrders((cur) => cur.map((o) => o.id === orderId ? { ...o, items: novosItens } : o));
     if (dbReady) {
-      try { await atualizarPedido(orderId, { itens: novosItens }); }
+      try { await atualizarItensPedido(orderId, novosItens); }
       catch {
         // rollback otimista em caso de falha de persistência
         setOrders((cur) => cur.map((o) => o.id === orderId ? { ...o, items: anterior ?? o.items } : o));
@@ -2007,10 +2010,7 @@ export default function RestaurantePedidoApp() {
       : o)));
     if (dbReady) {
       try {
-        await Promise.all(ids.map((id) => atualizarPedido(id, {
-          cliente: nome || "Cliente",
-          cliente_telefone: tel || null,
-        })));
+        await Promise.all(ids.map((id) => atualizarClientePedido(id, nome || "Cliente", tel || null)));
         if (tel && nome) {
           try {
             const c = await upsertCliente({ nome, telefone: tel, lojaId: lojaAtual });
@@ -2041,7 +2041,7 @@ export default function RestaurantePedidoApp() {
     setOrders((cur) => cur.map((o) => (ids.includes(o.id) ? { ...o, table: mesa } : o)));
     if (dbReady) {
       try {
-        await Promise.all(ids.map((id) => atualizarPedido(id, { mesa })));
+        await Promise.all(ids.map((id) => transferirMesaPedido(id, mesa)));
       } catch {
         setOrders((cur) => cur.map((o) => (anteriores[o.id] != null ? { ...o, table: anteriores[o.id] } : o)));
         return notify("error", "Não foi possível transferir a mesa.");
@@ -2163,7 +2163,7 @@ export default function RestaurantePedidoApp() {
       let alertasEstoque = [];
       if (dbReady) {
         try {
-          await Promise.all(alvo.map((o) => atualizarPedido(o.id, { status_pagamento: "pago", ...(formaLabel ? { pagamento_forma: formaLabel } : {}), ...(manterStatus ? {} : { status: "entregue" }) })));
+          await Promise.all(alvo.map((o) => marcarPagoPedido(o.id, formaLabel || null, manterStatus ? null : "entregue")));
           const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
           alertasEstoque = r?.alertas || [];
           if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento

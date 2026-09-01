@@ -73,8 +73,20 @@ function podeGerenciarLoja(operador: { superAdmin: boolean; lojaId: unknown }, l
   return String(operador.lojaId) === String(lojaIdAlvo);
 }
 
+// Fase 1 (gate R0H-C5C10D3): allowlist de colunas seguras — mesma allowlist
+// da rota Vercel (api/gerenciar-usuario-auth.js). NUNCA inclui senha nem
+// senha_hash — evita que um `.select()` sem lista de colunas devolva a
+// credencial ao chamador.
+const COLS_USUARIO_SEGURAS =
+  "id,email,loja_id,ativo,super_admin,ids_acesso,nome,perfil,cargo_id,permissoes_acoes";
+
+// Fase 1: NUNCA grava `senha` (texto claro) em tab_usuarios — a coluna foi
+// neutralizada (NULL) pela migration 112 e deve permanecer assim. A
+// credencial só é gravada como hash, via definirSenhaHash() (RPC existente
+// app_definir_senha_hash) — nenhum mecanismo criptográfico novo é criado
+// aqui, e o hash nunca é gerado no browser.
 function montarRowApp(p: {
-  email: string; senha?: string; nome: string; lojaId: unknown;
+  email: string; nome: string; lojaId: unknown;
   perfil: string; cargoId: unknown; ativo: boolean; idsAcesso: unknown[];
 }) {
   const row: Record<string, unknown> = {
@@ -84,10 +96,24 @@ function montarRowApp(p: {
     ativo: p.ativo !== false,
     ids_acesso: Array.isArray(p.idsAcesso) ? p.idsAcesso : [],
   };
-  if (p.senha != null && p.senha !== "") row.senha = p.senha;
   if (p.lojaId != null && p.lojaId !== "") row.loja_id = p.lojaId;
   if (p.cargoId != null && p.cargoId !== "") row.cargo_id = Number(p.cargoId);
   return row;
+}
+
+// Fase 1: grava a senha SOMENTE como hash (bcrypt), via a mesma RPC
+// service-role já usada pela rota Vercel (app_definir_senha_hash, migration
+// 112). Nunca escreve texto claro; nunca retorna o hash.
+async function definirSenhaHash(id: number | string, senha: string) {
+  if (id == null || !senha) return;
+  const { data, error } = await admin.rpc("app_definir_senha_hash", {
+    p_id: Number(id),
+    p_senha: senha,
+  });
+  if (error) throw error;
+  if (data && (data as { ok?: boolean }).ok === false) {
+    throw new Error(`Falha ao gravar a credencial (hash): ${(data as { code?: string }).code || "erro"}`);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -145,11 +171,13 @@ Deno.serve(async (req) => {
       let usuario = null;
       if (persistirPerfil) {
         const { data, error } = await admin.from("tab_usuarios").upsert(
-          montarRowApp({ email, senha, nome, lojaId, perfil, cargoId, ativo, idsAcesso }),
+          montarRowApp({ email, nome, lojaId, perfil, cargoId, ativo, idsAcesso }),
           { onConflict: "email" },
-        ).select().single();
+        ).select(COLS_USUARIO_SEGURAS).single();
         if (error) throw error;
         usuario = data;
+        // Credencial → apenas hash (bcrypt), nunca texto claro.
+        if (usuario?.id && senha) await definirSenhaHash(usuario.id, senha);
       }
       return json({ ok: true, id: authId, atualizado: !!existente, usuario });
     }
@@ -200,7 +228,6 @@ Deno.serve(async (req) => {
       if (persistirPerfil) {
         const campos = montarRowApp({
           email,
-          senha: senha || undefined,
           nome: nome || rowApp?.nome || email,
           lojaId: lojaEfetiva,
           perfil: body?.perfil != null ? perfil : (rowApp?.perfil || perfil),
@@ -209,15 +236,19 @@ Deno.serve(async (req) => {
           idsAcesso: Array.isArray(body?.idsAcesso) ? idsAcesso : (rowApp?.ids_acesso || []),
         });
         if (rowApp?.id) {
-          const { data, error } = await admin.from("tab_usuarios").update(campos).eq("id", rowApp.id).select().single();
+          const { data, error } = await admin.from("tab_usuarios").update(campos).eq("id", rowApp.id)
+            .select(COLS_USUARIO_SEGURAS).single();
           if (error) throw error;
           usuario = data;
         } else {
           if (!senha) return json({ error: "Informe a senha para criar o registro do usuário no banco." }, 400);
-          const { data, error } = await admin.from("tab_usuarios").upsert(campos, { onConflict: "email" }).select().single();
+          const { data, error } = await admin.from("tab_usuarios").upsert(campos, { onConflict: "email" })
+            .select(COLS_USUARIO_SEGURAS).single();
           if (error) throw error;
           usuario = data;
         }
+        // Credencial (se enviada) → apenas hash (bcrypt), nunca texto claro.
+        if (senha && usuario?.id) await definirSenhaHash(usuario.id, senha);
       }
       return json({ ok: true, id: authId, usuario });
     }

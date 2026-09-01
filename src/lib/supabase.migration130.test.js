@@ -262,12 +262,17 @@ describe("migration 130 — escopo negativo (objetos citados só em docstring, n
   });
 });
 
-describe("migration 130 — numeração (não cria 131, não reativa 119)", () => {
+describe("migration 130 — numeração (não reativa 119)", () => {
+  // A reserva documental de 131 para "pedido público seguro v2", citada no
+  // cabeçalho desta migration (linha 59), foi formalmente realocada por
+  // decisão humana (gate R0H-B.1) para 131_canonical_application_table_acl_
+  // hardening.sql. A existência dessa migration 131 é portanto legítima —
+  // migration 130 não é mais responsável por validar a ausência de 131;
+  // a sequência de numeração daqui para frente é responsabilidade do
+  // Release Manifest, não deste teste. O comentário histórico da própria
+  // migration 130 (linha 59) permanece intocado como registro da reserva
+  // original.
   const arquivosMigrations = readdirSync("supabase/migrations");
-
-  it("não existe nenhum arquivo de migration numerado 131", () => {
-    expect(arquivosMigrations.some((f) => /^131_/.test(f))).toBe(false);
-  });
 
   it("migration 119 não está em supabase/migrations (permanece pausada)", () => {
     expect(arquivosMigrations.some((f) => /^119_/.test(f))).toBe(false);

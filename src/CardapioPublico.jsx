@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLojaPublica, fetchProdutosPublicos, fetchCategoriasPublicas, fetchGruposOpcoesPublicos, fetchOpcoesPublicas, fetchPromocoesPublicas,
-  escutarLojaPublica, atualizarPedido, escutarPedidos,
+  escutarLojaPublica, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublicoV2, rpcSetoresPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
@@ -1390,12 +1390,14 @@ export default function CardapioPublico() {
     const reenvio = contaSolicitada;
     try {
       const comPontos = usarPontos && saldoPontos > 0;
-      if (cardapioViaRpc()) {
-        const comandas = [...new Set(meusPedidos.map((o) => o.command).filter(Boolean))];
-        await Promise.all(comandas.map((c) => rpcSolicitarContaPublico({ lojaId: loja.id, comanda: c, usarPontos: comPontos })));
-      } else {
-        await Promise.all(meusPedidos.map((o) => atualizarPedido(o.id, { status_pagamento: "solicitado", ...(comPontos ? { pagamento_forma: "Pontos (solicitado)" } : {}) })));
-      }
+      // CARDAPIO_PUBLICO_VIA_RPC é uma constante literal `true` (src/lib/authMode.js)
+      // — não depende de env/DB, então cardapioViaRpc() é sempre true e o ramo
+      // alternativo era código morto. Removido: o cardápio público (caller anon)
+      // usa exclusivamente a RPC pública pub_solicitar_conta, nunca uma RPC
+      // interna app_* (essas exigem authenticated e nunca recebem EXECUTE de
+      // anon — ver migration 132).
+      const comandas = [...new Set(meusPedidos.map((o) => o.command).filter(Boolean))];
+      await Promise.all(comandas.map((c) => rpcSolicitarContaPublico({ lojaId: loja.id, comanda: c, usarPontos: comPontos })));
       setMsg({ t: "success", m: comPontos ? "Fechamento solicitado — o caixa vai aplicar seus pontos." : reenvio ? "Solicitação reenviada ao caixa." : "Fechamento solicitado ao caixa." });
     } catch { setMsg({ t: "error", m: "Erro ao solicitar a conta. Tente novamente." }); }
     finally { setSolicitando(false); solicitandoRef.current = false; }
