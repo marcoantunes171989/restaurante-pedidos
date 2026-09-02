@@ -667,6 +667,10 @@ export default function RestaurantePedidoApp() {
   const [loading, setLoading]     = useState(true);
   const [entregandoId, setEntregandoId] = useState(null); // id do pedido sendo marcado como entregue agora (desabilita o botão dele)
   const entregandoRef = useRef(false); // trava síncrona contra duplo clique / condição de corrida (mesmo padrão do checkout público)
+  // Status de cozinha em voo: Set por pedido permite processar pedidos diferentes
+  // simultaneamente, mas impede duplo clique/RPC concorrente no mesmo pedido.
+  const [statusAtualizandoIds, setStatusAtualizandoIds] = useState(() => new Set());
+  const statusAtualizandoRef = useRef(new Set());
   const [scannerAberto, setScannerAberto] = useState(false);
 
   // ── Carregamento inicial + Realtime para todas as tabelas ────
@@ -1762,19 +1766,66 @@ export default function RestaurantePedidoApp() {
   }
 
   async function updateOrderStatus(oid, status) {
-    if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão para alterar status da cozinha.");
-    const agora = new Date().toISOString();
-    // Marca o timestamp do estágio
-    const extra = {};
-    if (status === "preparing") extra.preparoEmISO = agora;
-    if (status === "ready")     extra.prontoEmISO  = agora;
-    setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status, ...extra } : o));
+    if (!canAccess(currentUser, "kitchen")) {
+      notify("error", "Usuário sem permissão para alterar status da cozinha.");
+      return { blocked: true, motivo: "permissao" };
+    }
+
+    // Trava síncrona por ID: dois pedidos diferentes podem ser processados
+    // ao mesmo tempo, mas o mesmo pedido nunca dispara duas RPCs concorrentes.
+    if (statusAtualizandoRef.current.has(oid)) {
+      return { blocked: true, motivo: "concorrencia" };
+    }
+
+    statusAtualizandoRef.current.add(oid);
+    setStatusAtualizandoIds((cur) => {
+      const next = new Set(cur);
+      next.add(oid);
+      return next;
+    });
+
     const statusDb = STATUS_APP_PARA_DB[status] ?? status;
-    if (dbReady) {
-      // preparo_em/pronto_em são decididos no SERVIDOR pela RPC (now())
-      // a partir do novo status — não envia mais o timestamp do browser.
-      try { await atualizarStatusPedido(oid, statusDb); }
-      catch (err) { console.error("Erro ao atualizar status:", err); }
+
+    try {
+      if (dbReady) {
+        // Banco conectado: a UI só muda de coluna APÓS a RPC confirmar.
+        // Isso elimina recebido -> preparando -> recebido -> preparando.
+        const pedidoAtualizado = await atualizarStatusPedido(oid, statusDb);
+
+        if (!pedidoAtualizado) {
+          throw new Error("pedido_atualizado_nao_retornado");
+        }
+
+        setOrders((cur) => cur.map((o) =>
+          o.id === oid ? { ...o, ...pedidoAtualizado } : o
+        ));
+
+        return { blocked: false, pedido: pedidoAtualizado };
+      }
+
+      // Fallback local preservado somente quando o banco não está ativo.
+      const agora = new Date().toISOString();
+      const extra = {};
+      if (status === "preparing") extra.preparoEmISO = agora;
+      if (status === "ready")     extra.prontoEmISO  = agora;
+
+      setOrders((cur) => cur.map((o) =>
+        o.id === oid ? { ...o, status, ...extra } : o
+      ));
+
+      return { blocked: false };
+    } catch (err) {
+      console.error("Erro ao atualizar status:", err);
+      notify("error", "Não foi possível alterar o status do pedido. Tente novamente.");
+      return { blocked: true, motivo: "persistencia" };
+    } finally {
+      statusAtualizandoRef.current.delete(oid);
+
+      setStatusAtualizandoIds((cur) => {
+        const next = new Set(cur);
+        next.delete(oid);
+        return next;
+      });
     }
   }
 
@@ -4064,7 +4115,7 @@ export default function RestaurantePedidoApp() {
               ativo={true}
               onAtualizarStatus={atualizarStatusImpressao}
             />
-            <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
+            <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} statusAtualizandoIds={statusAtualizandoIds} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
           </>
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
@@ -5029,7 +5080,7 @@ const kitchenCols = [
   { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
 ];
 
-function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entregandoId = null, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
+function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entregandoId = null, statusAtualizandoIds = null, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
   const [cancelando, setCancelando] = useState(null); // pedido a cancelar
   const [avisoPagamentoPendente, setAvisoPagamentoPendente] = useState(null); // pedido bloqueado por falta de pagamento (Retirada/Entrega)
   const [setorFiltro, setSetorFiltro] = useState(setorInicial); // null = todos
@@ -5215,21 +5266,21 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => updateOrderStatus(order.id, "preparing")}
-                          disabled={order.status === "ready"}
+                          disabled={statusAtualizandoIds?.has(order.id) || order.status === "ready"}
                           className={`rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95
-                            ${order.status === "ready"
+                            ${statusAtualizandoIds?.has(order.id) || order.status === "ready"
                               ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
                               : "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00] hover:bg-[#F4D27A]/50"}`}>
-                          👨‍🍳 Preparar
+                          {statusAtualizandoIds?.has(order.id) ? "Alterando…" : "👨‍🍳 Preparar"}
                         </button>
                         <button
                           onClick={() => updateOrderStatus(order.id, "ready")}
-                          disabled={order.status === "ready"}
+                          disabled={statusAtualizandoIds?.has(order.id) || order.status === "ready"}
                           className={`rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95
-                            ${order.status === "ready"
+                            ${statusAtualizandoIds?.has(order.id) || order.status === "ready"
                               ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
                               : "border-[#86EFAC] bg-[#ECFDF3] text-[#047857] hover:bg-[#86EFAC]/40"}`}>
-                          ✅ Finalizar
+                          {statusAtualizandoIds?.has(order.id) ? "Alterando…" : "✅ Finalizar"}
                         </button>
                       </div>
 

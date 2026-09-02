@@ -3,6 +3,7 @@ import { acessosIniciaisDoPerfil } from './usuarioForm'
 import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
 import { fidelidadeHabilitada, numeroFidelidade } from './fidelidade'
 import { ACCESS_SESSION_KEY } from './accessControl/constants.js'
+import { pedidosRealtimeGuard } from './pedidosRealtimeGuard'
 
 // Configuração fail-closed: vem SOMENTE de variáveis de ambiente. Sem fallback
 // embutido — se a URL ou a chave estiverem ausentes/inválidas, falha explicitamente
@@ -3255,26 +3256,30 @@ export async function inserirPedido(p) {
 // não-super vem de tab_usuarios.loja_id no servidor (nenhuma destas
 // funções recebe loja_id como parâmetro).
 export async function atualizarStatusPedido(id, status, motivoCancelamento = null) {
-  const { data, error } = await supabase.rpc('app_pedido_atualizar_status', {
-    p_pedido_id: id,
-    p_status: status,
-    p_motivo_cancelamento: motivoCancelamento ?? null,
+  return pedidosRealtimeGuard.executarMutacao(async () => {
+    const { data, error } = await supabase.rpc('app_pedido_atualizar_status', {
+      p_pedido_id: id,
+      p_status: status,
+      p_motivo_cancelamento: motivoCancelamento ?? null,
+    })
+    if (error) throw error
+    return dbParaPedido(data)
   })
-  if (error) throw error
-  return dbParaPedido(data)
 }
 
 // Migration 132 (revisão R0H-C5C5): não envia mais o objeto setor_status
 // inteiro — só o setor concluído + a lista de setores presentes no pedido.
 // O merge e o cálculo de "todosProntos"/novo status são feitos no SERVIDOR.
 export async function marcarSetorProntoPedido(id, setor, setoresPresentes = []) {
-  const { data, error } = await supabase.rpc('app_pedido_marcar_setor_pronto', {
-    p_pedido_id: id,
-    p_setor: setor,
-    p_setores_presentes: Array.isArray(setoresPresentes) && setoresPresentes.length ? setoresPresentes : null,
+  return pedidosRealtimeGuard.executarMutacao(async () => {
+    const { data, error } = await supabase.rpc('app_pedido_marcar_setor_pronto', {
+      p_pedido_id: id,
+      p_setor: setor,
+      p_setores_presentes: Array.isArray(setoresPresentes) && setoresPresentes.length ? setoresPresentes : null,
+    })
+    if (error) throw error
+    return dbParaPedido(data)
   })
-  if (error) throw error
-  return dbParaPedido(data)
 }
 
 export async function atualizarItensPedido(id, itens) {
@@ -3337,26 +3342,88 @@ export async function marcarPagoPedido(id, pagamentoForma = null, status = null)
 }
 
 export function escutarPedidos(onMudanca, onStatus) {
-  // Guard de sequência: se dois reloads ficam em voo (ex.: INSERT e UPDATE
-  // quase simultâneos), a resposta mais lenta não pode sobrescrever a mais
-  // recente — aplica só o resultado do último reload disparado (evita
-  // pedidos "piscando"/voltando de estado por resposta fora de ordem).
+  // Protege contra dois tipos de corrida:
+  //
+  // 1) reloads Realtime simultaneos terminando fora de ordem;
+  // 2) um reload iniciado antes/durante uma mutacao terminando depois
+  //    e recolocando temporariamente o status antigo na interface.
+  //
+  // `seq` protege o caso 1.
+  // `pedidosRealtimeGuard` protege o caso 2.
   let seq = 0
-  const reload = async () => {
-    const minha = ++seq
-    try {
-      // Usa fetchPedidos (RPC 097 + fallback SELECT) — fonte alinhada ao banco.
-      const lista = await fetchPedidos()
-      if (minha !== seq) return
-      onMudanca(lista)
-    } catch { /* silencioso */ }
+  let reloadPendente = false
+  let reloadAgendado = false
+
+  const agendarReloadFresco = () => {
+    if (reloadAgendado) return
+
+    reloadAgendado = true
+
+    queueMicrotask(() => {
+      reloadAgendado = false
+      void reload()
+    })
   }
+
+  const reload = async () => {
+    // Nunca aplica snapshot intermediario enquanto uma RPC de pedido
+    // estiver em andamento. Ao final da mutacao fazemos uma leitura fresca.
+    if (pedidosRealtimeGuard.emMutacao()) {
+      reloadPendente = true
+      return
+    }
+
+    const snapshot = pedidosRealtimeGuard.snapshotLeitura()
+    const minha = ++seq
+
+    try {
+      const lista = await fetchPedidos()
+
+      if (minha !== seq) return
+
+      // Se uma mutacao iniciou ou terminou enquanto esta consulta estava
+      // em voo, o resultado pode representar o estado anterior.
+      if (!pedidosRealtimeGuard.podeAplicarLeitura(snapshot)) {
+        reloadPendente = true
+
+        // Caso a mutacao ja tenha terminado antes desta leitura antiga
+        // retornar, nao existe mais um flush futuro: agenda imediatamente
+        // uma consulta nova usando a versao atual.
+        if (!pedidosRealtimeGuard.emMutacao()) {
+          reloadPendente = false
+          agendarReloadFresco()
+        }
+
+        return
+      }
+
+      reloadPendente = false
+      onMudanca(lista)
+    } catch {
+      /* comportamento historico: falha Realtime nao derruba a tela */
+    }
+  }
+
+  const removerFlush = pedidosRealtimeGuard.registrarFlush(() => {
+    if (!reloadPendente) return
+
+    reloadPendente = false
+    agendarReloadFresco()
+  })
+
   const canal = supabase.channel('ch_pedidos_'+Math.random().toString(36).slice(2))
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' }, reload)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_pedidos' }, reload)
     .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_pedidos' }, reload)
-    .subscribe((s) => { onStatus && onStatus(s); if (s === 'SUBSCRIBED') reload() })
-  return () => supabase.removeChannel(canal)
+    .subscribe((s) => {
+      onStatus && onStatus(s)
+      if (s === 'SUBSCRIBED') reload()
+    })
+
+  return () => {
+    removerFlush()
+    return supabase.removeChannel(canal)
+  }
 }
 
 // ════════════════════════════════════════════════════════════
