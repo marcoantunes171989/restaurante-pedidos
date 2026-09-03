@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler from "./access-event.js";
+import handler from "../../api/access-event.js";
 
 // ════════════════════════════════════════════════════════════
 // Gate REL-02C-SUPA-ISO-D — comprova que /api/access-event não usa mais
@@ -115,7 +115,7 @@ describe("access-event — precedência SUPABASE_URL > VITE_SUPABASE_URL", () =>
 describe("access-event — não referencia mais o projeto fixo de produção", () => {
   it("o código-fonte não contém a URL/ref fixa de produção", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./access-event.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/access-event.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
   });
 });

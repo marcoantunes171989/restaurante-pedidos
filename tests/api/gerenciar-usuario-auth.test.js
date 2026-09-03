@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler from "./gerenciar-usuario-auth.js";
+import handler from "../../api/gerenciar-usuario-auth.js";
 
 // ════════════════════════════════════════════════════════════
 // Gate R0H-C5C10D3 — Fase 5: testes comportamentais da rota Vercel
@@ -416,7 +416,7 @@ describe("gerenciar-usuario-auth (Vercel) — RBAC cross-tenant fail-closed", ()
 describe("gerenciar-usuario-auth (Vercel) — Fase 2: verificação de sucesso não usa app_validar_login", () => {
   it("Fase 5 #10: o texto-fonte da rota não chama mais rpc/app_validar_login", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./gerenciar-usuario-auth.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/gerenciar-usuario-auth.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rest\/v1\/rpc\/app_validar_login/);
     expect(src).not.toMatch(/function credencialValida/);
     // A nova confirmação relê o Auth via Admin API.
@@ -487,7 +487,7 @@ describe("gerenciar-usuario-auth (Vercel) — Fase 2: verificação de sucesso n
 describe("gerenciar-usuario-auth (Vercel) — Fase 5 #11: hash legado só server-side", () => {
   it("definirSenhaHash grava via RPC (crypt/gen_salt no Postgres) — nenhum bcrypt/hash local no JS", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./gerenciar-usuario-auth.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/gerenciar-usuario-auth.js", import.meta.url), "utf8");
     expect(src).toMatch(/rpc\/app_definir_senha_hash/);
     expect(src).not.toMatch(/require\(['"]bcrypt/);
     expect(src).not.toMatch(/from ['"]bcrypt/);
@@ -565,7 +565,7 @@ describe("gerenciar-usuario-auth (Vercel) — precedência SUPABASE_URL > VITE_S
 describe("gerenciar-usuario-auth (Vercel) — não referencia mais o projeto fixo de produção", () => {
   it("o código-fonte não contém a URL/ref fixa de produção", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./gerenciar-usuario-auth.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/gerenciar-usuario-auth.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
   });
 });

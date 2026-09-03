@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler from "./auth-health.js";
+import handler from "../../api/auth-health.js";
 
 // ════════════════════════════════════════════════════════════
 // Gate REL-02C-SUPA-ISO-D — comprova que /api/auth-health não usa mais
@@ -157,7 +157,7 @@ describe("auth-health — configuração válida mantém o comportamento", () =>
 describe("auth-health — não referencia mais o projeto fixo de produção", () => {
   it("o código-fonte não contém a URL/ref fixa de produção", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./auth-health.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/auth-health.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
   });
 });

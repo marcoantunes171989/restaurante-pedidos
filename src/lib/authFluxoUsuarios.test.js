@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 // import "npm:@supabase/supabase-js" (sintaxe Deno) e não roda sob Vitest/
 // Node — por isso ela é auditada por asserções no TEXTO-FONTE (mesmo padrão
 // já usado pelos testes de migration SQL deste repositório), em vez de
-// execução mockada como a rota Vercel (ver api/gerenciar-usuario-auth.test.js).
+// execução mockada como a rota Vercel (ver tests/api/gerenciar-usuario-auth.test.js).
 // ════════════════════════════════════════════════════════════
 
 const edgeFnPath = "supabase/functions/gerenciar-usuario-auth/index.ts";

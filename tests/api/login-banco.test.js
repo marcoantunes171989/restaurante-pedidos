@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler from "./login-banco.js";
+import handler from "../../api/login-banco.js";
 
 // ════════════════════════════════════════════════════════════
 // Gate REL-02C-SUPA-ISO-D — comprova que /api/login-banco não usa mais URL
@@ -116,7 +116,7 @@ describe("login-banco — precedência SUPABASE_URL > VITE_SUPABASE_URL e compor
 describe("login-banco — não referencia mais o projeto fixo de produção", () => {
   it("o código-fonte não contém a URL/ref fixa de produção", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./login-banco.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/login-banco.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
   });
 });

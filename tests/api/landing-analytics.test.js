@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler from "./landing-analytics.js";
+import handler from "../../api/landing-analytics.js";
 
 // ════════════════════════════════════════════════════════════
 // Gate REL-02C-SUPA-ISO-D — comprova que /api/landing-analytics não usa mais
@@ -121,7 +121,7 @@ describe("landing-analytics — configuração válida mantém o comportamento",
 describe("landing-analytics — não referencia mais o projeto fixo de produção", () => {
   it("o código-fonte não contém a URL/ref fixa de produção", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./landing-analytics.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/landing-analytics.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
   });
 });

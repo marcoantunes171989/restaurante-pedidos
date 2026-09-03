@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler from "./copiloto-ia.js";
+import handler from "../../api/copiloto-ia.js";
 
 // ════════════════════════════════════════════════════════════
 // Gate REL-02C-SUPA-ISO-D — comprova que /api/copiloto-ia não usa mais
@@ -148,7 +148,7 @@ describe("copiloto-ia — configuração válida mantém o comportamento (sessã
 describe("copiloto-ia — sem credenciais fixas de produção", () => {
   it("o código-fonte não contém a URL fixa nem a anon key fixa de produção", async () => {
     const { readFileSync } = await import("node:fs");
-    const src = readFileSync(new URL("./copiloto-ia.js", import.meta.url), "utf8");
+    const src = readFileSync(new URL("../../api/copiloto-ia.js", import.meta.url), "utf8");
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
     // Chave anon fixa antiga (JWT completo) não pode mais existir no fonte.
     expect(src).not.toMatch(/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSI/);
