@@ -69,6 +69,10 @@ import { abrirOperacaoMobile } from "./lib/operacaoMobileNav";
 import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
 import { filtrarPorLojaEstrita } from "./lib/lojaScope";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
+import {
+  ACESSO_COZINHA, ADMIN_COZINHA_NAV, aoAcionarCozinhaAdmin, decidirAcessoCozinhaAdmin,
+  filtrarBuscaTelas, montarContextoPlanoCozinha, montarSecoesBuscaAdmin, resolverRotaAdminCozinha,
+} from "./lib/adminCozinhaNav";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -79,7 +83,7 @@ import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
 import { acessosIniciaisDoPerfil } from "./lib/usuarioForm";
 import { numeroWhatsAppValido } from "./lib/whatsappPedido";
 import LoginPage from "./login/LoginPage";
-import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
+import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconCozinha, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
@@ -605,6 +609,7 @@ export default function RestaurantePedidoApp() {
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [activeTab, setActiveTab] = useState("tablet");
   const [cozinhaSetorInicial, setCozinhaSetorInicial] = useState(null); // "Filtrar cozinha" (tela de Setores → painel)
+  const [cozinhaBloqueadaPlano, setCozinhaBloqueadaPlano] = useState(false);
   const [opmobileTab, setOpmobileTab] = useState("central"); // sub-aba da Operação Mobile (rotas /operacional/*)
   const [productsAll, setProducts] = useState([]); // todas as lojas — filtrado em `products`
   const [ordersAll, setOrders] = useState([]);     // todas as lojas — filtrado em `orders`
@@ -997,7 +1002,7 @@ export default function RestaurantePedidoApp() {
   const primeiraSyncRef = useRef(true);   // 1ª sincronização usa replaceState (entrada base)
   function rotaDoEstado(tab, section, setorId) {
     if (tab === "admin") return `/admin/${section || "dashboard"}`;
-    if (tab === "kitchen") return `/admin/cozinha${setorId != null ? `?setorId=${setorId}` : ""}`;
+    if (tab === "kitchen") return `${ADMIN_COZINHA_NAV.rota}${setorId != null ? `?setorId=${setorId}` : ""}`;
     if (tab === "panel") return "/app/painel";
     if (tab === "cashier") return "/app/caixa";
     if (tab === "opmobile") return `/operacional${opmobileTab && opmobileTab !== "central" ? `/${opmobileTab}` : ""}`;
@@ -1022,9 +1027,25 @@ export default function RestaurantePedidoApp() {
     if (adminMatch) {
       const seg = adminMatch[1];
       if (seg === "cozinha") {
-        if (!canAccess(user, "kitchen")) { irParaFallbackSeguro(user); return; }
-        const sid = new URLSearchParams(search || "").get("setorId");
-        setCozinhaSetorInicial(sid != null && sid !== "" ? (isNaN(Number(sid)) ? sid : Number(sid)) : null);
+        const rotaCozinha = resolverRotaAdminCozinha({
+          user,
+          search,
+          planoCtx: montarContextoPlanoCozinha(user, { lojaContexto, assinaturas, planos, planoModulos }),
+          temAcessoAdmin: canAccess(user, "admin"),
+        });
+        if (rotaCozinha.acao === "fallback") { irParaFallbackSeguro(user); return; }
+        if (rotaCozinha.acao === "admin_bloqueado") {
+          setCozinhaBloqueadaPlano(true);
+          setActiveTab("admin");
+          return;
+        }
+        if (rotaCozinha.acao === "painel_bloqueado") {
+          setCozinhaBloqueadaPlano(true);
+          setActiveTab("kitchen");
+          return;
+        }
+        setCozinhaSetorInicial(rotaCozinha.setor);
+        setCozinhaBloqueadaPlano(false);
         setActiveTab("kitchen");
       } else {
         if (!canAccess(user, "admin")) { irParaFallbackSeguro(user); return; }
@@ -1243,6 +1264,34 @@ export default function RestaurantePedidoApp() {
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
   const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);
+  const planoCtxCozinha = { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin };
+  const acessoCozinha = decidirAcessoCozinhaAdmin(currentUser, planoCtxCozinha);
+
+  function irParaCozinha(setorId) {
+    return aoAcionarCozinhaAdmin(currentUser, planoCtxCozinha, {
+      setorId: setorId ?? null,
+      setSetor: setCozinhaSetorInicial,
+      abrirPainel: () => { setCozinhaBloqueadaPlano(false); setActiveTab("kitchen"); },
+      onSemPermissao: () => notify("error", "Sem permissão para acessar o painel da cozinha."),
+      onBloqueadoPlano: () => {
+        setCozinhaBloqueadaPlano(true);
+        if (!canAccess(currentUser, "admin")) setActiveTab("kitchen");
+      },
+    });
+  }
+
+  useEffect(() => {
+    if (!currentUser || activeTab !== "kitchen") return;
+    const d = decidirAcessoCozinhaAdmin(currentUser, planoCtxCozinha);
+    if (d.estado === ACESSO_COZINHA.NEGADO_PERMISSAO) {
+      irParaFallbackSeguro(currentUser);
+      return;
+    }
+    if (d.estado === ACESSO_COZINHA.BLOQUEADO_PLANO) {
+      setCozinhaBloqueadaPlano(true);
+      if (canAccess(currentUser, "admin")) setActiveTab("admin");
+    }
+  }, [currentUser, activeTab, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin]);
   // Caixa: sessão aberta da empresa em foco (migration 042)
   const caixaAberto = caixas.find((c) => c.status === "aberto" && (lojaAtual == null || c.lojaId === lojaAtual)) || null;
 
@@ -1373,8 +1422,27 @@ export default function RestaurantePedidoApp() {
       const pathnameAlvo = window.location.pathname;
       const deepAdmin = pathnameAlvo.match(/^\/admin\/([^/?]+)/);
       const redirectOperacional = /^\/operacional(\/|$)/.test(pathnameAlvo);
-      if (deepAdmin && deepAdmin[1] === "cozinha" && canAccess(credOk, "kitchen")) {
-        setActiveTab("kitchen");
+      if (deepAdmin && deepAdmin[1] === "cozinha") {
+        const rotaCozinha = resolverRotaAdminCozinha({
+          user: credOk,
+          search: window.location.search,
+          planoCtx: montarContextoPlanoCozinha(credOk, { lojaContexto, assinaturas, planos, planoModulos }),
+          temAcessoAdmin: canAccess(credOk, "admin"),
+        });
+        if (rotaCozinha.acao === "abrir") {
+          setCozinhaBloqueadaPlano(false);
+          setActiveTab("kitchen");
+        } else if (rotaCozinha.acao === "admin_bloqueado") {
+          setCozinhaBloqueadaPlano(true);
+          setActiveTab("admin");
+        } else if (rotaCozinha.acao === "painel_bloqueado") {
+          setCozinhaBloqueadaPlano(true);
+          setActiveTab("kitchen");
+        } else {
+          const home = abaInicialDoUsuario(credOk);
+          if (home === "admin") setAdminSection("dashboard");
+          setActiveTab(home);
+        }
       } else if (deepAdmin && deepAdmin[1] !== "cozinha" && canAccess(credOk, "admin")) {
         setActiveTab("admin");
         setAdminSection(deepAdmin[1]);
@@ -4107,7 +4175,7 @@ export default function RestaurantePedidoApp() {
           </>
         )}
 
-        {activeTab === "kitchen" && canAccess(currentUser, "kitchen") && (
+        {activeTab === "kitchen" && acessoCozinha.podeRenderizarPainel && (
           <>
             <EstacaoImpressaoAuto
               impressoes={filtraLoja(impressoesCozinha)}
@@ -4118,10 +4186,15 @@ export default function RestaurantePedidoApp() {
             <KitchenView groupedOrders={groupedOrders} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} entregandoId={entregandoId} statusAtualizandoIds={statusAtualizandoIds} cancelarPedido={cancelarPedido} currentUser={currentUser} lojaInfo={lojaInfo} setores={filtraLoja(setoresCozinha)} produtos={products} setorInicial={cozinhaSetorInicial} />
           </>
         )}
+        {activeTab === "kitchen" && acessoCozinha.estado === ACESSO_COZINHA.BLOQUEADO_PLANO && !canAccess(currentUser, "admin") && (
+          <div data-theme="light" className="pp-admin-module fixed inset-0 z-50 overflow-y-auto bg-white p-4 sm:p-6">
+            <ModuloBloqueado slug={ADMIN_COZINHA_NAV.id} />
+          </div>
+        )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={setAdminSection} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={(setorId) => { setCozinhaSetorInicial(setorId ?? null); if (canAccess(currentUser, "kitchen")) setActiveTab("kitchen"); else notify("error", "Sem permissão para acessar o painel da cozinha."); }} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={(id) => { setCozinhaBloqueadaPlano(false); setAdminSection(id); }} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={irParaCozinha} forcarBloqueioCozinha={cozinhaBloqueadaPlano} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -6242,8 +6315,8 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const base = [...sections, ...(onSair ? [{ id: "__sair", label: "Sair do sistema", grupo: "Ações", sair: true }] : [])];
-  const query = q.trim().toLowerCase();
-  const itens = query ? base.filter((s) => s.label.toLowerCase().includes(query) || (s.grupo || "").toLowerCase().includes(query)) : base;
+  const query = q.trim();
+  const itens = filtrarBuscaTelas(base, query);
   useEffect(() => { if (open) { setQ(""); setIdx(0); const t = setTimeout(() => inputRef.current?.focus(), 20); return () => clearTimeout(t); } }, [open]);
   useEffect(() => { setIdx(0); }, [q]);
   useEffect(() => { const el = listRef.current?.querySelector('[data-on="1"]'); el?.scrollIntoView({ block: "nearest" }); }, [idx, q]);
@@ -6283,7 +6356,9 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
                   <span className={`block truncate text-[13px] font-semibold ${on ? "text-[#012E46]" : "text-[var(--pp-text)]"}`}>{it.label}</span>
                   {it.grupo && <span className="block text-[11px] text-[var(--pp-text-muted)]">{it.grupo}</span>}
                 </span>
-                {on && <span className="shrink-0 text-[11px] font-bold text-[#012E46]">Abrir ↵</span>}
+                {it.blocked && <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-[var(--pp-text-muted)]" aria-label="Disponível em outro plano" />}
+                {on && !it.blocked && <span className="shrink-0 text-[11px] font-bold text-[#012E46]">Abrir ↵</span>}
+                {on && it.blocked && <span className="shrink-0 text-[11px] font-bold text-[var(--pp-text-muted)]">Indisponível</span>}
               </button>
             );
           })}
@@ -7153,7 +7228,7 @@ function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, o
 
 // Menu de navegação — monta as seções a partir de SidebarSection + SidebarItem
 // (nenhum outro componente deve renderizar itens de menu fora deste par).
-function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate }) {
+function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate, irParaCozinha }) {
   return (
     <nav className="scrollbar-none flex-1 overflow-y-auto px-2.5 py-3 space-y-3" aria-label="Navegação principal">
       {menu.map((g) => (
@@ -7163,10 +7238,12 @@ function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assina
             const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
             return (
               <SidebarItem key={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
-                title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre a Central Operacional (tela cheia)" : undefined)}
+                title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre a Central Operacional (tela cheia)" : (it.id === ADMIN_COZINHA_NAV.id ? "Abre o painel da Cozinha" : undefined))}
                 onClick={() => {
                   if (it.id === "operacaomobile") {
                     abrirOperacaoMobile();
+                  } else if (it.id === ADMIN_COZINHA_NAV.id) {
+                    irParaCozinha?.();
                   } else setAdminSection(it.id);
                   onNavigate?.();
                 }} />
@@ -7215,7 +7292,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, forcarBloqueioCozinha = false, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -7228,6 +7305,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       { id: "comandas-gestao", icon: <IconQr />, label: "Comandas" },
       { id: "comandas", icon: <IconQr />, label: "QR Code" },
       { id: "chamados", icon: <IconMesas />, label: "Chamados" },
+      { id: ADMIN_COZINHA_NAV.id, icon: <IconCozinha />, label: ADMIN_COZINHA_NAV.label },
       { id: "setores", icon: <IconCategorias />, label: "Setores de Produtos" },
       { id: "setor-impressoras", icon: <IconImpressora />, label: "Setor Impressoras" },
       { id: "impressoes", icon: <IconImpressora />, label: "Impressões Setores" },
@@ -7282,7 +7360,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
       ]},
     ] : []),
   ];
-  const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id);
+  // "kitchen" é aba operacional (/admin/cozinha), não seção interna do AdminView.
+  const itensValidos = menu.flatMap((g) => g.itens).map((i) => i.id).filter((id) => id !== ADMIN_COZINHA_NAV.id);
   const ativo = itensValidos.includes(adminSection) ? adminSection : "dashboard";
   // Drawer de navegação mobile (substitui o menu fixo em telas pequenas)
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
@@ -7290,7 +7369,10 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
   useEffect(() => { setMenuMobileAberto(false); }, [adminSection]); // fecha ao navegar
   // Command Palette (Ctrl/Cmd + K) — navegação rápida (aditivo)
   const [cmdOpen, setCmdOpen] = useState(false);
-  const cmdSections = menu.flatMap((g) => g.itens.map((i) => ({ id: i.id, label: i.label, grupo: g.grupo })));
+  const cmdSections = montarSecoesBuscaAdmin(menu, {
+    user: currentUser,
+    planoCtx: { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin },
+  });
   useEffect(() => {
     const h = (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); setCmdOpen((o) => !o); } };
     window.addEventListener("keydown", h);
@@ -7329,7 +7411,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
     <div data-theme="light" className="pp-admin-module fixed inset-0 z-50 flex bg-white overflow-hidden">
 
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} sections={cmdSections}
-        onNavigate={(id) => { setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
+        onNavigate={(id) => { if (id === ADMIN_COZINHA_NAV.id) irParaCozinha(); else setAdminSection(id); setCmdOpen(false); }} onSair={onSair} />
 
       {/* ── Menu lateral esquerdo (fixo) — hierarquia oficial: Logo → Usuário
           → Empresa → Menu (protagonista) → Rodapé → Sair ── */}
@@ -7343,7 +7425,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         )}
         {buscaRapida()}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
-          assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} />
+          assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} irParaCozinha={irParaCozinha} />
       </aside>
 
       {/* ── Drawer de navegação mobile (substitui o menu fixo) — mesma
@@ -7359,7 +7441,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {buscaRapida(() => { setCmdOpen(true); setMenuMobileAberto(false); })}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
-          onNavigate={() => setMenuMobileAberto(false)} />
+          onNavigate={() => setMenuMobileAberto(false)} irParaCozinha={irParaCozinha} />
       </MobileAdminDrawer>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
@@ -7380,7 +7462,9 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
             cresce para p-5/p-6 em telas maiores. */}
         <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area pp-admin-content flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5 lg:p-6">
-          {!canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
+          {forcarBloqueioCozinha ? (
+            <ModuloBloqueado slug={ADMIN_COZINHA_NAV.id} />
+          ) : !canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
           {ativo === "dashboard"  && (precisaEmpresa ? avisoEmpresa : (

@@ -20,4 +20,11 @@ describe("resolverTelaAcesso", () => {
     expect(t.screenKey).toBe("opmobile.cozinha");
     expect(t.route).toBe("/operacional/cozinha");
   });
+
+  it("preserva a rota existente do painel da Cozinha", () => {
+    const t = resolverTelaAcesso({ activeTab: "kitchen" });
+    expect(t.screenKey).toBe("kitchen");
+    expect(t.screenLabel).toBe("Cozinha");
+    expect(t.route).toBe("/admin/cozinha");
+  });
 });

@@ -10,6 +10,7 @@ export const IconCrm        = () => (<svg {...base}><circle cx="9" cy="8" r="3.2
 export const IconProdutos   = () => (<svg {...base}><path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg>);
 export const IconCategorias = () => (<svg {...base}><path d="M3 11V4a1 1 0 0 1 1-1h7l10 10-8 8L3 11Z"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/></svg>);
 export const IconMesas      = () => (<svg {...base}><ellipse cx="12" cy="7" rx="8" ry="3"/><path d="M5 9.5V17M19 9.5V17M12 10v10"/></svg>);
+export const IconCozinha    = () => (<svg {...base}><path d="M12 4c-1.1 0-2.1.5-2.7 1.4A3.6 3.6 0 0 0 5.5 9.2c0 .9.3 1.7.8 2.4V18a2 2 0 0 0 2 2h7.4a2 2 0 0 0 2-2v-6.4c.5-.7.8-1.5.8-2.4A3.6 3.6 0 0 0 14.7 5.4C14.1 4.5 13.1 4 12 4Z"/><path d="M8.5 11.5h7"/></svg>);
 export const IconPagamento  = () => (<svg {...base}><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/></svg>);
 export const IconQr         = () => (<svg {...base}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h3v3h-3zM20 14v2M17 20h3M14 19v1"/></svg>);
 export const IconCardapio   = () => (<svg {...base}><path d="M4 4h7v16H6a2 2 0 0 1-2-2V4Z"/><path d="M20 4h-7v16h5a2 2 0 0 0 2-2V4Z"/><path d="M6.5 8h2M6.5 11h2M15.5 8h2M15.5 11h2"/></svg>);
