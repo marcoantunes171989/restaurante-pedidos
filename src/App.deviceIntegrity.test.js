@@ -20,10 +20,10 @@
 // inteiro aqui), são cobertos por sentinela estrutural sobre o código-fonte
 // real — os mesmos que travam se alguém reordenar/remover os trechos.
 //
-// Gate 8.36 — forward-fix: logout() agora é IDEMPOTENTE (reentrância guard
-// no início). O popstate handler agora aguarda (await) logoutRef.current()
-// antes de forcarUrlLogin(), e o heartbeat de tab_dispositivos passa a
-// depender de currentUser (some em /login).
+// Gate 8.36 — logout() é IDEMPOTENTE (reentrância guard no início). O
+// heartbeat de tab_dispositivos depende de currentUser (some em /login).
+// REL-02D-AUTH-HISTORY-A: popstate autenticado NÃO chama logout — aplica a
+// rota ou restaura a rota segura; forcarUrlLogin permanece no logout explícito.
 //
 // Gate 8.36.1 — separa as duas responsabilidades que o Gate 8.36 tinha
 // acoplado em logoutEmAndamentoRef:
@@ -180,22 +180,20 @@ describe("useUserSessionHeartbeat — sessaoDispositivoPronta habilitada após n
   });
 });
 
-describe("popstate aguarda logout() antes de forçar a URL de login (Gate 8.36)", () => {
+describe("popstate autenticado não encerra sessão (REL-02D-AUTH-HISTORY-A; estrutural)", () => {
   const idxOnPop = appSource.indexOf("const onPop = async () => {");
   const idxFimOnPop = appSource.indexOf("window.addEventListener(\"popstate\", onPop);");
   const corpoOnPop = appSource.slice(idxOnPop, idxFimOnPop);
 
-  it("handler onPop existe e é assíncrono", () => {
+  it("handler onPop existe", () => {
     expect(idxOnPop).toBeGreaterThan(-1);
   });
 
-  it("faz await de logoutRef.current() antes de forcarUrlLogin(), dentro de try/finally", () => {
-    const idxAwaitLogout = corpoOnPop.indexOf("await logoutRef.current()");
-    const idxFinally = corpoOnPop.indexOf("} finally {");
-    const idxForcarUrlNoFinally = corpoOnPop.indexOf("forcarUrlLogin();", idxFinally);
-    expect(idxAwaitLogout).toBeGreaterThan(-1);
-    expect(idxFinally).toBeGreaterThan(idxAwaitLogout);
-    expect(idxForcarUrlNoFinally).toBeGreaterThan(idxFinally);
+  it("não chama logoutRef no popstate; sessão autenticada executa decisão pura", () => {
+    expect(corpoOnPop).not.toMatch(/await logoutRef\.current\(\)/);
+    expect(corpoOnPop).toContain("executarPopstate");
+    expect(corpoOnPop).toContain("forcarUrlLogin()");
+    expect(corpoOnPop).not.toMatch(/pushState/);
   });
 });
 
@@ -219,5 +217,41 @@ describe("definirMesaTablet — troca direta permanece atômica (estrutural, Gat
 describe("nenhuma escrita direta em tab_dispositivos (regressão, Gate 8.29)", () => {
   it("App.jsx não chama .from('tab_dispositivos')", () => {
     expect(appSource).not.toMatch(/\.from\(\s*['"]tab_dispositivos['"]\s*\)/);
+  });
+});
+
+describe("REL-02D-AUTH-HISTORY-E — wiring do App (validação + manterTela)", () => {
+  it("listener valida o payload e delega a processarNavegacaoInterna", () => {
+    const idx = appSource.indexOf("const onNav = (e) => {");
+    const fim = appSource.indexOf("window.addEventListener(EVENTO_NAVEGAR_INTERNA, onNav);");
+    const corpo = appSource.slice(idx, fim);
+    expect(idx).toBeGreaterThan(-1);
+    expect(corpo).toContain("validarRotaNavegacaoInterna");
+    expect(corpo).toContain("processarNavegacaoInterna");
+    expect(corpo).not.toMatch(/pushState/);
+    expect(corpo).not.toMatch(/logoutRef/);
+  });
+
+  it("aplicarRota classifica pathname exato e mapeia /app para rota segura", () => {
+    const idx = appSource.indexOf("function aplicarRota(pathname, search, user)");
+    const fim = appSource.indexOf("aplicarRotaRef.current = aplicarRota;");
+    const corpo = appSource.slice(idx, fim);
+    expect(corpo).toContain("classificarPathname");
+    expect(corpo).toContain('classe.tipo === "app_raiz"');
+    expect(corpo).toContain("irParaFallbackSeguro(user)");
+    expect(corpo).toContain("ADMIN_COZINHA_NAV.rota");
+    expect(corpo).toContain("manterTela: true");
+    expect(corpo).not.toContain("adminMatch");
+    expect(corpo).not.toContain("appMatch");
+  });
+
+  it("popstate passa pathAtualEfetivo de rotaDoEstado e nunca faz push", () => {
+    const idx = appSource.indexOf("const onPop = async () => {");
+    const fim = appSource.indexOf('window.addEventListener("popstate", onPop);');
+    const corpo = appSource.slice(idx, fim);
+    expect(corpo).toContain("pathAtualEfetivo");
+    expect(corpo).toContain("rotaDoEstado");
+    expect(corpo).toContain("aplicarRotaSegura");
+    expect(corpo).not.toMatch(/pushState/);
   });
 });

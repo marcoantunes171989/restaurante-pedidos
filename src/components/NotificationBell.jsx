@@ -6,16 +6,12 @@ import { ouvirOutrasAbas, avisarOutrasAbas } from "../lib/notificacoes";
 import { useAnchoredPosition } from "../lib/useAnchoredPosition";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
+import { solicitarNavegacaoInterna } from "../lib/historicoNavegacao";
 
-// Mesmo truque de navegação usado pelo botão voltar/avançar do navegador
-// (App.jsx: "Sincroniza com a rota (voltar/avançar do navegador →
-// /operacional/:sub)") — pushState sozinho não dispara popstate, então
-// disparamos manualmente para o router (main.jsx) e a aba (App.jsx)
-// reagirem sem precisar de F5 nem de prop-drilling até aqui.
+// Navegação validada pelo App (aplicarRota + History API). Sem push da rota
+// crua e sem popstate sintético — destino negado não fica na barra.
 function navegarPara(rota) {
-  if (!rota) return;
-  window.history.pushState({}, "", rota);
-  window.dispatchEvent(new PopStateEvent("popstate"));
+  return solicitarNavegacaoInterna(rota);
 }
 
 function tempoRelativo(iso) {
@@ -105,6 +101,7 @@ export default function NotificationBell() {
       try { await marcarNotificacaoLida(n.id); avisarOutrasAbas("atualizado"); } catch { /* já refletido localmente */ }
     }
     setAberto(false);
+    if (!n?.rota) return;
     navegarPara(n.rota);
   }
 

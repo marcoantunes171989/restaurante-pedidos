@@ -45,11 +45,13 @@ describe("regressão: item 'Operação Mobile' do menu Admin (src/App.jsx)", () 
 
   it("mantém o guard de acesso operacional na rota /operacional (aplicarRota)", () => {
     // Usuário sem acessosOperacionais continua caindo no fallback seguro.
-    const opMatch = src.indexOf("const opMatch = pathname.match(/^\\/operacional");
-    const opBloco = src.slice(opMatch, opMatch + 400);
-    expect(opMatch).toBeGreaterThan(-1);
-    expect(opBloco).toContain("if (!temAcessoOperacional(user)) {");
-    expect(opBloco).toContain("irParaFallbackSeguro(user);");
+    const inicio = src.indexOf("function aplicarRota(pathname, search, user)");
+    const bloco = src.slice(inicio, inicio + 2800);
+    expect(inicio).toBeGreaterThan(-1);
+    expect(bloco).toContain("classificarPathname");
+    expect(bloco).toContain('classe.tipo === "operacional"');
+    expect(bloco).toContain("if (!temAcessoOperacional(user)) {");
+    expect(bloco).toContain("irParaFallbackSeguro(user)");
   });
 
   it("mantém logoutSupabaseAuth como proteção contra JWT órfão sem marcador de sessão", () => {

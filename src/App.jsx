@@ -79,6 +79,21 @@ import {
   ACESSO_COZINHA, ADMIN_COZINHA_NAV, aoAcionarCozinhaAdmin, decidirAcessoCozinhaAdmin,
   filtrarBuscaTelas, montarContextoPlanoCozinha, montarSecoesBuscaAdmin, resolverRotaAdminCozinha,
 } from "./lib/adminCozinhaNav";
+import {
+  aplicarEscritaHistorico,
+  classificarPathname,
+  decidirCorrecaoUrlAposRota,
+  decidirEscritaHistorico,
+  decidirHistoricoLogout,
+  EVENTO_NAVEGAR_INTERNA,
+  executarPopstate,
+  parseRota,
+  pathRotaSegura,
+  processarNavegacaoInterna,
+  resolverResultadoAplicarRota,
+  rotaDoEstado,
+  validarRotaNavegacaoInterna,
+} from "./lib/historicoNavegacao";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -586,9 +601,7 @@ function limparMarcadoresSessaoLocal() {
 }
 function forcarUrlLogin() {
   try {
-    if (window.location.pathname !== "/login") {
-      window.history.replaceState({ ppApp: true }, "", "/login");
-    }
+    aplicarEscritaHistorico(window.history, decidirHistoricoLogout(window.location.pathname));
   } catch { /* ignore */ }
 }
 
@@ -1016,16 +1029,8 @@ export default function RestaurantePedidoApp() {
   // re-render, callback repetido) antes da 1ª chamada concluir.
   const processandoBaixaRef = useRef(new Set());
   const popstateRef = useRef(false);      // true = mudança veio do "voltar" (não re-empilha)
-  const primeiraSyncRef = useRef(true);   // 1ª sincronização usa replaceState (entrada base)
-  function rotaDoEstado(tab, section, setorId) {
-    if (tab === "admin") return `/admin/${section || "dashboard"}`;
-    if (tab === "kitchen") return `${ADMIN_COZINHA_NAV.rota}${setorId != null ? `?setorId=${setorId}` : ""}`;
-    if (tab === "panel") return "/app/painel";
-    if (tab === "cashier") return "/app/caixa";
-    if (tab === "opmobile") return `/operacional${opmobileTab && opmobileTab !== "central" ? `/${opmobileTab}` : ""}`;
-    if (tab === "tablet") return "/app/tablet";
-    return "/login";
-  }
+  const primeiraSyncRef = useRef(true);   // 1ª sincronização substitui /login (replace, sem empilhar)
+  const aplicarRotaRef = useRef(() => {});
   // Fallback seguro por perfil (mesma prioridade usada em aplicarLogin): usado
   // quando a URL aponta para uma tela que o usuário logado não tem permissão de
   // acessar (ex.: Admin caindo em /app/tablet por link/estado antigo no navegador).
@@ -1038,60 +1043,68 @@ export default function RestaurantePedidoApp() {
     const alvo = rotaSeguraFallback(user);
     if (alvo === "admin") setAdminSection("dashboard");
     setActiveTab(alvo);
+    return pathRotaSegura(alvo);
   }
   function aplicarRota(pathname, search, user) {
-    const adminMatch = pathname.match(/^\/admin\/([^/?]+)/);
-    if (adminMatch) {
-      const seg = adminMatch[1];
-      if (seg === "cozinha") {
-        const rotaCozinha = resolverRotaAdminCozinha({
-          user,
-          search,
-          planoCtx: montarContextoPlanoCozinha(user, { lojaContexto, assinaturas, planos, planoModulos }),
-          temAcessoAdmin: canAccess(user, "admin"),
-        });
-        if (rotaCozinha.acao === "fallback") { irParaFallbackSeguro(user); return; }
-        if (rotaCozinha.acao === "admin_bloqueado") {
-          setCozinhaBloqueadaPlano(true);
-          setActiveTab("admin");
-          return;
-        }
-        if (rotaCozinha.acao === "painel_bloqueado") {
-          setCozinhaBloqueadaPlano(true);
-          setActiveTab("kitchen");
-          return;
-        }
-        setCozinhaSetorInicial(rotaCozinha.setor);
-        setCozinhaBloqueadaPlano(false);
-        setActiveTab("kitchen");
-      } else {
-        if (!canAccess(user, "admin")) { irParaFallbackSeguro(user); return; }
-        // Controle de Acessos: só administrador geral (superAdmin) — demais vão ao dashboard
-        if (["controle-acessos", "audiencia-landing"].includes(seg) && !user?.superAdmin) {
-          setAdminSection("dashboard");
-          setActiveTab("admin");
-          return;
-        }
-        setAdminSection(seg); setActiveTab("admin");
+    const classe = classificarPathname(pathname);
+    if (classe.tipo === "admin_cozinha") {
+      const rotaCozinha = resolverRotaAdminCozinha({
+        user,
+        search,
+        planoCtx: montarContextoPlanoCozinha(user, { lojaContexto, assinaturas, planos, planoModulos }),
+        temAcessoAdmin: canAccess(user, "admin"),
+      });
+      if (rotaCozinha.acao === "fallback") {
+        return { aceita: false, path: irParaFallbackSeguro(user) };
       }
-      return;
+      if (rotaCozinha.acao === "admin_bloqueado") {
+        setCozinhaBloqueadaPlano(true);
+        setActiveTab("admin");
+        return { aceita: true, path: ADMIN_COZINHA_NAV.rota, bloqueadaPlano: true };
+      }
+      if (rotaCozinha.acao === "painel_bloqueado") {
+        setCozinhaBloqueadaPlano(true);
+        setActiveTab("kitchen");
+        return { aceita: true, path: ADMIN_COZINHA_NAV.rota, bloqueadaPlano: true };
+      }
+      setCozinhaSetorInicial(rotaCozinha.setor);
+      setCozinhaBloqueadaPlano(false);
+      setActiveTab("kitchen");
+      return { aceita: true, path: rotaDoEstado("kitchen", "dashboard", rotaCozinha.setor) };
     }
-    const opMatch = pathname.match(/^\/operacional(?:\/([^/?]+))?/);
-    if (opMatch) {
+    if (classe.tipo === "admin" || classe.tipo === "admin_raiz") {
+      if (!canAccess(user, "admin")) {
+        return { aceita: false, path: irParaFallbackSeguro(user) };
+      }
+      const seg = classe.tipo === "admin_raiz" ? "dashboard" : classe.secao;
+      // Controle de Acessos: só administrador geral (superAdmin) — demais vão ao dashboard
+      if (["controle-acessos", "audiencia-landing"].includes(seg) && !user?.superAdmin) {
+        setAdminSection("dashboard");
+        setActiveTab("admin");
+        return { aceita: false, path: rotaDoEstado("admin", "dashboard") };
+      }
+      setAdminSection(seg);
+      setActiveTab("admin");
+      return { aceita: true, path: rotaDoEstado("admin", seg) };
+    }
+    if (classe.tipo === "operacional") {
       // Bookmark/redirect em /operacional NÃO pode sequestrar admin, cozinha,
       // caixa etc. Só perfil exclusivamente operacional pousa aqui.
       if (!temAcessoOperacional(user)) {
-        irParaFallbackSeguro(user);
-        return;
+        return { aceita: false, path: irParaFallbackSeguro(user) };
       }
-      const sub = opMatch[1];
-      setOpmobileTab(["pedidos", "cozinha", "bar", "caixa"].includes(sub) ? sub : "central");
+      const opTab = classe.sub || "central";
+      setOpmobileTab(opTab);
       setActiveTab("opmobile");
-      return;
+      return { aceita: true, path: rotaDoEstado("opmobile", "dashboard", null, opTab) };
     }
-    const appMatch = pathname.match(/^\/app\/([^/?]+)/);
-    if (appMatch) {
-      const seg = appMatch[1];
+    // /app e /app/ não são tela concreta. Policy A: aplicar a rota segura
+    // do perfil e corrigir a URL por replace (nunca manter tela anterior).
+    if (classe.tipo === "app_raiz") {
+      return { aceita: true, path: irParaFallbackSeguro(user) };
+    }
+    if (classe.tipo === "app") {
+      const seg = classe.seg;
       const alvo = seg === "painel" ? "panel" : seg === "caixa" ? "cashier" : seg === "operacao" ? "opmobile" : "tablet";
       // "tablet" é o perfil/dispositivo dedicado à mesa (cliente). Mesmo que a conta
       // também tenha o acesso técnico "tablet" marcado (ex.: dono/gestor com todos os
@@ -1100,11 +1113,16 @@ export default function RestaurantePedidoApp() {
       const liberado = alvo === "opmobile" ? temAcessoOperacional(user)
         : alvo === "tablet" ? (canAccess(user, "tablet") && !canAccess(user, "admin"))
         : canAccess(user, alvo);
-      if (!liberado) { irParaFallbackSeguro(user); return; }
+      if (!liberado) {
+        return { aceita: false, path: irParaFallbackSeguro(user) };
+      }
       setActiveTab(alvo);
+      return { aceita: true, path: rotaDoEstado(alvo, "dashboard", null, opmobileTab) };
     }
-    // /login ou rota não reconhecida → mantém a tela atual
+    // /login ou rota não reconhecida (segmento extra incluso) → mantém a tela atual
+    return { aceita: false, path: null, manterTela: true };
   }
+  aplicarRotaRef.current = aplicarRota;
   // Deep-link / F5: aplica a rota da URL UMA vez após autenticar (ex.: F5 em
   // /app/caixa). Em "/login" (pós-credenciais) mantém o pouso de aplicarLogin.
   // Espera a hidratação do contexto: senão /admin/cozinha abre sem a empresa
@@ -1116,42 +1134,59 @@ export default function RestaurantePedidoApp() {
     limparRedirectPosLogin();
     const pathname = window.location.pathname;
     const search = window.location.search;
-    // Pós-credenciais / login limpo: não aplica rota protegida residual.
-    if (pathname === "/login" || pathname === "/") return;
-    // /operacional na URL NÃO sobrescreve o pouso natural de quem tem menu
-    // principal (admin/PDV/cozinha…).
-    if (/^\/operacional(\/|$)/.test(pathname) && !temAcessoOperacional(currentUser)) {
-      irParaFallbackSeguro(currentUser);
+    // Pós-credenciais: não aplica rota protegida residual — o pouso é o do perfil.
+    if (pathname === "/login") return;
+    // "/" com sessão: mesma rota segura do perfil, replace (sem empilhar, sem logout).
+    if (pathname === "/") {
+      const path = pathRotaSegura(abaInicialDoUsuario(currentUser));
+      popstateRef.current = true;
+      aplicarEscritaHistorico(window.history, decidirCorrecaoUrlAposRota({
+        pathSolicitado: "/",
+        pathEfetivo: path,
+      }));
+      const parsed = parseRota(path);
+      aplicarRota(parsed.pathname, parsed.search, currentUser);
+      setTimeout(() => { popstateRef.current = false; }, 0);
       return;
     }
     if (/^\/(admin|app|operacional)(\/|$)/.test(pathname)) {
       popstateRef.current = true;
-      aplicarRota(pathname, search, currentUser);
+      const resultado = aplicarRota(pathname, search, currentUser) || {};
+      const rotaSegura = pathRotaSegura(abaInicialDoUsuario(currentUser));
+      const resolvido = resolverResultadoAplicarRota({
+        resultado,
+        pathSolicitado: pathname + search,
+        pathAtualEfetivo: null,
+        rotaSegura,
+      });
+      if (resolvido.aplicarRotaSegura) irParaFallbackSeguro(currentUser);
+      aplicarEscritaHistorico(window.history, decidirCorrecaoUrlAposRota({
+        pathSolicitado: pathname + search,
+        pathEfetivo: resolvido.path,
+      }));
       setTimeout(() => { popstateRef.current = false; }, 0);
     }
   }, [currentUser, lojaContextoHydrated]);
-  // Espelha a tela atual na URL — SEMPRE replaceState (nunca empilha telas do
-  // app). Assim o Voltar do navegador não navega entre Caixa↔Cozinha↔Admin;
-  // o popstate abaixo manda sempre para o login.
+  // Espelha a tela atual na URL. Login/F5: replace (não deixa /login atrás).
+  // Navegação autenticada: push. Popstate: não escreve (o browser já moveu).
   useEffect(() => {
     if (!currentUser) return;
-    if (popstateRef.current) { popstateRef.current = false; return; }
-    const novoPath = rotaDoEstado(activeTab, adminSection, cozinhaSetorInicial);
+    const veioDePopstate = popstateRef.current;
+    if (veioDePopstate) popstateRef.current = false;
+    const primeiraSync = primeiraSyncRef.current;
+    if (primeiraSync) primeiraSyncRef.current = false;
+    const novoPath = rotaDoEstado(activeTab, adminSection, cozinhaSetorInicial, opmobileTab);
     const atual = window.location.pathname + window.location.search;
-    if (primeiraSyncRef.current) {
-      primeiraSyncRef.current = false;
-      // Guarda de histórico: 1 entrada "anterior" + 1 atual → Voltar dispara
-      // popstate dentro do app (e vai para o login), sem carregar outra tela.
-      window.history.replaceState({ ppApp: true }, "", novoPath);
-      window.history.pushState({ ppApp: true }, "", novoPath);
-      return;
-    }
-    if (novoPath !== atual) window.history.replaceState({ ppApp: true }, "", novoPath);
+    const decisao = decidirEscritaHistorico({ pathAtual: atual, pathNovo: novoPath, primeiraSync, veioDePopstate });
+    aplicarEscritaHistorico(window.history, decisao);
   }, [activeTab, adminSection, cozinhaSetorInicial, opmobileTab, currentUser]);
   // Refs para o handler de popstate / logout enxergar valores atuais
   const currentUserRef = useRef(null);
   const activeTabRef = useRef("tablet");
   const adminSectionRef = useRef("dashboard");
+  const cozinhaSetorInicialRef = useRef(null);
+  const opmobileTabRef = useRef("central");
+  const irParaFallbackSeguroRef = useRef(() => {});
   const logoutRef = useRef(() => {});
   // Bloqueia o heartbeat de dispositivo (2min/focus/visibilitychange) durante
   // o logout — sem isso, ele pode reenviar mesa:"<atual>" concorrentemente
@@ -1170,26 +1205,84 @@ export default function RestaurantePedidoApp() {
   // tab_dispositivos quando muda. Não confundir com dbReady.
   const [sessaoDispositivoPronta, setSessaoDispositivoPronta] = useState(false);
   const sessaoDispositivoProntaRef = useRef(false);
-  useEffect(() => { currentUserRef.current = currentUser; activeTabRef.current = activeTab; adminSectionRef.current = adminSection; sessaoDispositivoProntaRef.current = sessaoDispositivoPronta; });
-  // Voltar do navegador → SEMPRE tela de login (encerra sessão). Nunca troca
-  // para outra tela do sistema (caixa→cozinha, admin→app, etc.).
-  // Se já estiver no login, só prende a URL em /login (histórico antigo).
+  irParaFallbackSeguroRef.current = irParaFallbackSeguro;
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+    activeTabRef.current = activeTab;
+    adminSectionRef.current = adminSection;
+    cozinhaSetorInicialRef.current = cozinhaSetorInicial;
+    opmobileTabRef.current = opmobileTab;
+    sessaoDispositivoProntaRef.current = sessaoDispositivoPronta;
+  });
+  // Voltar/avançar: aplica a rota autenticada. /login ou "/" com sessão NÃO
+  // encerram a sessão — substituem pela rota segura (replace, sem empilhar).
+  // Rota protegida negada também corrige a URL por replace. Nunca pushState.
   useEffect(() => {
     const onPop = async () => {
-      if (!currentUserRef.current) {
+      const user = currentUserRef.current;
+      const pathname = window.location.pathname;
+      const search = window.location.search;
+      const autenticado = !!user && user.active !== false;
+      const rotaSegura = pathRotaSegura(abaInicialDoUsuario(user));
+      if (!autenticado) {
         forcarUrlLogin();
         return;
       }
       popstateRef.current = true;
       try {
-        await logoutRef.current();
-      } catch { /* ignore */ } finally {
-        forcarUrlLogin();
+        executarPopstate({
+          historyApi: window.history,
+          pathname,
+          search,
+          autenticado: true,
+          rotaSegura,
+          pathAtualEfetivo: rotaDoEstado(
+            activeTabRef.current,
+            adminSectionRef.current,
+            cozinhaSetorInicialRef.current,
+            opmobileTabRef.current,
+          ),
+          aplicarRota: (p, s) => aplicarRotaRef.current(p, s, user),
+          aplicarRotaSegura: () => irParaFallbackSeguroRef.current(user),
+        });
+      } finally {
         setTimeout(() => { popstateRef.current = false; }, 0);
       }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  // NotificationBell: navegação interna validada — sem push da rota crua e
+  // sem popstate sintético. Payload inválido (evento manual incluso) não
+  // altera estado nem histórico. Destino negado nunca fica na barra.
+  useEffect(() => {
+    const onNav = (e) => {
+      const user = currentUserRef.current;
+      if (!user || user.active === false) return;
+      const rota = validarRotaNavegacaoInterna(e?.detail?.rota);
+      if (!rota) return;
+      popstateRef.current = true;
+      try {
+        processarNavegacaoInterna({
+          rotaBruta: rota,
+          historyApi: window.history,
+          pathAtual: window.location.pathname + window.location.search,
+          pathAtualEfetivo: rotaDoEstado(
+            activeTabRef.current,
+            adminSectionRef.current,
+            cozinhaSetorInicialRef.current,
+            opmobileTabRef.current,
+          ),
+          rotaSegura: pathRotaSegura(abaInicialDoUsuario(user)),
+          aplicarRota: (p, s) => aplicarRotaRef.current(p, s, user),
+          aplicarRotaSegura: () => irParaFallbackSeguroRef.current(user),
+        });
+      } finally {
+        setTimeout(() => { popstateRef.current = false; }, 0);
+      }
+    };
+    window.addEventListener(EVENTO_NAVEGAR_INTERNA, onNav);
+    return () => window.removeEventListener(EVENTO_NAVEGAR_INTERNA, onNav);
   }, []);
   // Sinaliza sessão ativa para o Root (main.jsx) e para o F5 restaurar o login
   useEffect(() => {
