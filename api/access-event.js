@@ -12,7 +12,7 @@ function json(res, status, body) {
 }
 
 function supabaseUrl() {
-  return process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
+  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 }
 
 function serviceKey() {
@@ -26,9 +26,10 @@ function ipFromReq(req) {
 }
 
 async function restInsert(table, row) {
+  const url = supabaseUrl();
   const key = serviceKey();
-  if (!key) return { ok: false, error: "missing_service_role" };
-  const r = await fetch(`${supabaseUrl()}/rest/v1/${table}`, {
+  if (!url || !key) return { ok: false, error: "missing_config" };
+  const r = await fetch(`${url}/rest/v1/${table}`, {
     method: "POST",
     headers: {
       apikey: key,

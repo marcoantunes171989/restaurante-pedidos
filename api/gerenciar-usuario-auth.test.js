@@ -494,3 +494,78 @@ describe("gerenciar-usuario-auth (Vercel) — Fase 5 #11: hash legado só server
     expect(src).not.toMatch(/crypto\.createHash/);
   });
 });
+
+// ════════════════════════════════════════════════════════════
+// Gate REL-02C-SUPA-ISO-D — remoção do fallback fixo de produção.
+// ════════════════════════════════════════════════════════════
+describe("gerenciar-usuario-auth (Vercel) — falha fechada sem configuração", () => {
+  it("sem nenhuma URL nem SERVICE_ROLE_KEY: não chama fetch, responde 503 sem revelar detalhes internos", async () => {
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const fn = vi.fn();
+    vi.stubGlobal("fetch", fn);
+
+    const res = makeRes();
+    await handler(makeReq({ acao: "criar", email: "novo@demo.com", senha: "senha123", lojaId: OPERADOR_LOJA }), res);
+
+    expect(fn).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY|rwnzggjxhxnfrhstbxkm|https?:\/\//i);
+  });
+
+  it("com URL mas sem SERVICE_ROLE_KEY: não chama fetch", async () => {
+    process.env.SUPABASE_URL = SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const fn = vi.fn();
+    vi.stubGlobal("fetch", fn);
+
+    const res = makeRes();
+    await handler(makeReq({ acao: "criar", email: "novo@demo.com", senha: "senha123", lojaId: OPERADOR_LOJA }), res);
+
+    expect(fn).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(503);
+  });
+});
+
+describe("gerenciar-usuario-auth (Vercel) — precedência SUPABASE_URL > VITE_SUPABASE_URL", () => {
+  it("usa SUPABASE_URL (não VITE_SUPABASE_URL) em todas as chamadas ao operar normalmente", async () => {
+    process.env.SUPABASE_URL = SUPABASE_URL;
+    process.env.VITE_SUPABASE_URL = "https://vite-nao-deve-ser-usada.supabase.co";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_KEY;
+
+    const routes = [
+      ...rotasOperador(operadorRow()),
+      // acao "perfil" com usuarioId resolve o alvo por id (restSelectUsuarioPorId)
+      // antes de checar RBAC/404 — precisa estar mockada ou o fetch real
+      // "vaza" sem mock e o handler loga o erro (console.error) ao cair no catch.
+      {
+        method: "GET",
+        test: (url) => url.startsWith(`${SUPABASE_URL}/rest/v1/tab_usuarios?id=eq.999`),
+        respond: () => ({ status: 200, body: [] }),
+      },
+    ];
+    const { fn, calls } = makeFetchMock(routes);
+    vi.stubGlobal("fetch", fn);
+
+    const res = makeRes();
+    // acao "perfil" com usuarioId inexistente (999) → 404 esperado, e o que
+    // importa aqui é qual URL foi usada em todas as chamadas disparadas.
+    await handler(makeReq({ acao: "perfil", usuarioId: 999 }), res);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toMatch(/não encontrado/i);
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => c.url.startsWith(SUPABASE_URL))).toBe(true);
+    expect(calls.some((c) => c.url.includes("vite-nao-deve-ser-usada"))).toBe(false);
+
+    delete process.env.VITE_SUPABASE_URL;
+  });
+});
+
+describe("gerenciar-usuario-auth (Vercel) — não referencia mais o projeto fixo de produção", () => {
+  it("o código-fonte não contém a URL/ref fixa de produção", async () => {
+    const { readFileSync } = await import("node:fs");
+    const src = readFileSync(new URL("./gerenciar-usuario-auth.js", import.meta.url), "utf8");
+    expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
+  });
+});

@@ -69,14 +69,21 @@ const RESPOSTA_TOOL = {
   },
 };
 
+function supabaseUrl() {
+  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+}
+function anonKey() {
+  return process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
+}
+
 async function usuarioAutenticado(req) {
   const auth = req.headers.authorization || req.headers.Authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token) return null;
-  const url = process.env.VITE_SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
-  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bnpnZ2p4aHhuZnJoc3RieGttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNjk2MjUsImV4cCI6MjA5NTc0NTYyNX0.hkCTJF65URa5zN8TBfV72vLJzj71Ie8jmKLRi4_bzfM";
+  const url = supabaseUrl();
+  const key = anonKey();
+  if (!token || !url || !key) return null;
   try {
-    const r = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anonKey, authorization: `Bearer ${token}` } });
+    const r = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, authorization: `Bearer ${token}` } });
     if (!r.ok) return null;
     const u = await r.json();
     return u?.id ? { id: u.id } : null;

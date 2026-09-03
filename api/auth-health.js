@@ -17,10 +17,10 @@ function json(res, status, body) {
 }
 
 function supabaseUrl() {
-  return process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
+  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 }
 function anonKey() {
-  return process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+  return process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
 }
 function serviceKey() {
   return process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -47,9 +47,10 @@ async function operadorAdmin(req) {
   // apikey só precisa ser válida (o Bearer identifica o usuário) — usa service
   // role para não depender da anon key no runtime da função.
   const apikey = serviceKey() || anonKey();
-  if (!token || !apikey) return false;
+  const url = supabaseUrl();
+  if (!token || !apikey || !url) return false;
   try {
-    const r = await fetch(`${supabaseUrl()}/auth/v1/user`, {
+    const r = await fetch(`${url}/auth/v1/user`, {
       headers: { apikey, authorization: `Bearer ${token}` },
     });
     if (!r.ok) return false;
@@ -58,7 +59,7 @@ async function operadorAdmin(req) {
     if (!email) return false;
     // Consulta mínima em tab_usuarios (com service role) — só flags de acesso.
     const q = await fetch(
-      `${supabaseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,ids_acesso,perfil&limit=1`,
+      `${url}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,ids_acesso,perfil&limit=1`,
       { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, accept: "application/json" } },
     );
     if (!q.ok) return false;
@@ -73,9 +74,10 @@ async function operadorAdmin(req) {
 }
 
 async function adminApiReachable() {
-  if (!serviceKey()) return false;
+  const url = supabaseUrl();
+  if (!serviceKey() || !url) return false;
   try {
-    const r = await fetch(`${supabaseUrl()}/auth/v1/admin/users?page=1&per_page=1`, {
+    const r = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1`, {
       headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}` },
     });
     return r.ok; // 401/403 (chave inválida) → false
@@ -87,8 +89,10 @@ async function adminApiReachable() {
 async function databaseRpcReachable() {
   // Chama app_validar_login com credencial inexistente: reachable se HTTP ok
   // (retorna {ok:false}). Se o crypt/search_path estiver quebrado, a RPC dá 500.
+  const url = supabaseUrl();
+  if (!url || (!serviceKey() && !anonKey())) return false;
   try {
-    const r = await fetch(`${supabaseUrl()}/rest/v1/rpc/app_validar_login`, {
+    const r = await fetch(`${url}/rest/v1/rpc/app_validar_login`, {
       method: "POST",
       headers: {
         apikey: serviceKey() || anonKey(),

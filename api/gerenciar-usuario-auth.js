@@ -22,11 +22,11 @@ function json(res, status, body) {
 }
 
 function supabaseUrl() {
-  return process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
+  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 }
 
 function anonKey() {
-  return process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+  return process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
 }
 
 function serviceKey() {
@@ -194,8 +194,9 @@ async function operadorDoToken(req) {
   // "Sem permissão" para TODO admin, mesmo super_admin. Mesmo padrão da Edge
   // Function (admin.auth.getUser(token) usa a service role).
   const apikey = serviceKey() || anonKey();
-  if (!apikey) return null;
-  const r = await fetch(`${supabaseUrl()}/auth/v1/user`, {
+  const url = supabaseUrl();
+  if (!apikey || !url) return null;
+  const r = await fetch(`${url}/auth/v1/user`, {
     headers: { apikey, authorization: `Bearer ${token}` },
   });
   if (!r.ok) return null;
@@ -300,9 +301,9 @@ export default async function handler(req, res) {
   }
   if (req.method !== "POST") return json(res, 405, { error: "Método não permitido." });
 
-  if (!serviceKey()) {
+  if (!serviceKey() || !supabaseUrl()) {
     return json(res, 503, {
-      error: "SUPABASE_SERVICE_ROLE_KEY não configurada na Vercel. Defina em Settings → Environment Variables e faça redeploy.",
+      error: "Configuração do Supabase ausente na Vercel. Defina as variáveis de ambiente e faça redeploy.",
     });
   }
 

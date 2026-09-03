@@ -21,7 +21,7 @@ function json(res, status, body) {
 }
 
 function supabaseUrl() {
-  return process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
+  return process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 }
 
 function serviceKey() {
@@ -101,9 +101,9 @@ export default async function handler(req, res) {
   }
   if (req.method !== "POST") return json(res, 405, { error: "Método não permitido." });
 
-  if (!serviceKey()) {
+  if (!serviceKey() || !supabaseUrl()) {
     return json(res, 503, {
-      error: "SUPABASE_SERVICE_ROLE_KEY não configurada na Vercel.",
+      error: "Configuração do Supabase ausente na Vercel.",
       code: "SERVICE_ROLE_MISSING",
     });
   }

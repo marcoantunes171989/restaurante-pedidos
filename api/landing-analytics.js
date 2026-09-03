@@ -6,7 +6,7 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-const baseUrl = () => process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://rwnzggjxhxnfrhstbxkm.supabase.co";
+const baseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const clean = (v, max = 200) => v == null ? null : String(v).trim().slice(0, max) || null;
 
@@ -18,7 +18,7 @@ function clientIp(req) {
 async function isSuperAdmin(req) {
   const auth = req.headers.authorization || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (!token || !serviceKey()) return false;
+  if (!token || !serviceKey() || !baseUrl()) return false;
   const userResponse = await fetch(`${baseUrl()}/auth/v1/user`, {
     // A chave de serviço é usada somente como apikey no ambiente protegido da
     // função. O token do próprio usuário continua sendo quem autentica a sessão.
@@ -98,7 +98,7 @@ function countBy(rows, key, fallback = "Não identificado") {
 
 export default async function handler(req, res) {
   if (req.method === "POST") {
-    if (!serviceKey()) return json(res, 202, { ok: false, skipped: true });
+    if (!serviceKey() || !baseUrl()) return json(res, 202, { ok: false, skipped: true });
     let body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const result = await saveVisit(req, body).catch(() => ({ ok: false, code: "unexpected_error" }));
     return json(res, 202, result);
