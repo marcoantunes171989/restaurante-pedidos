@@ -68,6 +68,11 @@ import { useScrollLock } from "./lib/scrollLock";
 import { abrirOperacaoMobile } from "./lib/operacaoMobileNav";
 import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
 import { filtrarPorLojaEstrita } from "./lib/lojaScope";
+import {
+  lerLojaContextoPersistido,
+  limparLojaContextoPersistido,
+  salvarLojaContextoPersistido,
+} from "./lib/lojaContextoStorage";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import {
   ACESSO_COZINHA, ADMIN_COZINHA_NAV, aoAcionarCozinhaAdmin, decidirAcessoCozinhaAdmin,
@@ -576,6 +581,7 @@ function limparMarcadoresSessaoLocal() {
     sessionStorage.removeItem(CHAVE_RESTORE_ONCE);
   } catch { /* sessionStorage indisponível */ }
   limparRedirectPosLogin();
+  limparLojaContextoPersistido();
 }
 function forcarUrlLogin() {
   try {
@@ -662,7 +668,11 @@ export default function RestaurantePedidoApp() {
   const [pesquisas, setPesquisas] = useState([]);          // pesquisas de satisfação (migration 059)
   const [chamados, setChamados] = useState([]);            // chamados de mesa (migration 044)
   const [auditoria, setAuditoria] = useState([]);          // trilha de auditoria (migration 045)
-  const [lojaContexto, setLojaContexto] = useState(null); // super admin: empresa em foco para cadastros
+  const [lojaContexto, setLojaContexto] = useState(() => lerLojaContextoPersistido()?.lojaId ?? null); // super admin: empresa em foco (persiste no F5)
+  useEffect(() => {
+    if (!currentUser?.superAdmin) return;
+    salvarLojaContextoPersistido(currentUser.id, lojaContexto);
+  }, [currentUser?.id, currentUser?.superAdmin, lojaContexto]);
   const [dbReady, setDbReady] = useState(false);
   // Erro REAL de backend (timeout/rede durante o carregamento autenticado) —
   // distinto de "ainda sem sessão", que não deve acender o aviso de offline
