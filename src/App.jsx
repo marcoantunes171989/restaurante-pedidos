@@ -69,9 +69,10 @@ import { abrirOperacaoMobile } from "./lib/operacaoMobileNav";
 import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
 import { filtrarPorLojaEstrita } from "./lib/lojaScope";
 import {
-  lerLojaContextoPersistido,
+  hidratarLojaContextoPersistido,
   limparLojaContextoPersistido,
-  salvarLojaContextoPersistido,
+  persistirLojaContextoSePronto,
+  podeMontarPainelCozinha,
 } from "./lib/lojaContextoStorage";
 import { statusAssinatura, getCurrentCompanyPlan, modulosDoPlano, MODULOS_LABEL, canAccessModule, getBlockedModuleMessage, bloqueioAcessoEmpresa, avisoPagamentoPendente } from "./lib/plans";
 import {
@@ -668,11 +669,17 @@ export default function RestaurantePedidoApp() {
   const [pesquisas, setPesquisas] = useState([]);          // pesquisas de satisfação (migration 059)
   const [chamados, setChamados] = useState([]);            // chamados de mesa (migration 044)
   const [auditoria, setAuditoria] = useState([]);          // trilha de auditoria (migration 045)
-  const [lojaContexto, setLojaContexto] = useState(() => lerLojaContextoPersistido()?.lojaId ?? null); // super admin: empresa em foco (persiste no F5)
+  // Neutro até o bootstrap: usuário autenticado + lojas autorizadas. O localStorage
+  // não autoriza — só entra em lojaContexto depois de hidratarLojaContextoPersistido.
+  const [lojaContexto, setLojaContexto] = useState(null);
+  const [lojaContextoHydrated, setLojaContextoHydrated] = useState(false);
   useEffect(() => {
-    if (!currentUser?.superAdmin) return;
-    salvarLojaContextoPersistido(currentUser.id, lojaContexto);
-  }, [currentUser?.id, currentUser?.superAdmin, lojaContexto]);
+    persistirLojaContextoSePronto({
+      hydrated: lojaContextoHydrated,
+      user: currentUser,
+      lojaId: lojaContexto,
+    });
+  }, [lojaContextoHydrated, currentUser, lojaContexto]);
   const [dbReady, setDbReady] = useState(false);
   // Erro REAL de backend (timeout/rede durante o carregamento autenticado) —
   // distinto de "ainda sem sessão", que não deve acender o aviso de offline
@@ -1100,9 +1107,11 @@ export default function RestaurantePedidoApp() {
   }
   // Deep-link / F5: aplica a rota da URL UMA vez após autenticar (ex.: F5 em
   // /app/caixa). Em "/login" (pós-credenciais) mantém o pouso de aplicarLogin.
+  // Espera a hidratação do contexto: senão /admin/cozinha abre sem a empresa
+  // persistida e depois pisca para o nome certo.
   const rotaInicialRef = useRef(false);
   useEffect(() => {
-    if (!currentUser || rotaInicialRef.current) return;
+    if (!currentUser || !lojaContextoHydrated || rotaInicialRef.current) return;
     rotaInicialRef.current = true;
     limparRedirectPosLogin();
     const pathname = window.location.pathname;
@@ -1120,7 +1129,7 @@ export default function RestaurantePedidoApp() {
       aplicarRota(pathname, search, currentUser);
       setTimeout(() => { popstateRef.current = false; }, 0);
     }
-  }, [currentUser]);
+  }, [currentUser, lojaContextoHydrated]);
   // Espelha a tela atual na URL — SEMPRE replaceState (nunca empilha telas do
   // app). Assim o Voltar do navegador não navega entre Caixa↔Cozinha↔Admin;
   // o popstate abaixo manda sempre para o login.
@@ -1423,6 +1432,11 @@ export default function RestaurantePedidoApp() {
     if (!credOk.active || (lojaDoUser && lojaDoUser.active === false)) {
       notify("error", "Usuário inativo, entre em contato com o administrador do sistema."); return false;
     }
+    // Primeiro ponto em que coexistem usuário autenticado e lojas do bootstrap.
+    // Restaura a empresa em foco só depois dessa validação — nunca do initializer.
+    const lojaContextoSessao = hidratarLojaContextoPersistido(credOk, lojas);
+    setLojaContexto(lojaContextoSessao);
+    setLojaContextoHydrated(true);
     setCurrentUser(credOk);
     auditar("login", "usuario", credOk.id, { email: credOk.email }, credOk);
     // Credenciais / pós-reload de login: SEMPRE home do perfil.
@@ -1436,7 +1450,7 @@ export default function RestaurantePedidoApp() {
         const rotaCozinha = resolverRotaAdminCozinha({
           user: credOk,
           search: window.location.search,
-          planoCtx: montarContextoPlanoCozinha(credOk, { lojaContexto, assinaturas, planos, planoModulos }),
+          planoCtx: montarContextoPlanoCozinha(credOk, { lojaContexto: lojaContextoSessao, assinaturas, planos, planoModulos }),
           temAcessoAdmin: canAccess(credOk, "admin"),
         });
         if (rotaCozinha.acao === "abrir") {
@@ -1643,6 +1657,7 @@ export default function RestaurantePedidoApp() {
       setLoginForm({ email: "", password: "" });
       setAdminSection("dashboard");
       setLojaContexto(null);
+      setLojaContextoHydrated(false);
       setOpmobileTab("central");
       setCozinhaSetorInicial(null);
       setCurrentUser(null);
@@ -4185,7 +4200,13 @@ export default function RestaurantePedidoApp() {
           </>
         )}
 
-        {activeTab === "kitchen" && acessoCozinha.podeRenderizarPainel && (
+        {activeTab === "kitchen" && podeMontarPainelCozinha({
+          permitido: acessoCozinha.podeRenderizarPainel,
+          superAdmin: isSuperAdmin,
+          hydrated: lojaContextoHydrated,
+          lojaId: isSuperAdmin ? lojaContexto : currentUser?.lojaId,
+          lojas,
+        }) && (
           <>
             <EstacaoImpressaoAuto
               impressoes={filtraLoja(impressoesCozinha)}

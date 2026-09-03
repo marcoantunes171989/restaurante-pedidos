@@ -241,6 +241,18 @@ describe("REL-02D — regra única de acesso da Cozinha", () => {
     expect(decidirAcessoCozinhaAdmin(userKitchen, ctx).permitido).toBe(true);
   });
 
+  it("deep-link do super admin usa lojaContexto já validado (Burger Station)", () => {
+    const ctx = montarContextoPlanoCozinha(superAdminKitchen, {
+      lojaContexto: 4,
+      assinaturas: [{ lojaId: 4, planoId: 2 }],
+      planos: [{ id: 2, slug: "profissional" }],
+      planoModulos: [{ planoId: 2, moduloSlug: "kitchen", podeAcessar: true }],
+    });
+    expect(ctx.assinatura).toEqual({ lojaId: 4, planoId: 2 });
+    expect(ctx.isSuperAdmin).toBe(true);
+    expect(decidirAcessoCozinhaAdmin(superAdminKitchen, ctx).permitido).toBe(true);
+  });
+
   it("módulo kitchen não está na lista sempre-livre e o rótulo permanece Cozinha", () => {
     expect(MODULOS_LABEL.kitchen).toBe("Cozinha");
     expect(MODULOS_SEMPRE_LIVRES).not.toContain("kitchen");
