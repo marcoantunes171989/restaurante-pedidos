@@ -150,10 +150,10 @@ describe("Fase 3 — mensagem de login não mascara email_not_confirmed como sen
   });
 });
 
-describe("Fase 5 #12/#13/#14 — nenhuma Migration 133; 131/132 permanecem byte-idênticas", () => {
-  it("nenhum arquivo de Migration 133 existe em supabase/migrations", () => {
+describe("Fase 5 #12/#13/#14 — Migration 133 versionada; 131/132 permanecem byte-idênticas", () => {
+  it("existe exatamente a Migration 133 esperada em supabase/migrations", () => {
     const arquivos = readdirSync("supabase/migrations").filter((f) => /^133[_.]/.test(f));
-    expect(arquivos).toEqual([]);
+    expect(arquivos).toEqual(["133_reparo_acl_formas_pagamento.sql"]);
   });
 
   it("Migration 131 permanece byte-idêntica (SHA-256)", () => {

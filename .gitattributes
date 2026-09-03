@@ -1,0 +1,7 @@
+# Canonical LF for security-sensitive SQL migrations.
+# Sentinel tests validate exact canonical migration bytes.
+supabase/migrations/*.sql text eol=lf
+
+# GitHub Actions workflows must be deterministic across platforms.
+.github/workflows/*.yml text eol=lf
+.github/workflows/*.yaml text eol=lf
