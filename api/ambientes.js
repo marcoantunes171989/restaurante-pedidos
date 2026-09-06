@@ -719,6 +719,95 @@ async function supabaseCheck(environment) {
   return probeSupabase(target.cacheKey, target.url, apikey);
 }
 
+// ── Auth real health (Microgate 19) ─────────────────────────────────────
+// Probe GET-only e sem escrita contra `/auth/v1/health` (GoTrue) de cada
+// projeto Supabase, autenticado só com a anon key do MESMO ambiente — nunca
+// service_role, nunca a anon key do outro ambiente. Deliberadamente
+// independente de api/auth-health.js (diagnóstico administrativo protegido
+// com service_role/RPC/admin-users — escopo maior, não usado aqui). URLs
+// FIXAS (constantes de servidor): nunca aceitar url/host/project/ref/target
+// vindos de query. O corpo da resposta do GoTrue nunca é lido nem exposto —
+// só o status HTTP é usado para classificar. Realtime permanece fora de
+// escopo (UNKNOWN/not_connected via notConnectedCheck).
+const AUTH_TARGETS = {
+  homologacao: { url: SUPABASE_HML_URL, cacheKey: "health:hml:auth" },
+  producao: { url: SUPABASE_PROD_URL, cacheKey: "health:prod:auth" },
+};
+
+// Mesmo mapeamento fixo ambiente → variável de chave do Supabase real
+// (Microgate 17): cada ambiente lê SOMENTE a sua própria anon key, nunca a
+// do outro (sem fallback cruzado) e nunca SUPABASE_SERVICE_ROLE_KEY.
+function authAnonKey(environment) {
+  return supabaseAnonKey(environment);
+}
+
+// Classifica a resposta HTTP do probe Auth (contrato §10 do Microgate 19).
+// Nunca ONLINE fora de 2xx. 401/403 é problema de credencial (a anon key
+// pode estar revogada/errada) → DEGRADED, não OFFLINE. 404 e demais 4xx
+// residuais → resposta alcançável mas fora do esperado → DEGRADED. 5xx →
+// OFFLINE. Status ausente/não numérico → impossível classificar → UNKNOWN.
+function classifyAuthResponse(response, latencyMs) {
+  const httpStatus = typeof response?.status === "number" ? response.status : null;
+  if (httpStatus == null) {
+    return { status: "UNKNOWN", errorCode: "auth_invalid_response", latencyMs, httpStatus: null };
+  }
+  if (httpStatus >= 200 && httpStatus < 300) {
+    return { status: "ONLINE", errorCode: null, latencyMs, httpStatus };
+  }
+  if (httpStatus === 401 || httpStatus === 403) {
+    return { status: "DEGRADED", errorCode: "auth_key_rejected", latencyMs, httpStatus };
+  }
+  if (httpStatus >= 500) {
+    return { status: "OFFLINE", errorCode: "auth_unavailable", latencyMs, httpStatus };
+  }
+  return { status: "DEGRADED", errorCode: "auth_unexpected_response", latencyMs, httpStatus };
+}
+
+// GET puro, sem body, com apenas o header `apikey` (mínimo necessário) —
+// nunca Authorization do operador, nunca service_role, nunca token
+// GitHub/Vercel. O corpo da resposta nunca é lido (nem .json() nem .text()):
+// só response.status é usado, então o body do GoTrue nunca chega ao
+// payload nem a logs.
+async function probeAuth(cacheKey, url, apikey) {
+  const cached = healthCacheGet(cacheKey);
+  if (cached) return cached;
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  let outcome;
+  try {
+    const response = await fetch(`${url}/auth/v1/health`, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { apikey },
+    });
+    outcome = classifyAuthResponse(response, Date.now() - startedAt);
+  } catch (err) {
+    const latencyMs = Date.now() - startedAt;
+    outcome = err?.name === "AbortError"
+      ? { status: "OFFLINE", errorCode: "auth_timeout", latencyMs, httpStatus: null }
+      : { status: "OFFLINE", errorCode: "auth_network_error", latencyMs, httpStatus: null };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const checked = { ...outcome, checkedAt: new Date().toISOString(), source: "probe" };
+  healthCacheSet(cacheKey, checked);
+  return checked;
+}
+
+// Verificação independente por ambiente: sem a anon key correspondente,
+// nenhum fetch é feito (§6/§13) — UNKNOWN/not_configured, latencyMs null.
+async function authCheck(environment) {
+  const target = AUTH_TARGETS[environment];
+  const apikey = authAnonKey(environment);
+  if (!apikey) {
+    return { status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: "auth_not_configured", source: "not_configured" };
+  }
+  return probeAuth(target.cacheKey, target.url, apikey);
+}
+
 async function healthData() {
   const probes = [
     { environment: "homologacao", check: "frontend", ...HEALTH_TARGETS.homologacao.frontend },
@@ -750,18 +839,29 @@ async function healthData() {
     ? result.value
     : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "supabase_invalid_response", source: "probe" }));
 
-  const buildEnvironment = (env, supabase) => ({
+  // Auth HML/PROD são independentes entre si e independentes de
+  // Frontend/API/Supabase/GitHub/Vercel — allSettled próprio, nunca
+  // compartilhado (Microgate 19, §14).
+  const authSettled = await Promise.allSettled([
+    authCheck("homologacao"),
+    authCheck("producao"),
+  ]);
+  const authResults = authSettled.map((result) => (result.status === "fulfilled"
+    ? result.value
+    : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "auth_invalid_response", source: "probe" }));
+
+  const buildEnvironment = (env, supabase, auth) => ({
     frontend: results[env].frontend,
     api: results[env].api,
     supabase,
-    auth: notConnectedCheck(),
+    auth,
     realtime: notConnectedCheck(),
   });
 
   return {
     environments: {
-      homologacao: buildEnvironment("homologacao", supabaseResults[0]),
-      producao: buildEnvironment("producao", supabaseResults[1]),
+      homologacao: buildEnvironment("homologacao", supabaseResults[0], authResults[0]),
+      producao: buildEnvironment("producao", supabaseResults[1], authResults[1]),
     },
   };
 }
