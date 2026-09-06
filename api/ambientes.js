@@ -3,11 +3,12 @@
 //  Central de Ambientes & Releases — contrato READ-ONLY protegido.
 //
 //  Microgate 11 acrescenta integração GitHub read-only (GET-only, token
-//  server-side) para os resources "environments" e "compare". Vercel API e
-//  health real de infraestrutura continuam fora de escopo: deployment/health
-//  seguem UNKNOWN/not_connected. Protegido: exige Bearer + operador ativo com
-//  autorização de Super Admin (mesma condição usada em api/landing-analytics.js
-//  — ver checkAuth abaixo).
+//  server-side) para os resources "environments" e "compare". Microgate 13
+//  acrescenta integração Vercel read-only (GET-only, token server-side
+//  dedicado) para o resource "deployments". Health real de infraestrutura
+//  continua fora de escopo: health/history seguem UNKNOWN/not_connected.
+//  Protegido: exige Bearer + operador ativo com autorização de Super Admin
+//  (mesma condição usada em api/landing-analytics.js — ver checkAuth abaixo).
 // ════════════════════════════════════════════════════════════
 
 /* global process */
@@ -344,8 +345,187 @@ async function compareData() {
   };
 }
 
-function deploymentsData() {
-  return { source: "not_connected", items: [] };
+// ── Vercel read-only provider (deployments) ────────────────────────────
+// Token de leitura dedicado (VERCEL_READ_TOKEN) — nunca reaproveita
+// VERCEL_TOKEN (que pode ter capacidade de deploy no pipeline de Produção)
+// nem chama a Vercel anonimamente quando a config estiver incompleta.
+const VERCEL_API_URL = "https://api.vercel.com";
+const VERCEL_TIMEOUT_MS = 7000;
+const VERCEL_DEPLOYMENTS_LIMIT = 10;
+const VERCEL_MAX_ITEMS_TOTAL = 20;
+
+const VERCEL_ENVIRONMENTS = [
+  { environment: "homologacao", branch: "homologacao", projectIdKey: "hmlProjectId", cacheKey: "vercel-hml" },
+  { environment: "producao", branch: "main", projectIdKey: "prodProjectId", cacheKey: "vercel-prod" },
+];
+
+const vercelConfig = () => ({
+  token: process.env.VERCEL_READ_TOKEN || "",
+  teamId: process.env.VERCEL_TEAM_ID || "",
+  hmlProjectId: process.env.VERCEL_HML_PROJECT_ID || "",
+  prodProjectId: process.env.VERCEL_PROD_PROJECT_ID || "",
+});
+
+const vercelConfigured = (cfg) => Boolean(cfg.token && cfg.teamId && cfg.hmlProjectId && cfg.prodProjectId);
+
+async function vercelFetch(path, token) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), VERCEL_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${VERCEL_API_URL}${path}`, {
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+    let body = null;
+    let parseError = false;
+    try {
+      body = await response.json();
+    } catch {
+      parseError = true;
+    }
+    return { ok: response.ok, status: response.status, body, parseError };
+  } catch (err) {
+    if (err?.name === "AbortError") return { ok: false, status: 0, timeout: true };
+    return { ok: false, status: 0, networkError: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Normaliza qualquer falha Vercel (rede, timeout, HTTP) num errorCode
+// sanitizado — nunca repassa body bruto/stack ao frontend.
+function mapVercelError(result) {
+  if (result.timeout) return "vercel_timeout";
+  if (result.networkError) return "vercel_unavailable";
+  if (result.status === 401) return "vercel_auth_failed";
+  if (result.status === 403) return "vercel_forbidden";
+  if (result.status === 404) return "vercel_not_found";
+  if (result.status === 429) return "vercel_rate_limited";
+  if (result.status >= 500) return "vercel_unavailable";
+  return "vercel_unknown_error";
+}
+
+function mapVercelStatus(state) {
+  switch (String(state || "").toUpperCase()) {
+    case "READY": return "READY";
+    case "BUILDING": return "BUILDING";
+    case "INITIALIZING": return "INITIALIZING";
+    case "QUEUED": return "QUEUED";
+    case "ERROR": return "ERROR";
+    case "CANCELED": return "CANCELED";
+    case "BLOCKED": return "BLOCKED";
+    default: return "UNKNOWN";
+  }
+}
+
+function normalizeVercelUrl(url) {
+  const value = clean(url, 300);
+  if (!value) return null;
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function toIsoTimestamp(value) {
+  if (value == null) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+// Sanitiza um deployment bruto da Vercel: nunca expõe creator/e-mail, token,
+// headers, env/build env, project settings, git credentials, logs ou meta
+// completo — apenas os campos necessários para o dashboard.
+function sanitizeDeployment(raw, env) {
+  const id = clean(raw?.uid ?? raw?.id, 100);
+  if (!id) return null;
+
+  const createdAt = toIsoTimestamp(raw?.created ?? raw?.createdAt);
+  const readyAt = toIsoTimestamp(raw?.ready ?? raw?.readyAt);
+  let durationMs = null;
+  if (createdAt && readyAt) {
+    const diff = new Date(readyAt).getTime() - new Date(createdAt).getTime();
+    if (Number.isFinite(diff) && diff >= 0) durationMs = diff;
+  }
+
+  return {
+    environment: env.environment,
+    id,
+    status: mapVercelStatus(raw?.state ?? raw?.readyState),
+    url: normalizeVercelUrl(raw?.url),
+    createdAt,
+    readyAt,
+    durationMs,
+    commitSha: clean(raw?.meta?.githubCommitSha ?? raw?.meta?.gitCommitSha, 64),
+    branch: env.branch,
+  };
+}
+
+async function fetchVercelDeployments(env, cfg) {
+  const cacheKey = `${env.cacheKey}:deployments`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
+  const params = new URLSearchParams({
+    projectId: cfg[env.projectIdKey],
+    teamId: cfg.teamId,
+    branch: env.branch,
+    limit: String(VERCEL_DEPLOYMENTS_LIMIT),
+  });
+  const result = await vercelFetch(`/v7/deployments?${params.toString()}`, cfg.token);
+
+  if (!result.ok) return { errorCode: mapVercelError(result) };
+  const deploymentsRaw = Array.isArray(result.body?.deployments) ? result.body.deployments : null;
+  if (result.parseError || !deploymentsRaw) return { errorCode: "vercel_invalid_response" };
+
+  const truncated = deploymentsRaw.length > VERCEL_DEPLOYMENTS_LIMIT;
+  const items = deploymentsRaw
+    .slice(0, VERCEL_DEPLOYMENTS_LIMIT)
+    .map((item) => sanitizeDeployment(item, env))
+    .filter(Boolean);
+
+  const outcome = { items, truncated };
+  cacheSet(cacheKey, outcome);
+  return outcome;
+}
+
+async function deploymentsData() {
+  const cfg = vercelConfig();
+  if (!vercelConfigured(cfg)) {
+    return { source: "not_configured", items: [], errorCode: "vercel_not_configured" };
+  }
+
+  const settled = await Promise.allSettled(
+    VERCEL_ENVIRONMENTS.map((env) => fetchVercelDeployments(env, cfg)),
+  );
+
+  const items = [];
+  const errors = [];
+  let anyTruncated = false;
+  let anyOk = false;
+  let anyFail = false;
+
+  settled.forEach((result, idx) => {
+    const env = VERCEL_ENVIRONMENTS[idx];
+    const outcome = result.status === "fulfilled" ? result.value : { errorCode: "vercel_unknown_error" };
+    if (outcome.errorCode) {
+      anyFail = true;
+      errors.push({ environment: env.environment, errorCode: outcome.errorCode });
+      return;
+    }
+    anyOk = true;
+    items.push(...outcome.items);
+    if (outcome.truncated) anyTruncated = true;
+  });
+
+  const source = anyOk && !anyFail ? "vercel" : anyOk && anyFail ? "partial" : "vercel_error";
+  const limitedItems = items.slice(0, VERCEL_MAX_ITEMS_TOTAL);
+  const truncated = anyTruncated || items.length > VERCEL_MAX_ITEMS_TOTAL;
+
+  const payload = { source, items: limitedItems };
+  if (truncated) payload.truncated = true;
+  if (errors.length) payload.errors = errors;
+  return payload;
 }
 
 function healthData() {
