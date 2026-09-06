@@ -622,6 +622,103 @@ function notConnectedCheck() {
   return { status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: null, source: "not_connected" };
 }
 
+// ── Supabase real health (Microgate 17) ─────────────────────────────────
+// Probe GET-only e sem escrita contra a raiz do PostgREST de cada projeto
+// Supabase (`/rest/v1/`), autenticado só com a anon key do MESMO ambiente —
+// nunca service_role, nunca a anon key do outro ambiente. URLs FIXAS
+// (constantes de servidor): nunca aceitar url/host/project vindos de query,
+// pelo mesmo motivo de HEALTH_TARGETS acima (evitar proxy/SSRF). O corpo da
+// resposta (OpenAPI/schema do PostgREST) nunca é lido nem exposto — só o
+// status HTTP é usado para classificar. Auth/Realtime permanecem fora de
+// escopo (UNKNOWN/not_connected via notConnectedCheck).
+const SUPABASE_HML_URL = "https://zzixvyspwszewhxzusot.supabase.co";
+const SUPABASE_PROD_URL = "https://rwnzggjxhxnfrhstbxkm.supabase.co";
+
+const SUPABASE_TARGETS = {
+  homologacao: { url: SUPABASE_HML_URL, cacheKey: "health:hml:supabase" },
+  producao: { url: SUPABASE_PROD_URL, cacheKey: "health:prod:supabase" },
+};
+
+// Mapeamento fixo ambiente → variável de chave: cada ambiente lê SOMENTE a
+// sua própria env var, nunca a do outro (sem fallback cruzado) e nunca
+// SUPABASE_SERVICE_ROLE_KEY/VITE_SUPABASE_ANON_KEY/SUPABASE_ANON_KEY.
+function supabaseAnonKey(environment) {
+  if (environment === "homologacao") return process.env.SUPABASE_HML_ANON_KEY || "";
+  if (environment === "producao") return process.env.SUPABASE_PROD_ANON_KEY || "";
+  return "";
+}
+
+// Classifica a resposta HTTP do probe Supabase (contrato §11 do Microgate
+// 17). Nunca ONLINE fora de 2xx. 401/403 é problema de credencial (a anon
+// key pode estar revogada/errada) → DEGRADED, não OFFLINE (não confirma
+// indisponibilidade do serviço). 404 e demais 4xx residuais → resposta
+// alcançável mas fora do esperado → DEGRADED. 408 e 5xx → OFFLINE. Status
+// ausente/não numérico → impossível classificar → UNKNOWN.
+function classifySupabaseResponse(response, latencyMs) {
+  const httpStatus = typeof response?.status === "number" ? response.status : null;
+  if (httpStatus == null) {
+    return { status: "UNKNOWN", errorCode: "supabase_invalid_response", latencyMs, httpStatus: null };
+  }
+  if (httpStatus >= 200 && httpStatus < 300) {
+    return { status: "ONLINE", errorCode: null, latencyMs, httpStatus };
+  }
+  if (httpStatus === 401 || httpStatus === 403) {
+    return { status: "DEGRADED", errorCode: "supabase_auth_failed", latencyMs, httpStatus };
+  }
+  if (httpStatus === 408) {
+    return { status: "OFFLINE", errorCode: "supabase_timeout", latencyMs, httpStatus };
+  }
+  if (httpStatus >= 500) {
+    return { status: "OFFLINE", errorCode: "supabase_unavailable", latencyMs, httpStatus };
+  }
+  return { status: "DEGRADED", errorCode: "supabase_unexpected_response", latencyMs, httpStatus };
+}
+
+// GET puro, sem body, com apenas o header `apikey` (mínimo necessário) —
+// nunca Authorization do operador, nunca service_role, nunca token
+// GitHub/Vercel. O corpo da resposta nunca é lido (nem .json() nem .text()):
+// só response.status é usado, então o schema do PostgREST nunca chega ao
+// payload nem a logs.
+async function probeSupabase(cacheKey, url, apikey) {
+  const cached = healthCacheGet(cacheKey);
+  if (cached) return cached;
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  let outcome;
+  try {
+    const response = await fetch(`${url}/rest/v1/`, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { apikey },
+    });
+    outcome = classifySupabaseResponse(response, Date.now() - startedAt);
+  } catch (err) {
+    const latencyMs = Date.now() - startedAt;
+    outcome = err?.name === "AbortError"
+      ? { status: "OFFLINE", errorCode: "supabase_timeout", latencyMs, httpStatus: null }
+      : { status: "OFFLINE", errorCode: "supabase_network_error", latencyMs, httpStatus: null };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const checked = { ...outcome, checkedAt: new Date().toISOString(), source: "probe" };
+  healthCacheSet(cacheKey, checked);
+  return checked;
+}
+
+// Verificação independente por ambiente: sem a anon key correspondente,
+// nenhum fetch é feito (§6/§13) — UNKNOWN/not_configured, latencyMs null.
+async function supabaseCheck(environment) {
+  const target = SUPABASE_TARGETS[environment];
+  const apikey = supabaseAnonKey(environment);
+  if (!apikey) {
+    return { status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: "supabase_not_configured", source: "not_configured" };
+  }
+  return probeSupabase(target.cacheKey, target.url, apikey);
+}
+
 async function healthData() {
   const probes = [
     { environment: "homologacao", check: "frontend", ...HEALTH_TARGETS.homologacao.frontend },
@@ -643,18 +740,28 @@ async function healthData() {
       : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "health_unknown_error", source: "probe" };
   });
 
-  const buildEnvironment = (env) => ({
+  // Supabase HML/PROD são independentes entre si e independentes de
+  // Frontend/API/GitHub/Vercel — allSettled próprio, nunca compartilhado.
+  const supabaseSettled = await Promise.allSettled([
+    supabaseCheck("homologacao"),
+    supabaseCheck("producao"),
+  ]);
+  const supabaseResults = supabaseSettled.map((result) => (result.status === "fulfilled"
+    ? result.value
+    : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "supabase_invalid_response", source: "probe" }));
+
+  const buildEnvironment = (env, supabase) => ({
     frontend: results[env].frontend,
     api: results[env].api,
-    supabase: notConnectedCheck(),
+    supabase,
     auth: notConnectedCheck(),
     realtime: notConnectedCheck(),
   });
 
   return {
     environments: {
-      homologacao: buildEnvironment("homologacao"),
-      producao: buildEnvironment("producao"),
+      homologacao: buildEnvironment("homologacao", supabaseResults[0]),
+      producao: buildEnvironment("producao", supabaseResults[1]),
     },
   };
 }
