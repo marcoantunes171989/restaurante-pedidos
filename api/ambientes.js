@@ -528,14 +528,133 @@ async function deploymentsData() {
   return payload;
 }
 
-function healthData() {
+// ── Health real (Microgate 15) ──────────────────────────────────────────
+// Probes GET-only, sem credenciais, para Frontend e API de cada ambiente.
+// URLs FIXAS (constantes) — nunca aceitar url/host/target vindos de query,
+// para não transformar este resource num proxy/SSRF. Supabase/Auth/Realtime
+// permanecem UNKNOWN/not_connected nesta etapa (fora de escopo).
+const HEALTH_TIMEOUT_MS = 5000;
+const HEALTH_CACHE_TTL_MS = 15000;
+
+const HEALTH_TARGETS = {
+  homologacao: {
+    frontend: { url: "https://homologacao.pedidoprime.com.br", cacheKey: "health:hml:frontend" },
+    api: { url: "https://homologacao.pedidoprime.com.br/api/session-meta", cacheKey: "health:hml:api" },
+  },
+  producao: {
+    frontend: { url: "https://pedidoprime.com.br", cacheKey: "health:prod:frontend" },
+    api: { url: "https://pedidoprime.com.br/api/session-meta", cacheKey: "health:prod:api" },
+  },
+};
+
+// Cache em memória do processo, separado do cache GitHub/Vercel (chaves
+// health:* dedicadas). Mesma política: best-effort, desativado sob VITEST
+// (githubCacheEnabled reflete apenas process.env.VITEST, não é específico
+// de provider) para que cada teste exerça o probe mockado.
+const healthCache = new Map();
+
+function healthCacheGet(key) {
+  if (!githubCacheEnabled()) return null;
+  const entry = healthCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    healthCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function healthCacheSet(key, value) {
+  if (!githubCacheEnabled()) return;
+  healthCache.set(key, { value, expiresAt: Date.now() + HEALTH_CACHE_TTL_MS });
+}
+
+// Classifica a resposta HTTP do probe. Nunca ONLINE fora de 2xx — um probe
+// público que responde 401/403 indica problema (não confirma indisponibi-
+// lidade total, então DEGRADED em vez de OFFLINE). 4xx genérico (ex.: 404)
+// também nunca é ONLINE. 5xx é OFFLINE. Status ausente/não numérico é
+// resposta impossível de classificar → UNKNOWN.
+function classifyHealthResponse(response, latencyMs) {
+  const httpStatus = typeof response?.status === "number" ? response.status : null;
+  if (httpStatus == null) {
+    return { status: "UNKNOWN", errorCode: "health_unexpected_response", latencyMs, httpStatus: null };
+  }
+  if (httpStatus >= 200 && httpStatus < 300) {
+    return { status: "ONLINE", errorCode: null, latencyMs, httpStatus };
+  }
+  if (httpStatus >= 500) {
+    return { status: "OFFLINE", errorCode: "health_http_5xx", latencyMs, httpStatus };
+  }
+  if (httpStatus >= 400) {
+    return { status: "DEGRADED", errorCode: "health_http_4xx", latencyMs, httpStatus };
+  }
+  // 1xx/3xx residual (fetch já segue redirects; resposta final cai nos
+  // ramos acima). Resposta alcançável mas fora do esperado → DEGRADED.
+  return { status: "DEGRADED", errorCode: "health_unexpected_response", latencyMs, httpStatus };
+}
+
+async function probeHealth(cacheKey, url) {
+  const cached = healthCacheGet(cacheKey);
+  if (cached) return cached;
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  let outcome;
+  try {
+    const response = await fetch(url, { method: "GET", signal: controller.signal });
+    outcome = classifyHealthResponse(response, Date.now() - startedAt);
+  } catch (err) {
+    const latencyMs = Date.now() - startedAt;
+    outcome = err?.name === "AbortError"
+      ? { status: "OFFLINE", errorCode: "health_timeout", latencyMs, httpStatus: null }
+      : { status: "OFFLINE", errorCode: "health_network_error", latencyMs, httpStatus: null };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const checked = { ...outcome, checkedAt: new Date().toISOString(), source: "probe" };
+  healthCacheSet(cacheKey, checked);
+  return checked;
+}
+
+function notConnectedCheck() {
+  return { status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: null, source: "not_connected" };
+}
+
+async function healthData() {
+  const probes = [
+    { environment: "homologacao", check: "frontend", ...HEALTH_TARGETS.homologacao.frontend },
+    { environment: "homologacao", check: "api", ...HEALTH_TARGETS.homologacao.api },
+    { environment: "producao", check: "frontend", ...HEALTH_TARGETS.producao.frontend },
+    { environment: "producao", check: "api", ...HEALTH_TARGETS.producao.api },
+  ];
+
+  // Isolamento: uma falha (rede/timeout) num probe não pode apagar os
+  // resultados dos demais — cada probe já captura seus próprios erros, e
+  // allSettled garante que mesmo uma rejeição inesperada não propague.
+  const settled = await Promise.allSettled(probes.map((p) => probeHealth(p.cacheKey, p.url)));
+
+  const results = { homologacao: {}, producao: {} };
+  settled.forEach((result, idx) => {
+    const p = probes[idx];
+    results[p.environment][p.check] = result.status === "fulfilled"
+      ? result.value
+      : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "health_unknown_error", source: "probe" };
+  });
+
+  const buildEnvironment = (env) => ({
+    frontend: results[env].frontend,
+    api: results[env].api,
+    supabase: notConnectedCheck(),
+    auth: notConnectedCheck(),
+    realtime: notConnectedCheck(),
+  });
+
   return {
-    providers: {
-      frontend: "UNKNOWN",
-      api: "UNKNOWN",
-      supabase: "UNKNOWN",
-      auth: "UNKNOWN",
-      realtime: "UNKNOWN",
+    environments: {
+      homologacao: buildEnvironment("homologacao"),
+      producao: buildEnvironment("producao"),
     },
   };
 }

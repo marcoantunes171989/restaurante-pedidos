@@ -35,8 +35,9 @@ function mockFetch({
   operatorRows = [],
   github,
   vercel,
+  health,
 } = {}) {
-  const fn = vi.fn(async (url) => {
+  const fn = vi.fn(async (url, options) => {
     const target = String(url);
     if (target.includes("/auth/v1/user")) {
       if (!userOk) return { ok: false, json: async () => ({}) };
@@ -53,6 +54,10 @@ function mockFetch({
     if (target.includes("api.vercel.com")) {
       if (typeof vercel !== "function") throw new Error(`vercel fetch inesperado no teste: ${target}`);
       return vercel(target);
+    }
+    if (target.includes("pedidoprime.com.br")) {
+      if (typeof health !== "function") throw new Error(`health fetch inesperado no teste: ${target}`);
+      return health(target, options);
     }
     throw new Error(`fetch inesperado no teste: ${target}`);
   });
@@ -137,6 +142,40 @@ function setVercelEnv() {
   process.env.VERCEL_TEAM_ID = "team-teste";
   process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
   process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
+}
+
+const HML_FRONTEND_URL = "https://homologacao.pedidoprime.com.br";
+const HML_API_URL = "https://homologacao.pedidoprime.com.br/api/session-meta";
+const PROD_FRONTEND_URL = "https://pedidoprime.com.br";
+const PROD_API_URL = "https://pedidoprime.com.br/api/session-meta";
+
+function healthOk(status = 200) {
+  return { ok: status >= 200 && status < 300, status };
+}
+
+function healthError(status) {
+  return { ok: false, status };
+}
+
+function healthTimeout() {
+  const err = new Error("aborted");
+  err.name = "AbortError";
+  throw err;
+}
+
+function healthNetworkError() {
+  throw new Error("network fail");
+}
+
+// Handler padrão: todos os 4 probes 200 salvo overrides explícitos.
+function healthHandler({ hmlFrontend, hmlApi, prodFrontend, prodApi } = {}) {
+  return (url) => {
+    if (url === HML_API_URL) return (hmlApi || healthOk)();
+    if (url === HML_FRONTEND_URL) return (hmlFrontend || healthOk)();
+    if (url === PROD_API_URL) return (prodApi || healthOk)();
+    if (url === PROD_FRONTEND_URL) return (prodFrontend || healthOk)();
+    throw new Error(`health url inesperada no teste: ${url}`);
+  };
 }
 
 const superAdminRow = { ativo: true, super_admin: true, loja_id: null, ids_acesso: [] };
@@ -235,13 +274,17 @@ describe("ambientes — resources (superAdmin válido)", () => {
     expect(body.data.errorCode).toBe("vercel_not_configured");
   });
 
-  it("resource=health → 200 + providers UNKNOWN", async () => {
-    mockFetch({ operatorRows: [superAdminRow] });
+  it("resource=health → 200 + supabase/auth/realtime UNKNOWN nos dois ambientes", async () => {
+    mockFetch({ operatorRows: [superAdminRow], health: healthHandler() });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
     expect(res.statusCode).toBe(200);
-    const providers = res.json().data.providers;
-    expect(Object.values(providers).every((v) => v === "UNKNOWN")).toBe(true);
+    const { environments } = res.json().data;
+    for (const env of ["homologacao", "producao"]) {
+      expect(environments[env].supabase.status).toBe("UNKNOWN");
+      expect(environments[env].auth.status).toBe("UNKNOWN");
+      expect(environments[env].realtime.status).toBe("UNKNOWN");
+    }
   });
 
   it("resource=history → 200 + vazio/not_connected", async () => {
@@ -266,6 +309,209 @@ describe("ambientes — resources (superAdmin válido)", () => {
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: {} }), res);
     expect(res.statusCode).toBe(400);
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// Microgate 15 — health real de Frontend/API (HML + PROD).
+// Todo fetch de health é mockado (healthHandler/healthOk/healthError/
+// healthTimeout/healthNetworkError) — nenhum teste chama
+// homologacao.pedidoprime.com.br ou pedidoprime.com.br de verdade.
+// Supabase/Auth/Realtime continuam UNKNOWN/not_connected (fora de escopo).
+// ════════════════════════════════════════════════════════════
+describe("ambientes — health real: Frontend/API (HML + PROD)", () => {
+  async function callHealth(health) {
+    mockFetch({ operatorRows: [superAdminRow], health });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    return res;
+  }
+
+  it("HML frontend 200 → ONLINE", async () => {
+    const res = await callHealth(healthHandler());
+    expect(res.json().data.environments.homologacao.frontend.status).toBe("ONLINE");
+  });
+
+  it("HML API 200 → ONLINE", async () => {
+    const res = await callHealth(healthHandler());
+    expect(res.json().data.environments.homologacao.api.status).toBe("ONLINE");
+  });
+
+  it("PROD frontend 200 → ONLINE", async () => {
+    const res = await callHealth(healthHandler());
+    expect(res.json().data.environments.producao.frontend.status).toBe("ONLINE");
+  });
+
+  it("PROD API 200 → ONLINE", async () => {
+    const res = await callHealth(healthHandler());
+    expect(res.json().data.environments.producao.api.status).toBe("ONLINE");
+  });
+
+  it("frontend 500 → OFFLINE", async () => {
+    const res = await callHealth(healthHandler({ hmlFrontend: () => healthError(500) }));
+    const check = res.json().data.environments.homologacao.frontend;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("health_http_5xx");
+  });
+
+  it("API 500 → OFFLINE", async () => {
+    const res = await callHealth(healthHandler({ prodApi: () => healthError(500) }));
+    const check = res.json().data.environments.producao.api;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("health_http_5xx");
+  });
+
+  it("404 → nunca ONLINE", async () => {
+    const res = await callHealth(healthHandler({ hmlApi: () => healthError(404) }));
+    expect(res.json().data.environments.homologacao.api.status).not.toBe("ONLINE");
+  });
+
+  it("timeout → OFFLINE + health_timeout", async () => {
+    const res = await callHealth(healthHandler({ prodFrontend: healthTimeout }));
+    const check = res.json().data.environments.producao.frontend;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("health_timeout");
+  });
+
+  it("network error → OFFLINE + health_network_error", async () => {
+    const res = await callHealth(healthHandler({ hmlFrontend: healthNetworkError }));
+    const check = res.json().data.environments.homologacao.frontend;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("health_network_error");
+  });
+
+  it("resposta inesperada (status não numérico) → não ONLINE", async () => {
+    const res = await callHealth(healthHandler({ prodApi: () => ({ ok: false, status: undefined }) }));
+    const check = res.json().data.environments.producao.api;
+    expect(["DEGRADED", "UNKNOWN"]).toContain(check.status);
+  });
+
+  it("HML falha e PROD funciona → resultados independentes", async () => {
+    const res = await callHealth(healthHandler({ hmlFrontend: () => healthError(500), hmlApi: () => healthError(500) }));
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.frontend.status).toBe("OFFLINE");
+    expect(homologacao.api.status).toBe("OFFLINE");
+    expect(producao.frontend.status).toBe("ONLINE");
+    expect(producao.api.status).toBe("ONLINE");
+  });
+
+  it("frontend falha e API funciona → resultados independentes", async () => {
+    const res = await callHealth(healthHandler({ hmlFrontend: () => healthError(500) }));
+    const homologacao = res.json().data.environments.homologacao;
+    expect(homologacao.frontend.status).toBe("OFFLINE");
+    expect(homologacao.api.status).toBe("ONLINE");
+  });
+
+  it("API falha e frontend funciona → resultados independentes", async () => {
+    const res = await callHealth(healthHandler({ hmlApi: () => healthError(500) }));
+    const homologacao = res.json().data.environments.homologacao;
+    expect(homologacao.api.status).toBe("OFFLINE");
+    expect(homologacao.frontend.status).toBe("ONLINE");
+  });
+
+  it("latencyMs preenchido (número >= 0)", async () => {
+    const res = await callHealth(healthHandler());
+    const check = res.json().data.environments.homologacao.frontend;
+    expect(typeof check.latencyMs).toBe("number");
+    expect(check.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("checkedAt preenchido (ISO string válida)", async () => {
+    const res = await callHealth(healthHandler());
+    const check = res.json().data.environments.producao.api;
+    expect(typeof check.checkedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(check.checkedAt))).toBe(false);
+  });
+
+  it("Supabase continua UNKNOWN nos dois ambientes", async () => {
+    const res = await callHealth(healthHandler());
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.supabase).toEqual({ status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: null, source: "not_connected" });
+    expect(producao.supabase.status).toBe("UNKNOWN");
+    expect(producao.supabase.source).toBe("not_connected");
+  });
+
+  it("Auth continua UNKNOWN nos dois ambientes", async () => {
+    const res = await callHealth(healthHandler());
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.auth.status).toBe("UNKNOWN");
+    expect(producao.auth.status).toBe("UNKNOWN");
+    expect(homologacao.auth.source).toBe("not_connected");
+  });
+
+  it("Realtime continua UNKNOWN nos dois ambientes", async () => {
+    const res = await callHealth(healthHandler());
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.realtime.status).toBe("UNKNOWN");
+    expect(producao.realtime.status).toBe("UNKNOWN");
+    expect(producao.realtime.source).toBe("not_connected");
+  });
+
+  it("nenhuma credencial da sessão do operador ou dos providers é encaminhada ao probe", async () => {
+    process.env.GITHUB_READ_TOKEN = "token-github-teste";
+    setVercelEnv();
+    const fn = mockFetch({ operatorRows: [superAdminRow], health: healthHandler() });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt-operador" }, query: { resource: "health" } }), res);
+    expect(res.statusCode).toBe(200);
+
+    const healthCalls = fn.mock.calls.filter(([url]) => String(url).includes("pedidoprime.com.br"));
+    expect(healthCalls).toHaveLength(4);
+    for (const [, options] of healthCalls) {
+      const headers = options?.headers ? Object.entries(options.headers).map(([k, v]) => `${k}:${v}`).join(" ") : "";
+      expect(headers).not.toMatch(/jwt-operador/);
+      expect(headers).not.toMatch(/chave-teste/);
+      expect(headers).not.toMatch(/token-github-teste/);
+      expect(headers).not.toMatch(/token-vercel-teste/);
+      expect(String(options?.method || "GET")).toBe("GET");
+    }
+  });
+
+  it("nenhuma URL é controlável pelo query param (url/host/target ignorados)", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], health: healthHandler() });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: { authorization: "Bearer jwt" },
+      query: { resource: "health", url: "https://evil.example.com", host: "evil.example.com", target: "evil.example.com" },
+    }), res);
+    expect(res.statusCode).toBe(200);
+    const healthUrls = fn.mock.calls.filter(([url]) => String(url).includes("pedidoprime.com.br")).map(([url]) => String(url));
+    expect(healthUrls.sort()).toEqual([HML_API_URL, HML_FRONTEND_URL, PROD_API_URL, PROD_FRONTEND_URL].sort());
+    expect(healthUrls.some((u) => u.includes("evil.example.com"))).toBe(false);
+  });
+
+  it("resposta não inclui body/HTML (implementação nunca lê o corpo do probe)", async () => {
+    // healthOk() não expõe .json()/.text() — se o código tentasse ler o
+    // corpo, a chamada falharia e o status cairia para OFFLINE/UNKNOWN.
+    const res = await callHealth(healthHandler());
+    const raw = res.body;
+    expect(raw).not.toMatch(/<html/i);
+    expect(res.json().data.environments.homologacao.frontend.status).toBe("ONLINE");
+  });
+
+  it("resposta não inclui stack trace", async () => {
+    const res = await callHealth(healthHandler({ hmlFrontend: healthNetworkError }));
+    expect(res.body).not.toMatch(/at\s+\S+\s+\(/);
+    expect(res.body.toLowerCase()).not.toContain("stack");
+  });
+
+  it("cache health usa namespace separado (desabilitado sob VITEST, sempre reprobe)", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], health: healthHandler() });
+    const res1 = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res1);
+    const res2 = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res2);
+    const healthCallsTotal = fn.mock.calls.filter(([url]) => String(url).includes("pedidoprime.com.br"));
+    expect(healthCallsTotal).toHaveLength(8);
+  });
+
+  it("probes HML/PROD usam URLs fixas corretas", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], health: healthHandler() });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    expect(res.statusCode).toBe(200);
+    const healthUrls = fn.mock.calls.filter(([url]) => String(url).includes("pedidoprime.com.br")).map(([url]) => String(url));
+    expect(healthUrls.sort()).toEqual([HML_API_URL, HML_FRONTEND_URL, PROD_API_URL, PROD_FRONTEND_URL].sort());
   });
 });
 
