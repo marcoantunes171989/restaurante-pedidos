@@ -115,6 +115,7 @@ import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
 import LandingAnalyticsAdmin from "./pages/admin/LandingAnalyticsAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
+import AmbientesAdmin from "./pages/admin/AmbientesAdmin";
 import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
@@ -145,7 +146,7 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
-import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole } from "lucide-react";
+import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -1077,8 +1078,8 @@ export default function RestaurantePedidoApp() {
         return { aceita: false, path: irParaFallbackSeguro(user) };
       }
       const seg = classe.tipo === "admin_raiz" ? "dashboard" : classe.secao;
-      // Controle de Acessos: só administrador geral (superAdmin) — demais vão ao dashboard
-      if (["controle-acessos", "audiencia-landing"].includes(seg) && !user?.superAdmin) {
+      // Controle de Acessos / Ambientes & Releases: só administrador geral (superAdmin) — demais vão ao dashboard
+      if (["controle-acessos", "audiencia-landing", "ambientes"].includes(seg) && !user?.superAdmin) {
         setAdminSection("dashboard");
         setActiveTab("admin");
         return { aceita: false, path: rotaDoEstado("admin", "dashboard") };
@@ -7481,6 +7482,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "central-fiscal", icon: <Landmark className="h-4 w-4" />, label: "Central Fiscal" },
         { id: "licencas", icon: <IconLicencas />, label: "Licenças de Uso" },
         { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
+        { id: "ambientes", icon: <Rocket className="h-4 w-4" />, label: "Ambientes & Releases" },
       ]},
     ] : []),
   ];
@@ -7666,6 +7668,18 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "lojas"      && <LojaAdmin lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} lojaInfo={lojaInfo} criarEmpresa={criarEmpresa} emitenteFiscalApi={emitenteFiscalApi} />}
           {ativo === "licencas"   && <LicencaAdmin lojas={lojas} usuarios={users} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} />}
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
+          {ativo === "ambientes"  && (
+            isSuperAdmin
+              ? <AmbientesAdmin />
+              : (
+                <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
+                  <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>
+                  <p className="mt-2 text-sm text-[#6B7280]">
+                    Ambientes & Releases é exclusivo do administrador geral do projeto.
+                  </p>
+                </main>
+              )
+          )}
           {ativo === "cardapioext" && (precisaEmpresa ? avisoEmpresa : <CardapioExternoAdmin lojaInfo={lojaInfo} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} salvarConfigExterno={salvarConfigExterno} mesas={mesas} />)}
           {ativo === "minhaempresa" && (
             <MinhaEmpresa

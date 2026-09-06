@@ -15,6 +15,7 @@ const LABELS_ADMIN = {
   lojas: "Empresas",
   licencas: "Licenças de Uso",
   versoes: "Controle de Versões",
+  ambientes: "Ambientes & Releases",
   financeiro: "Visão Financeira",
   lancamentos: "Lançamentos",
   "contas-receber": "Contas a Receber",
