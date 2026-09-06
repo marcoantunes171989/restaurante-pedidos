@@ -618,10 +618,6 @@ async function probeHealth(cacheKey, url) {
   return checked;
 }
 
-function notConnectedCheck() {
-  return { status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: null, source: "not_connected" };
-}
-
 // ── Supabase real health (Microgate 17) ─────────────────────────────────
 // Probe GET-only e sem escrita contra a raiz do PostgREST de cada projeto
 // Supabase (`/rest/v1/`), autenticado só com a anon key do MESMO ambiente —
@@ -808,6 +804,106 @@ async function authCheck(environment) {
   return probeAuth(target.cacheKey, target.url, apikey);
 }
 
+// ── Realtime real health (Microgate 21) ─────────────────────────────────
+// Probe GET-only e sem escrita contra `/realtime/v1/api/ping` (endpoint HTTP
+// de disponibilidade do gateway Supabase Realtime — NÃO abre WebSocket, não
+// cria channel, não faz subscribe/broadcast/Presence/postgres_changes) de
+// cada projeto Supabase, autenticado só com a anon key do MESMO ambiente —
+// nunca service_role, nunca a anon key do outro ambiente. Verifica apenas
+// disponibilidade HTTP/roteamento do tenant/aceitação da key pelo gateway;
+// validação funcional de WebSocket/replication fica para smoke posterior em
+// HML (REALTIME_HTTP_HEALTH_ONLY=true / WEBSOCKET_VALIDATED=false /
+// REPLICATION_VALIDATED=false). URLs FIXAS (constantes de servidor): nunca
+// aceitar url/host/project/ref/realtime/socket vindos de query. O corpo da
+// resposta nunca é lido nem exposto — só o status HTTP é usado para
+// classificar.
+const REALTIME_TARGETS = {
+  homologacao: { url: SUPABASE_HML_URL, cacheKey: "health:hml:realtime" },
+  producao: { url: SUPABASE_PROD_URL, cacheKey: "health:prod:realtime" },
+};
+
+// Mesmo mapeamento fixo ambiente → variável de chave do Supabase/Auth real:
+// cada ambiente lê SOMENTE a sua própria anon key, nunca a do outro (sem
+// fallback cruzado) e nunca SUPABASE_SERVICE_ROLE_KEY.
+function realtimeAnonKey(environment) {
+  return supabaseAnonKey(environment);
+}
+
+// Classifica a resposta HTTP do probe Realtime (contrato §10 do Microgate
+// 21). Nunca ONLINE fora de 2xx. 401/403 é problema de credencial (a anon
+// key pode estar revogada/errada) → DEGRADED. 404 → resposta alcançável mas
+// fora do esperado → DEGRADED. 429 → rate limit do gateway → DEGRADED. 5xx →
+// OFFLINE. 4xx residual → DEGRADED. Status ausente/não numérico →
+// impossível classificar → UNKNOWN.
+function classifyRealtimeResponse(response, latencyMs) {
+  const httpStatus = typeof response?.status === "number" ? response.status : null;
+  if (httpStatus == null) {
+    return { status: "UNKNOWN", errorCode: "realtime_invalid_response", latencyMs, httpStatus: null };
+  }
+  if (httpStatus >= 200 && httpStatus < 300) {
+    return { status: "ONLINE", errorCode: null, latencyMs, httpStatus };
+  }
+  if (httpStatus === 401 || httpStatus === 403) {
+    return { status: "DEGRADED", errorCode: "realtime_key_rejected", latencyMs, httpStatus };
+  }
+  if (httpStatus === 404) {
+    return { status: "DEGRADED", errorCode: "realtime_unexpected_response", latencyMs, httpStatus };
+  }
+  if (httpStatus === 429) {
+    return { status: "DEGRADED", errorCode: "realtime_rate_limited", latencyMs, httpStatus };
+  }
+  if (httpStatus >= 500) {
+    return { status: "OFFLINE", errorCode: "realtime_unavailable", latencyMs, httpStatus };
+  }
+  return { status: "DEGRADED", errorCode: "realtime_unexpected_response", latencyMs, httpStatus };
+}
+
+// GET puro, sem body, com apenas o header `apikey` (mínimo necessário) —
+// nunca Authorization do operador, nunca service_role, nunca token
+// GitHub/Vercel. O corpo da resposta nunca é lido (nem .json() nem .text()):
+// só response.status é usado, então o JSON de ping do Realtime nunca chega
+// ao payload nem a logs. Sem WebSocket, sem channel, sem subscribe, sem
+// broadcast, sem Presence — apenas um GET HTTP em /realtime/v1/api/ping.
+async function probeRealtime(cacheKey, url, apikey) {
+  const cached = healthCacheGet(cacheKey);
+  if (cached) return cached;
+
+  const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+  let outcome;
+  try {
+    const response = await fetch(`${url}/realtime/v1/api/ping`, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { apikey },
+    });
+    outcome = classifyRealtimeResponse(response, Date.now() - startedAt);
+  } catch (err) {
+    const latencyMs = Date.now() - startedAt;
+    outcome = err?.name === "AbortError"
+      ? { status: "OFFLINE", errorCode: "realtime_timeout", latencyMs, httpStatus: null }
+      : { status: "OFFLINE", errorCode: "realtime_network_error", latencyMs, httpStatus: null };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const checked = { ...outcome, checkedAt: new Date().toISOString(), source: "probe" };
+  healthCacheSet(cacheKey, checked);
+  return checked;
+}
+
+// Verificação independente por ambiente: sem a anon key correspondente,
+// nenhum fetch é feito (§6/§13) — UNKNOWN/not_configured, latencyMs null.
+async function realtimeCheck(environment) {
+  const target = REALTIME_TARGETS[environment];
+  const apikey = realtimeAnonKey(environment);
+  if (!apikey) {
+    return { status: "UNKNOWN", checkedAt: null, latencyMs: null, errorCode: "realtime_not_configured", source: "not_configured" };
+  }
+  return probeRealtime(target.cacheKey, target.url, apikey);
+}
+
 async function healthData() {
   const probes = [
     { environment: "homologacao", check: "frontend", ...HEALTH_TARGETS.homologacao.frontend },
@@ -850,18 +946,31 @@ async function healthData() {
     ? result.value
     : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "auth_invalid_response", source: "probe" }));
 
-  const buildEnvironment = (env, supabase, auth) => ({
+  // Realtime HML/PROD são independentes entre si e independentes de
+  // Frontend/API/Supabase/Auth/GitHub/Vercel — allSettled próprio, nunca
+  // compartilhado (Microgate 21, §14). Probe HTTP-only contra
+  // /realtime/v1/api/ping; não valida WebSocket/replication (fora de escopo
+  // deste probe).
+  const realtimeSettled = await Promise.allSettled([
+    realtimeCheck("homologacao"),
+    realtimeCheck("producao"),
+  ]);
+  const realtimeResults = realtimeSettled.map((result) => (result.status === "fulfilled"
+    ? result.value
+    : { status: "UNKNOWN", checkedAt: new Date().toISOString(), latencyMs: null, errorCode: "realtime_invalid_response", source: "probe" }));
+
+  const buildEnvironment = (env, supabase, auth, realtime) => ({
     frontend: results[env].frontend,
     api: results[env].api,
     supabase,
     auth,
-    realtime: notConnectedCheck(),
+    realtime,
   });
 
   return {
     environments: {
-      homologacao: buildEnvironment("homologacao", supabaseResults[0], authResults[0]),
-      producao: buildEnvironment("producao", supabaseResults[1], authResults[1]),
+      homologacao: buildEnvironment("homologacao", supabaseResults[0], authResults[0], realtimeResults[0]),
+      producao: buildEnvironment("producao", supabaseResults[1], authResults[1], realtimeResults[1]),
     },
   };
 }

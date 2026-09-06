@@ -38,6 +38,7 @@ function mockFetch({
   health,
   supabaseHealth,
   authHealth,
+  realtimeHealth,
 } = {}) {
   const fn = vi.fn(async (url, options) => {
     const target = String(url);
@@ -64,6 +65,10 @@ function mockFetch({
     if (target === SUPABASE_HML_PROBE_URL || target === SUPABASE_PROD_PROBE_URL) {
       if (typeof supabaseHealth !== "function") throw new Error(`supabase health fetch inesperado no teste: ${target}`);
       return supabaseHealth(target, options);
+    }
+    if (target === REALTIME_HML_PROBE_URL || target === REALTIME_PROD_PROBE_URL) {
+      if (typeof realtimeHealth !== "function") throw new Error(`realtime health fetch inesperado no teste: ${target}`);
+      return realtimeHealth(target, options);
     }
     if (target.includes("pedidoprime.com.br")) {
       if (typeof health !== "function") throw new Error(`health fetch inesperado no teste: ${target}`);
@@ -252,6 +257,40 @@ function authHealthHandler({ hml, prod } = {}) {
     if (url === AUTH_HML_PROBE_URL) return (hml || authHealthOk)();
     if (url === AUTH_PROD_PROBE_URL) return (prod || authHealthOk)();
     throw new Error(`auth health url inesperada no teste: ${url}`);
+  };
+}
+
+// ── Microgate 21 — Realtime real (HML + PROD) ──────────────────────────
+// Reutiliza as MESMAS anon keys do Supabase/Auth real (SUPABASE_HML_ANON_KEY
+// / SUPABASE_PROD_ANON_KEY) — o probe Realtime só muda o path
+// (/realtime/v1/api/ping, HTTP-only — nunca WebSocket/channel/subscribe).
+const REALTIME_HML_PROBE_URL = "https://zzixvyspwszewhxzusot.supabase.co/realtime/v1/api/ping";
+const REALTIME_PROD_PROBE_URL = "https://rwnzggjxhxnfrhstbxkm.supabase.co/realtime/v1/api/ping";
+
+function realtimeHealthOk(status = 200) {
+  return { ok: status >= 200 && status < 300, status };
+}
+function realtimeHealthError(status) {
+  return { ok: false, status };
+}
+function realtimeHealthTimeout() {
+  const err = new Error("aborted");
+  err.name = "AbortError";
+  throw err;
+}
+function realtimeHealthNetworkError() {
+  throw new Error("network fail");
+}
+
+// Handler padrão: HML e PROD 200 salvo overrides explícitos. Também serve
+// como default seguro para testes que não fazem asserções sobre Realtime mas
+// configuram as anon keys (que agora disparam o probe Realtime como efeito
+// colateral) — o handler só é chamado se o probe realmente ocorrer.
+function realtimeHealthHandler({ hml, prod } = {}) {
+  return (url) => {
+    if (url === REALTIME_HML_PROBE_URL) return (hml || realtimeHealthOk)();
+    if (url === REALTIME_PROD_PROBE_URL) return (prod || realtimeHealthOk)();
+    throw new Error(`realtime health url inesperada no teste: ${url}`);
   };
 }
 
@@ -522,12 +561,12 @@ describe("ambientes — health real: Frontend/API (HML + PROD)", () => {
     expect(homologacao.auth.latencyMs).toBeNull();
   });
 
-  it("Realtime continua UNKNOWN nos dois ambientes", async () => {
+  it("Realtime continua UNKNOWN nos dois ambientes (sem anon key configurada)", async () => {
     const res = await callHealth(healthHandler());
     const { homologacao, producao } = res.json().data.environments;
     expect(homologacao.realtime.status).toBe("UNKNOWN");
     expect(producao.realtime.status).toBe("UNKNOWN");
-    expect(producao.realtime.source).toBe("not_connected");
+    expect(producao.realtime.source).toBe("not_configured");
   });
 
   it("nenhuma credencial da sessão do operador ou dos providers é encaminhada ao probe", async () => {
@@ -606,12 +645,13 @@ describe("ambientes — health real: Frontend/API (HML + PROD)", () => {
 // verdade — fetch é sempre mockado via `supabaseHealth`.
 // ════════════════════════════════════════════════════════════
 describe("ambientes — health real: Supabase (HML + PROD)", () => {
-  async function callHealth({ supabaseHealth, health, authHealth } = {}) {
+  async function callHealth({ supabaseHealth, health, authHealth, realtimeHealth } = {}) {
     mockFetch({
       operatorRows: [superAdminRow],
       health: health || healthHandler(),
       supabaseHealth,
       authHealth: authHealth || authHealthHandler(),
+      realtimeHealth: realtimeHealth || realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -779,6 +819,7 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -802,6 +843,7 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt-operador" }, query: { resource: "health" } }), res);
@@ -849,6 +891,7 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({
@@ -883,14 +926,14 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
     expect(producao.auth.status).toBe("ONLINE");
   });
 
-  it("cenário 30: Realtime continua UNKNOWN", async () => {
+  it("cenário 30: Realtime agora é real (probe) quando as mesmas anon keys estão configuradas", async () => {
     setSupabaseHmlKey();
     setSupabaseProdKey();
-    const res = await callHealth({ supabaseHealth: supabaseHealthHandler() });
+    const res = await callHealth({ supabaseHealth: supabaseHealthHandler(), realtimeHealth: realtimeHealthHandler() });
     const { homologacao, producao } = res.json().data.environments;
-    expect(homologacao.realtime.status).toBe("UNKNOWN");
-    expect(homologacao.realtime.source).toBe("not_connected");
-    expect(producao.realtime.status).toBe("UNKNOWN");
+    expect(homologacao.realtime.status).toBe("ONLINE");
+    expect(homologacao.realtime.source).toBe("probe");
+    expect(producao.realtime.status).toBe("ONLINE");
   });
 
   it("cenário 31: cache do Supabase tem namespace separado (desabilitado sob VITEST, sempre reprobe)", async () => {
@@ -901,6 +944,7 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res1 = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res1);
@@ -920,6 +964,7 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -944,12 +989,13 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
 // verdade — fetch é sempre mockado via `authHealth`.
 // ════════════════════════════════════════════════════════════
 describe("ambientes — health real: Auth (HML + PROD)", () => {
-  async function callHealth({ authHealth, health, supabaseHealth } = {}) {
+  async function callHealth({ authHealth, health, supabaseHealth, realtimeHealth } = {}) {
     mockFetch({
       operatorRows: [superAdminRow],
       health: health || healthHandler(),
       supabaseHealth: supabaseHealth || supabaseHealthHandler(),
       authHealth,
+      realtimeHealth: realtimeHealth || realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -1119,6 +1165,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -1142,6 +1189,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt-operador" }, query: { resource: "health" } }), res);
@@ -1190,6 +1238,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({
@@ -1211,6 +1260,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -1261,14 +1311,14 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
     expect(producao.supabase.status).toBe("ONLINE");
   });
 
-  it("cenário 36: Realtime continua UNKNOWN", async () => {
+  it("cenário 36: Realtime agora é real (probe) quando as mesmas anon keys estão configuradas", async () => {
     setSupabaseHmlKey();
     setSupabaseProdKey();
-    const res = await callHealth({ authHealth: authHealthHandler() });
+    const res = await callHealth({ authHealth: authHealthHandler(), realtimeHealth: realtimeHealthHandler() });
     const { homologacao, producao } = res.json().data.environments;
-    expect(homologacao.realtime.status).toBe("UNKNOWN");
-    expect(homologacao.realtime.source).toBe("not_connected");
-    expect(producao.realtime.status).toBe("UNKNOWN");
+    expect(homologacao.realtime.status).toBe("ONLINE");
+    expect(homologacao.realtime.source).toBe("probe");
+    expect(producao.realtime.status).toBe("ONLINE");
   });
 
   it("cenário 37: cache do Auth tem namespace separado (desabilitado sob VITEST, sempre reprobe)", async () => {
@@ -1279,6 +1329,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res1 = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res1);
@@ -1298,6 +1349,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -1320,6 +1372,7 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       health: healthHandler(),
       supabaseHealth: supabaseHealthHandler(),
       authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
     });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
@@ -1333,6 +1386,404 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       String(url).includes("/admin/users") || String(url).includes("/rpc/app_validar_login")
     ));
     expect(suspectCalls).toHaveLength(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// Microgate 21 — health real de Realtime (HML + PROD), somente o endpoint
+// HTTP de disponibilidade do gateway (`GET /realtime/v1/api/ping`) com a
+// MESMA anon key do respectivo ambiente já usada por Supabase/Auth real
+// (Microgates 17/19). REALTIME_HTTP_HEALTH_ONLY=true: nenhum teste abre
+// WebSocket, cria channel, faz subscribe/broadcast/Presence/postgres_changes
+// — fetch é sempre mockado via `realtimeHealth`, nenhum teste chama
+// zzixvyspwszewhxzusot.supabase.co ou rwnzggjxhxnfrhstbxkm.supabase.co de
+// verdade.
+// ════════════════════════════════════════════════════════════
+describe("ambientes — health real: Realtime (HML + PROD)", () => {
+  async function callHealth({ realtimeHealth, health, supabaseHealth, authHealth } = {}) {
+    mockFetch({
+      operatorRows: [superAdminRow],
+      health: health || healthHandler(),
+      supabaseHealth: supabaseHealth || supabaseHealthHandler(),
+      authHealth: authHealth || authHealthHandler(),
+      realtimeHealth,
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    return res;
+  }
+
+  it("cenário 1: HML anon key ausente → HML Realtime UNKNOWN/not_configured", async () => {
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ prod: () => realtimeHealthOk() }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("UNKNOWN");
+    expect(check.source).toBe("not_configured");
+    expect(check.errorCode).toBe("realtime_not_configured");
+    expect(check.latencyMs).toBeNull();
+  });
+
+  it("cenário 2: PROD anon key ausente → PROD Realtime UNKNOWN/not_configured", async () => {
+    setSupabaseHmlKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthOk() }) });
+    const check = res.json().data.environments.producao.realtime;
+    expect(check.status).toBe("UNKNOWN");
+    expect(check.source).toBe("not_configured");
+    expect(check.errorCode).toBe("realtime_not_configured");
+    expect(check.latencyMs).toBeNull();
+  });
+
+  it("cenário 3: ambas keys ausentes → nenhum fetch Realtime", async () => {
+    mockFetch({ operatorRows: [superAdminRow], health: healthHandler() });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.realtime.source).toBe("not_configured");
+    expect(producao.realtime.source).toBe("not_configured");
+  });
+
+  it("cenário 4: HML ping 200 → ONLINE", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    expect(res.json().data.environments.homologacao.realtime.status).toBe("ONLINE");
+  });
+
+  it("cenário 5: PROD ping 200 → ONLINE", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    expect(res.json().data.environments.producao.realtime.status).toBe("ONLINE");
+  });
+
+  it("cenário 6: ambos 200 → ambos ONLINE", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.realtime.status).toBe("ONLINE");
+    expect(producao.realtime.status).toBe("ONLINE");
+  });
+
+  it("cenário 7: HML funciona / PROD falha → independentes", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({
+      realtimeHealth: realtimeHealthHandler({ prod: () => realtimeHealthError(500) }),
+    });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.realtime.status).toBe("ONLINE");
+    expect(producao.realtime.status).toBe("OFFLINE");
+  });
+
+  it("cenário 8: PROD funciona / HML falha → independentes", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({
+      realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthError(500) }),
+    });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.realtime.status).toBe("OFFLINE");
+    expect(producao.realtime.status).toBe("ONLINE");
+  });
+
+  it("cenário 9: 401 → DEGRADED/realtime_key_rejected", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthError(401) }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("DEGRADED");
+    expect(check.errorCode).toBe("realtime_key_rejected");
+  });
+
+  it("cenário 10: 403 → DEGRADED/realtime_key_rejected", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthError(403) }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("DEGRADED");
+    expect(check.errorCode).toBe("realtime_key_rejected");
+  });
+
+  it("cenário 11: 404 → DEGRADED/realtime_unexpected_response", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthError(404) }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("DEGRADED");
+    expect(check.errorCode).toBe("realtime_unexpected_response");
+  });
+
+  it("cenário 12: 429 → DEGRADED/realtime_rate_limited", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthError(429) }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("DEGRADED");
+    expect(check.errorCode).toBe("realtime_rate_limited");
+  });
+
+  it("cenário 13: 500 → OFFLINE/realtime_unavailable", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => realtimeHealthError(500) }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("realtime_unavailable");
+  });
+
+  it("cenário 14: timeout → OFFLINE/realtime_timeout", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: realtimeHealthTimeout }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("realtime_timeout");
+  });
+
+  it("cenário 15: network error → OFFLINE/realtime_network_error", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: realtimeHealthNetworkError }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("OFFLINE");
+    expect(check.errorCode).toBe("realtime_network_error");
+  });
+
+  it("cenário 16: resposta inválida (status não numérico) → UNKNOWN/realtime_invalid_response", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler({ hml: () => ({ ok: false, status: undefined }) }) });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(check.status).toBe("UNKNOWN");
+    expect(check.errorCode).toBe("realtime_invalid_response");
+  });
+
+  it("cenário 17: checkedAt preenchido (ISO string válida)", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const check = res.json().data.environments.homologacao.realtime;
+    expect(typeof check.checkedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(check.checkedAt))).toBe(false);
+  });
+
+  it("cenário 18: latencyMs preenchido (número >= 0)", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const check = res.json().data.environments.producao.realtime;
+    expect(typeof check.latencyMs).toBe("number");
+    expect(check.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it("cenários 19/20/21: key HML só para URL HML, key PROD só para URL PROD, sem fallback cruzado", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      health: healthHandler(),
+      supabaseHealth: supabaseHealthHandler(),
+      authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    expect(res.statusCode).toBe(200);
+
+    const hmlCall = fn.mock.calls.find(([url]) => String(url) === REALTIME_HML_PROBE_URL);
+    const prodCall = fn.mock.calls.find(([url]) => String(url) === REALTIME_PROD_PROBE_URL);
+    expect(hmlCall[1]?.headers?.apikey).toBe(SUPABASE_HML_ANON_KEY);
+    expect(prodCall[1]?.headers?.apikey).toBe(SUPABASE_PROD_ANON_KEY);
+    expect(hmlCall[1]?.headers?.apikey).not.toBe(SUPABASE_PROD_ANON_KEY);
+    expect(prodCall[1]?.headers?.apikey).not.toBe(SUPABASE_HML_ANON_KEY);
+  });
+
+  it("cenários 22/23/24/25: nenhuma credencial da sessão/operador/service_role/GitHub/Vercel é encaminhada ao probe Realtime", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    process.env.GITHUB_READ_TOKEN = "token-github-teste";
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      health: healthHandler(),
+      supabaseHealth: supabaseHealthHandler(),
+      authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt-operador" }, query: { resource: "health" } }), res);
+    expect(res.statusCode).toBe(200);
+
+    const realtimeCalls = fn.mock.calls.filter(([url]) => (
+      String(url) === REALTIME_HML_PROBE_URL || String(url) === REALTIME_PROD_PROBE_URL
+    ));
+    expect(realtimeCalls).toHaveLength(2);
+    for (const [, options] of realtimeCalls) {
+      const headers = options?.headers ? Object.entries(options.headers).map(([k, v]) => `${k}:${v}`).join(" ") : "";
+      expect(headers).not.toMatch(/jwt-operador/);
+      expect(headers).not.toMatch(/chave-teste/);
+      expect(headers).not.toMatch(/token-github-teste/);
+      expect(headers).not.toMatch(/token-vercel-teste/);
+      expect(headers.toLowerCase()).not.toContain("authorization");
+      expect(String(options?.method || "GET")).toBe("GET");
+    }
+  });
+
+  it("cenários 26/27: anon keys não aparecem no payload nem na URL do probe Realtime", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      health: healthHandler(),
+      supabaseHealth: supabaseHealthHandler(),
+      authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    expect(res.body).not.toMatch(new RegExp(SUPABASE_HML_ANON_KEY));
+    expect(res.body).not.toMatch(new RegExp(SUPABASE_PROD_ANON_KEY));
+    const realtimeUrls = fn.mock.calls
+      .filter(([url]) => String(url) === REALTIME_HML_PROBE_URL || String(url) === REALTIME_PROD_PROBE_URL)
+      .map(([url]) => String(url));
+    for (const url of realtimeUrls) {
+      expect(url).not.toMatch(new RegExp(SUPABASE_HML_ANON_KEY));
+      expect(url).not.toMatch(new RegExp(SUPABASE_PROD_ANON_KEY));
+      expect(url).not.toContain("?");
+    }
+  });
+
+  it("cenários 28/29/30: body do ping Realtime não aparece no payload — classificação não depende de response.json()/response.text()", async () => {
+    // realtimeHealthOk() não expõe .json()/.text() — se o código tentasse ler
+    // o corpo, a chamada falharia e o status cairia para OFFLINE/UNKNOWN.
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    expect(res.body).not.toMatch(/"message"/);
+    expect(res.json().data.environments.homologacao.realtime.status).toBe("ONLINE");
+  });
+
+  it("cenários 31/32/33/34: query url/host/project/ref/realtime/socket não altera o target do probe Realtime", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      health: healthHandler(),
+      supabaseHealth: supabaseHealthHandler(),
+      authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
+    });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: { authorization: "Bearer jwt" },
+      query: { resource: "health", url: "https://evil.example.com", host: "evil.example.com", project: "evil-project", ref: "evil", realtime: "evil", socket: "evil" },
+    }), res);
+    expect(res.statusCode).toBe(200);
+    const realtimeUrls = fn.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url === REALTIME_HML_PROBE_URL || url === REALTIME_PROD_PROBE_URL || url.includes("evil"));
+    expect(realtimeUrls.sort()).toEqual([REALTIME_HML_PROBE_URL, REALTIME_PROD_PROBE_URL].sort());
+  });
+
+  it("cenários 35/36/37/38: nenhuma chamada POST, de broadcast, WebSocket ou channel ocorre no probe Realtime", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      health: healthHandler(),
+      supabaseHealth: supabaseHealthHandler(),
+      authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res);
+    expect(res.statusCode).toBe(200);
+
+    // A única URL de Realtime chamada é `.../realtime/v1/api/ping` — nenhuma
+    // variante de broadcast/channel/websocket aparece entre as chamadas. Se o
+    // código tentasse qualquer uma delas, mockFetch lançaria "fetch
+    // inesperado no teste" e este teste falharia.
+    const realtimeRelatedCalls = fn.mock.calls.filter(([url]) => (
+      String(url) === REALTIME_HML_PROBE_URL || String(url) === REALTIME_PROD_PROBE_URL
+    ));
+    expect(realtimeRelatedCalls).toHaveLength(2);
+    for (const [url, options] of realtimeRelatedCalls) {
+      expect(String(url)).toMatch(/\/realtime\/v1\/api\/ping$/);
+      expect(String(url)).not.toMatch(/\/broadcast/);
+      expect(String(url)).not.toMatch(/\/channel/);
+      expect(String(url).startsWith("wss://")).toBe(false);
+      expect(String(options?.method || "GET")).toBe("GET");
+    }
+  });
+
+  it("cenário 39: Frontend continua preservado", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.frontend.status).toBe("ONLINE");
+    expect(producao.frontend.status).toBe("ONLINE");
+  });
+
+  it("cenário 40: API continua preservada", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.api.status).toBe("ONLINE");
+    expect(producao.api.status).toBe("ONLINE");
+  });
+
+  it("cenário 41: Supabase continua preservado", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.supabase.status).toBe("ONLINE");
+    expect(producao.supabase.status).toBe("ONLINE");
+  });
+
+  it("cenário 42: Auth continua preservado", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const res = await callHealth({ realtimeHealth: realtimeHealthHandler() });
+    const { homologacao, producao } = res.json().data.environments;
+    expect(homologacao.auth.status).toBe("ONLINE");
+    expect(producao.auth.status).toBe("ONLINE");
+  });
+
+  it("cenário 43: cache do Realtime tem namespace isolado (não colide com Frontend/API/Supabase/Auth/GitHub/Vercel, desabilitado sob VITEST)", async () => {
+    setSupabaseHmlKey();
+    setSupabaseProdKey();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      health: healthHandler(),
+      supabaseHealth: supabaseHealthHandler(),
+      authHealth: authHealthHandler(),
+      realtimeHealth: realtimeHealthHandler(),
+    });
+    const res1 = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res1);
+    const res2 = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "health" } }), res2);
+
+    const realtimeCallsTotal = fn.mock.calls.filter(([url]) => (
+      String(url) === REALTIME_HML_PROBE_URL || String(url) === REALTIME_PROD_PROBE_URL
+    ));
+    // Sem cache (VITEST=true), cada chamada ao handler reprobe — 2 requisições
+    // x 2 chamadas ao handler = 4. Se o cache de Realtime colidisse com o de
+    // Supabase/Auth (mesma chave), o total divergiria.
+    expect(realtimeCallsTotal).toHaveLength(4);
+
+    const supabaseCalls = fn.mock.calls.filter(([url]) => (
+      String(url) === SUPABASE_HML_PROBE_URL || String(url) === SUPABASE_PROD_PROBE_URL
+    ));
+    const authCalls = fn.mock.calls.filter(([url]) => (
+      String(url) === AUTH_HML_PROBE_URL || String(url) === AUTH_PROD_PROBE_URL
+    ));
+    expect(supabaseCalls).toHaveLength(4);
+    expect(authCalls).toHaveLength(4);
   });
 });
 
