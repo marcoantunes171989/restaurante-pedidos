@@ -41,4 +41,12 @@ export default defineConfig({
   build: {
     chunkSizeWarningLimit: 1200,
   },
+  // Valores fictícios exclusivos do Vitest.
+  // Evitam depender de .env/segredos reais; src/lib/supabase.js continua fail-closed em runtime.
+  test: {
+    env: {
+      VITE_SUPABASE_URL: 'https://pedido-prime-test.invalid',
+      VITE_SUPABASE_ANON_KEY: 'pedido-prime-test-anon-key',
+    },
+  },
 })
