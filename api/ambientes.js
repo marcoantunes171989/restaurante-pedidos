@@ -12,6 +12,9 @@
 // ════════════════════════════════════════════════════════════
 
 /* global process */
+import https from "node:https";
+import crypto from "node:crypto";
+
 function json(res, status, body) {
   res.statusCode = status;
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -618,15 +621,22 @@ async function probeHealth(cacheKey, url) {
   return checked;
 }
 
-// ── Supabase real health (Microgate 17) ─────────────────────────────────
+// ── Supabase real health (Microgate 17 / correção Microgate 38) ─────────
 // Probe GET-only e sem escrita contra a raiz do PostgREST de cada projeto
 // Supabase (`/rest/v1/`), autenticado só com a anon key do MESMO ambiente —
 // nunca service_role, nunca a anon key do outro ambiente. URLs FIXAS
 // (constantes de servidor): nunca aceitar url/host/project vindos de query,
 // pelo mesmo motivo de HEALTH_TARGETS acima (evitar proxy/SSRF). O corpo da
 // resposta (OpenAPI/schema do PostgREST) nunca é lido nem exposto — só o
-// status HTTP é usado para classificar. Auth/Realtime permanecem fora de
-// escopo (UNKNOWN/not_connected via notConnectedCheck).
+// status HTTP é usado para classificar. Auth/Realtime têm probes próprios
+// (abaixo).
+//
+// IMPORTANTE (Microgate 38): este GET em `/rest/v1/` é usado SOMENTE como
+// verificação de reachability/policy do API Gateway — ele NÃO valida
+// consulta real de tabela nem afirma saúde end-to-end do PostgREST. Desde
+// 2026 o Supabase rejeita (401/403) o acesso de chaves public/anon à
+// raiz/OpenAPI de `/rest/v1/`; essa rejeição é política esperada do
+// gateway, não uma falha — por isso 401/403 aqui classificam como ONLINE.
 const SUPABASE_HML_URL = "https://zzixvyspwszewhxzusot.supabase.co";
 const SUPABASE_PROD_URL = "https://rwnzggjxhxnfrhstbxkm.supabase.co";
 
@@ -645,11 +655,15 @@ function supabaseAnonKey(environment) {
 }
 
 // Classifica a resposta HTTP do probe Supabase (contrato §11 do Microgate
-// 17). Nunca ONLINE fora de 2xx. 401/403 é problema de credencial (a anon
-// key pode estar revogada/errada) → DEGRADED, não OFFLINE (não confirma
-// indisponibilidade do serviço). 404 e demais 4xx residuais → resposta
-// alcançável mas fora do esperado → DEGRADED. 408 e 5xx → OFFLINE. Status
-// ausente/não numérico → impossível classificar → UNKNOWN.
+// 17, revisado no Microgate 38 — contrato 2026 da raiz `/rest/v1/`). Nunca
+// ONLINE fora de 2xx, EXCETO 401/403: na raiz/OpenAPI exata (`/rest/v1/`)
+// essa rejeição é a política ESPERADA do API Gateway para chaves
+// public/anon (não uma falha de credencial) — por isso classifica ONLINE
+// com errorCode nulo e source "policy_probe" (nunca afirma saúde end-to-end
+// do PostgREST, só que o gateway está acessível e aplicando a política
+// esperada). 404 e demais 4xx residuais → resposta alcançável mas fora do
+// esperado → DEGRADED (nunca mascarados como ONLINE). 408 e 5xx → OFFLINE.
+// Status ausente/não numérico → impossível classificar → UNKNOWN.
 function classifySupabaseResponse(response, latencyMs) {
   const httpStatus = typeof response?.status === "number" ? response.status : null;
   if (httpStatus == null) {
@@ -659,7 +673,9 @@ function classifySupabaseResponse(response, latencyMs) {
     return { status: "ONLINE", errorCode: null, latencyMs, httpStatus };
   }
   if (httpStatus === 401 || httpStatus === 403) {
-    return { status: "DEGRADED", errorCode: "supabase_auth_failed", latencyMs, httpStatus };
+    return {
+      status: "ONLINE", errorCode: null, latencyMs, httpStatus, source: "policy_probe",
+    };
   }
   if (httpStatus === 408) {
     return { status: "OFFLINE", errorCode: "supabase_timeout", latencyMs, httpStatus };
@@ -699,7 +715,9 @@ async function probeSupabase(cacheKey, url, apikey) {
     clearTimeout(timer);
   }
 
-  const checked = { ...outcome, checkedAt: new Date().toISOString(), source: "probe" };
+  // "source: probe" é o default; classifySupabaseResponse pode sobrescrever
+  // com "policy_probe" (401/403 na raiz — ver comentário acima) via spread.
+  const checked = { source: "probe", ...outcome, checkedAt: new Date().toISOString() };
   healthCacheSet(cacheKey, checked);
   return checked;
 }
@@ -804,19 +822,20 @@ async function authCheck(environment) {
   return probeAuth(target.cacheKey, target.url, apikey);
 }
 
-// ── Realtime real health (Microgate 21) ─────────────────────────────────
-// Probe GET-only e sem escrita contra `/realtime/v1/api/ping` (endpoint HTTP
-// de disponibilidade do gateway Supabase Realtime — NÃO abre WebSocket, não
-// cria channel, não faz subscribe/broadcast/Presence/postgres_changes) de
-// cada projeto Supabase, autenticado só com a anon key do MESMO ambiente —
-// nunca service_role, nunca a anon key do outro ambiente. Verifica apenas
-// disponibilidade HTTP/roteamento do tenant/aceitação da key pelo gateway;
-// validação funcional de WebSocket/replication fica para smoke posterior em
-// HML (REALTIME_HTTP_HEALTH_ONLY=true / WEBSOCKET_VALIDATED=false /
-// REPLICATION_VALIDATED=false). URLs FIXAS (constantes de servidor): nunca
-// aceitar url/host/project/ref/realtime/socket vindos de query. O corpo da
-// resposta nunca é lido nem exposto — só o status HTTP é usado para
-// classificar.
+// ── Realtime real health (Microgate 21, corrigido no Microgate 38) ──────
+// O antigo probe HTTP (`GET /realtime/v1/api/ping`) foi REMOVIDO: não prova
+// mais saúde do Realtime (o gateway aceita a rota mas rejeita a
+// public/anon key nesta fase — ver evidência do Microgate 38). Em seu lugar,
+// um handshake WebSocket real e mínimo — sem channel, sem subscribe, sem
+// broadcast/Presence/postgres_changes, sem enviar nenhum frame WebSocket —
+// contra `/realtime/v1/websocket`, autenticado só com a anon key do MESMO
+// ambiente (nunca service_role, nunca a anon key do outro ambiente). URLs
+// FIXAS (constantes de servidor): nunca aceitar url/host/project/ref/
+// realtime/socket vindos de query. O corpo de qualquer resposta HTTP
+// (quando o gateway não faz upgrade) nunca é lido nem exposto — só o status
+// HTTP/upgrade é usado para classificar. A anon key só é usada no query
+// string da própria conexão (contrato do protocolo Realtime) — nunca em
+// header, log, exceção ou errorCode.
 const REALTIME_TARGETS = {
   homologacao: { url: SUPABASE_HML_URL, cacheKey: "health:hml:realtime" },
   producao: { url: SUPABASE_PROD_URL, cacheKey: "health:prod:realtime" },
@@ -829,25 +848,20 @@ function realtimeAnonKey(environment) {
   return supabaseAnonKey(environment);
 }
 
-// Classifica a resposta HTTP do probe Realtime (contrato §10 do Microgate
-// 21). Nunca ONLINE fora de 2xx. 401/403 é problema de credencial (a anon
-// key pode estar revogada/errada) → DEGRADED. 404 → resposta alcançável mas
-// fora do esperado → DEGRADED. 429 → rate limit do gateway → DEGRADED. 5xx →
-// OFFLINE. 4xx residual → DEGRADED. Status ausente/não numérico →
-// impossível classificar → UNKNOWN.
-function classifyRealtimeResponse(response, latencyMs) {
-  const httpStatus = typeof response?.status === "number" ? response.status : null;
-  if (httpStatus == null) {
+// Classifica o resultado do handshake WebSocket Realtime (contrato §3 do
+// Microgate 38). 101 (upgrade aceito) → ONLINE. 401/403 (key rejeitada pelo
+// gateway) → DEGRADED. 429 (rate limit do gateway) → DEGRADED. 5xx →
+// OFFLINE. Qualquer outro status HTTP (200 sem upgrade, 404, etc.) ou status
+// ausente/não numérico → resposta fora do contrato esperado → UNKNOWN.
+function classifyRealtimeHandshake(httpStatus, latencyMs) {
+  if (typeof httpStatus !== "number") {
     return { status: "UNKNOWN", errorCode: "realtime_invalid_response", latencyMs, httpStatus: null };
   }
-  if (httpStatus >= 200 && httpStatus < 300) {
+  if (httpStatus === 101) {
     return { status: "ONLINE", errorCode: null, latencyMs, httpStatus };
   }
   if (httpStatus === 401 || httpStatus === 403) {
     return { status: "DEGRADED", errorCode: "realtime_key_rejected", latencyMs, httpStatus };
-  }
-  if (httpStatus === 404) {
-    return { status: "DEGRADED", errorCode: "realtime_unexpected_response", latencyMs, httpStatus };
   }
   if (httpStatus === 429) {
     return { status: "DEGRADED", errorCode: "realtime_rate_limited", latencyMs, httpStatus };
@@ -855,39 +869,80 @@ function classifyRealtimeResponse(response, latencyMs) {
   if (httpStatus >= 500) {
     return { status: "OFFLINE", errorCode: "realtime_unavailable", latencyMs, httpStatus };
   }
-  return { status: "DEGRADED", errorCode: "realtime_unexpected_response", latencyMs, httpStatus };
+  return { status: "UNKNOWN", errorCode: "realtime_invalid_response", latencyMs, httpStatus };
 }
 
-// GET puro, sem body, com apenas o header `apikey` (mínimo necessário) —
-// nunca Authorization do operador, nunca service_role, nunca token
-// GitHub/Vercel. O corpo da resposta nunca é lido (nem .json() nem .text()):
-// só response.status é usado, então o JSON de ping do Realtime nunca chega
-// ao payload nem a logs. Sem WebSocket, sem channel, sem subscribe, sem
-// broadcast, sem Presence — apenas um GET HTTP em /realtime/v1/api/ping.
+// Handshake WebSocket real e mínimo via node:https — apenas o GET com
+// headers de Upgrade é enviado; a apikey vai SOMENTE no query string da
+// conexão (contrato do protocolo Realtime), nunca em header/log/exceção.
+// Ao receber o upgrade (101) ou qualquer resposta HTTP normal, o socket é
+// destruído IMEDIATAMENTE — nenhum frame WebSocket é enviado, nenhum
+// channel/subscribe/broadcast/Presence/postgres_changes é criado. O corpo
+// de uma eventual resposta HTTP (quando o gateway não faz upgrade) nunca é
+// lido. Estruturado como Promise sobre https.request para permitir mock
+// determinístico de node:https nos testes (sem depender de internet).
+function performRealtimeHandshake(host, apikey) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    let settled = false;
+    const finish = (outcome) => {
+      if (settled) return;
+      settled = true;
+      resolve(outcome);
+    };
+
+    const path = `/realtime/v1/websocket?apikey=${encodeURIComponent(apikey)}&vsn=1.0.0`;
+    let req;
+    try {
+      req = https.request({
+        host,
+        path,
+        method: "GET",
+        timeout: HEALTH_TIMEOUT_MS,
+        headers: {
+          Host: host,
+          Upgrade: "websocket",
+          Connection: "Upgrade",
+          "Sec-WebSocket-Key": crypto.randomBytes(16).toString("base64"),
+          "Sec-WebSocket-Version": "13",
+        },
+      });
+    } catch {
+      finish({ status: "OFFLINE", errorCode: "realtime_network_error", latencyMs: Date.now() - startedAt, httpStatus: null });
+      return;
+    }
+
+    req.on("upgrade", (res, socket) => {
+      const outcome = classifyRealtimeHandshake(res.statusCode, Date.now() - startedAt);
+      socket.destroy();
+      finish(outcome);
+    });
+
+    req.on("response", (res) => {
+      const outcome = classifyRealtimeHandshake(res.statusCode, Date.now() - startedAt);
+      res.resume();
+      finish(outcome);
+    });
+
+    req.on("timeout", () => {
+      req.destroy();
+      finish({ status: "OFFLINE", errorCode: "realtime_timeout", latencyMs: Date.now() - startedAt, httpStatus: null });
+    });
+
+    req.on("error", () => {
+      finish({ status: "OFFLINE", errorCode: "realtime_network_error", latencyMs: Date.now() - startedAt, httpStatus: null });
+    });
+
+    req.end();
+  });
+}
+
 async function probeRealtime(cacheKey, url, apikey) {
   const cached = healthCacheGet(cacheKey);
   if (cached) return cached;
 
-  const startedAt = Date.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
-  let outcome;
-  try {
-    const response = await fetch(`${url}/realtime/v1/api/ping`, {
-      method: "GET",
-      signal: controller.signal,
-      headers: { apikey },
-    });
-    outcome = classifyRealtimeResponse(response, Date.now() - startedAt);
-  } catch (err) {
-    const latencyMs = Date.now() - startedAt;
-    outcome = err?.name === "AbortError"
-      ? { status: "OFFLINE", errorCode: "realtime_timeout", latencyMs, httpStatus: null }
-      : { status: "OFFLINE", errorCode: "realtime_network_error", latencyMs, httpStatus: null };
-  } finally {
-    clearTimeout(timer);
-  }
-
+  const host = new URL(url).host;
+  const outcome = await performRealtimeHandshake(host, apikey);
   const checked = { ...outcome, checkedAt: new Date().toISOString(), source: "probe" };
   healthCacheSet(cacheKey, checked);
   return checked;
@@ -948,9 +1003,8 @@ async function healthData() {
 
   // Realtime HML/PROD são independentes entre si e independentes de
   // Frontend/API/Supabase/Auth/GitHub/Vercel — allSettled próprio, nunca
-  // compartilhado (Microgate 21, §14). Probe HTTP-only contra
-  // /realtime/v1/api/ping; não valida WebSocket/replication (fora de escopo
-  // deste probe).
+  // compartilhado (Microgate 21/38, §14). Probe via handshake WebSocket real
+  // (upgrade HTTP 101), sem channel/subscribe/broadcast/Presence.
   const realtimeSettled = await Promise.allSettled([
     realtimeCheck("homologacao"),
     realtimeCheck("producao"),

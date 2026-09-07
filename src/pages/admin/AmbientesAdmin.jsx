@@ -36,6 +36,20 @@ const HEALTH_ITENS = [
 const HEALTH_TOM = { ONLINE: "ok", DEGRADED: "alerta", OFFLINE: "erro", UNKNOWN: "neutro" };
 const HEALTH_LABEL = { ONLINE: "Online", DEGRADED: "Degradado", OFFLINE: "Offline", UNKNOWN: "Desconhecido" };
 
+// Agrega os 5 providers de health (frontend/api/supabase/auth/realtime) num
+// único status "geral" do ambiente — usado pelo badge Online/Degradado/
+// Offline/Desconhecido no topo do EnvCard. `environmentsData()` (GitHub) NÃO
+// é health e nunca deve alimentar este badge (ver Microgate 38 §6): UNKNOWN
+// nunca vira ONLINE, e a ausência do resource health também é Desconhecido.
+function agregarHealthAmbiente(ambienteHealth) {
+  if (!ambienteHealth) return "UNKNOWN";
+  const statuses = HEALTH_ITENS.map((item) => ambienteHealth[item.key]?.status);
+  if (statuses.some((s) => s === "OFFLINE")) return "OFFLINE";
+  if (statuses.some((s) => s === "DEGRADED")) return "DEGRADED";
+  if (statuses.some((s) => s !== "ONLINE")) return "UNKNOWN";
+  return "ONLINE";
+}
+
 const DEPLOY_TOM = {
   READY: "ok", BUILDING: "alerta", INITIALIZING: "alerta", QUEUED: "alerta",
   ERROR: "erro", CANCELED: "erro", BLOCKED: "erro", UNKNOWN: "neutro",
@@ -167,9 +181,15 @@ function EstadoResourceInline({ resourceState, rotulo }) {
   return null;
 }
 
-function EnvCard({ ambiente, envData, envState, deployState }) {
+function EnvCard({ ambiente, envData, envState, deployState, healthState }) {
   const ehProd = ambiente === "producao";
   const nomeAmbiente = ehProd ? "Produção" : "Homologação";
+
+  // Badge Online/Degradado/Offline/Desconhecido vem do resource health (5
+  // providers agregados), nunca de envData.status (metadados GitHub — ver
+  // Microgate 38 §6). Se o resource health falhar, o badge é Desconhecido.
+  const ambienteHealth = healthState.status === "success" ? healthState.data?.environments?.[ambiente] : null;
+  const statusGeral = healthState.status === "success" ? agregarHealthAmbiente(ambienteHealth) : "UNKNOWN";
 
   if (envState.status !== "success" || !envData) {
     return (
@@ -208,9 +228,9 @@ function EnvCard({ ambiente, envData, envState, deployState }) {
             </p>
           </div>
         </div>
-        <StatusPill tom={HEALTH_TOM[envData.status] || "neutro"}>
-          <PillIcone tom={HEALTH_TOM[envData.status] || "neutro"} />
-          {HEALTH_LABEL[envData.status] || "Desconhecido"}
+        <StatusPill tom={HEALTH_TOM[statusGeral] || "neutro"}>
+          <PillIcone tom={HEALTH_TOM[statusGeral] || "neutro"} />
+          {HEALTH_LABEL[statusGeral] || "Desconhecido"}
         </StatusPill>
       </div>
       <dl>
@@ -528,8 +548,8 @@ export default function AmbientesAdmin() {
 
       {/* Cards de ambiente */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <EnvCard ambiente="homologacao" envData={envHomologacao} envState={environmentsState} deployState={deploymentsState} />
-        <EnvCard ambiente="producao" envData={envProducao} envState={environmentsState} deployState={deploymentsState} />
+        <EnvCard ambiente="homologacao" envData={envHomologacao} envState={environmentsState} deployState={deploymentsState} healthState={healthState} />
+        <EnvCard ambiente="producao" envData={envProducao} envState={environmentsState} deployState={deploymentsState} healthState={healthState} />
       </div>
 
       {/* Comparação de versões */}

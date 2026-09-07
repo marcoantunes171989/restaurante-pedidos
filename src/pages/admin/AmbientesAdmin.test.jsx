@@ -327,6 +327,84 @@ describe("AmbientesAdmin — sucesso, isolamento de falhas e estados", () => {
   });
 });
 
+// Microgate 38 §6/§7 — o badge Online/Degradado/Offline/Desconhecido no topo
+// do card de ambiente deve vir do resource `health` (5 providers agregados:
+// frontend/api/supabase/auth/realtime), NUNCA de `environments` (metadados
+// GitHub — ENVIRONMENTS_OK já vem com status "UNKNOWN" propositalmente).
+describe("AmbientesAdmin — badge Online/Degradado/Offline/Desconhecido (topo do card de ambiente)", () => {
+  it("todos os 5 providers ONLINE → badge Online (mesmo com environments.status = UNKNOWN vindo do GitHub)", async () => {
+    comSessao();
+    mockFetch();
+    const el = await renderTela();
+    await flush();
+
+    const cardHml = el.querySelector('[aria-label="Ambiente Homologação"]');
+    expect(cardHml.textContent).toContain("Online");
+  });
+
+  it("um provider DEGRADED → badge Degradado", async () => {
+    comSessao();
+    const healthComDegraded = {
+      environments: {
+        homologacao: { ...HEALTH_OK_ENV, auth: { status: "DEGRADED" } },
+        producao: HEALTH_OK_ENV,
+      },
+    };
+    mockFetch({ health: { status: 200, body: envelope("health", "not_connected", healthComDegraded) } });
+    const el = await renderTela();
+    await flush();
+
+    const cardHml = el.querySelector('[aria-label="Ambiente Homologação"]');
+    expect(cardHml.textContent).toContain("Degradado");
+  });
+
+  it("um provider OFFLINE → badge Offline (prevalece mesmo havendo outro DEGRADED)", async () => {
+    comSessao();
+    const healthComOffline = {
+      environments: {
+        homologacao: { ...HEALTH_OK_ENV, realtime: { status: "OFFLINE" }, auth: { status: "DEGRADED" } },
+        producao: HEALTH_OK_ENV,
+      },
+    };
+    mockFetch({ health: { status: 200, body: envelope("health", "not_connected", healthComOffline) } });
+    const el = await renderTela();
+    await flush();
+
+    const cardHml = el.querySelector('[aria-label="Ambiente Homologação"]');
+    expect(cardHml.textContent).toContain("Offline");
+  });
+
+  it("um provider UNKNOWN (demais ONLINE) → badge Desconhecido, nunca Online", async () => {
+    comSessao();
+    const healthComUnknown = {
+      environments: {
+        homologacao: { ...HEALTH_OK_ENV, supabase: { status: "UNKNOWN" } },
+        producao: HEALTH_OK_ENV,
+      },
+    };
+    mockFetch({ health: { status: 200, body: envelope("health", "not_connected", healthComUnknown) } });
+    const el = await renderTela();
+    await flush();
+
+    const cardHml = el.querySelector('[aria-label="Ambiente Homologação"]');
+    expect(cardHml.textContent).toContain("Desconhecido");
+  });
+
+  it("resource health indisponível → badge Desconhecido nos dois ambientes, nunca Online", async () => {
+    comSessao();
+    mockFetch({ health: { status: 500, body: { error: "Erro no servidor." } } });
+    const el = await renderTela();
+    await flush();
+
+    const cardHml = el.querySelector('[aria-label="Ambiente Homologação"]');
+    const cardProd = el.querySelector('[aria-label="Ambiente Produção"]');
+    expect(cardHml.textContent).toContain("Desconhecido");
+    expect(cardProd.textContent).toContain("Desconhecido");
+    expect(cardHml.textContent).not.toContain("Online");
+    expect(cardProd.textContent).not.toContain("Online");
+  });
+});
+
 describe("AmbientesAdmin — refresh manual (sem polling)", () => {
   it("o botão Atualizar dispara uma nova leitura dos 5 resources", async () => {
     comSessao();
