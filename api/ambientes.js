@@ -349,27 +349,36 @@ async function compareData() {
 }
 
 // ── Vercel read-only provider (deployments) ────────────────────────────
-// Token de leitura dedicado (VERCEL_READ_TOKEN) — nunca reaproveita
-// VERCEL_TOKEN (que pode ter capacidade de deploy no pipeline de Produção)
-// nem chama a Vercel anonimamente quando a config estiver incompleta.
+// Tokens de leitura dedicados e independentes por projeto/ambiente
+// (VERCEL_HML_READ_TOKEN / VERCEL_PROD_READ_TOKEN) — cada ambiente usa
+// SOMENTE o seu próprio token, nunca o do outro ambiente e nunca um token
+// genérico compartilhado (sem VERCEL_READ_TOKEN nem VERCEL_TOKEN, que pode
+// ter capacidade de deploy no pipeline de Produção). A Vercel não usa mais
+// um team compartilhado neste contrato: sem VERCEL_TEAM_ID.
 const VERCEL_API_URL = "https://api.vercel.com";
 const VERCEL_TIMEOUT_MS = 7000;
 const VERCEL_DEPLOYMENTS_LIMIT = 10;
 const VERCEL_MAX_ITEMS_TOTAL = 20;
 
 const VERCEL_ENVIRONMENTS = [
-  { environment: "homologacao", branch: "homologacao", projectIdKey: "hmlProjectId", cacheKey: "vercel-hml" },
-  { environment: "producao", branch: "main", projectIdKey: "prodProjectId", cacheKey: "vercel-prod" },
+  {
+    environment: "homologacao", branch: "homologacao", tokenKey: "hmlToken", projectIdKey: "hmlProjectId", cacheKey: "vercel-hml",
+  },
+  {
+    environment: "producao", branch: "main", tokenKey: "prodToken", projectIdKey: "prodProjectId", cacheKey: "vercel-prod",
+  },
 ];
 
 const vercelConfig = () => ({
-  token: process.env.VERCEL_READ_TOKEN || "",
-  teamId: process.env.VERCEL_TEAM_ID || "",
+  hmlToken: process.env.VERCEL_HML_READ_TOKEN || "",
+  prodToken: process.env.VERCEL_PROD_READ_TOKEN || "",
   hmlProjectId: process.env.VERCEL_HML_PROJECT_ID || "",
   prodProjectId: process.env.VERCEL_PROD_PROJECT_ID || "",
 });
 
-const vercelConfigured = (cfg) => Boolean(cfg.token && cfg.teamId && cfg.hmlProjectId && cfg.prodProjectId);
+// Configuração é avaliada POR AMBIENTE: HML pode estar configurado enquanto
+// PROD não está (e vice-versa) — nunca um gate agregado dos dois.
+const vercelConfiguredForEnvironment = (env, cfg) => Boolean(cfg[env.tokenKey] && cfg[env.projectIdKey]);
 
 async function vercelFetch(path, token) {
   const controller = new AbortController();
@@ -465,17 +474,24 @@ function sanitizeDeployment(raw, env) {
 }
 
 async function fetchVercelDeployments(env, cfg) {
+  // Validação isolada por ambiente: a ausência do token/projeto DESTE
+  // ambiente nunca impede a consulta do outro ambiente.
+  if (!vercelConfiguredForEnvironment(env, cfg)) {
+    return { errorCode: "vercel_not_configured", notConfigured: true };
+  }
+
   const cacheKey = `${env.cacheKey}:deployments`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
+  // Sem teamId na query — cada projeto é resolvido só por projectId/branch.
   const params = new URLSearchParams({
     projectId: cfg[env.projectIdKey],
-    teamId: cfg.teamId,
     branch: env.branch,
     limit: String(VERCEL_DEPLOYMENTS_LIMIT),
   });
-  const result = await vercelFetch(`/v7/deployments?${params.toString()}`, cfg.token);
+  // Bearer token exclusivo deste ambiente — nunca o token do outro ambiente.
+  const result = await vercelFetch(`/v7/deployments?${params.toString()}`, cfg[env.tokenKey]);
 
   if (!result.ok) return { errorCode: mapVercelError(result) };
   const deploymentsRaw = Array.isArray(result.body?.deployments) ? result.body.deployments : null;
@@ -494,8 +510,16 @@ async function fetchVercelDeployments(env, cfg) {
 
 async function deploymentsData() {
   const cfg = vercelConfig();
-  if (!vercelConfigured(cfg)) {
-    return { source: "not_configured", items: [], errorCode: "vercel_not_configured" };
+
+  // Ambos ausentes: not_configured explícito, sem chamar a Vercel — nunca
+  // depende de uma falha de rede para chegar a esse estado.
+  const anyEnvironmentConfigured = VERCEL_ENVIRONMENTS.some((env) => vercelConfiguredForEnvironment(env, cfg));
+  if (!anyEnvironmentConfigured) {
+    return {
+      source: "not_configured",
+      items: [],
+      errors: VERCEL_ENVIRONMENTS.map((env) => ({ environment: env.environment, errorCode: "vercel_not_configured" })),
+    };
   }
 
   const settled = await Promise.allSettled(

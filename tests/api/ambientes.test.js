@@ -152,12 +152,14 @@ function vercelHandler({ homologacao, producao } = {}) {
   };
 }
 
-const VERCEL_HML_PROJECT_ID = "prj-hml";
-const VERCEL_PROD_PROJECT_ID = "prj-prod";
+const VERCEL_HML_PROJECT_ID = "prj_hml_teste";
+const VERCEL_PROD_PROJECT_ID = "prj_prod_teste";
+const VERCEL_HML_TOKEN = "token-hml-teste";
+const VERCEL_PROD_TOKEN = "token-prod-teste";
 
 function setVercelEnv() {
-  process.env.VERCEL_READ_TOKEN = "token-vercel-teste";
-  process.env.VERCEL_TEAM_ID = "team-teste";
+  process.env.VERCEL_HML_READ_TOKEN = VERCEL_HML_TOKEN;
+  process.env.VERCEL_PROD_READ_TOKEN = VERCEL_PROD_TOKEN;
   process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
   process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
 }
@@ -361,7 +363,10 @@ beforeEach(() => {
   delete process.env.VITE_SUPABASE_URL;
   delete process.env.GITHUB_READ_TOKEN;
   delete process.env.VERCEL_READ_TOKEN;
+  delete process.env.VERCEL_TOKEN;
   delete process.env.VERCEL_TEAM_ID;
+  delete process.env.VERCEL_HML_READ_TOKEN;
+  delete process.env.VERCEL_PROD_READ_TOKEN;
   delete process.env.VERCEL_HML_PROJECT_ID;
   delete process.env.VERCEL_PROD_PROJECT_ID;
   delete process.env.SUPABASE_HML_ANON_KEY;
@@ -373,7 +378,10 @@ afterEach(() => {
   vi.restoreAllMocks();
   delete process.env.GITHUB_READ_TOKEN;
   delete process.env.VERCEL_READ_TOKEN;
+  delete process.env.VERCEL_TOKEN;
   delete process.env.VERCEL_TEAM_ID;
+  delete process.env.VERCEL_HML_READ_TOKEN;
+  delete process.env.VERCEL_PROD_READ_TOKEN;
   delete process.env.VERCEL_HML_PROJECT_ID;
   delete process.env.VERCEL_PROD_PROJECT_ID;
   delete process.env.SUPABASE_HML_ANON_KEY;
@@ -450,7 +458,10 @@ describe("ambientes — resources (superAdmin válido)", () => {
     const body = res.json();
     expect(body.data.items).toEqual([]);
     expect(body.data.source).toBe("not_configured");
-    expect(body.data.errorCode).toBe("vercel_not_configured");
+    expect(body.data.errors).toEqual(expect.arrayContaining([
+      { environment: "homologacao", errorCode: "vercel_not_configured" },
+      { environment: "producao", errorCode: "vercel_not_configured" },
+    ]));
   });
 
   it("resource=health → 200 + supabase/auth/realtime UNKNOWN nos dois ambientes", async () => {
@@ -643,7 +654,8 @@ describe("ambientes — health real: Frontend/API (HML + PROD)", () => {
       expect(headers).not.toMatch(/jwt-operador/);
       expect(headers).not.toMatch(/chave-teste/);
       expect(headers).not.toMatch(/token-github-teste/);
-      expect(headers).not.toMatch(/token-vercel-teste/);
+      expect(headers).not.toMatch(/token-hml-teste/);
+      expect(headers).not.toMatch(/token-prod-teste/);
       expect(String(options?.method || "GET")).toBe("GET");
     }
   });
@@ -928,7 +940,8 @@ describe("ambientes — health real: Supabase (HML + PROD)", () => {
       expect(headers).not.toMatch(/jwt-operador/);
       expect(headers).not.toMatch(/chave-teste/);
       expect(headers).not.toMatch(/token-github-teste/);
-      expect(headers).not.toMatch(/token-vercel-teste/);
+      expect(headers).not.toMatch(/token-hml-teste/);
+      expect(headers).not.toMatch(/token-prod-teste/);
       expect(headers.toLowerCase()).not.toContain("authorization");
       expect(String(options?.method || "GET")).toBe("GET");
     }
@@ -1274,7 +1287,8 @@ describe("ambientes — health real: Auth (HML + PROD)", () => {
       expect(headers).not.toMatch(/jwt-operador/);
       expect(headers).not.toMatch(/chave-teste/);
       expect(headers).not.toMatch(/token-github-teste/);
-      expect(headers).not.toMatch(/token-vercel-teste/);
+      expect(headers).not.toMatch(/token-hml-teste/);
+      expect(headers).not.toMatch(/token-prod-teste/);
       expect(headers.toLowerCase()).not.toContain("authorization");
       expect(String(options?.method || "GET")).toBe("GET");
     }
@@ -1687,7 +1701,8 @@ describe("ambientes — health real: Realtime (HML + PROD)", () => {
       expect(headers).not.toMatch(/jwt-operador/);
       expect(headers).not.toMatch(/chave-teste/);
       expect(headers).not.toMatch(/token-github-teste/);
-      expect(headers).not.toMatch(/token-vercel-teste/);
+      expect(headers).not.toMatch(/token-hml-teste/);
+      expect(headers).not.toMatch(/token-prod-teste/);
       expect(headers.toLowerCase()).not.toContain("authorization");
       expect(String(options?.method || "GET")).toBe("GET");
     }
@@ -2117,17 +2132,19 @@ describe("ambientes — GitHub: sanitização e limites", () => {
 });
 
 // ════════════════════════════════════════════════════════════
-// Microgate 13 — integração Vercel read-only (resource=deployments).
-// VERCEL_READ_TOKEN nunca é real aqui: fetch para api.vercel.com é sempre
-// mockado via `vercel` (ver mockFetch acima). Nenhum teste chama a Vercel
-// real e nenhum request usa método diferente de GET.
+// Microgate 13 (revisado — CENTRAL-ENV-05) — integração Vercel read-only
+// (resource=deployments) com tokens/projetos independentes por ambiente:
+// VERCEL_HML_READ_TOKEN + VERCEL_HML_PROJECT_ID (homologação) e
+// VERCEL_PROD_READ_TOKEN + VERCEL_PROD_PROJECT_ID (produção). Sem
+// VERCEL_TEAM_ID (removido do contrato) e sem fallback para
+// VERCEL_READ_TOKEN/VERCEL_TOKEN (legado, team-scoped). Nenhum token real é
+// usado aqui: fetch para api.vercel.com é sempre mockado via `vercel` (ver
+// mockFetch acima). Nenhum teste chama a Vercel real e nenhum request usa
+// método diferente de GET.
 // ════════════════════════════════════════════════════════════
 
 describe("ambientes — Vercel: configuração ausente", () => {
-  it("cenário 1: VERCEL_READ_TOKEN ausente → not_configured", async () => {
-    process.env.VERCEL_TEAM_ID = "team-teste";
-    process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
-    process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
+  it("cenário L: ambos ambientes ausentes → not_configured, items=[]", async () => {
     mockFetch({ operatorRows: [superAdminRow] });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
@@ -2135,11 +2152,80 @@ describe("ambientes — Vercel: configuração ausente", () => {
     const body = res.json();
     expect(body.data.source).toBe("not_configured");
     expect(body.data.items).toEqual([]);
-    expect(body.data.errorCode).toBe("vercel_not_configured");
+    expect(body.data.errors).toEqual(expect.arrayContaining([
+      { environment: "homologacao", errorCode: "vercel_not_configured" },
+      { environment: "producao", errorCode: "vercel_not_configured" },
+    ]));
   });
 
-  it("cenário 2: VERCEL_TEAM_ID ausente → not_configured", async () => {
-    process.env.VERCEL_READ_TOKEN = "token-vercel-teste";
+  it("cenário C: VERCEL_HML_READ_TOKEN ausente (PROD completo) → somente HML not_configured; PROD continua funcionando", async () => {
+    process.env.VERCEL_PROD_READ_TOKEN = VERCEL_PROD_TOKEN;
+    process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
+    process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
+    mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({ producao: () => vercelOk([makeDeployment("dpl-prod-1")]) }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.data.source).toBe("partial");
+    expect(body.data.errors).toEqual([{ environment: "homologacao", errorCode: "vercel_not_configured" }]);
+    expect(body.data.items).toHaveLength(1);
+    expect(body.data.items[0].environment).toBe("producao");
+  });
+
+  it("cenário D: VERCEL_PROD_READ_TOKEN ausente (HML completo) → somente PROD not_configured; HML continua funcionando", async () => {
+    process.env.VERCEL_HML_READ_TOKEN = VERCEL_HML_TOKEN;
+    process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
+    process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
+    mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({ homologacao: () => vercelOk([makeDeployment("dpl-hml-1")]) }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.data.source).toBe("partial");
+    expect(body.data.errors).toEqual([{ environment: "producao", errorCode: "vercel_not_configured" }]);
+    expect(body.data.items).toHaveLength(1);
+    expect(body.data.items[0].environment).toBe("homologacao");
+  });
+
+  it("VERCEL_HML_PROJECT_ID ausente (resto completo) → somente HML not_configured", async () => {
+    process.env.VERCEL_HML_READ_TOKEN = VERCEL_HML_TOKEN;
+    process.env.VERCEL_PROD_READ_TOKEN = VERCEL_PROD_TOKEN;
+    process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
+    mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({ producao: () => vercelOk([makeDeployment("dpl-prod-1")]) }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const body = res.json();
+    expect(body.data.errors).toEqual([{ environment: "homologacao", errorCode: "vercel_not_configured" }]);
+    expect(body.data.items[0].environment).toBe("producao");
+  });
+
+  it("VERCEL_PROD_PROJECT_ID ausente (resto completo) → somente PROD not_configured", async () => {
+    process.env.VERCEL_HML_READ_TOKEN = VERCEL_HML_TOKEN;
+    process.env.VERCEL_PROD_READ_TOKEN = VERCEL_PROD_TOKEN;
+    process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
+    mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({ homologacao: () => vercelOk([makeDeployment("dpl-hml-1")]) }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const body = res.json();
+    expect(body.data.errors).toEqual([{ environment: "producao", errorCode: "vercel_not_configured" }]);
+    expect(body.data.items[0].environment).toBe("homologacao");
+  });
+
+  it("cenário M: nunca usa VERCEL_READ_TOKEN (legado team-scoped) como fallback", async () => {
+    process.env.VERCEL_READ_TOKEN = "token-legado-nao-deve-ser-usado";
     process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
     process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
     mockFetch({ operatorRows: [superAdminRow] });
@@ -2148,36 +2234,145 @@ describe("ambientes — Vercel: configuração ausente", () => {
     expect(res.json().data.source).toBe("not_configured");
   });
 
-  it("cenário 3: VERCEL_HML_PROJECT_ID ausente → not_configured", async () => {
-    process.env.VERCEL_READ_TOKEN = "token-vercel-teste";
-    process.env.VERCEL_TEAM_ID = "team-teste";
-    process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
-    mockFetch({ operatorRows: [superAdminRow] });
-    const res = makeRes();
-    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
-    expect(res.json().data.source).toBe("not_configured");
-  });
-
-  it("cenário 4: VERCEL_PROD_PROJECT_ID ausente → not_configured", async () => {
-    process.env.VERCEL_READ_TOKEN = "token-vercel-teste";
-    process.env.VERCEL_TEAM_ID = "team-teste";
-    process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
-    mockFetch({ operatorRows: [superAdminRow] });
-    const res = makeRes();
-    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
-    expect(res.json().data.source).toBe("not_configured");
-  });
-
-  it("nunca usa VERCEL_TOKEN como fallback de VERCEL_READ_TOKEN", async () => {
+  it("cenário N: nunca usa VERCEL_TOKEN (token de deploy) como fallback", async () => {
     process.env.VERCEL_TOKEN = "token-de-deploy-nao-deve-ser-usado";
-    process.env.VERCEL_TEAM_ID = "team-teste";
     process.env.VERCEL_HML_PROJECT_ID = VERCEL_HML_PROJECT_ID;
     process.env.VERCEL_PROD_PROJECT_ID = VERCEL_PROD_PROJECT_ID;
     mockFetch({ operatorRows: [superAdminRow] });
     const res = makeRes();
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
     expect(res.json().data.source).toBe("not_configured");
-    delete process.env.VERCEL_TOKEN;
+  });
+
+  it("nunca exige VERCEL_TEAM_ID (removido do contrato)", async () => {
+    setVercelEnv();
+    mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([makeDeployment("d1")]),
+        producao: () => vercelOk([makeDeployment("d2")]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    expect(res.json().data.source).toBe("vercel");
+  });
+});
+
+describe("ambientes — Vercel: isolamento de tokens por ambiente", () => {
+  it("cenário E: header Authorization da request HML contém somente o token HML fictício", async () => {
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([makeDeployment("d1")]),
+        producao: () => vercelOk([makeDeployment("d2")]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    expect(res.statusCode).toBe(200);
+    const hmlCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_HML_PROJECT_ID}`));
+    expect(hmlCall[1]?.headers?.Authorization).toBe(`Bearer ${VERCEL_HML_TOKEN}`);
+  });
+
+  it("cenário F: header Authorization da request PROD contém somente o token PROD fictício", async () => {
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([makeDeployment("d1")]),
+        producao: () => vercelOk([makeDeployment("d2")]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const prodCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_PROD_PROJECT_ID}`));
+    expect(prodCall[1]?.headers?.Authorization).toBe(`Bearer ${VERCEL_PROD_TOKEN}`);
+  });
+
+  it("cenário G/H: token HML nunca aparece na request PROD e o token PROD nunca aparece na request HML", async () => {
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([makeDeployment("d1")]),
+        producao: () => vercelOk([makeDeployment("d2")]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const hmlCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_HML_PROJECT_ID}`));
+    const prodCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_PROD_PROJECT_ID}`));
+    expect(hmlCall[1]?.headers?.Authorization).not.toContain(VERCEL_PROD_TOKEN);
+    expect(prodCall[1]?.headers?.Authorization).not.toContain(VERCEL_HML_TOKEN);
+  });
+
+  it("cenário I: nenhum token aparece no payload JSON retornado ao frontend", async () => {
+    setVercelEnv();
+    mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([makeDeployment("d1")]),
+        producao: () => vercelOk([makeDeployment("d2")]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    expect(res.body).not.toMatch(new RegExp(VERCEL_HML_TOKEN));
+    expect(res.body).not.toMatch(new RegExp(VERCEL_PROD_TOKEN));
+  });
+
+  it("cenário O: query da request Vercel não contém teamId", async () => {
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([]),
+        producao: () => vercelOk([]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const vercelCalls = fn.mock.calls.filter(([url]) => String(url).includes("api.vercel.com"));
+    expect(vercelCalls.length).toBeGreaterThan(0);
+    for (const [url] of vercelCalls) {
+      expect(String(url)).not.toMatch(/teamId/);
+    }
+  });
+
+  it("cenário P: query contém projectId correto por ambiente", async () => {
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([]),
+        producao: () => vercelOk([]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const hmlCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_HML_PROJECT_ID}`));
+    const prodCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_PROD_PROJECT_ID}`));
+    expect(hmlCall).toBeTruthy();
+    expect(prodCall).toBeTruthy();
+  });
+
+  it("cenário Q: query contém branch correta por ambiente (homologacao / main)", async () => {
+    setVercelEnv();
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      vercel: vercelHandler({
+        homologacao: () => vercelOk([]),
+        producao: () => vercelOk([]),
+      }),
+    });
+    const res = makeRes();
+    await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
+    const hmlCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_HML_PROJECT_ID}`));
+    const prodCall = fn.mock.calls.find(([url]) => String(url).includes(`projectId=${VERCEL_PROD_PROJECT_ID}`));
+    expect(String(hmlCall[0])).toMatch(/branch=homologacao/);
+    expect(String(prodCall[0])).toMatch(/branch=main/);
   });
 });
 
@@ -2430,7 +2625,8 @@ describe("ambientes — Vercel: sanitização de payload", () => {
     await handler(makeReq({ headers: { authorization: "Bearer jwt" }, query: { resource: "deployments" } }), res);
     const raw = res.body;
     expect(raw).not.toMatch(/vazamento@exemplo\.com/);
-    expect(raw).not.toMatch(/token-vercel-teste/);
+    expect(raw).not.toMatch(new RegExp(VERCEL_HML_TOKEN));
+    expect(raw).not.toMatch(new RegExp(VERCEL_PROD_TOKEN));
     expect(raw).not.toMatch(/authorization/i);
     expect(raw).not.toMatch(/creator/i);
     expect(raw).not.toMatch(/nao-pode-vazar/);
