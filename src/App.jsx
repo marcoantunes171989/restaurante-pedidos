@@ -94,6 +94,7 @@ import {
   rotaDoEstado,
   validarRotaNavegacaoInterna,
 } from "./lib/historicoNavegacao";
+import { ehIdRelatorioValido, RELATORIOS_IDS } from "./lib/relatoriosNav";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
 import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
@@ -149,6 +150,23 @@ import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDr
 import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
+
+// Metadata VISUAL do submenu lateral de Relatórios (Microgate 04) — rótulos
+// exibidos no menu e no título contextual da tela. Ids/paths/slugs continuam
+// vindo exclusivamente de src/lib/relatoriosNav.js (RELATORIOS_IDS), nunca
+// duplicados aqui.
+const RELATORIOS_SUBMENU_LABELS = {
+  geral: "Visão geral",
+  vendas: "Vendas",
+  cupom: "Cupom / Mesa / Comanda",
+  estoque: "Estoque",
+  clientes: "Clientes",
+  permanencia: "Permanência",
+  satisfacao: "Satisfação",
+};
+const RELATORIOS_SUBMENU_ITENS = Object.freeze(
+  RELATORIOS_IDS.map((id) => Object.freeze({ id, label: RELATORIOS_SUBMENU_LABELS[id] })),
+);
 
 const initialProducts = [
   { id: 1, name: "Risoto de Filé Mignon", category: "Pratos principais", price: 58.9, cost: 31.2, active: true, time: "25-35 min", description: "Arroz arbóreo, filé em tiras, parmesão e toque de vinho branco.", badge: "Mais pedido", imageUrl: "https://images.unsplash.com/photo-1476124369491-e7addf5db371?auto=format&fit=crop&w=900&q=80", ingredients: ["Arroz arbóreo", "Filé mignon", "Parmesão", "Vinho branco", "Manteiga", "Caldo especial"] },
@@ -1015,6 +1033,10 @@ export default function RestaurantePedidoApp() {
   const [customerName, setCustomerName] = useState("");
   const [message, setMessage] = useState({ type: "", text: "" });
   const [adminSection, setAdminSection] = useState("dashboard");
+  // Subseção do relatório atual (Microgate 03) — só tem sentido quando
+  // adminSection === "relatorios"; único id permitido, nunca slug/pathname
+  // livre. Fonte de verdade para RelatoriosAdmin (controlado pelo App).
+  const [relatorioSub, setRelatorioSub] = useState("geral");
   // Migration 068: categoria passa a ser obrigatória e vinculada por ID —
   // sem valor fixo no código (nenhuma categoria é assumida por padrão).
   const [adminForm, setAdminForm] = useState({ name: "", category: "", categoriaId: null, price: "", cost: "", time: "15-25 min", imageUrl: "", ingredientsText: "", description: "" });
@@ -1084,9 +1106,14 @@ export default function RestaurantePedidoApp() {
         setActiveTab("admin");
         return { aceita: false, path: rotaDoEstado("admin", "dashboard") };
       }
+      // /admin/relatorios (raiz) sempre representa "geral" — nunca reaproveita
+      // um relatorioSub residual de navegação anterior. Sub inválido também
+      // cai em "geral" (fallback seguro do contrato de relatoriosNav.js).
+      const sub = seg === "relatorios" ? (ehIdRelatorioValido(classe.sub) ? classe.sub : "geral") : null;
+      if (seg === "relatorios") setRelatorioSub(sub);
       setAdminSection(seg);
       setActiveTab("admin");
-      return { aceita: true, path: rotaDoEstado("admin", seg) };
+      return { aceita: true, path: rotaDoEstado("admin", seg, null, null, sub) };
     }
     if (classe.tipo === "operacional") {
       // Bookmark/redirect em /operacional NÃO pode sequestrar admin, cozinha,
@@ -1176,17 +1203,18 @@ export default function RestaurantePedidoApp() {
     if (veioDePopstate) popstateRef.current = false;
     const primeiraSync = primeiraSyncRef.current;
     if (primeiraSync) primeiraSyncRef.current = false;
-    const novoPath = rotaDoEstado(activeTab, adminSection, cozinhaSetorInicial, opmobileTab);
+    const novoPath = rotaDoEstado(activeTab, adminSection, cozinhaSetorInicial, opmobileTab, relatorioSub);
     const atual = window.location.pathname + window.location.search;
     const decisao = decidirEscritaHistorico({ pathAtual: atual, pathNovo: novoPath, primeiraSync, veioDePopstate });
     aplicarEscritaHistorico(window.history, decisao);
-  }, [activeTab, adminSection, cozinhaSetorInicial, opmobileTab, currentUser]);
+  }, [activeTab, adminSection, cozinhaSetorInicial, opmobileTab, relatorioSub, currentUser]);
   // Refs para o handler de popstate / logout enxergar valores atuais
   const currentUserRef = useRef(null);
   const activeTabRef = useRef("tablet");
   const adminSectionRef = useRef("dashboard");
   const cozinhaSetorInicialRef = useRef(null);
   const opmobileTabRef = useRef("central");
+  const relatorioSubRef = useRef("geral");
   const irParaFallbackSeguroRef = useRef(() => {});
   const logoutRef = useRef(() => {});
   // Bloqueia o heartbeat de dispositivo (2min/focus/visibilitychange) durante
@@ -1213,6 +1241,7 @@ export default function RestaurantePedidoApp() {
     adminSectionRef.current = adminSection;
     cozinhaSetorInicialRef.current = cozinhaSetorInicial;
     opmobileTabRef.current = opmobileTab;
+    relatorioSubRef.current = relatorioSub;
     sessaoDispositivoProntaRef.current = sessaoDispositivoPronta;
   });
   // Voltar/avançar: aplica a rota autenticada. /login ou "/" com sessão NÃO
@@ -1242,6 +1271,7 @@ export default function RestaurantePedidoApp() {
             adminSectionRef.current,
             cozinhaSetorInicialRef.current,
             opmobileTabRef.current,
+            relatorioSubRef.current,
           ),
           aplicarRota: (p, s) => aplicarRotaRef.current(p, s, user),
           aplicarRotaSegura: () => irParaFallbackSeguroRef.current(user),
@@ -1273,6 +1303,7 @@ export default function RestaurantePedidoApp() {
             adminSectionRef.current,
             cozinhaSetorInicialRef.current,
             opmobileTabRef.current,
+            relatorioSubRef.current,
           ),
           rotaSegura: pathRotaSegura(abaInicialDoUsuario(user)),
           aplicarRota: (p, s) => aplicarRotaRef.current(p, s, user),
@@ -4319,7 +4350,7 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={(id) => { setCozinhaBloqueadaPlano(false); setAdminSection(id); }} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={irParaCozinha} forcarBloqueioCozinha={cozinhaBloqueadaPlano} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={(id) => { setCozinhaBloqueadaPlano(false); if (id === "relatorios") setRelatorioSub("geral"); setAdminSection(id); }} relatorioSub={relatorioSub} onRelatorioSubChange={(id) => setRelatorioSub(ehIdRelatorioValido(id) ? id : "geral")} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={irParaCozinha} forcarBloqueioCozinha={cozinhaBloqueadaPlano} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
 
       </div>
       )}
@@ -7240,9 +7271,10 @@ function SidebarHeader({ subtitulo, onClose }) {
 // claro suave rgba(243, 133, 37,.10) + rótulo branco), selecionado (fundo
 // rgba(243, 133, 37,.16) + borda esquerda 3px petróleo claro + ícone e rótulo em
 // petróleo claro, peso 700). O petróleo claro passa AA (~5:1) no fundo profundo.
-const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick }) {
+const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blocked, title, onClick, ariaExpanded }) {
   return (
     <button onClick={onClick} title={title} aria-current={selected ? "page" : undefined}
+      {...(ariaExpanded !== undefined ? { "aria-expanded": ariaExpanded } : {})}
       className={cxSidebar(
         "group relative flex min-h-[38px] w-full items-center gap-2.5 rounded-xl border-l-[3px] px-3 py-2 text-[12.5px] tracking-[0.01em] transition-all duration-200 ease-out",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80",
@@ -7253,6 +7285,23 @@ const SidebarItem = React.memo(function SidebarItem({ icon, label, selected, blo
       <span className={cxSidebar("shrink-0 text-base text-white transition-opacity duration-200", blocked ? "opacity-35" : "opacity-90 group-hover:opacity-100")} aria-hidden="true">{icon}</span>
       <span className={cxSidebar("truncate", blocked && "opacity-50")}>{label}</span>
       {blocked && <LockKeyhole className="ml-auto h-3.5 w-3.5 shrink-0 text-white/45" aria-label="Disponível em outro plano" />}
+    </button>
+  );
+});
+// Subitem do submenu lateral (usado hoje apenas por "Relatórios" — Microgate
+// 04): recuado, tipografia levemente secundária, reaproveita o padrão visual
+// (cores/hover/focus) do SidebarItem em escala menor.
+const SidebarSubItem = React.memo(function SidebarSubItem({ label, selected, onClick }) {
+  return (
+    <button onClick={onClick} aria-current={selected ? "page" : undefined}
+      className={cxSidebar(
+        "flex min-h-[32px] w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[11.5px] tracking-[0.01em] transition-all duration-150 ease-out",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80",
+        selected
+          ? "bg-white/[0.14] font-bold text-white"
+          : "font-medium text-white/60 hover:bg-white/[0.06] hover:text-white/90"
+      )}>
+      <span className="truncate">{label}</span>
     </button>
   );
 });
@@ -7353,7 +7402,7 @@ function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, o
 
 // Menu de navegação — monta as seções a partir de SidebarSection + SidebarItem
 // (nenhum outro componente deve renderizar itens de menu fora deste par).
-function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate, irParaCozinha }) {
+function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate, irParaCozinha, relatorioSub = "geral", onRelatorioSubChange = () => {} }) {
   return (
     <nav className="scrollbar-none flex-1 overflow-y-auto px-2.5 py-3 space-y-3" aria-label="Navegação principal">
       {menu.map((g) => (
@@ -7361,17 +7410,30 @@ function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assina
           {g.itens.map((it) => {
             const sel = ativo === it.id;
             const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
+            const ehRelatorios = it.id === "relatorios";
+            const expandido = ehRelatorios && sel;
             return (
-              <SidebarItem key={it.id} icon={it.icon} label={it.label} selected={sel} blocked={bloq}
-                title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre a Central Operacional (tela cheia)" : (it.id === ADMIN_COZINHA_NAV.id ? "Abre o painel da Cozinha" : undefined))}
-                onClick={() => {
-                  if (it.id === "operacaomobile") {
-                    abrirOperacaoMobile();
-                  } else if (it.id === ADMIN_COZINHA_NAV.id) {
-                    irParaCozinha?.();
-                  } else setAdminSection(it.id);
-                  onNavigate?.();
-                }} />
+              <React.Fragment key={it.id}>
+                <SidebarItem icon={it.icon} label={it.label} selected={sel} blocked={bloq}
+                  title={bloq ? "Disponível em outro plano" : (it.id === "operacaomobile" ? "Abre a Central Operacional (tela cheia)" : (it.id === ADMIN_COZINHA_NAV.id ? "Abre o painel da Cozinha" : undefined))}
+                  ariaExpanded={ehRelatorios ? expandido : undefined}
+                  onClick={() => {
+                    if (it.id === "operacaomobile") {
+                      abrirOperacaoMobile();
+                    } else if (it.id === ADMIN_COZINHA_NAV.id) {
+                      irParaCozinha?.();
+                    } else setAdminSection(it.id);
+                    onNavigate?.();
+                  }} />
+                {expandido && (
+                  <div className="ml-[18px] mt-0.5 space-y-0.5 border-l border-white/10 pl-2.5" aria-label="Subseções de Relatórios">
+                    {RELATORIOS_SUBMENU_ITENS.map((sub) => (
+                      <SidebarSubItem key={sub.id} label={sub.label} selected={relatorioSub === sub.id}
+                        onClick={() => { onRelatorioSubChange(sub.id); onNavigate?.(); }} />
+                    ))}
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
         </SidebarSection>
@@ -7417,7 +7479,7 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, forcarBloqueioCozinha = false, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, relatorioSub = "geral", onRelatorioSubChange = () => {}, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, forcarBloqueioCozinha = false, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -7551,7 +7613,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         )}
         {buscaRapida()}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
-          assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} irParaCozinha={irParaCozinha} />
+          assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin} irParaCozinha={irParaCozinha}
+          relatorioSub={relatorioSub} onRelatorioSubChange={onRelatorioSubChange} />
       </aside>
 
       {/* ── Drawer de navegação mobile (substitui o menu fixo) — mesma
@@ -7567,7 +7630,8 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         {buscaRapida(() => { setCmdOpen(true); setMenuMobileAberto(false); })}
         <SidebarNavItems menu={menu} ativo={ativo} setAdminSection={setAdminSection} canAccessModule={canAccessModule}
           assinaturaAtual={assinaturaAtual} planoAtual={planoAtual} planoModulos={planoModulos} isSuperAdmin={isSuperAdmin}
-          onNavigate={() => setMenuMobileAberto(false)} irParaCozinha={irParaCozinha} />
+          onNavigate={() => setMenuMobileAberto(false)} irParaCozinha={irParaCozinha}
+          relatorioSub={relatorioSub} onRelatorioSubChange={onRelatorioSubChange} />
       </MobileAdminDrawer>
 
       {/* ── Conteúdo ─────────────────────────────────────────── */}
@@ -7603,7 +7667,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
             />
           ))}
           {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
-          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} />}
+          {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} aba={relatorioSub} onAbaChange={onRelatorioSubChange} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
@@ -10328,11 +10392,14 @@ function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
   );
 }
 
-function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, irParaProdutos = () => {}, currentUser = null }) {
+function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, irParaProdutos = () => {}, currentUser = null, aba: abaProp = "geral", onAbaChange = () => {} }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
   const [fim, setFim] = useState("");
-  const [aba, setAba] = useState("geral"); // geral | vendas | cupom | estoque | clientes | permanencia
+  // Controlado pelo App (Microgate 03) — fonte única de verdade é o estado
+  // central integrado à URL; nenhum useState local para a aba aqui. Sub
+  // inválido/ausente cai em "geral" (mesmo fallback do contrato de rota).
+  const aba = ehIdRelatorioValido(abaProp) ? abaProp : "geral"; // geral | vendas | cupom | estoque | clientes | permanencia | satisfacao
   const [drill, setDrill] = useState(null);  // produto clicado → cupons
   // Paginação da tabela "Estoque anterior x posterior" (aba Estoque)
   const [paginaEstoque, setPaginaEstoque] = useState(1);
@@ -11246,20 +11313,13 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
         <div>
           <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-dash-navy">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IconRelatorios /></span>
-            Relatórios de vendas
+            {aba === "geral" ? "Relatórios" : `Relatórios — ${RELATORIOS_SUBMENU_LABELS[aba]}`}
           </h2>
           <p className="mt-1 text-[13px] text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
         </div>
         <div className="pp-filter-panel">
           <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
         </div>
-      </div>
-
-      {/* Sub-abas de relatório */}
-      <div className="pp-filter-panel flex flex-wrap gap-2">
-        {[{ id: "geral", label: "Visão geral" }, { id: "vendas", label: "Vendas" }, { id: "cupom", label: "Cupom / Mesa / Comanda" }, { id: "estoque", label: "Estoque" }, { id: "clientes", label: "Clientes" }, { id: "permanencia", label: "Permanência" }, { id: "satisfacao", label: "⭐ Satisfação" }].map((t) => (
-          <FilterChip key={t.id} selected={aba === t.id} label={t.label} onClick={() => setAba(t.id)} />
-        ))}
       </div>
 
       {aba === "geral" && (
@@ -11309,7 +11369,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
 
           {/* Tabelas: produtos, mesas */}
           <div className="grid gap-5 xl:grid-cols-2">
-            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => setAba("vendas")} className="text-xs font-bold text-[#012E46] hover:underline">Ver todos →</button>}>
+            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => onAbaChange("vendas")} className="text-xs font-bold text-[#012E46] hover:underline">Ver todos →</button>}>
               <div className="space-y-2.5">
                 {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
                 {a.topProdutos.map((p, i) => (
@@ -11352,10 +11412,10 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <div><p className="page-title text-2xl font-bold text-amber-500">{baixoCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">abaixo do mínimo</p></div>
                 <div><p className="page-title text-2xl font-bold text-[#C81E4A]">{zeradosCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">zerados</p></div>
               </div>
-              <button onClick={() => setAba("estoque")} className="mt-3 text-xs font-bold text-[#012E46] hover:underline">Ver relatório de estoque →</button>
+              <button onClick={() => onAbaChange("estoque")} className="mt-3 text-xs font-bold text-[#012E46] hover:underline">Ver relatório de estoque →</button>
             </Painel>
             <Painel titulo="Permanência">
-              <button onClick={() => setAba("permanencia")} className="text-sm font-bold text-[#012E46] hover:underline">Ver tempo de permanência →</button>
+              <button onClick={() => onAbaChange("permanencia")} className="text-sm font-bold text-[#012E46] hover:underline">Ver tempo de permanência →</button>
               <p className="mt-2 text-xs text-[var(--pp-text-muted)]">Análise do tempo entre abertura e pagamento das comandas.</p>
             </Painel>
           </div>
@@ -11737,7 +11797,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
             <TopLista titulo="Top categorias" icon="🏷️" itens={a.categorias.slice(0, 5)} vazio="Sem categorias vendidas no período."
               render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.categoria}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.valor)}</span></div>)} />
             <TopLista titulo="Top clientes" icon="👤" itens={clientesLista.filter((c) => c.identificado).slice(0, 5)} vazio="Sem clientes identificados no período."
-              acao={<button onClick={() => setAba("clientes")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver todos →</button>}
+              acao={<button onClick={() => onAbaChange("clientes")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver todos →</button>}
               render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.cliente}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.faturamento)}</span></div>)} />
             <TopLista titulo="Top mesas" icon="🍽️" itens={mesasFaturamento.slice(0, 5)} vazio="Sem vendas por mesa no período."
               render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{m.mesa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(m.faturamento)}</span></div>)} />
@@ -11745,7 +11805,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosSemVendaV.length - 5}</span> : null}
               render={(p) => <span className="block truncate text-sm text-[var(--pp-text)]">{p.name}</span>} />
             <TopLista titulo="Produtos com baixo estoque" icon="📉" itens={produtosBaixoEstoqueV.slice(0, 5)} vazio="Nenhum produto em estoque crítico."
-              acao={<button onClick={() => setAba("estoque")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver estoque →</button>}
+              acao={<button onClick={() => onAbaChange("estoque")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver estoque →</button>}
               render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#C81E4A]" : "text-[#F38525]"}`}>{l.posterior} un</span></div>)} />
             <TopLista titulo="Maior margem" icon="💎" itens={produtosPorMargemV.slice(0, 5)} vazio="Sem dados de margem no período."
               render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{p.nome}</span><span className="shrink-0 font-bold text-[#2F9E52]">{formatCurrency(p.margem)}</span></div>)} />
@@ -11767,7 +11827,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <InsightCardVendas tom="success" titulo="Produto destaque" texto={`${a.topProdutos[0].nome} lidera as vendas com ${a.topProdutos[0].qtd} un. (${formatCurrency(a.topProdutos[0].valor)}).`} />
               )}
               {produtosSemVendaV.length > 0 && (
-                <InsightCardVendas tom="warning" titulo="Produto parado" texto={`${produtosSemVendaV.length} produto(s) sem nenhuma venda no período, incluindo ${produtosSemVendaV[0].name}.`} acaoLabel="Ver estoque" onAcao={() => setAba("estoque")} />
+                <InsightCardVendas tom="warning" titulo="Produto parado" texto={`${produtosSemVendaV.length} produto(s) sem nenhuma venda no período, incluindo ${produtosSemVendaV[0].name}.`} acaoLabel="Ver estoque" onAcao={() => onAbaChange("estoque")} />
               )}
               {comparativo?.catCrescimento && comparativo.catCrescimento.variacao > 0 && (
                 <InsightCardVendas tom="success" titulo="Categoria em crescimento" texto={`${comparativo.catCrescimento.categoria} cresceu ${comparativo.catCrescimento.variacao.toFixed(0)}% vs. o período anterior.`} />
@@ -11783,7 +11843,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
                 <InsightCardVendas tom="violet" titulo="Oportunidade de venda" texto={`Horário de menor movimento: ${piorHoraComVendaV.label}. Considere promoções ou combos neste intervalo.`} />
               )}
               {produtosBaixoEstoqueV.length > 0 && (
-                <InsightCardVendas tom="danger" titulo="Estoque crítico" texto={`${produtosBaixoEstoqueV.length} produto(s) com estoque baixo ou zerado.`} acaoLabel="Ver estoque" onAcao={() => setAba("estoque")} />
+                <InsightCardVendas tom="danger" titulo="Estoque crítico" texto={`${produtosBaixoEstoqueV.length} produto(s) com estoque baixo ou zerado.`} acaoLabel="Ver estoque" onAcao={() => onAbaChange("estoque")} />
               )}
               {a.topProdutos.length === 0 && produtosSemVendaV.length === 0 && !comparativo && produtosBaixoEstoqueV.length === 0 && (
                 <p className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum insight disponível para o período selecionado.</p>

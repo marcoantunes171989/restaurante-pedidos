@@ -1,4 +1,5 @@
 import { ADMIN_COZINHA_NAV } from "./adminCozinhaNav.js";
+import { idRelatorioPorSlug, RELATORIOS_NAV, rotaRelatorioPorId } from "./relatoriosNav.js";
 
 const STATE_APP = { ppApp: true };
 
@@ -69,9 +70,19 @@ export function juntarPath(pathname, search = "") {
   return `${p}${search.startsWith("?") ? search : `?${search}`}`;
 }
 
-/** Espelha a tela interna na URL. `opmobileTab` só altera o subpath de /operacional. */
-export function rotaDoEstado(tab, section, setorId, opmobileTab) {
-  if (tab === "admin") return `/admin/${section || "dashboard"}`;
+/**
+ * Espelha a tela interna na URL. `opmobileTab` só altera o subpath de
+ * /operacional. `relatorioSub` (5º argumento, opcional e retrocompatível)
+ * só se aplica quando section === "relatorios"; id desconhecido nunca gera
+ * path arbitrário — cai para a Visão geral (/admin/relatorios).
+ */
+export function rotaDoEstado(tab, section, setorId, opmobileTab, relatorioSub) {
+  if (tab === "admin") {
+    if (section === "relatorios" && relatorioSub) {
+      return rotaRelatorioPorId(relatorioSub) || RELATORIOS_NAV.geral.path;
+    }
+    return `/admin/${section || "dashboard"}`;
+  }
   if (tab === "kitchen") return `${ADMIN_COZINHA_NAV.rota}${setorId != null ? `?setorId=${setorId}` : ""}`;
   if (tab === "panel") return "/app/painel";
   if (tab === "cashier") return "/app/caixa";
@@ -104,6 +115,11 @@ export function classificarPathname(pathname) {
   if (pathname.includes("//") || pathname.includes("..")) return { tipo: "desconhecida" };
   if (pathname === "/admin" || pathname === "/admin/") return { tipo: "admin_raiz" };
   if (pathname === ADMIN_COZINHA_NAV.rota) return { tipo: "admin_cozinha" };
+  const relatoriosSub = pathname.match(/^\/admin\/relatorios\/([a-z0-9-]+)$/);
+  if (relatoriosSub) {
+    const id = idRelatorioPorSlug(relatoriosSub[1]);
+    return id ? { tipo: "admin", secao: "relatorios", sub: id } : { tipo: "desconhecida" };
+  }
   const admin = pathname.match(/^\/admin\/([a-z0-9-]+)$/);
   if (admin && SECOES_ADMIN.has(admin[1])) return { tipo: "admin", secao: admin[1] };
   if (pathname === "/operacional" || pathname === "/operacional/") {
@@ -120,7 +136,12 @@ export function classificarPathname(pathname) {
 function pathnameCanonicoDaClasse(classe) {
   if (classe.tipo === "admin_raiz") return "/admin/dashboard";
   if (classe.tipo === "admin_cozinha") return ADMIN_COZINHA_NAV.rota;
-  if (classe.tipo === "admin") return `/admin/${classe.secao}`;
+  if (classe.tipo === "admin") {
+    if (classe.secao === "relatorios" && classe.sub) {
+      return rotaRelatorioPorId(classe.sub) || RELATORIOS_NAV.geral.path;
+    }
+    return `/admin/${classe.secao}`;
+  }
   if (classe.tipo === "operacional") {
     return classe.sub && classe.sub !== "central" ? `/operacional/${classe.sub}` : "/operacional";
   }

@@ -1144,3 +1144,119 @@ describe("REL-02D-AUTH-HISTORY-E — validação, manterTela e URL=tela", () => 
   });
 });
 
+describe("MICROGATE 02 — /admin/relatorios/<sub>: classificação, canonicalização e histórico", () => {
+  it("classifica as 7 rotas canônicas de Relatórios", () => {
+    expect(classificarPathname("/admin/relatorios")).toEqual({ tipo: "admin", secao: "relatorios" });
+    expect(classificarPathname("/admin/relatorios/vendas")).toEqual({
+      tipo: "admin", secao: "relatorios", sub: "vendas",
+    });
+    expect(classificarPathname("/admin/relatorios/cupom-mesa-comanda")).toEqual({
+      tipo: "admin", secao: "relatorios", sub: "cupom",
+    });
+    expect(classificarPathname("/admin/relatorios/estoque")).toEqual({
+      tipo: "admin", secao: "relatorios", sub: "estoque",
+    });
+    expect(classificarPathname("/admin/relatorios/clientes")).toEqual({
+      tipo: "admin", secao: "relatorios", sub: "clientes",
+    });
+    expect(classificarPathname("/admin/relatorios/permanencia")).toEqual({
+      tipo: "admin", secao: "relatorios", sub: "permanencia",
+    });
+    expect(classificarPathname("/admin/relatorios/satisfacao")).toEqual({
+      tipo: "admin", secao: "relatorios", sub: "satisfacao",
+    });
+  });
+
+  it("rejeita /admin/relatorios/geral, subseções inválidas e segmentos extras", () => {
+    expect(classificarPathname("/admin/relatorios/geral").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/relatorios/invalido").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/relatorios/vendas/extra").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/dashboard/extra").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/crm/qualquer").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/relatorios/").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/relatorios//").tipo).toBe("desconhecida");
+    expect(classificarPathname("/admin/relatorios/../dashboard").tipo).toBe("desconhecida");
+  });
+
+  it("validarRotaNavegacaoInterna aceita exatamente as 7 rotas canônicas de Relatórios", () => {
+    expect(validarRotaNavegacaoInterna("/admin/relatorios")).toBe("/admin/relatorios");
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/vendas")).toBe("/admin/relatorios/vendas");
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/cupom-mesa-comanda")).toBe(
+      "/admin/relatorios/cupom-mesa-comanda",
+    );
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/estoque")).toBe("/admin/relatorios/estoque");
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/clientes")).toBe("/admin/relatorios/clientes");
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/permanencia")).toBe("/admin/relatorios/permanencia");
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/satisfacao")).toBe("/admin/relatorios/satisfacao");
+  });
+
+  it("validarRotaNavegacaoInterna rejeita rotas não canônicas de Relatórios", () => {
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/geral")).toBeNull();
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/invalido")).toBeNull();
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/vendas/extra")).toBeNull();
+    expect(validarRotaNavegacaoInterna("/admin/dashboard/extra")).toBeNull();
+    expect(validarRotaNavegacaoInterna("/admin/crm/subrota")).toBeNull();
+    expect(validarRotaNavegacaoInterna("/admin/relatorios//")).toBeNull();
+  });
+
+  it("query inesperada em subrota de Relatórios é removida (comportamento existente, sem nova política)", () => {
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/vendas?x=1")).toBe("/admin/relatorios/vendas");
+  });
+
+  it("deep-link de contrato: validarRotaNavegacaoInterna retorna exatamente /admin/relatorios/vendas", () => {
+    expect(validarRotaNavegacaoInterna("/admin/relatorios/vendas")).toBe("/admin/relatorios/vendas");
+  });
+
+  it("rotaDoEstado cobre as 7 telas de Relatórios e faz fallback seguro para id inválido", () => {
+    expect(rotaDoEstado("admin", "relatorios", null, null, null)).toBe("/admin/relatorios");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "geral")).toBe("/admin/relatorios");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "vendas")).toBe("/admin/relatorios/vendas");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "cupom")).toBe("/admin/relatorios/cupom-mesa-comanda");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "estoque")).toBe("/admin/relatorios/estoque");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "clientes")).toBe("/admin/relatorios/clientes");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "permanencia")).toBe("/admin/relatorios/permanencia");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "satisfacao")).toBe("/admin/relatorios/satisfacao");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "qualquer-coisa")).toBe("/admin/relatorios");
+    expect(rotaDoEstado("admin", "relatorios", null, null, "qualquer-coisa")).not.toBe(
+      "/admin/relatorios/qualquer-coisa",
+    );
+  });
+
+  it("rotaDoEstado sem 5º argumento permanece retrocompatível (chamadas existentes do App)", () => {
+    expect(rotaDoEstado("admin", "relatorios")).toBe("/admin/relatorios");
+    expect(rotaDoEstado("admin", "dashboard")).toBe("/admin/dashboard");
+    expect(rotaDoEstado("kitchen", "dashboard", 4)).toBe("/admin/cozinha?setorId=4");
+  });
+
+  it("F5/histórico puro: mesma subrota de Relatórios em primeira sync é noop", () => {
+    const d = decidirEscritaHistorico({
+      pathAtual: "/admin/relatorios/vendas",
+      pathNovo: "/admin/relatorios/vendas",
+      primeiraSync: true,
+    });
+    expect(d.metodo).toBe("noop");
+  });
+
+  it("popstate em subrota válida de Relatórios: não encerra sessão, não faz push", () => {
+    const pilha = criarPilha("/admin/relatorios/vendas");
+    const r = executarPopstate({
+      historyApi: pilha,
+      pathname: "/admin/relatorios/vendas",
+      autenticado: true,
+      rotaSegura: "/admin/dashboard",
+      aplicarRota: () => ({ aceita: true, path: "/admin/relatorios/vendas" }),
+    });
+    expect(r.encerrarSessao).toBe(false);
+    expect(r.preservarSessao).toBe(true);
+    expect(r.acao).toBe("aplicar_rota");
+    expect(r.correcao.metodo).not.toBe("push");
+    expect(pilha.atual).toBe("/admin/relatorios/vendas");
+  });
+
+  it("pathnameCanonicoDaClasse (via validarRotaNavegacaoInterna) preserva admin+relatorios+sub", () => {
+    expect(validarRotaNavegacaoInterna("  /admin/relatorios/permanencia  ")).toBe(
+      "/admin/relatorios/permanencia",
+    );
+  });
+});
+
