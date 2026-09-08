@@ -38,3 +38,5 @@ scripts/.env
 # Artefato temporário da skill migrations-supabase (SQL consolidado p/ colar)
 supabase/_migrations-bundle.sql
 scripts/__pycache__/
+
+.claude/settings.local.json
