@@ -35,6 +35,6 @@ OUT="$(bash "$BUNDLER" all 2>/dev/null || true)"
 MIG_NAME="$(basename "$FILE")"
 # Injeta um lembrete no contexto do assistente (PostToolUse additionalContext).
 # Sem aspas duplas na mensagem para não quebrar o JSON.
-MSG="[migrations-supabase] Migration alterada: ${MIG_NAME}. Bundle consolidado (re)gerado em: ${OUT}. Acao obrigatoria: entregue este arquivo ao usuario com SendUserFile (display attach) para execucao manual no SQL Editor do Supabase; se a ferramenta do Supabase estiver conectada a conta dona do projeto (rwnzggjxhxnfrhstbxkm), aplique automaticamente via apply_migration."
+MSG="[migrations-supabase] Migration alterada: ${MIG_NAME}. Bundle consolidado (re)gerado em: ${OUT}. Acao obrigatoria: apresente/entregue este arquivo ao usuario (ex.: SendUserFile, display attach) para revisao manual antes de qualquer execucao no SQL Editor do Supabase. Nunca execute a migration de forma automatica e nunca escolha sozinho o ambiente afetado, seja homologacao ou producao. Qualquer escrita no Supabase exige aprovacao humana explicita e previa. Antes de qualquer escrita, confirme com o usuario: o ambiente alvo (homologacao ou producao), o project ref correto desse ambiente, e a migration exata a ser aplicada. Producao exige gate/precheck proprio, adicional a esta confirmacao."
 printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "$MSG"
 exit 0
