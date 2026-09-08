@@ -12,8 +12,9 @@ INPUT="$(cat 2>/dev/null || true)"
 
 # Extrai o caminho do arquivo do JSON do PostToolUse (tool_input.file_path).
 FILE="$(printf '%s' "$INPUT" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+FILE_NORM="$(printf '%s' "$FILE" | tr '\\' '/' | sed 's#//*#/#g')"
 
-case "$FILE" in
+case "$FILE_NORM" in
   *supabase/migrations/*.sql) : ;;   # é migration → segue
   *) exit 0 ;;                         # não é → silencioso
 esac
@@ -32,7 +33,7 @@ BUNDLER="$ROOT/.claude/skills/migrations-supabase/bundle-migrations.sh"
 OUT="$(bash "$BUNDLER" all 2>/dev/null || true)"
 [ -n "$OUT" ] || exit 0
 
-MIG_NAME="$(basename "$FILE")"
+MIG_NAME="$(basename "$FILE_NORM")"
 # Injeta um lembrete no contexto do assistente (PostToolUse additionalContext).
 # Sem aspas duplas na mensagem para não quebrar o JSON.
 MSG="[migrations-supabase] Migration alterada: ${MIG_NAME}. Bundle consolidado (re)gerado em: ${OUT}. Acao obrigatoria: apresente/entregue este arquivo ao usuario (ex.: SendUserFile, display attach) para revisao manual antes de qualquer execucao no SQL Editor do Supabase. Nunca execute a migration de forma automatica e nunca escolha sozinho o ambiente afetado, seja homologacao ou producao. Qualquer escrita no Supabase exige aprovacao humana explicita e previa. Antes de qualquer escrita, confirme com o usuario: o ambiente alvo (homologacao ou producao), o project ref correto desse ambiente, e a migration exata a ser aplicada. Producao exige gate/precheck proprio, adicional a esta confirmacao."

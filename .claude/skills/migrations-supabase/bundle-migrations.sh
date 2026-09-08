@@ -62,9 +62,10 @@ for f in "${PICK[@]}"; do [ -n "${seen[$f]:-}" ] && continue; seen[$f]=1; FILES+
 
 {
   echo "-- ============================================================"
-  echo "-- Bundle de migrations — Pedido Prime (projeto rwnzggjxhxnfrhstbxkm)"
+  echo "-- Bundle de migrations — Pedido Prime"
   echo "-- Gerado em $(date '+%Y-%m-%d %H:%M:%S')"
-  echo "-- Cole no SQL Editor do Supabase e clique em Run. Idempotente."
+  echo "-- Ambiente alvo: confirmar explicitamente antes de qualquer execucao."
+  echo "-- Nao executar automaticamente. Validar ambiente, Project Ref e migrations antes de aplicar."
   echo "-- Arquivos: $(for f in "${FILES[@]}"; do basename "$f"; done | tr '\n' ' ')"
   echo "-- ============================================================"
   echo
