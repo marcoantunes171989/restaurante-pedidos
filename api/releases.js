@@ -302,6 +302,93 @@ async function handlePromote(reqBody, res, operator) {
   });
 }
 
+// Pós-start: start() confirmado (releaseId + workflowRunId válidos) mas a
+// persistência REQUESTED -> SCHEDULED falhou no registry. Nunca chama
+// startOrchestratedRelease() de novo. Executa UMA tentativa compensatória
+// de cancelOrchestratedRelease() usando exatamente o workflowRunId
+// conhecido em memória; reutiliza a mesma função do fluxo normal de
+// cancel (não reestruturado).
+async function handlePostStartRegistryFailure({ releaseId, workflowRunId, res }) {
+  let cancelResult;
+  try {
+    cancelResult = await cancelOrchestratedRelease({ releaseId, workflowRunId });
+  } catch (error) {
+    // Config inválida, rejeição, timeout, falha de rede ou HTTP 4xx/5xx:
+    // nenhum desses prova que o workflow foi cancelado. Fail closed —
+    // preserva REQUESTED, não repete start nem cancel.
+    const httpStatus = error instanceof ReleaseOrchestratorRequestError ? error.httpStatus : null;
+    const code = error instanceof ReleaseOrchestratorConfigError
+      ? error.code
+      : (error instanceof ReleaseOrchestratorRequestError ? error.code : "ORCHESTRATOR_UNKNOWN_ERROR");
+    console.error("[release-schedule] compensação pós-start incerta", { code, httpStatus });
+    return json(res, 503, {
+      ok: false,
+      error: "ORCHESTRATOR_START_REGISTRY_UNCERTAIN",
+      action: "schedule",
+      releaseId,
+      workflowRunId,
+      orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", { code, httpStatus, uncertain: true }),
+    });
+  }
+
+  const cancelOk = cancelResult?.ok === true
+    && (cancelResult.releaseId === undefined || cancelResult.releaseId === releaseId);
+
+  if (!cancelOk) {
+    // Resposta 2xx ambígua/malformada: sem prova de cancelamento.
+    return json(res, 503, {
+      ok: false,
+      error: "ORCHESTRATOR_START_REGISTRY_UNCERTAIN",
+      action: "schedule",
+      releaseId,
+      workflowRunId,
+      orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", {
+        code: "CANCEL_MALFORMED",
+        uncertain: true,
+      }),
+    });
+  }
+
+  // Compensação comprovada (ok === true): o workflow iniciado foi
+  // neutralizado. UMA tentativa segura de marcar o registry como FAILED —
+  // sem retry em loop se essa transição também falhar.
+  const failedRow = await transitionRelease(releaseId, {
+    fromStatuses: ["REQUESTED"],
+    status: "FAILED",
+    resultCode: "ORCHESTRATOR_REGISTRY_COMMIT_FAILED_COMPENSATED",
+  });
+
+  if (!failedRow.ok) {
+    // Compensação funcionou, mas o registry segue indisponível para
+    // marcar FAILED. Nenhuma nova tentativa automática. A row pode
+    // continuar REQUESTED, sem workflow ativo conhecido.
+    return json(res, 503, {
+      ok: false,
+      error: "ORCHESTRATOR_REGISTRY_COMMIT_FAILED",
+      action: "schedule",
+      releaseId,
+      workflowRunId,
+      orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", {
+        code: "WORKFLOW_COMPENSATED",
+        uncertain: false,
+      }),
+      compensationSucceeded: true,
+    });
+  }
+
+  return json(res, 503, {
+    ok: false,
+    error: "ORCHESTRATOR_REGISTRY_COMMIT_FAILED",
+    action: "schedule",
+    releaseId,
+    workflowRunId,
+    orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", {
+      code: "WORKFLOW_COMPENSATED",
+      uncertain: false,
+    }),
+  });
+}
+
 async function handleSchedule(reqBody, res, operator) {
   if (reqBody.confirmation !== SCHEDULE_CONFIRMATION) {
     return json(res, 409, {
@@ -439,13 +526,10 @@ async function handleSchedule(reqBody, res, operator) {
     extra: { workflow_run_id: workflowRunId },
   });
   if (!scheduledRow.ok) {
-    return json(res, 502, {
-      ok: false,
-      error: "WORKFLOW_START_FAILED",
-      action: "schedule",
-      releaseId,
-      workflowRunId,
-    });
+    // start() já foi confirmado (releaseId + workflowRunId válidos) — nunca
+    // retornar WORKFLOW_START_FAILED aqui nem chamar start() de novo.
+    // Compensa com UMA tentativa de cancelOrchestratedRelease().
+    return handlePostStartRegistryFailure({ releaseId, workflowRunId, res });
   }
 
   return json(res, 202, {

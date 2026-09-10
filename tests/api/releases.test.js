@@ -133,7 +133,7 @@ function compareBody({
   };
 }
 
-function createRegistryMock({ seed = [], failWrite = false } = {}) {
+function createRegistryMock({ seed = [], failWrite = false, failWriteWhen = null } = {}) {
   const rows = new Map();
   for (const row of seed) rows.set(row.id, { ...row });
 
@@ -185,6 +185,17 @@ function createRegistryMock({ seed = [], failWrite = false } = {}) {
       const method = String(options.method || "GET").toUpperCase();
       if (failWrite && (method === "POST" || method === "PATCH")) {
         return jsonResponse(500, { message: "registry down" }, false);
+      }
+      if (typeof failWriteWhen === "function" && (method === "POST" || method === "PATCH")) {
+        let parsedBody = null;
+        try {
+          parsedBody = JSON.parse(options.body);
+        } catch {
+          parsedBody = null;
+        }
+        if (failWriteWhen(parsedBody, method)) {
+          return jsonResponse(500, { message: "registry down" }, false);
+        }
       }
       if (method === "POST") {
         const body = JSON.parse(options.body);
@@ -1524,6 +1535,178 @@ describe("releases — schedule persiste registry antes do start no orquestrador
       expect(raw).not.toContain(SERVICE_ROLE);
       assertNoSecrets(raw);
     });
+  });
+});
+
+describe("releases — compensação pós-start quando transitionRelease REQUESTED->SCHEDULED falha (RELEASE-AUTO-05C-RUNTIME-ARCH4A)", () => {
+  it("A) start sucesso + transition SCHEDULED sucesso => comportamento existente, HTTP 202", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(202);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.status).toBe("SCHEDULED");
+    expect(body.workflowRunId).toBe("wrun_mock_schedule");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("SCHEDULED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
+  });
+
+  it("B) transition SCHEDULED falha + cancel compensatório sucesso + transition FAILED sucesso => HTTP 503 compensado, nunca 202", async () => {
+    const registry = createRegistryMock({
+      failWriteWhen: (body, method) => method === "PATCH" && body?.status === "SCHEDULED",
+    });
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.statusCode).not.toBe(202);
+    const body = res.json();
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("ORCHESTRATOR_REGISTRY_COMMIT_FAILED");
+    expect(body.orchestratorDiagnostic).toEqual({
+      stage: "START_REGISTRY_COMMIT",
+      code: "WORKFLOW_COMPENSATED",
+      httpStatus: null,
+      uncertain: false,
+    });
+    expect(body.compensationSucceeded).toBeUndefined();
+    expect(body.workflowRunId).toBe("wrun_mock_schedule");
+
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).toHaveBeenCalledWith({
+      releaseId: body.releaseId,
+      workflowRunId: "wrun_mock_schedule",
+    });
+
+    const stored = fn.registry.rows.get(body.releaseId);
+    expect(stored.status).toBe("FAILED");
+    expect(stored.result_code).toBe("ORCHESTRATOR_REGISTRY_COMMIT_FAILED_COMPENSATED");
+    assertNoSecrets(String(res.body));
+  });
+
+  it("C1) cancel compensatório network failure => HTTP 503 incerto, release NÃO marcada FAILED, sem segundo start", async () => {
+    const registry = createRegistryMock({
+      failWriteWhen: (body, method) => method === "PATCH" && body?.status === "SCHEDULED",
+    });
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE"),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_START_REGISTRY_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.stage).toBe("START_REGISTRY_COMMIT");
+    expect(body.orchestratorDiagnostic.uncertain).toBe(true);
+    expect(body.workflowRunId).toBe("wrun_mock_schedule");
+
+    const stored = fn.registry.rows.get(body.releaseId);
+    expect(stored.status).toBe("REQUESTED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).toHaveBeenCalledTimes(1);
+    assertNoSecrets(String(res.body));
+  });
+
+  it("C2) cancel compensatório timeout => HTTP 503 incerto, release NÃO marcada FAILED, sem segundo start", async () => {
+    const registry = createRegistryMock({
+      failWriteWhen: (body, method) => method === "PATCH" && body?.status === "SCHEDULED",
+    });
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_TIMEOUT"),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_REGISTRY_UNCERTAIN");
+    const stored = fn.registry.rows.get(res.json().releaseId);
+    expect(stored.status).toBe("REQUESTED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it("C3) cancel compensatório HTTP 5xx => HTTP 503 incerto, release NÃO marcada FAILED, sem segundo start", async () => {
+    const registry = createRegistryMock({
+      failWriteWhen: (body, method) => method === "PATCH" && body?.status === "SCHEDULED",
+    });
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_500", { httpStatus: 500 }),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_START_REGISTRY_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.httpStatus).toBe(500);
+    const stored = fn.registry.rows.get(body.releaseId);
+    expect(stored.status).toBe("REQUESTED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it("C4) cancel compensatório resposta malformada (ok=false) => HTTP 503 incerto, release NÃO marcada FAILED", async () => {
+    const registry = createRegistryMock({
+      failWriteWhen: (body, method) => method === "PATCH" && body?.status === "SCHEDULED",
+    });
+    cancelOrchestratedRelease.mockResolvedValueOnce({ ok: false });
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_START_REGISTRY_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.uncertain).toBe(true);
+    const stored = fn.registry.rows.get(body.releaseId);
+    expect(stored.status).toBe("REQUESTED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it("D) cancel compensatório sucesso mas transition FAILED também falha => HTTP 503, compensationSucceeded true, zero retry adicional", async () => {
+    const registry = createRegistryMock({
+      failWriteWhen: (body, method) => method === "PATCH"
+        && (body?.status === "SCHEDULED" || body?.status === "FAILED"),
+    });
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_REGISTRY_COMMIT_FAILED");
+    expect(body.compensationSucceeded).toBe(true);
+    expect(body.orchestratorDiagnostic).toEqual({
+      stage: "START_REGISTRY_COMMIT",
+      code: "WORKFLOW_COMPENSATED",
+      httpStatus: null,
+      uncertain: false,
+    });
+
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).toHaveBeenCalledTimes(1);
+    const patchAttempts = registryCalls(fn).filter(
+      ([, options]) => String(options?.method || "GET").toUpperCase() === "PATCH",
+    );
+    expect(patchAttempts).toHaveLength(2);
+
+    const stored = fn.registry.rows.get(body.releaseId);
+    expect(stored.status).toBe("REQUESTED");
+    assertNoSecrets(String(res.body));
+  });
+
+  it("E) startOrchestratedRelease é chamada exatamente UMA vez em todos os cenários acima", async () => {
+    const scenarios = [
+      () => createRegistryMock(),
+      () => createRegistryMock({
+        failWriteWhen: (body, method) => method === "PATCH" && body?.status === "SCHEDULED",
+      }),
+      () => createRegistryMock({
+        failWriteWhen: (body, method) => method === "PATCH"
+          && (body?.status === "SCHEDULED" || body?.status === "FAILED"),
+      }),
+    ];
+    for (const buildRegistry of scenarios) {
+      startOrchestratedRelease.mockClear();
+      cancelOrchestratedRelease.mockClear();
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), registry: buildRegistry() });
+      await schedule();
+      expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+    }
   });
 });
 
