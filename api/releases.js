@@ -67,6 +67,12 @@ function generatedAt() {
   return new Date().toISOString();
 }
 
+// Diagnóstico sanitizado (httpStatus + postgrestCode) já calculado em
+// server/release-store.js; nunca contém message/details/hint/raw/credenciais.
+function registryDiagnosticPayload(result) {
+  return result?.diagnostic || { httpStatus: null, postgrestCode: null };
+}
+
 // Reaplica a MESMA condição de autorização de api/ambientes.js
 // (e api/landing-analytics.js / isSuperAdmin): bypass da conta-raiz por
 // e-mail, OU super_admin === true, OU (sem loja própria + ids_acesso
@@ -220,6 +226,7 @@ async function handlePromote(reqBody, res, operator) {
       ok: false,
       error: "RELEASE_REGISTRY_UNAVAILABLE",
       action: "promote",
+      registryDiagnostic: registryDiagnosticPayload(created),
     });
   }
 
@@ -317,6 +324,7 @@ async function handleSchedule(reqBody, res, operator) {
       ok: false,
       error: "RELEASE_REGISTRY_UNAVAILABLE",
       action: "schedule",
+      registryDiagnostic: registryDiagnosticPayload(created),
     });
   }
 
@@ -484,6 +492,7 @@ async function handleHistory(reqBody, res) {
       ok: false,
       error: "RELEASE_REGISTRY_UNAVAILABLE",
       action: "history",
+      registryDiagnostic: registryDiagnosticPayload(listed),
     });
   }
   return json(res, 200, {

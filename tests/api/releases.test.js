@@ -1538,6 +1538,121 @@ describe("releases — history", () => {
   });
 });
 
+function registryFailureFetch({
+  status,
+  body,
+  networkError = false,
+  email = "super@teste.com",
+  userId = OPERATOR_ID,
+} = {}) {
+  const fn = vi.fn(async (url) => {
+    const target = String(url);
+    if (target.includes("/auth/v1/user")) {
+      return { ok: true, json: async () => ({ id: userId, email }) };
+    }
+    if (target.includes("/rest/v1/tab_usuarios")) {
+      return { ok: true, json: async () => [superAdminRow] };
+    }
+    if (target.includes("/rest/v1/app_release_runs")) {
+      if (networkError) throw new Error("network down");
+      const raw = JSON.stringify(body ?? {});
+      return {
+        ok: status >= 200 && status < 300,
+        status,
+        json: async () => body,
+        text: async () => raw,
+      };
+    }
+    throw new Error(`fetch inesperado no teste: ${target}`);
+  });
+  vi.stubGlobal("fetch", fn);
+  return fn;
+}
+
+describe("releases — registryDiagnostic sanitizado (history)", () => {
+  it("PostgREST 401 → registryDiagnostic com httpStatus e postgrestCode, sem message/hint", async () => {
+    registryFailureFetch({
+      status: 401,
+      body: { code: "PGRST301", message: "JWT expired", hint: "check token" },
+    });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
+    expect(body.registryDiagnostic).toEqual({ httpStatus: 401, postgrestCode: "PGRST301" });
+    expect(Object.keys(body.registryDiagnostic).sort()).toEqual(["httpStatus", "postgrestCode"]);
+    assertNoSecrets(String(res.body));
+    expect(String(res.body)).not.toContain("JWT expired");
+    expect(String(res.body)).not.toContain("check token");
+  });
+
+  it("PostgREST 403 → registryDiagnostic sem message", async () => {
+    registryFailureFetch({
+      status: 403,
+      body: { code: "42501", message: "permission denied for table app_release_runs" },
+    });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.registryDiagnostic).toEqual({ httpStatus: 403, postgrestCode: "42501" });
+    assertNoSecrets(String(res.body));
+    expect(String(res.body)).not.toContain("permission denied");
+  });
+
+  it("PostgREST 404 + PGRST205 → registryDiagnostic sem message/details/hint", async () => {
+    registryFailureFetch({
+      status: 404,
+      body: {
+        code: "PGRST205",
+        message: "Could not find the table 'public.app_release_runs' in the schema cache",
+        details: null,
+        hint: null,
+      },
+    });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.registryDiagnostic).toEqual({ httpStatus: 404, postgrestCode: "PGRST205" });
+    assertNoSecrets(String(res.body));
+    expect(String(res.body)).not.toContain("schema cache");
+  });
+
+  it("erro de rede → httpStatus e postgrestCode nulos", async () => {
+    registryFailureFetch({ networkError: true });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.registryDiagnostic).toEqual({ httpStatus: null, postgrestCode: null });
+    assertNoSecrets(String(res.body));
+  });
+
+  it("registryDiagnostic nunca vaza raw body, URL Supabase ou credenciais mesmo se presentes no erro do PostgREST", async () => {
+    registryFailureFetch({
+      status: 500,
+      body: {
+        code: "XX000",
+        message: "internal error",
+        details: "raw detail",
+        hint: "raw hint",
+        url: "https://rwnzggjxhxnfrhstbxkm.supabase.co",
+        apikey: "leaked-key",
+        authorization: "Bearer leaked-token",
+      },
+    });
+    const res = await history();
+    const body = res.json();
+    expect(Object.keys(body.registryDiagnostic).sort()).toEqual(["httpStatus", "postgrestCode"]);
+    expect(body.registryDiagnostic).toEqual({ httpStatus: 500, postgrestCode: "XX000" });
+    assertNoSecrets(String(res.body));
+    expect(String(res.body)).not.toContain("internal error");
+    expect(String(res.body)).not.toContain("raw detail");
+    expect(String(res.body)).not.toContain("raw hint");
+    expect(String(res.body)).not.toContain("rwnzggjxhxnfrhstbxkm.supabase.co");
+    expect(String(res.body)).not.toContain("leaked-key");
+    expect(String(res.body)).not.toContain("leaked-token");
+  });
+});
+
 describe("releases — status e reconciliação GitHub", () => {
   it("status 404 para release inexistente", async () => {
     mockFetch({ operatorRows: [superAdminRow] });

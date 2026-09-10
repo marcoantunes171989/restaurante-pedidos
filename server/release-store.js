@@ -123,6 +123,23 @@ function isUniqueConflict(status, body) {
   return code === "23505";
 }
 
+const POSTGREST_CODE_RE = /^[A-Za-z0-9_-]{1,20}$/;
+
+function sanitizePostgrestCode(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return POSTGREST_CODE_RE.test(trimmed) ? trimmed : null;
+}
+
+// Diagnóstico sanitizado: somente status HTTP + code curto do PostgREST.
+// Nunca inclui message/details/hint/raw body/URL/headers/credenciais.
+function diagnosticFromResult(result) {
+  return {
+    httpStatus: Number.isFinite(result?.status) ? result.status : null,
+    postgrestCode: sanitizePostgrestCode(result?.body?.code),
+  };
+}
+
 async function restRequest(query, { method = "GET", body, prefer } = {}) {
   if (!configured()) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
   try {
@@ -171,16 +188,22 @@ export async function createRelease(input) {
   if (isUniqueConflict(result.status, result.body)) {
     return { ok: false, conflict: true, error: "RELEASE_ALREADY_IN_PROGRESS" };
   }
-  if (!result.ok) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
   const row = firstRow(result.body);
-  if (!row?.id) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!row?.id) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
   return { ok: true, row };
 }
 
 export async function getRelease(id) {
   if (!isReleaseUuid(id)) return { ok: false, error: "RELEASE_NOT_FOUND" };
   const result = await restRequest(`?id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
-  if (!result.ok) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
   const row = firstRow(result.body);
   if (!row) return { ok: false, error: "RELEASE_NOT_FOUND" };
   return { ok: true, row };
@@ -192,7 +215,7 @@ export async function listReleases({ limit = DEFAULT_HISTORY_LIMIT } = {}) {
     `?select=*&order=created_at.desc&limit=${safeLimit}`,
   );
   if (!result.ok || !Array.isArray(result.body)) {
-    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
   }
   return { ok: true, rows: result.body, limit: safeLimit };
 }
@@ -224,7 +247,9 @@ export async function updateRelease(id, patch, { fromStatuses } = {}) {
     prefer: "return=representation",
     body,
   });
-  if (!result.ok) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
   const row = firstRow(result.body);
   if (!row) return { ok: false, unchanged: true, error: "RELEASE_STATUS_CONFLICT" };
   return { ok: true, row };
