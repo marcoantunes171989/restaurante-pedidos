@@ -830,7 +830,7 @@ describe("releases — promote guards e dispatch", () => {
     expect(options.method).toBe("POST");
     expect(options.headers.Authorization).toBe(`Bearer ${GITHUB_RELEASE_TOKEN}`);
     const payload = JSON.parse(options.body);
-    expect(payload.ref).toBe("homologacao");
+    expect(payload.ref).toBe("main");
     expect(payload.inputs.release_sha).toBe(SHA_HML);
     expect(payload.inputs.base_sha).toBe(SHA_MAIN);
     expect(payload.inputs.confirmation).toBe("DEPLOY-PROD");

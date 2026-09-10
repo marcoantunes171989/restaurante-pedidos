@@ -296,7 +296,7 @@ export async function dispatchProductionRelease({ token, targetSha, baseSha, rel
       token,
       method: "POST",
       body: {
-        ref: GITHUB_HEAD_BRANCH,
+        ref: GITHUB_BASE_BRANCH,
         inputs: {
           release_sha: targetSha,
           base_sha: baseSha,
