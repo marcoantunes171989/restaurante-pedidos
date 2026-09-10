@@ -1,0 +1,9 @@
+node_modules
+.next
+.swc
+.env
+.env.*
+*.log
+app/.well-known
+AGENTS.md
+CLAUDE.md

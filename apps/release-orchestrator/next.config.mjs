@@ -1,0 +1,10 @@
+import { withWorkflow } from "workflow/next";
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  turbopack: {
+    root: import.meta.dirname,
+  },
+};
+
+export default withWorkflow(nextConfig);
