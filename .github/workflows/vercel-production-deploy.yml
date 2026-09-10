@@ -23,18 +23,20 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: pedido-prime-production
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Validate, test, build and fast-forward main
+  validate:
+    name: Validate, test and build release candidate
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout approved release SHA
@@ -179,6 +181,28 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
+  promote:
+    name: Fast-forward main to approved release SHA
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Fetch main and homologacao
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main homologacao
+
       - name: Revalidate branches before push
         shell: bash
         env:
@@ -186,7 +210,6 @@ jobs:
           BASE_SHA: ${{ inputs.base_sha }}
         run: |
           set -euo pipefail
-          git fetch origin main homologacao
 
           CURRENT_MAIN="$(git rev-parse --verify origin/main)"
           CURRENT_HML="$(git rev-parse --verify origin/homologacao)"
@@ -195,12 +218,33 @@ jobs:
           echo "origin/hml:  $CURRENT_HML"
 
           if [[ "$CURRENT_MAIN" != "$BASE_SHA" ]]; then
-            echo "main changed during tests/build. Promotion aborted."
+            echo "origin/main does not match the frozen base_sha. Promotion aborted."
             exit 1
           fi
 
           if [[ "$CURRENT_HML" != "$RELEASE_SHA" ]]; then
-            echo "homologacao changed during tests/build. Promotion aborted."
+            echo "origin/homologacao does not match the approved release_sha. Promotion aborted."
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$CURRENT_MAIN" "$RELEASE_SHA"; then
+            echo "origin/main is not an ancestor of release_sha. Promotion aborted."
+            exit 1
+          fi
+
+          AHEAD="$(git rev-list --count "${CURRENT_MAIN}..${RELEASE_SHA}")"
+          BEHIND="$(git rev-list --count "${RELEASE_SHA}..${CURRENT_MAIN}")"
+
+          echo "ahead:  $AHEAD"
+          echo "behind: $BEHIND"
+
+          if [[ "$AHEAD" -le 0 ]]; then
+            echo "Release is not ahead of main. Promotion aborted."
+            exit 1
+          fi
+
+          if [[ "$BEHIND" -ne 0 ]]; then
+            echo "Release is behind main. Promotion aborted."
             exit 1
           fi
 
