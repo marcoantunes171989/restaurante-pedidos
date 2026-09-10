@@ -6,6 +6,12 @@
 
 /* global process */
 import crypto from "node:crypto";
+import {
+  getRelease,
+  toPublicRelease,
+  transitionRelease,
+  updateRelease,
+} from "./release-store.js";
 
 export const DATABASE_STATUS = {
   automation: "blocked",
@@ -232,7 +238,33 @@ function matchesReleaseId(run, releaseId) {
   if (!releaseId) return false;
   const name = String(run?.name || "");
   const title = String(run?.display_title || "");
-  return name.includes(releaseId) || title.includes(releaseId);
+  const requestId = String(run?.display_title || run?.name || "");
+  return name.includes(releaseId) || title.includes(releaseId) || requestId.includes(releaseId);
+}
+
+function githubRunUrl(run) {
+  if (run?.html_url) return String(run.html_url);
+  if (run?.id == null) return null;
+  return `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions/runs/${run.id}`;
+}
+
+function githubIdentity(run) {
+  if (!run?.id) return { githubRunId: null, githubRunUrl: null };
+  return { githubRunId: run.id, githubRunUrl: githubRunUrl(run) };
+}
+
+export function mapGithubRunToReleaseStatus(run) {
+  const status = String(run?.status || "");
+  const conclusion = String(run?.conclusion || "");
+  if (status === "queued" || status === "waiting" || status === "requested" || status === "pending") {
+    return "DISPATCHED";
+  }
+  if (status === "in_progress") return "RUNNING";
+  if (status === "completed" && conclusion === "success") return "SUCCEEDED";
+  if (status === "completed" && ["failure", "cancelled", "timed_out", "startup_failure", "action_required"].includes(conclusion)) {
+    return "FAILED";
+  }
+  return null;
 }
 
 export async function findActiveProductionRelease(token) {
@@ -287,25 +319,46 @@ function classifyScheduledWake({ preflight, frozenBaseSha, frozenTargetSha }) {
   const codes = (preflight?.blockers || []).map((item) => item.code);
 
   if (!realHml || !realMain || codes.includes("GITHUB_UNAVAILABLE")) {
-    return { ok: false, status: "GITHUB_UNAVAILABLE", preflight };
+    return { ok: false, status: "FAILED", resultCode: "GITHUB_UNAVAILABLE", preflight };
   }
   if (realHml !== frozenTargetSha) {
-    return { ok: false, status: "BLOCKED_TARGET_CHANGED", preflight };
+    return { ok: false, status: "BLOCKED", resultCode: "TARGET_SHA_CHANGED", preflight };
   }
   if (realMain !== frozenBaseSha) {
-    return { ok: false, status: "BLOCKED_BASE_CHANGED", preflight };
+    return { ok: false, status: "BLOCKED", resultCode: "BASE_SHA_CHANGED", preflight };
   }
   if (
     preflight.compare?.behind !== 0
     || preflight.compare?.fastForward !== true
     || codes.includes("BRANCH_DIVERGED")
   ) {
-    return { ok: false, status: "BLOCKED_BRANCH_DIVERGED", preflight };
+    return { ok: false, status: "BLOCKED", resultCode: "BRANCH_DIVERGED", preflight };
   }
   if (!isReleaseReady(preflight, frozenTargetSha)) {
-    return { ok: false, status: "RELEASE_NOT_READY", preflight };
+    return { ok: false, status: "BLOCKED", resultCode: "RELEASE_NOT_READY", preflight };
   }
   return { ok: true, preflight };
+}
+
+async function failScheduledRegistry(releaseId, { status, resultCode, errorMessage }) {
+  await transitionRelease(releaseId, {
+    fromStatuses: ["REQUESTED", "SCHEDULED", "WAITING", "VALIDATING"],
+    status,
+    resultCode,
+    errorMessage,
+  });
+}
+
+function registryWakeBlocked(release, { status, resultCode }) {
+  return {
+    ok: false,
+    status,
+    resultCode,
+    releaseId: release?.id || null,
+    baseSha: release?.base_sha || null,
+    targetSha: release?.target_sha || null,
+    release: toPublicRelease(release),
+  };
 }
 
 async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent }) {
@@ -327,6 +380,7 @@ async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent })
         baseSha,
         targetSha,
         workflowRunId: existing.run.id ?? null,
+        ...githubIdentity(existing.run),
         workflow: PRODUCTION_WORKFLOW,
       };
     }
@@ -355,11 +409,9 @@ async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent })
     return { ok: false, error: "WORKFLOW_DISPATCH_FAILED", status: "WORKFLOW_DISPATCH_FAILED" };
   }
 
-  let workflowRunId = null;
-  if (idempotent) {
-    const located = await findReleaseByRequestId(token, releaseId);
-    if (located.ok && located.run?.id) workflowRunId = located.run.id;
-  }
+  let locatedRun = null;
+  const located = await findReleaseByRequestId(token, releaseId);
+  if (located.ok && located.run?.id) locatedRun = located.run;
 
   return {
     ok: true,
@@ -367,9 +419,44 @@ async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent })
     releaseId,
     baseSha,
     targetSha,
-    workflowRunId,
+    workflowRunId: locatedRun?.id ?? null,
+    ...githubIdentity(locatedRun),
     workflow: PRODUCTION_WORKFLOW,
   };
+}
+
+export async function reconcileReleaseGithub(release) {
+  if (!release || !["DISPATCHED", "RUNNING"].includes(release.status)) {
+    return { ok: true, row: release };
+  }
+  const token = githubReadToken() || githubReleaseToken();
+  if (!token) return { ok: true, row: release };
+
+  const found = await findReleaseByRequestId(token, release.id);
+  if (!found.ok || !found.run) return { ok: true, row: release };
+
+  const nextStatus = mapGithubRunToReleaseStatus(found.run);
+  const identity = githubIdentity(found.run);
+  const extra = {
+    github_run_id: identity.githubRunId,
+    github_run_url: identity.githubRunUrl,
+  };
+  if (!nextStatus || nextStatus === release.status) {
+    const updated = await updateRelease(release.id, extra, {
+      fromStatuses: ["DISPATCHED", "RUNNING"],
+    });
+    return updated.ok ? updated : { ok: true, row: release };
+  }
+
+  const fromStatuses = nextStatus === "RUNNING"
+    ? ["DISPATCHED"]
+    : ["DISPATCHED", "RUNNING"];
+  const transitioned = await transitionRelease(release.id, {
+    fromStatuses,
+    status: nextStatus,
+    extra,
+  });
+  return transitioned.ok ? transitioned : { ok: true, row: release };
 }
 
 export async function executeReleaseCandidate({ requestedTargetSha, releaseId } = {}) {
@@ -393,7 +480,61 @@ export async function executeReleaseCandidate({ requestedTargetSha, releaseId } 
   return { ...dispatched, preflight };
 }
 
-export async function executeScheduledRelease({ releaseId, baseSha, targetSha, scheduledAt } = {}) {
+export async function executeScheduledRelease({
+  releaseId,
+  baseSha,
+  targetSha,
+  scheduledAt,
+  workflowRunId,
+} = {}) {
+  const loaded = await getRelease(releaseId);
+  if (!loaded.ok || !loaded.row) {
+    return {
+      ok: false,
+      status: "BLOCKED",
+      resultCode: "RELEASE_NOT_FOUND",
+      releaseId,
+      baseSha,
+      targetSha,
+      scheduledAt: scheduledAt || null,
+    };
+  }
+
+  const release = loaded.row;
+  const storedWorkflowRunId = release.workflow_run_id || null;
+  const wakeAllowed = release.status === "SCHEDULED" || release.status === "WAITING";
+  if (
+    ["REQUESTED", "FAILED", "BLOCKED", "CANCELED"].includes(release.status)
+    || !wakeAllowed
+    || release.mode !== "scheduled"
+    || release.base_sha !== baseSha
+    || release.target_sha !== targetSha
+    || (storedWorkflowRunId && workflowRunId && storedWorkflowRunId !== workflowRunId)
+  ) {
+    return registryWakeBlocked(release, {
+      status: release.status === "CANCELED" ? "CANCELED" : "BLOCKED",
+      resultCode: release.status === "CANCELED"
+        ? (release.result_code || "CANCELED_BY_OPERATOR")
+        : "REGISTRY_REVALIDATION_FAILED",
+    });
+  }
+
+  const validating = await transitionRelease(release.id, {
+    fromStatuses: ["SCHEDULED", "WAITING"],
+    status: "VALIDATING",
+  });
+  if (!validating.ok) {
+    return {
+      ok: false,
+      status: "BLOCKED",
+      resultCode: "REGISTRY_REVALIDATION_FAILED",
+      releaseId,
+      baseSha,
+      targetSha,
+      scheduledAt: scheduledAt || null,
+    };
+  }
+
   const preflight = await runPreflight(targetSha);
   const classified = classifyScheduledWake({
     preflight,
@@ -401,9 +542,14 @@ export async function executeScheduledRelease({ releaseId, baseSha, targetSha, s
     frozenTargetSha: targetSha,
   });
   if (!classified.ok) {
+    await failScheduledRegistry(releaseId, {
+      status: classified.status,
+      resultCode: classified.resultCode,
+    });
     return {
       ok: false,
       status: classified.status,
+      resultCode: classified.resultCode,
       releaseId,
       baseSha,
       targetSha,
@@ -416,6 +562,33 @@ export async function executeScheduledRelease({ releaseId, baseSha, targetSha, s
     baseSha,
     releaseId,
     idempotent: true,
+  });
+
+  if (!dispatched.ok) {
+    const blocked = dispatched.error === "RELEASE_ALREADY_IN_PROGRESS";
+    await failScheduledRegistry(releaseId, {
+      status: blocked ? "BLOCKED" : "FAILED",
+      resultCode: blocked ? "RELEASE_ALREADY_IN_PROGRESS" : (dispatched.error || "WORKFLOW_DISPATCH_FAILED"),
+    });
+    return {
+      ...dispatched,
+      status: blocked ? "BLOCKED" : "FAILED",
+      resultCode: blocked ? "RELEASE_ALREADY_IN_PROGRESS" : (dispatched.error || dispatched.status),
+      releaseId,
+      baseSha,
+      targetSha,
+      scheduledAt: scheduledAt || null,
+    };
+  }
+
+  await transitionRelease(releaseId, {
+    fromStatuses: ["VALIDATING", "DISPATCHED", "RUNNING"],
+    status: "DISPATCHED",
+    resultCode: dispatched.status === "ALREADY_DISPATCHED" ? "ALREADY_DISPATCHED" : null,
+    extra: {
+      github_run_id: dispatched.githubRunId ?? null,
+      github_run_url: dispatched.githubRunUrl || null,
+    },
   });
 
   return {

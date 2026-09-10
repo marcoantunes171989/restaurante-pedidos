@@ -9,6 +9,12 @@ export async function scheduledReleaseWorkflow(input) {
 
 export async function executeScheduledReleaseStep(input) {
   "use step";
-  const { releaseId, baseSha, targetSha, scheduledAt } = input;
-  return executeScheduledRelease({ releaseId, baseSha, targetSha, scheduledAt });
+  const { releaseId, baseSha, targetSha, scheduledAt, workflowRunId } = input;
+  return executeScheduledRelease({
+    releaseId,
+    baseSha,
+    targetSha,
+    scheduledAt,
+    workflowRunId: workflowRunId || null,
+  });
 }

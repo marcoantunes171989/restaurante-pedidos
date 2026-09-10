@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("workflow/api", () => ({
   start: vi.fn(async () => ({ runId: "wrun_mock_schedule" })),
+  getRun: vi.fn(() => ({ cancel: vi.fn(async () => {}) })),
 }));
 
 vi.mock("../../workflows/scheduled-release.js", () => ({
@@ -12,7 +13,7 @@ vi.mock("../../workflows/scheduled-release.js", () => ({
 }));
 
 import handler from "../../api/releases.js";
-import { start } from "workflow/api";
+import { getRun, start } from "workflow/api";
 import { scheduledReleaseWorkflow } from "../../workflows/scheduled-release.js";
 import { executeScheduledRelease } from "../../server/release-core.js";
 
@@ -40,6 +41,11 @@ const superAdminRow = { ativo: true, super_admin: true, loja_id: null, ids_acess
 const SHA_MAIN = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_HML = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 const SHA_OTHER = "cccccccccccccccccccccccccccccccccccccccc";
+const OPERATOR_ID = "22222222-2222-4222-8222-222222222222";
+const SCHEDULED_RELEASE_ID = "11111111-1111-4111-8111-111111111111";
+const ACTIVE_STATUSES = new Set([
+  "REQUESTED", "SCHEDULED", "WAITING", "VALIDATING", "DISPATCHED", "RUNNING",
+]);
 const GITHUB_READ_TOKEN = "github-read-token-secreto-teste";
 const GITHUB_RELEASE_TOKEN = "github-release-token-secreto-teste";
 const VERCEL_TOKEN = "vercel-token-secreto-teste";
@@ -111,22 +117,114 @@ function compareBody({
   };
 }
 
+function createRegistryMock({ seed = [], failWrite = false } = {}) {
+  const rows = new Map();
+  for (const row of seed) rows.set(row.id, { ...row });
+
+  function parseFilters(url) {
+    const parsed = new URL(url);
+    return {
+      id: parsed.searchParams.get("id"),
+      status: parsed.searchParams.get("status"),
+      order: parsed.searchParams.get("order"),
+      limit: parsed.searchParams.get("limit"),
+    };
+  }
+
+  function matchFilter(row, raw, field) {
+    if (!raw) return true;
+    if (raw.startsWith("eq.")) return String(row[field] ?? "") === raw.slice(3);
+    if (raw.startsWith("in.(") && raw.endsWith(")")) {
+      const items = raw.slice(4, -1).split(",");
+      return items.includes(String(row[field] ?? ""));
+    }
+    return true;
+  }
+
+  function list(url) {
+    const filters = parseFilters(url);
+    let result = [...rows.values()].filter((row) => (
+      matchFilter(row, filters.id, "id") && matchFilter(row, filters.status, "status")
+    ));
+    if (filters.order === "created_at.desc") {
+      result = result.sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    }
+    if (filters.limit) result = result.slice(0, Number(filters.limit));
+    return result;
+  }
+
+  function jsonResponse(status, payload, ok = status >= 200 && status < 300) {
+    const raw = JSON.stringify(payload);
+    return {
+      ok,
+      status,
+      json: async () => payload,
+      text: async () => raw,
+    };
+  }
+
+  return {
+    rows,
+    async handle(url, options = {}) {
+      const method = String(options.method || "GET").toUpperCase();
+      if (failWrite && (method === "POST" || method === "PATCH")) {
+        return jsonResponse(500, { message: "registry down" }, false);
+      }
+      if (method === "POST") {
+        const body = JSON.parse(options.body);
+        const insertingActive = ACTIVE_STATUSES.has(body.status);
+        const hasActive = [...rows.values()].some((row) => ACTIVE_STATUSES.has(row.status));
+        if (insertingActive && hasActive) {
+          return jsonResponse(409, {
+            code: "23505",
+            message: 'duplicate key value violates unique constraint "app_release_runs_single_active_uidx"',
+          }, false);
+        }
+        const now = new Date().toISOString();
+        const row = {
+          created_at: now,
+          updated_at: now,
+          ...body,
+        };
+        rows.set(row.id, row);
+        return jsonResponse(201, [row]);
+      }
+      if (method === "PATCH") {
+        const body = JSON.parse(options.body);
+        const matched = list(url);
+        const updated = matched.map((row) => {
+          const next = { ...row, ...body, updated_at: body.updated_at || new Date().toISOString() };
+          rows.set(row.id, next);
+          return next;
+        });
+        return jsonResponse(200, updated);
+      }
+      return jsonResponse(200, list(url));
+    },
+  };
+}
+
 function mockFetch({
   userOk = true,
   email = "super@teste.com",
+  userId = OPERATOR_ID,
   operatorOk = true,
   operatorRows = [],
   github,
+  registry = createRegistryMock(),
 } = {}) {
   const fn = vi.fn(async (url, options) => {
     const target = String(url);
     if (target.includes("/auth/v1/user")) {
       if (!userOk) return { ok: false, json: async () => ({}) };
-      return { ok: true, json: async () => ({ email }) };
+      return { ok: true, json: async () => ({ id: userId, email }) };
     }
     if (target.includes("/rest/v1/tab_usuarios")) {
       if (!operatorOk) return { ok: false, json: async () => [] };
       return { ok: true, json: async () => operatorRows };
+    }
+    if (target.includes("/rest/v1/app_release_runs")) {
+      return registry.handle(target, options);
     }
     if (target.includes("api.github.com")) {
       if (typeof github !== "function") throw new Error(`github fetch inesperado no teste: ${target}`);
@@ -134,6 +232,7 @@ function mockFetch({
     }
     throw new Error(`fetch inesperado no teste: ${target}`);
   });
+  fn.registry = registry;
   vi.stubGlobal("fetch", fn);
   return fn;
 }
@@ -207,6 +306,41 @@ async function schedule(extraBody = {}) {
   return res;
 }
 
+async function cancelRelease(extraBody = {}) {
+  const res = makeRes();
+  await handler(makeReq({
+    headers: authHeaders(),
+    body: { action: "cancel", confirmation: "CANCELAR", ...extraBody },
+  }), res);
+  return res;
+}
+
+async function history(extraBody = {}) {
+  const res = makeRes();
+  await handler(makeReq({
+    headers: authHeaders(),
+    body: { action: "history", ...extraBody },
+  }), res);
+  return res;
+}
+
+async function statusOf(extraBody = {}) {
+  const res = makeRes();
+  await handler(makeReq({
+    headers: authHeaders(),
+    body: { action: "status", ...extraBody },
+  }), res);
+  return res;
+}
+
+function registryCalls(fn) {
+  return fn.mock.calls.filter(([url]) => String(url).includes("/rest/v1/app_release_runs"));
+}
+
+function registryPosts(fn) {
+  return registryCalls(fn).filter(([, options]) => String(options?.method || "GET").toUpperCase() === "POST");
+}
+
 function githubCalls(fn) {
   return fn.mock.calls.filter(([url]) => String(url).includes("api.github.com"));
 }
@@ -249,6 +383,11 @@ beforeEach(() => {
   delete process.env.VITE_SUPABASE_URL;
   start.mockReset();
   start.mockResolvedValue({ runId: "wrun_mock_schedule" });
+  getRun.mockReset();
+  getRun.mockImplementation((runId) => ({
+    runId,
+    cancel: vi.fn(async () => {}),
+  }));
 });
 
 afterEach(() => {
@@ -465,8 +604,8 @@ describe("releases — fail-closed", () => {
   });
 });
 
-describe("releases — ações ainda desabilitadas", () => {
-  it("cancel → 409 RELEASE_ACTION_NOT_ENABLED", async () => {
+describe("releases — cancel requer confirmação", () => {
+  it("cancel sem confirmation → CANCEL_CONFIRMATION_REQUIRED", async () => {
     const fn = mockFetch({ operatorRows: [superAdminRow] });
     const res = makeRes();
     await handler(makeReq({
@@ -474,10 +613,10 @@ describe("releases — ações ainda desabilitadas", () => {
       body: { action: "cancel" },
     }), res);
     expect(res.statusCode).toBe(409);
-    expect(res.json().error).toBe("RELEASE_ACTION_NOT_ENABLED");
-    expect(res.json().action).toBe("cancel");
+    expect(res.json().error).toBe("CANCEL_CONFIRMATION_REQUIRED");
     expect(fn.mock.calls.some(([url]) => String(url).includes("api.github.com"))).toBe(false);
     expect(start).not.toHaveBeenCalled();
+    expect(getRun).not.toHaveBeenCalled();
   });
 });
 
@@ -957,14 +1096,31 @@ describe("releases — workflow durável estrutural", () => {
 
 describe("releases — step de wake-up revalida e protege o dispatch", () => {
   const scheduledInput = {
-    releaseId: "11111111-1111-4111-8111-111111111111",
+    releaseId: SCHEDULED_RELEASE_ID,
     baseSha: SHA_MAIN,
     targetSha: SHA_HML,
     scheduledAt: "2026-12-01T21:00:00.000Z",
   };
 
+  function scheduledRegistry(overrides = {}) {
+    return createRegistryMock({
+      seed: [{
+        id: SCHEDULED_RELEASE_ID,
+        mode: "scheduled",
+        status: "SCHEDULED",
+        base_sha: SHA_MAIN,
+        target_sha: SHA_HML,
+        scheduled_at: scheduledInput.scheduledAt,
+        workflow_run_id: "wrun_mock_schedule",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        ...overrides,
+      }],
+    });
+  }
+
   it("revalida main e homologacao no wake-up", async () => {
-    const fn = mockFetch({ github: readyGithub() });
+    const fn = mockFetch({ github: readyGithub(), registry: scheduledRegistry() });
     await executeScheduledRelease(scheduledInput);
     const urls = githubCalls(fn).map(([url]) => String(url));
     expect(urls.some((url) => url.includes("/branches/main"))).toBe(true);
@@ -977,10 +1133,12 @@ describe("releases — step de wake-up revalida e protege o dispatch", () => {
       github: readyGithub({
         homologacao: () => githubOk(branchBody(SHA_OTHER)),
       }),
+      registry: scheduledRegistry(),
     });
     const result = await executeScheduledRelease(scheduledInput);
     expect(result.ok).toBe(false);
-    expect(result.status).toBe("BLOCKED_TARGET_CHANGED");
+    expect(result.status).toBe("BLOCKED");
+    expect(result.resultCode).toBe("TARGET_SHA_CHANGED");
     expect(dispatchCalls(fn)).toHaveLength(0);
   });
 
@@ -995,10 +1153,12 @@ describe("releases — step de wake-up revalida e protege o dispatch", () => {
           mergeBase: SHA_OTHER,
         })),
       }),
+      registry: scheduledRegistry(),
     });
     const result = await executeScheduledRelease(scheduledInput);
     expect(result.ok).toBe(false);
-    expect(result.status).toBe("BLOCKED_BASE_CHANGED");
+    expect(result.status).toBe("BLOCKED");
+    expect(result.resultCode).toBe("BASE_SHA_CHANGED");
     expect(dispatchCalls(fn)).toHaveLength(0);
   });
 
@@ -1009,10 +1169,12 @@ describe("releases — step de wake-up revalida e protege o dispatch", () => {
           workflow_runs: [{ id: 88, status: "in_progress", name: "outra-release" }],
         }),
       }),
+      registry: scheduledRegistry(),
     });
     const result = await executeScheduledRelease(scheduledInput);
     expect(result.ok).toBe(false);
-    expect(result.status).toBe("BLOCKED_RELEASE_IN_PROGRESS");
+    expect(result.status).toBe("BLOCKED");
+    expect(result.resultCode).toBe("RELEASE_ALREADY_IN_PROGRESS");
     expect(dispatchCalls(fn)).toHaveLength(0);
   });
 
@@ -1027,6 +1189,7 @@ describe("releases — step de wake-up revalida e protege o dispatch", () => {
           }],
         }),
       }),
+      registry: scheduledRegistry(),
     });
     const result = await executeScheduledRelease(scheduledInput);
     expect(result.ok).toBe(true);
@@ -1036,7 +1199,7 @@ describe("releases — step de wake-up revalida e protege o dispatch", () => {
   });
 
   it("dispatch programado envia o mesmo request_id congelado", async () => {
-    const fn = mockFetch({ github: readyGithub() });
+    const fn = mockFetch({ github: readyGithub(), registry: scheduledRegistry() });
     const result = await executeScheduledRelease(scheduledInput);
     expect(result.ok).toBe(true);
     expect(result.status).toBe("DISPATCHED");
@@ -1048,6 +1211,400 @@ describe("releases — step de wake-up revalida e protege o dispatch", () => {
     expect(payload.inputs.base_sha).toBe(SHA_MAIN);
     expect(payload.inputs.confirmation).toBe("DEPLOY-PROD");
     expect(posted[0][1].headers.Authorization).toBe(`Bearer ${GITHUB_RELEASE_TOKEN}`);
+  });
+
+  it("wake sem registry → não dispatch", async () => {
+    const fn = mockFetch({ github: readyGithub(), registry: createRegistryMock() });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("wake CANCELED → não dispatch", async () => {
+    const fn = mockFetch({
+      github: readyGithub(),
+      registry: scheduledRegistry({ status: "CANCELED", result_code: "CANCELED_BY_OPERATOR" }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("wake baseSha mismatch → não dispatch", async () => {
+    const fn = mockFetch({
+      github: readyGithub(),
+      registry: scheduledRegistry({ base_sha: SHA_OTHER }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("wake targetSha mismatch → não dispatch", async () => {
+    const fn = mockFetch({
+      github: readyGithub(),
+      registry: scheduledRegistry({ target_sha: SHA_OTHER }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+});
+
+describe("releases — promote persiste registry antes do dispatch", () => {
+  it("cria registry REQUESTED before dispatch e marca DISPATCHED no sucesso", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await promote();
+    expect(res.statusCode).toBe(202);
+    const posted = registryPosts(fn);
+    expect(posted).toHaveLength(1);
+    const created = JSON.parse(posted[0][1].body);
+    expect(created.status).toBe("REQUESTED");
+    expect(created.mode).toBe("immediate");
+    expect(created.requested_by_user_id).toBe(OPERATOR_ID);
+    expect(created.requested_by_email).toBe("super@teste.com");
+    expect(created.base_sha).toBe(SHA_MAIN);
+    expect(created.target_sha).toBe(SHA_HML);
+
+    const postIdx = fn.mock.calls.findIndex(([url, options]) => (
+      String(url).includes("/rest/v1/app_release_runs") && String(options?.method).toUpperCase() === "POST"
+    ));
+    const dispatchIdx = fn.mock.calls.findIndex(([url]) => String(url).includes("/dispatches"));
+    expect(postIdx).toBeGreaterThan(-1);
+    expect(dispatchIdx).toBeGreaterThan(postIdx);
+
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("DISPATCHED");
+    expect(stored.id).toBe(res.json().releaseId);
+    assertNoSecrets(String(res.body));
+  });
+
+  it("falha registry → nenhum dispatch", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub(),
+      registry: createRegistryMock({ failWrite: true }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("single active conflict → RELEASE_ALREADY_IN_PROGRESS sem dispatch", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub(),
+      registry: createRegistryMock({
+        seed: [{
+          id: "33333333-3333-4333-8333-333333333333",
+          mode: "immediate",
+          status: "RUNNING",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_ALREADY_IN_PROGRESS");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("dispatch failure → FAILED e sem segundo dispatch", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        dispatch: () => githubError(500, { message: "dispatch failed" }),
+      }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toBe("WORKFLOW_DISPATCH_FAILED");
+    expect(dispatchCalls(fn)).toHaveLength(1);
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("FAILED");
+    expect(stored.result_code).toBe("WORKFLOW_DISPATCH_FAILED");
+  });
+});
+
+describe("releases — schedule persiste registry antes do start", () => {
+  it("cria REQUESTED e após start marca SCHEDULED + workflowRunId", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: "2026-12-01T18:00:00-03:00" });
+    expect(res.statusCode).toBe(202);
+    const created = JSON.parse(registryPosts(fn)[0][1].body);
+    expect(created.status).toBe("REQUESTED");
+    expect(created.mode).toBe("scheduled");
+    expect(res.json().workflowRunId).toBe("wrun_mock_schedule");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("SCHEDULED");
+    expect(stored.workflow_run_id).toBe("wrun_mock_schedule");
+    expect(start).toHaveBeenCalledTimes(1);
+    assertNoSecrets(String(res.body));
+  });
+
+  it("start failure → FAILED WORKFLOW_START_FAILED", async () => {
+    start.mockRejectedValueOnce(new Error("boom"));
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toBe("WORKFLOW_START_FAILED");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("FAILED");
+    expect(stored.result_code).toBe("WORKFLOW_START_FAILED");
+  });
+});
+
+describe("releases — cancel seguro", () => {
+  it("cancel release inexistente → RELEASE_NOT_FOUND", async () => {
+    mockFetch({ operatorRows: [superAdminRow] });
+    const res = await cancelRelease({ releaseId: "99999999-9999-4999-8999-999999999999" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe("RELEASE_NOT_FOUND");
+    expect(getRun).not.toHaveBeenCalled();
+  });
+
+  it("cancel immediate → RELEASE_NOT_CANCELABLE", async () => {
+    const releaseId = "44444444-4444-4444-8444-444444444444";
+    mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "immediate",
+          status: "REQUESTED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_CANCELABLE");
+    expect(getRun).not.toHaveBeenCalled();
+  });
+
+  it("cancel estado RUNNING → RELEASE_NOT_CANCELABLE", async () => {
+    const releaseId = "55555555-5555-4555-8555-555555555555";
+    mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "scheduled",
+          status: "RUNNING",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          workflow_run_id: "wrun_running",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_CANCELABLE");
+    expect(getRun).not.toHaveBeenCalled();
+  });
+
+  it("cancel SCHEDULED chama getRun.cancel uma vez e marca CANCELED", async () => {
+    const cancel = vi.fn(async () => {});
+    getRun.mockReturnValue({ cancel });
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "scheduled",
+          status: "SCHEDULED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          workflow_run_id: "wrun_mock_schedule",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe("CANCELED");
+    expect(getRun).toHaveBeenCalledTimes(1);
+    expect(getRun).toHaveBeenCalledWith("wrun_mock_schedule");
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(fn.registry.rows.get(releaseId).status).toBe("CANCELED");
+    expect(fn.registry.rows.get(releaseId).result_code).toBe("CANCELED_BY_OPERATOR");
+    assertNoSecrets(String(res.body));
+  });
+
+  it("cancel já CANCELED é idempotente e não chama getRun", async () => {
+    const releaseId = SCHEDULED_RELEASE_ID;
+    mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "scheduled",
+          status: "CANCELED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          workflow_run_id: "wrun_mock_schedule",
+          result_code: "CANCELED_BY_OPERATOR",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+          canceled_at: "2026-09-01T01:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe("CANCELED");
+    expect(getRun).not.toHaveBeenCalled();
+  });
+
+  it("falha cancel → não marca CANCELED", async () => {
+    getRun.mockReturnValue({
+      cancel: vi.fn(async () => {
+        throw new Error("boom");
+      }),
+    });
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "scheduled",
+          status: "SCHEDULED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          workflow_run_id: "wrun_mock_schedule",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toBe("WORKFLOW_CANCEL_FAILED");
+    expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+});
+
+describe("releases — history", () => {
+  it("history default limit 20, máximo 50 e ordem DESC", async () => {
+    const registry = createRegistryMock({
+      seed: [
+        {
+          id: "66666666-6666-4666-8666-666666666666",
+          mode: "immediate",
+          status: "SUCCEEDED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-01T10:00:00.000Z",
+          updated_at: "2026-09-01T10:00:00.000Z",
+          error_message: "falha Bearer super-secreto-xyz",
+        },
+        {
+          id: "77777777-7777-4777-8777-777777777777",
+          mode: "scheduled",
+          status: "CANCELED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-02T10:00:00.000Z",
+          updated_at: "2026-09-02T10:00:00.000Z",
+        },
+      ],
+    });
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry });
+    const res = await history();
+    expect(res.statusCode).toBe(200);
+    const listUrl = registryCalls(fn).map(([url]) => String(url)).find((url) => url.includes("order=created_at.desc"));
+    expect(listUrl).toContain("limit=20");
+    expect(res.json().items[0].releaseId).toBe("77777777-7777-4777-8777-777777777777");
+    expect(res.json().items[1].releaseId).toBe("66666666-6666-4666-8666-666666666666");
+    assertNoSecrets(String(res.body));
+
+    const capped = await history({ limit: 999 });
+    expect(capped.statusCode).toBe(200);
+    const cappedUrl = registryCalls(fn).map(([url]) => String(url)).filter((url) => url.includes("order=created_at.desc")).at(-1);
+    expect(cappedUrl).toContain("limit=50");
+    expect(cappedUrl).not.toContain("limit=999");
+  });
+});
+
+describe("releases — status e reconciliação GitHub", () => {
+  it("status 404 para release inexistente", async () => {
+    mockFetch({ operatorRows: [superAdminRow] });
+    const res = await statusOf({ releaseId: "99999999-9999-4999-8999-999999999999" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error).toBe("RELEASE_NOT_FOUND");
+  });
+
+  it("status GitHub success → SUCCEEDED", async () => {
+    const releaseId = "88888888-8888-4888-8888-888888888888";
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        runs: () => githubOk({
+          workflow_runs: [{
+            id: 321,
+            status: "completed",
+            conclusion: "success",
+            html_url: "https://github.com/marcoantunes171989/restaurante-pedidos/actions/runs/321",
+            name: `Production release ${releaseId}`,
+          }],
+        }),
+      }),
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "immediate",
+          status: "DISPATCHED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await statusOf({ releaseId });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe("SUCCEEDED");
+    expect(res.json().release.status).toBe("SUCCEEDED");
+    expect(fn.registry.rows.get(releaseId).status).toBe("SUCCEEDED");
+    expect(res.json().activeRelease).toBeNull();
+    assertNoSecrets(String(res.body));
+  });
+
+  it("status sem releaseId retorna activeRelease", async () => {
+    const releaseId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "scheduled",
+          status: "SCHEDULED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await statusOf();
+    expect(res.statusCode).toBe(200);
+    expect(res.json().activeRelease.releaseId).toBe(releaseId);
+    expect(res.json().database).toEqual({
+      automation: "blocked",
+      reason: "PROD_MIGRATION_BASELINE_UNTRUSTED",
+    });
   });
 });
 
