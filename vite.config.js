@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { workflow } from 'workflow/vite'
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 import { execSync } from 'child_process'
@@ -35,7 +34,7 @@ function carimbarServiceWorker() {
 }
 
 export default defineConfig({
-  plugins: [workflow(), react(), carimbarServiceWorker()],
+  plugins: [react(), carimbarServiceWorker()],
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSAO),
   },

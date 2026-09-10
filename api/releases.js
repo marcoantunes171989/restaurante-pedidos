@@ -5,29 +5,24 @@
 //  Preflight (GET GitHub, GITHUB_READ_TOKEN) permanece habilitado.
 //  Promote dispara workflow_dispatch do GitHub Actions; NÃO atualiza
 //  main a partir desta function (sem PATCH refs / push / Contents API).
-//  Schedule/cancel delegam para apps/release-orchestrator através do
-//  contrato privado server/release-orchestrator-client.js (sem SDK de
-//  workflow direto neste control plane). Database automation continua
-//  blocked. Protegido: Bearer + Super Admin — mesma condição de
-//  api/ambientes.js.
+//  Schedule está fail-closed (RELEASE-AUTO-06A): a arquitetura
+//  apps/release-orchestrator foi removida (voltamos a somente dois
+//  ambientes Vercel — homologação e produção) e nenhum novo agendamento
+//  é aceito até o scheduler RELEASE-AUTO-06B existir. Cancel continua
+//  disponível apenas para encerrar localmente releases scheduled/requested
+//  pendentes do registry — não invoca nenhum serviço externo. Database
+//  automation continua blocked. Protegido: Bearer + Super Admin — mesma
+//  condição de api/ambientes.js.
 // ════════════════════════════════════════════════════════════
 
 /* global process */
 import crypto from "node:crypto";
 import {
-  ReleaseOrchestratorConfigError,
-  ReleaseOrchestratorRequestError,
-  cancelOrchestratedRelease,
-  startOrchestratedRelease,
-} from "../server/release-orchestrator-client.js";
-import {
   DATABASE_STATUS,
-  DISPLAY_TIMEZONE,
   SHA_RE,
   clean,
   executeReleaseCandidate,
   isReleaseReady,
-  parseScheduledAt,
   reconcileReleaseGithub,
   runPreflight,
 } from "../server/release-core.js";
@@ -55,7 +50,6 @@ const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const ALLOWED_METHODS = "OPTIONS, POST";
 const PROMOTION_CONFIRMATION = "PROMOVER";
-const SCHEDULE_CONFIRMATION = "AGENDAR";
 const CANCEL_CONFIRMATION = "CANCELAR";
 
 function operatorFromUser(user) {
@@ -91,22 +85,6 @@ function registryDiagnosticPayload(result) {
     viteSupabaseProjectRef: null,
   };
 }
-
-// Diagnóstico sanitizado de start()/cancel() do orquestrador. Contém
-// SOMENTE stage/code/httpStatus/uncertain — nunca secret, signature, body
-// remoto, headers, URL completa, stack ou cause bruto. `code` vem sempre de
-// um enum fixo definido em server/release-orchestrator-client.js, nunca de
-// texto livre da resposta remota.
-function orchestratorDiagnostic(stage, { code = null, httpStatus = null, uncertain = false } = {}) {
-  return { stage, code, httpStatus, uncertain };
-}
-
-// Comprovado lendo apps/release-orchestrator/app/api/internal/releases/
-// {start,cancel}/route.js: HTTP 400 (INVALID_JSON/INVALID_INPUT) e 401
-// (assinatura inválida) sempre respondem ANTES de start()/run.cancel() ser
-// chamado. Qualquer outro código (403/422/5xx) não tem essa garantia e é
-// tratado como incerto.
-const ORCHESTRATOR_PROVEN_NOT_EXECUTED_STATUSES = new Set([400, 401]);
 
 // Reaplica a MESMA condição de autorização de api/ambientes.js
 // (e api/landing-analytics.js / isSuperAdmin): bypass da conta-raiz por
@@ -302,248 +280,18 @@ async function handlePromote(reqBody, res, operator) {
   });
 }
 
-// Pós-start: start() confirmado (releaseId + workflowRunId válidos) mas a
-// persistência REQUESTED -> SCHEDULED falhou no registry. Nunca chama
-// startOrchestratedRelease() de novo. Executa UMA tentativa compensatória
-// de cancelOrchestratedRelease() usando exatamente o workflowRunId
-// conhecido em memória; reutiliza a mesma função do fluxo normal de
-// cancel (não reestruturado).
-async function handlePostStartRegistryFailure({ releaseId, workflowRunId, res }) {
-  let cancelResult;
-  try {
-    cancelResult = await cancelOrchestratedRelease({ releaseId, workflowRunId });
-  } catch (error) {
-    // Config inválida, rejeição, timeout, falha de rede ou HTTP 4xx/5xx:
-    // nenhum desses prova que o workflow foi cancelado. Fail closed —
-    // preserva REQUESTED, não repete start nem cancel.
-    const httpStatus = error instanceof ReleaseOrchestratorRequestError ? error.httpStatus : null;
-    const code = error instanceof ReleaseOrchestratorConfigError
-      ? error.code
-      : (error instanceof ReleaseOrchestratorRequestError ? error.code : "ORCHESTRATOR_UNKNOWN_ERROR");
-    console.error("[release-schedule] compensação pós-start incerta", { code, httpStatus });
-    return json(res, 503, {
-      ok: false,
-      error: "ORCHESTRATOR_START_REGISTRY_UNCERTAIN",
-      action: "schedule",
-      releaseId,
-      workflowRunId,
-      orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", { code, httpStatus, uncertain: true }),
-    });
-  }
-
-  const cancelOk = cancelResult?.ok === true
-    && (cancelResult.releaseId === undefined || cancelResult.releaseId === releaseId);
-
-  if (!cancelOk) {
-    // Resposta 2xx ambígua/malformada: sem prova de cancelamento.
-    return json(res, 503, {
-      ok: false,
-      error: "ORCHESTRATOR_START_REGISTRY_UNCERTAIN",
-      action: "schedule",
-      releaseId,
-      workflowRunId,
-      orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", {
-        code: "CANCEL_MALFORMED",
-        uncertain: true,
-      }),
-    });
-  }
-
-  // Compensação comprovada (ok === true): o workflow iniciado foi
-  // neutralizado. UMA tentativa segura de marcar o registry como FAILED —
-  // sem retry em loop se essa transição também falhar.
-  const failedRow = await transitionRelease(releaseId, {
-    fromStatuses: ["REQUESTED"],
-    status: "FAILED",
-    resultCode: "ORCHESTRATOR_REGISTRY_COMMIT_FAILED_COMPENSATED",
-  });
-
-  if (!failedRow.ok) {
-    // Compensação funcionou, mas o registry segue indisponível para
-    // marcar FAILED. Nenhuma nova tentativa automática. A row pode
-    // continuar REQUESTED, sem workflow ativo conhecido.
-    return json(res, 503, {
-      ok: false,
-      error: "ORCHESTRATOR_REGISTRY_COMMIT_FAILED",
-      action: "schedule",
-      releaseId,
-      workflowRunId,
-      orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", {
-        code: "WORKFLOW_COMPENSATED",
-        uncertain: false,
-      }),
-      compensationSucceeded: true,
-    });
-  }
-
+// RELEASE-AUTO-06A: apps/release-orchestrator (e o projeto Vercel auxiliar
+// pedido-prime-release-orchestrator-hml) foram removidos — voltamos à
+// arquitetura de somente dois ambientes (homologação + produção). Nenhum
+// scheduler durável substitui isso ainda, então schedule fica fail-closed
+// para qualquer tentativa: nenhuma release é criada nem preflight é
+// consultado antes deste bloqueio. RELEASE-AUTO-06B introduz o novo
+// scheduler.
+async function handleSchedule(res) {
   return json(res, 503, {
     ok: false,
-    error: "ORCHESTRATOR_REGISTRY_COMMIT_FAILED",
+    error: "RELEASE_SCHEDULER_MIGRATING",
     action: "schedule",
-    releaseId,
-    workflowRunId,
-    orchestratorDiagnostic: orchestratorDiagnostic("START_REGISTRY_COMMIT", {
-      code: "WORKFLOW_COMPENSATED",
-      uncertain: false,
-    }),
-  });
-}
-
-async function handleSchedule(reqBody, res, operator) {
-  if (reqBody.confirmation !== SCHEDULE_CONFIRMATION) {
-    return json(res, 409, {
-      ok: false,
-      error: "SCHEDULE_CONFIRMATION_REQUIRED",
-      action: "schedule",
-    });
-  }
-
-  const requestedTargetSha = clean(reqBody.targetSha, 64);
-  if (!SHA_RE.test(requestedTargetSha || "")) {
-    return json(res, 409, {
-      ok: false,
-      error: "TARGET_SHA_REQUIRED",
-      action: "schedule",
-    });
-  }
-
-  const scheduled = parseScheduledAt(reqBody.scheduledAt);
-  if (!scheduled.ok) {
-    return json(res, 409, {
-      ok: false,
-      error: "INVALID_SCHEDULE_TIME",
-      action: "schedule",
-    });
-  }
-
-  const preflight = await runPreflight(requestedTargetSha);
-  if (!isReleaseReady(preflight, requestedTargetSha)) {
-    return json(res, 409, notReadyPayload(preflight, "schedule"));
-  }
-
-  const baseSha = preflight.destination.sha;
-  const targetSha = preflight.source.sha;
-  const releaseId = crypto.randomUUID();
-  const created = await createRelease({
-    id: releaseId,
-    mode: "scheduled",
-    status: "REQUESTED",
-    baseSha,
-    targetSha,
-    scheduledAt: scheduled.utc,
-    requestedByUserId: operator?.userId || null,
-    requestedByEmail: operator?.email || null,
-  });
-  if (created.conflict) {
-    return json(res, 409, {
-      ok: false,
-      error: "RELEASE_ALREADY_IN_PROGRESS",
-      action: "schedule",
-    });
-  }
-  if (!created.ok) {
-    return json(res, 503, {
-      ok: false,
-      error: "RELEASE_REGISTRY_UNAVAILABLE",
-      action: "schedule",
-      registryDiagnostic: registryDiagnosticPayload(created),
-    });
-  }
-
-  // CRÍTICO: start() do orquestrador não oferece idempotencyKey — esta
-  // função nunca faz retry automático. Em caso de dúvida sobre se o start
-  // foi de fato executado, a release permanece REQUESTED (linha ativa,
-  // bloqueando nova tentativa concorrente) e a resposta é 503 incerta.
-  let startResult;
-  try {
-    startResult = await startOrchestratedRelease({
-      releaseId,
-      baseSha,
-      targetSha,
-      scheduledAtUtc: scheduled.utc,
-    });
-  } catch (error) {
-    if (error instanceof ReleaseOrchestratorConfigError) {
-      // URL/secret inválidos ANTES da requisição: start() comprovadamente
-      // não foi executado.
-      await markReleaseFailure(releaseId, { resultCode: "ORCHESTRATOR_CONFIG_UNAVAILABLE" });
-      return json(res, 503, {
-        ok: false,
-        error: "ORCHESTRATOR_CONFIG_UNAVAILABLE",
-        action: "schedule",
-        releaseId,
-        orchestratorDiagnostic: orchestratorDiagnostic("START_CONFIG", { code: error.code, uncertain: false }),
-      });
-    }
-
-    const httpStatus = error instanceof ReleaseOrchestratorRequestError ? error.httpStatus : null;
-    const code = error instanceof ReleaseOrchestratorRequestError ? error.code : "ORCHESTRATOR_UNKNOWN_ERROR";
-
-    if (ORCHESTRATOR_PROVEN_NOT_EXECUTED_STATUSES.has(httpStatus)) {
-      await markReleaseFailure(releaseId, { resultCode: "ORCHESTRATOR_START_REJECTED" });
-      return json(res, 503, {
-        ok: false,
-        error: "ORCHESTRATOR_START_REJECTED",
-        action: "schedule",
-        releaseId,
-        orchestratorDiagnostic: orchestratorDiagnostic("START_REJECTED", { code, httpStatus, uncertain: false }),
-      });
-    }
-
-    // timeout / network failure / HTTP 5xx / demais códigos sem prova de
-    // não-execução: mantém REQUESTED, não repete automaticamente.
-    console.error("[release-schedule] start incerto", { code, httpStatus });
-    return json(res, 503, {
-      ok: false,
-      error: "ORCHESTRATOR_START_UNCERTAIN",
-      action: "schedule",
-      releaseId,
-      orchestratorDiagnostic: orchestratorDiagnostic("START_UNCERTAIN", { code, httpStatus, uncertain: true }),
-    });
-  }
-
-  const workflowRunId = typeof startResult?.workflowRunId === "string" ? startResult.workflowRunId : "";
-  const startOk = startResult?.ok === true
-    && startResult?.releaseId === releaseId
-    && workflowRunId.length > 0;
-
-  if (!startOk) {
-    // Resposta 2xx malformada (releaseId divergente ou workflowRunId
-    // ausente/vazio): mantém REQUESTED, trata como incerto.
-    console.error("[release-schedule] start incerto (resposta malformada)");
-    return json(res, 503, {
-      ok: false,
-      error: "ORCHESTRATOR_START_UNCERTAIN",
-      action: "schedule",
-      releaseId,
-      orchestratorDiagnostic: orchestratorDiagnostic("START_MALFORMED", { uncertain: true }),
-    });
-  }
-
-  const scheduledRow = await transitionRelease(releaseId, {
-    fromStatuses: ["REQUESTED"],
-    status: "SCHEDULED",
-    extra: { workflow_run_id: workflowRunId },
-  });
-  if (!scheduledRow.ok) {
-    // start() já foi confirmado (releaseId + workflowRunId válidos) — nunca
-    // retornar WORKFLOW_START_FAILED aqui nem chamar start() de novo.
-    // Compensa com UMA tentativa de cancelOrchestratedRelease().
-    return handlePostStartRegistryFailure({ releaseId, workflowRunId, res });
-  }
-
-  return json(res, 202, {
-    ok: true,
-    action: "schedule",
-    status: "SCHEDULED",
-    releaseId,
-    workflowRunId,
-    baseSha,
-    targetSha,
-    scheduledAtUtc: scheduled.utc,
-    displayTimezone: DISPLAY_TIMEZONE,
-    database: databasePayload(),
-    generatedAt: generatedAt(),
   });
 }
 
@@ -598,61 +346,10 @@ async function handleCancel(reqBody, res) {
     });
   }
 
-  if (!loaded.row.workflow_run_id) {
-    return json(res, 409, {
-      ok: false,
-      error: "ORCHESTRATOR_RUN_ID_UNKNOWN",
-      action: "cancel",
-      releaseId,
-    });
-  }
-
-  try {
-    const cancelResult = await cancelOrchestratedRelease({
-      releaseId,
-      workflowRunId: loaded.row.workflow_run_id,
-    });
-    const cancelOk = cancelResult?.ok === true
-      && (cancelResult.releaseId === undefined || cancelResult.releaseId === releaseId);
-
-    if (!cancelOk) {
-      // Resposta 2xx ambígua: preserva o estado atual, não marca CANCELED.
-      return json(res, 503, {
-        ok: false,
-        error: "ORCHESTRATOR_CANCEL_UNCERTAIN",
-        action: "cancel",
-        releaseId,
-        orchestratorDiagnostic: orchestratorDiagnostic("CANCEL_MALFORMED", { uncertain: true }),
-      });
-    }
-  } catch (error) {
-    if (error instanceof ReleaseOrchestratorConfigError) {
-      // URL/secret inválidos: cancel() comprovadamente não foi executado.
-      // Estado da release é preservado (nem CANCELED, nem qualquer outra
-      // transição).
-      return json(res, 503, {
-        ok: false,
-        error: "ORCHESTRATOR_CONFIG_UNAVAILABLE",
-        action: "cancel",
-        releaseId,
-        orchestratorDiagnostic: orchestratorDiagnostic("CANCEL_CONFIG", { code: error.code, uncertain: false }),
-      });
-    }
-
-    // timeout / network failure / HTTP 4xx/5xx: preserva o estado atual,
-    // nunca marca CANCELED.
-    const httpStatus = error instanceof ReleaseOrchestratorRequestError ? error.httpStatus : null;
-    const code = error instanceof ReleaseOrchestratorRequestError ? error.code : "ORCHESTRATOR_UNKNOWN_ERROR";
-    console.error("[release-cancel] cancel incerto", { code, httpStatus });
-    return json(res, 503, {
-      ok: false,
-      error: "ORCHESTRATOR_CANCEL_UNCERTAIN",
-      action: "cancel",
-      releaseId,
-      orchestratorDiagnostic: orchestratorDiagnostic("CANCEL_UNCERTAIN", { code, httpStatus, uncertain: true }),
-    });
-  }
-
+  // RELEASE-AUTO-06A: cancelamento é somente local — não existe mais
+  // nenhum orquestrador externo para notificar (apps/release-orchestrator
+  // foi removido). Não há execução remota a "inventar": a transição de
+  // status abaixo é o único efeito real do cancelamento.
   const updated = await transitionRelease(releaseId, {
     fromStatuses: CANCELABLE_RELEASE_STATUSES,
     status: "CANCELED",
@@ -792,7 +489,7 @@ export default async function handler(req, res) {
   }
 
   if (action === "schedule") {
-    return handleSchedule(parsed.body, res, auth.operator);
+    return handleSchedule(res);
   }
 
   if (action === "promote") {

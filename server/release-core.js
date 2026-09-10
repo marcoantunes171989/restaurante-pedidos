@@ -1,17 +1,12 @@
 // ════════════════════════════════════════════════════════════
 //  Core server-side de releases Homologação → Production.
-//  Compartilhado por preflight, promote imediato e o step do
-//  agendamento durável. Nenhum segredo sai daqui para o frontend.
+//  Compartilhado por preflight e promote imediato. Nenhum
+//  segredo sai daqui para o frontend.
 // ════════════════════════════════════════════════════════════
 
 /* global process */
 import crypto from "node:crypto";
-import {
-  getRelease,
-  toPublicRelease,
-  transitionRelease,
-  updateRelease,
-} from "./release-store.js";
+import { transitionRelease, updateRelease } from "./release-store.js";
 
 export const DATABASE_STATUS = {
   automation: "blocked",
@@ -313,54 +308,6 @@ export async function dispatchProductionRelease({ token, targetSha, baseSha, rel
   );
 }
 
-function classifyScheduledWake({ preflight, frozenBaseSha, frozenTargetSha }) {
-  const realHml = preflight?.source?.sha;
-  const realMain = preflight?.destination?.sha;
-  const codes = (preflight?.blockers || []).map((item) => item.code);
-
-  if (!realHml || !realMain || codes.includes("GITHUB_UNAVAILABLE")) {
-    return { ok: false, status: "FAILED", resultCode: "GITHUB_UNAVAILABLE", preflight };
-  }
-  if (realHml !== frozenTargetSha) {
-    return { ok: false, status: "BLOCKED", resultCode: "TARGET_SHA_CHANGED", preflight };
-  }
-  if (realMain !== frozenBaseSha) {
-    return { ok: false, status: "BLOCKED", resultCode: "BASE_SHA_CHANGED", preflight };
-  }
-  if (
-    preflight.compare?.behind !== 0
-    || preflight.compare?.fastForward !== true
-    || codes.includes("BRANCH_DIVERGED")
-  ) {
-    return { ok: false, status: "BLOCKED", resultCode: "BRANCH_DIVERGED", preflight };
-  }
-  if (!isReleaseReady(preflight, frozenTargetSha)) {
-    return { ok: false, status: "BLOCKED", resultCode: "RELEASE_NOT_READY", preflight };
-  }
-  return { ok: true, preflight };
-}
-
-async function failScheduledRegistry(releaseId, { status, resultCode, errorMessage }) {
-  await transitionRelease(releaseId, {
-    fromStatuses: ["REQUESTED", "SCHEDULED", "WAITING", "VALIDATING"],
-    status,
-    resultCode,
-    errorMessage,
-  });
-}
-
-function registryWakeBlocked(release, { status, resultCode }) {
-  return {
-    ok: false,
-    status,
-    resultCode,
-    releaseId: release?.id || null,
-    baseSha: release?.base_sha || null,
-    targetSha: release?.target_sha || null,
-    release: toPublicRelease(release),
-  };
-}
-
 async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent }) {
   const token = githubReleaseToken();
   if (!token) {
@@ -478,124 +425,4 @@ export async function executeReleaseCandidate({ requestedTargetSha, releaseId } 
 
   if (!dispatched.ok) return { ...dispatched, preflight };
   return { ...dispatched, preflight };
-}
-
-export async function executeScheduledRelease({
-  releaseId,
-  baseSha,
-  targetSha,
-  scheduledAt,
-  workflowRunId,
-} = {}) {
-  const loaded = await getRelease(releaseId);
-  if (!loaded.ok || !loaded.row) {
-    return {
-      ok: false,
-      status: "BLOCKED",
-      resultCode: "RELEASE_NOT_FOUND",
-      releaseId,
-      baseSha,
-      targetSha,
-      scheduledAt: scheduledAt || null,
-    };
-  }
-
-  const release = loaded.row;
-  const storedWorkflowRunId = release.workflow_run_id || null;
-  const wakeAllowed = release.status === "SCHEDULED" || release.status === "WAITING";
-  if (
-    ["REQUESTED", "FAILED", "BLOCKED", "CANCELED"].includes(release.status)
-    || !wakeAllowed
-    || release.mode !== "scheduled"
-    || release.base_sha !== baseSha
-    || release.target_sha !== targetSha
-    || (storedWorkflowRunId && workflowRunId && storedWorkflowRunId !== workflowRunId)
-  ) {
-    return registryWakeBlocked(release, {
-      status: release.status === "CANCELED" ? "CANCELED" : "BLOCKED",
-      resultCode: release.status === "CANCELED"
-        ? (release.result_code || "CANCELED_BY_OPERATOR")
-        : "REGISTRY_REVALIDATION_FAILED",
-    });
-  }
-
-  const validating = await transitionRelease(release.id, {
-    fromStatuses: ["SCHEDULED", "WAITING"],
-    status: "VALIDATING",
-  });
-  if (!validating.ok) {
-    return {
-      ok: false,
-      status: "BLOCKED",
-      resultCode: "REGISTRY_REVALIDATION_FAILED",
-      releaseId,
-      baseSha,
-      targetSha,
-      scheduledAt: scheduledAt || null,
-    };
-  }
-
-  const preflight = await runPreflight(targetSha);
-  const classified = classifyScheduledWake({
-    preflight,
-    frozenBaseSha: baseSha,
-    frozenTargetSha: targetSha,
-  });
-  if (!classified.ok) {
-    await failScheduledRegistry(releaseId, {
-      status: classified.status,
-      resultCode: classified.resultCode,
-    });
-    return {
-      ok: false,
-      status: classified.status,
-      resultCode: classified.resultCode,
-      releaseId,
-      baseSha,
-      targetSha,
-      scheduledAt: scheduledAt || null,
-    };
-  }
-
-  const dispatched = await dispatchNewRelease({
-    targetSha,
-    baseSha,
-    releaseId,
-    idempotent: true,
-  });
-
-  if (!dispatched.ok) {
-    const blocked = dispatched.error === "RELEASE_ALREADY_IN_PROGRESS";
-    await failScheduledRegistry(releaseId, {
-      status: blocked ? "BLOCKED" : "FAILED",
-      resultCode: blocked ? "RELEASE_ALREADY_IN_PROGRESS" : (dispatched.error || "WORKFLOW_DISPATCH_FAILED"),
-    });
-    return {
-      ...dispatched,
-      status: blocked ? "BLOCKED" : "FAILED",
-      resultCode: blocked ? "RELEASE_ALREADY_IN_PROGRESS" : (dispatched.error || dispatched.status),
-      releaseId,
-      baseSha,
-      targetSha,
-      scheduledAt: scheduledAt || null,
-    };
-  }
-
-  await transitionRelease(releaseId, {
-    fromStatuses: ["VALIDATING", "DISPATCHED", "RUNNING"],
-    status: "DISPATCHED",
-    resultCode: dispatched.status === "ALREADY_DISPATCHED" ? "ALREADY_DISPATCHED" : null,
-    extra: {
-      github_run_id: dispatched.githubRunId ?? null,
-      github_run_url: dispatched.githubRunUrl || null,
-    },
-  });
-
-  return {
-    ...dispatched,
-    releaseId,
-    baseSha,
-    targetSha,
-    scheduledAt: scheduledAt || null,
-  };
 }
