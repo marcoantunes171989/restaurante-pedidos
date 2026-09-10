@@ -1,4 +1,6 @@
 /* global process */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import handler from "../../api/releases.js";
 
@@ -33,11 +35,32 @@ const SERVICE_ROLE = "supabase-service-role-secreto-teste";
 const BEARER = "jwt-operador-secreto-teste";
 
 function githubOk(body) {
-  return { ok: true, status: 200, json: async () => body };
+  return {
+    ok: true,
+    status: 200,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
+}
+
+function githubNoContent() {
+  return {
+    ok: true,
+    status: 204,
+    json: async () => {
+      throw new Error("empty body");
+    },
+    text: async () => "",
+  };
 }
 
 function githubError(status, body = {}) {
-  return { ok: false, status, json: async () => body };
+  return {
+    ok: false,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 function githubAbort() {
@@ -83,7 +106,7 @@ function mockFetch({
   operatorRows = [],
   github,
 } = {}) {
-  const fn = vi.fn(async (url) => {
+  const fn = vi.fn(async (url, options) => {
     const target = String(url);
     if (target.includes("/auth/v1/user")) {
       if (!userOk) return { ok: false, json: async () => ({}) };
@@ -95,7 +118,7 @@ function mockFetch({
     }
     if (target.includes("api.github.com")) {
       if (typeof github !== "function") throw new Error(`github fetch inesperado no teste: ${target}`);
-      return github(target);
+      return github(target, options);
     }
     throw new Error(`fetch inesperado no teste: ${target}`);
   });
@@ -103,13 +126,32 @@ function mockFetch({
   return fn;
 }
 
-function githubHandler({ main, homologacao, compare }) {
+function githubHandler({ main, homologacao, compare, runs, dispatch }) {
   return (url) => {
     if (url.includes("/branches/homologacao")) return homologacao();
     if (url.includes("/branches/main")) return main();
     if (url.includes("/compare/main...homologacao")) return compare();
+    if (url.includes("/actions/workflows/") && url.includes("/runs")) {
+      if (typeof runs !== "function") throw new Error(`github runs inesperado no teste: ${url}`);
+      return runs();
+    }
+    if (url.includes("/actions/workflows/") && url.includes("/dispatches")) {
+      if (typeof dispatch !== "function") throw new Error(`github dispatch inesperado no teste: ${url}`);
+      return dispatch();
+    }
     throw new Error(`github url inesperada no teste: ${url}`);
   };
+}
+
+function readyGithub(overrides = {}) {
+  return githubHandler({
+    main: () => githubOk(branchBody(SHA_MAIN)),
+    homologacao: () => githubOk(branchBody(SHA_HML)),
+    compare: () => githubOk(compareBody()),
+    runs: () => githubOk({ workflow_runs: [] }),
+    dispatch: () => githubNoContent(),
+    ...overrides,
+  });
 }
 
 function authHeaders() {
@@ -123,6 +165,34 @@ async function preflight(extraBody = {}) {
     body: { action: "preflight", ...extraBody },
   }), res);
   return res;
+}
+
+async function promote(extraBody = {}) {
+  const res = makeRes();
+  await handler(makeReq({
+    headers: authHeaders(),
+    body: { action: "promote", targetSha: SHA_HML, confirmation: "PROMOVER", ...extraBody },
+  }), res);
+  return res;
+}
+
+function githubCalls(fn) {
+  return fn.mock.calls.filter(([url]) => String(url).includes("api.github.com"));
+}
+
+function dispatchCalls(fn) {
+  return githubCalls(fn).filter(([url]) => String(url).includes("/dispatches"));
+}
+
+function actionsCalls(fn) {
+  return githubCalls(fn).filter(([url]) => String(url).includes("/actions/"));
+}
+
+function readCalls(fn) {
+  return githubCalls(fn).filter(([url]) => {
+    const target = String(url);
+    return target.includes("/branches/") || target.includes("/compare/");
+  });
 }
 
 function blockerCodes(body) {
@@ -363,23 +433,8 @@ describe("releases — fail-closed", () => {
 });
 
 describe("releases — ações ainda desabilitadas", () => {
-  it("promote → 409 RELEASE_ACTION_NOT_ENABLED e não consulta GitHub", async () => {
-    const fn = mockFetch({ operatorRows: [superAdminRow] });
-    const res = makeRes();
-    await handler(makeReq({
-      headers: authHeaders(),
-      body: { action: "promote", targetSha: SHA_HML },
-    }), res);
-    expect(res.statusCode).toBe(409);
-    const body = res.json();
-    expect(body.error).toBe("RELEASE_ACTION_NOT_ENABLED");
-    expect(body.enabled).toBe(false);
-    expect(body.action).toBe("promote");
-    expect(fn.mock.calls.some(([url]) => String(url).includes("api.github.com"))).toBe(false);
-  });
-
   it("schedule → 409 RELEASE_ACTION_NOT_ENABLED", async () => {
-    mockFetch({ operatorRows: [superAdminRow] });
+    const fn = mockFetch({ operatorRows: [superAdminRow] });
     const res = makeRes();
     await handler(makeReq({
       headers: authHeaders(),
@@ -388,6 +443,7 @@ describe("releases — ações ainda desabilitadas", () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_ACTION_NOT_ENABLED");
     expect(res.json().action).toBe("schedule");
+    expect(fn.mock.calls.some(([url]) => String(url).includes("api.github.com"))).toBe(false);
   });
 });
 
@@ -418,5 +474,232 @@ describe("releases — database e segredos", () => {
     });
     const res = await preflight();
     assertNoSecrets(String(res.body));
+  });
+});
+
+describe("releases — promote bloqueado sem confirmação/target", () => {
+  it("promote sem confirmation → PROMOTION_CONFIRMATION_REQUIRED e nenhum dispatch", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: authHeaders(),
+      body: { action: "promote", targetSha: SHA_HML },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("PROMOTION_CONFIRMATION_REQUIRED");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("confirmation diferente de PROMOVER → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await promote({ confirmation: "DEPLOY-PROD" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("PROMOTION_CONFIRMATION_REQUIRED");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("promote sem targetSha → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: authHeaders(),
+      body: { action: "promote", confirmation: "PROMOVER" },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("TARGET_SHA_REQUIRED");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+});
+
+describe("releases — promote revalida preflight e não dispara se não estiver pronto", () => {
+  it("targetSha alterou → RELEASE_NOT_READY e nenhum dispatch", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub(),
+    });
+    const res = await promote({ targetSha: SHA_OTHER });
+    expect(res.statusCode).toBe(409);
+    const body = res.json();
+    expect(body.error).toBe("RELEASE_NOT_READY");
+    expect(body.releaseReady).toBe(false);
+    expect(blockerCodes(body)).toContain("TARGET_SHA_CHANGED");
+    expect(body.targetSha).toBe(SHA_HML);
+    expect(actionsCalls(fn)).toHaveLength(0);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("branch divergiu → nenhum dispatch", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        compare: () => githubOk(compareBody({
+          status: "diverged",
+          ahead_by: 2,
+          behind_by: 1,
+          mergeBase: SHA_OTHER,
+        })),
+      }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_READY");
+    expect(blockerCodes(res.json())).toContain("BRANCH_DIVERGED");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("NO_CHANGES → nenhum dispatch", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        homologacao: () => githubOk(branchBody(SHA_MAIN)),
+        compare: () => githubOk(compareBody({
+          status: "identical",
+          ahead_by: 0,
+          behind_by: 0,
+          mergeBase: SHA_MAIN,
+          commits: [],
+          files: [],
+        })),
+      }),
+    });
+    const res = await promote({ targetSha: SHA_MAIN });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_READY");
+    expect(blockerCodes(res.json())).toContain("NO_CHANGES_TO_RELEASE");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+});
+
+describe("releases — promote guards e dispatch", () => {
+  it("GITHUB_RELEASE_TOKEN ausente → fail closed", async () => {
+    delete process.env.GITHUB_RELEASE_TOKEN;
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await promote();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("GITHUB_RELEASE_UNAVAILABLE");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+    expect(actionsCalls(fn)).toHaveLength(0);
+    readCalls(fn).forEach(([, options]) => {
+      expect(options.headers.Authorization).toBe(`Bearer ${GITHUB_READ_TOKEN}`);
+    });
+  });
+
+  it("release ativa → RELEASE_ALREADY_IN_PROGRESS", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        runs: () => githubOk({
+          workflow_runs: [{ id: 11, status: "in_progress" }],
+        }),
+      }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_ALREADY_IN_PROGRESS");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("falha ao consultar active runs → fail closed", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        runs: () => githubError(500, { message: "boom" }),
+      }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("RELEASE_STATUS_UNAVAILABLE");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("dispatch GitHub falha → WORKFLOW_DISPATCH_FAILED sem retry", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        dispatch: () => githubError(500, { message: "dispatch failed" }),
+      }),
+    });
+    const res = await promote();
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).toBe("WORKFLOW_DISPATCH_FAILED");
+    expect(dispatchCalls(fn)).toHaveLength(1);
+  });
+
+  it("dispatch GitHub sucesso → HTTP 202 com identidade server-side", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await promote({ releaseId: "id-enviado-pelo-frontend" });
+    expect(res.statusCode).toBe(202);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.action).toBe("promote");
+    expect(body.status).toBe("DISPATCHED");
+    expect(body.baseSha).toBe(SHA_MAIN);
+    expect(body.targetSha).toBe(SHA_HML);
+    expect(body.workflow).toBe("vercel-production-deploy.yml");
+    expect(body.database).toEqual({
+      automation: "blocked",
+      reason: "PROD_MIGRATION_BASELINE_UNTRUSTED",
+    });
+    expect(body.releaseId).not.toBe("id-enviado-pelo-frontend");
+    expect(body.releaseId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    const posted = dispatchCalls(fn);
+    expect(posted).toHaveLength(1);
+    const [url, options] = posted[0];
+    expect(String(url)).toContain("/actions/workflows/vercel-production-deploy.yml/dispatches");
+    expect(options.method).toBe("POST");
+    expect(options.headers.Authorization).toBe(`Bearer ${GITHUB_RELEASE_TOKEN}`);
+    const payload = JSON.parse(options.body);
+    expect(payload.ref).toBe("main");
+    expect(payload.inputs.release_sha).toBe(SHA_HML);
+    expect(payload.inputs.base_sha).toBe(SHA_MAIN);
+    expect(payload.inputs.confirmation).toBe("DEPLOY-PROD");
+    expect(payload.inputs.request_id).toBe(body.releaseId);
+
+    readCalls(fn).forEach(([, callOptions]) => {
+      expect(callOptions.method).toBe("GET");
+      expect(callOptions.headers.Authorization).toBe(`Bearer ${GITHUB_READ_TOKEN}`);
+    });
+    actionsCalls(fn).forEach(([callUrl, callOptions]) => {
+      expect(String(callUrl)).toContain("/actions/");
+      expect(callOptions.headers.Authorization).toBe(`Bearer ${GITHUB_RELEASE_TOKEN}`);
+    });
+    githubCalls(fn).forEach(([callUrl, callOptions]) => {
+      expect(callOptions.method).not.toBe("PATCH");
+      expect(callOptions.method).not.toBe("PUT");
+      expect(String(callUrl)).not.toMatch(/\/git\/refs/);
+    });
+    assertNoSecrets(String(res.body));
+  });
+});
+
+describe("releases — workflow production estático", () => {
+  const workflow = readFileSync(
+    resolve(process.cwd(), ".github/workflows/vercel-production-deploy.yml"),
+    "utf8",
+  );
+
+  it("reutiliza o workflow com validação fail-closed e fast-forward", () => {
+    expect(workflow).toContain("workflow_dispatch");
+    expect(workflow).toContain("base_sha");
+    expect(workflow).toContain("release_sha");
+    expect(workflow).toContain("request_id");
+    expect(workflow).toContain("DEPLOY-PROD");
+    expect(workflow).toContain("contents: write");
+    expect(workflow).toContain("pedido-prime-production");
+    expect(workflow).toContain("npm test");
+    expect(workflow).toContain("npm run build");
+    expect(workflow).toContain("git fetch origin main homologacao");
+    expect(workflow).toContain("Revalidate branches before push");
+    expect(workflow).toContain("refs/heads/main");
+    expect(workflow).not.toContain("vercel --prod");
+    expect(workflow).not.toContain("VERCEL_TOKEN");
+    expect(workflow).not.toContain("--force-with-lease");
+    expect(workflow).not.toMatch(/(?:^|[\s"])--force(?:\s|$)/m);
   });
 });

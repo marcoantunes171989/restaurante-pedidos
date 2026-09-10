@@ -1,19 +1,29 @@
 name: Vercel Production Deploy
 
+run-name: Production release ${{ inputs.release_sha }} / ${{ inputs.request_id }}
+
 on:
   workflow_dispatch:
     inputs:
       release_sha:
-        description: "SHA exato da main aprovado para producao"
+        description: "SHA exato de homologacao aprovado para producao"
+        required: true
+        type: string
+      base_sha:
+        description: "SHA de main congelado no instante da promocao"
         required: true
         type: string
       confirmation:
         description: "Digite DEPLOY-PROD para confirmar"
         required: true
         type: string
+      request_id:
+        description: "Identificador server-side da release"
+        required: true
+        type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: pedido-prime-production
@@ -21,23 +31,31 @@ concurrency:
 
 jobs:
   deploy:
-    name: Validate, test, build and deploy
+    name: Validate, test, build and fast-forward main
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
 
     steps:
-      - name: Checkout production branch
+      - name: Checkout approved release SHA
         uses: actions/checkout@v4
         with:
-          ref: main
-          fetch-depth: 1
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
 
-      - name: Validate release authorization
+      - name: Fetch main and homologacao
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main homologacao
+
+      - name: Validate release authorization and frozen SHAs
         shell: bash
         env:
           RELEASE_SHA: ${{ inputs.release_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
           CONFIRMATION: ${{ inputs.confirmation }}
+          REQUEST_ID: ${{ inputs.request_id }}
         run: |
           set -euo pipefail
 
@@ -51,13 +69,70 @@ jobs:
             exit 1
           fi
 
-          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "base_sha must contain exactly 40 lowercase hexadecimal characters."
+            exit 1
+          fi
 
-          echo "Requested SHA: $RELEASE_SHA"
-          echo "Current main:  $ACTUAL_SHA"
+          if [[ -z "$REQUEST_ID" ]]; then
+            echo "request_id is required."
+            exit 1
+          fi
 
-          if [[ "$RELEASE_SHA" != "$ACTUAL_SHA" ]]; then
-            echo "The approved SHA does not match the current main HEAD."
+          if [[ ! "$REQUEST_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "request_id format is invalid."
+            exit 1
+          fi
+
+          if [[ "$RELEASE_SHA" == "$BASE_SHA" ]]; then
+            echo "release_sha must differ from base_sha."
+            exit 1
+          fi
+
+          CURRENT_MAIN="$(git rev-parse --verify origin/main)"
+          CURRENT_HML="$(git rev-parse --verify origin/homologacao)"
+          CHECKED_OUT="$(git rev-parse HEAD)"
+
+          echo "request_id:    $REQUEST_ID"
+          echo "release_sha:   $RELEASE_SHA"
+          echo "base_sha:      $BASE_SHA"
+          echo "origin/main:   $CURRENT_MAIN"
+          echo "origin/hml:    $CURRENT_HML"
+          echo "checked out:   $CHECKED_OUT"
+
+          if [[ "$CHECKED_OUT" != "$RELEASE_SHA" ]]; then
+            echo "Checked out commit is not the approved release_sha."
+            exit 1
+          fi
+
+          if [[ "$CURRENT_MAIN" != "$BASE_SHA" ]]; then
+            echo "origin/main does not match the frozen base_sha."
+            exit 1
+          fi
+
+          if [[ "$CURRENT_HML" != "$RELEASE_SHA" ]]; then
+            echo "origin/homologacao does not match the approved release_sha."
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$CURRENT_MAIN" "$RELEASE_SHA"; then
+            echo "origin/main is not an ancestor of release_sha."
+            exit 1
+          fi
+
+          AHEAD="$(git rev-list --count "${CURRENT_MAIN}..${RELEASE_SHA}")"
+          BEHIND="$(git rev-list --count "${RELEASE_SHA}..${CURRENT_MAIN}")"
+
+          echo "ahead:  $AHEAD"
+          echo "behind: $BEHIND"
+
+          if [[ "$AHEAD" -le 0 ]]; then
+            echo "Release is not ahead of main."
+            exit 1
+          fi
+
+          if [[ "$BEHIND" -ne 0 ]]; then
+            echo "Release is behind main."
             exit 1
           fi
 
@@ -66,18 +141,12 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           set -euo pipefail
 
           required_vars=(
             VITE_SUPABASE_URL
             VITE_SUPABASE_ANON_KEY
-            VERCEL_TOKEN
-            VERCEL_ORG_ID
-            VERCEL_PROJECT_ID
           )
 
           for variable in "${required_vars[@]}"; do
@@ -88,6 +157,7 @@ jobs:
           done
 
           echo "Required production configuration is present."
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -109,9 +179,35 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Deploy approved release to Vercel Production
+      - name: Revalidate branches before push
+        shell: bash
         env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: npx --yes vercel@59.5.0 --prod --yes --token="$VERCEL_TOKEN"
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin main homologacao
+
+          CURRENT_MAIN="$(git rev-parse --verify origin/main)"
+          CURRENT_HML="$(git rev-parse --verify origin/homologacao)"
+
+          echo "origin/main: $CURRENT_MAIN"
+          echo "origin/hml:  $CURRENT_HML"
+
+          if [[ "$CURRENT_MAIN" != "$BASE_SHA" ]]; then
+            echo "main changed during tests/build. Promotion aborted."
+            exit 1
+          fi
+
+          if [[ "$CURRENT_HML" != "$RELEASE_SHA" ]]; then
+            echo "homologacao changed during tests/build. Promotion aborted."
+            exit 1
+          fi
+
+      - name: Fast-forward main to approved release SHA
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          git push origin "${RELEASE_SHA}:refs/heads/main"
