@@ -67,10 +67,24 @@ function generatedAt() {
   return new Date().toISOString();
 }
 
-// Diagnóstico sanitizado (httpStatus + postgrestCode) já calculado em
-// server/release-store.js; nunca contém message/details/hint/raw/credenciais.
+// Diagnóstico sanitizado do estágio server-side (stage, requestAttempted,
+// supabaseUrlConfigured, serviceKeyConfigured, serviceKeyKind,
+// supabaseProjectRef, viteSupabaseProjectRef, httpStatus, postgrestCode,
+// networkError) já calculado em server/release-store.js; nunca contém
+// message/details/hint/raw body/URL completa/headers/credenciais.
 function registryDiagnosticPayload(result) {
-  return result?.diagnostic || { httpStatus: null, postgrestCode: null };
+  return result?.diagnostic || {
+    stage: null,
+    requestAttempted: false,
+    httpStatus: null,
+    postgrestCode: null,
+    networkError: null,
+    supabaseUrlConfigured: false,
+    serviceKeyConfigured: false,
+    serviceKeyKind: "missing",
+    supabaseProjectRef: null,
+    viteSupabaseProjectRef: null,
+  };
 }
 
 // Reaplica a MESMA condição de autorização de api/ambientes.js

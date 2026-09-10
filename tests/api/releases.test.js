@@ -16,7 +16,7 @@ import handler from "../../api/releases.js";
 import { getRun, start } from "workflow/api";
 import { scheduledReleaseWorkflow } from "../../workflows/scheduled-release.js";
 import { executeScheduledRelease } from "../../server/release-core.js";
-import { buildServiceRoleHeaders, classifyServiceKey } from "../../server/release-store.js";
+import { buildServiceRoleHeaders, classifyServiceKey, listReleases } from "../../server/release-store.js";
 
 // ════════════════════════════════════════════════════════════
 // RELEASE-AUTO-01 — /api/releases: control plane de preflight.
@@ -1581,8 +1581,21 @@ function registryFailureFetch({
   return fn;
 }
 
+const REGISTRY_DIAGNOSTIC_KEYS = [
+  "httpStatus",
+  "networkError",
+  "postgrestCode",
+  "requestAttempted",
+  "serviceKeyConfigured",
+  "serviceKeyKind",
+  "stage",
+  "supabaseProjectRef",
+  "supabaseUrlConfigured",
+  "viteSupabaseProjectRef",
+].sort();
+
 describe("releases — registryDiagnostic sanitizado (history)", () => {
-  it("PostgREST 401 → registryDiagnostic com httpStatus e postgrestCode, sem message/hint", async () => {
+  it("PostgREST 401 → stage POSTGREST_RESPONSE com httpStatus e postgrestCode, sem message/hint", async () => {
     registryFailureFetch({
       status: 401,
       body: { code: "PGRST301", message: "JWT expired", hint: "check token" },
@@ -1591,14 +1604,25 @@ describe("releases — registryDiagnostic sanitizado (history)", () => {
     expect(res.statusCode).toBe(503);
     const body = res.json();
     expect(body.error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
-    expect(body.registryDiagnostic).toEqual({ httpStatus: 401, postgrestCode: "PGRST301" });
-    expect(Object.keys(body.registryDiagnostic).sort()).toEqual(["httpStatus", "postgrestCode"]);
+    expect(Object.keys(body.registryDiagnostic).sort()).toEqual(REGISTRY_DIAGNOSTIC_KEYS);
+    expect(body.registryDiagnostic).toEqual({
+      stage: "POSTGREST_RESPONSE",
+      requestAttempted: true,
+      httpStatus: 401,
+      postgrestCode: "PGRST301",
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "legacy",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
     assertNoSecrets(String(res.body));
     expect(String(res.body)).not.toContain("JWT expired");
     expect(String(res.body)).not.toContain("check token");
   });
 
-  it("PostgREST 403 → registryDiagnostic sem message", async () => {
+  it("PostgREST 403 → stage POSTGREST_RESPONSE sem message", async () => {
     registryFailureFetch({
       status: 403,
       body: { code: "42501", message: "permission denied for table app_release_runs" },
@@ -1606,12 +1630,23 @@ describe("releases — registryDiagnostic sanitizado (history)", () => {
     const res = await history();
     expect(res.statusCode).toBe(503);
     const body = res.json();
-    expect(body.registryDiagnostic).toEqual({ httpStatus: 403, postgrestCode: "42501" });
+    expect(body.registryDiagnostic).toEqual({
+      stage: "POSTGREST_RESPONSE",
+      requestAttempted: true,
+      httpStatus: 403,
+      postgrestCode: "42501",
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "legacy",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
     assertNoSecrets(String(res.body));
     expect(String(res.body)).not.toContain("permission denied");
   });
 
-  it("PostgREST 404 + PGRST205 → registryDiagnostic sem message/details/hint", async () => {
+  it("PostgREST 404 + PGRST205 → stage POSTGREST_RESPONSE sem message/details/hint", async () => {
     registryFailureFetch({
       status: 404,
       body: {
@@ -1624,18 +1659,139 @@ describe("releases — registryDiagnostic sanitizado (history)", () => {
     const res = await history();
     expect(res.statusCode).toBe(503);
     const body = res.json();
-    expect(body.registryDiagnostic).toEqual({ httpStatus: 404, postgrestCode: "PGRST205" });
+    expect(body.registryDiagnostic).toEqual({
+      stage: "POSTGREST_RESPONSE",
+      requestAttempted: true,
+      httpStatus: 404,
+      postgrestCode: "PGRST205",
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "legacy",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
     assertNoSecrets(String(res.body));
     expect(String(res.body)).not.toContain("schema cache");
   });
 
-  it("erro de rede → httpStatus e postgrestCode nulos", async () => {
+  it("sb_secret válida + PostgREST 401 → serviceKeyKind secret", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SECRET_KEY;
+    registryFailureFetch({
+      status: 401,
+      body: { code: "PGRST301", message: "JWT expired" },
+    });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.registryDiagnostic).toEqual({
+      stage: "POSTGREST_RESPONSE",
+      requestAttempted: true,
+      httpStatus: 401,
+      postgrestCode: "PGRST301",
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "secret",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
+    assertNoSecrets(String(res.body));
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("erro de rede → stage FETCH_NETWORK_ERROR, httpStatus e postgrestCode nulos", async () => {
     registryFailureFetch({ networkError: true });
     const res = await history();
     expect(res.statusCode).toBe(503);
     const body = res.json();
-    expect(body.registryDiagnostic).toEqual({ httpStatus: null, postgrestCode: null });
+    expect(body.registryDiagnostic).toEqual({
+      stage: "FETCH_NETWORK_ERROR",
+      requestAttempted: true,
+      httpStatus: null,
+      postgrestCode: null,
+      networkError: true,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "legacy",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
     assertNoSecrets(String(res.body));
+  });
+
+  // checkAuth (api/releases.js) exige SUPABASE_URL/SERVICE_ROLE_KEY para
+  // autenticar o operador e retorna 500 antes de chegar ao release-store
+  // quando ausentes — por isso estes dois cenários exercitam listReleases()
+  // diretamente (nível release-store), não o handler HTTP completo.
+  it("SUPABASE_URL ausente → stage SUPABASE_URL_MISSING, requestAttempted false", async () => {
+    delete process.env.SUPABASE_URL;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("fetch não deveria ser chamado sem SUPABASE_URL");
+    }));
+    const result = await listReleases({ limit: 1 });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
+    expect(result.diagnostic).toEqual({
+      stage: "SUPABASE_URL_MISSING",
+      requestAttempted: false,
+      httpStatus: null,
+      postgrestCode: null,
+      networkError: null,
+      supabaseUrlConfigured: false,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "legacy",
+      supabaseProjectRef: null,
+      viteSupabaseProjectRef: null,
+    });
+    assertNoSecrets(JSON.stringify(result));
+    process.env.SUPABASE_URL = "https://hml-x.supabase.co";
+  });
+
+  it("SUPABASE_SERVICE_ROLE_KEY ausente → stage SERVICE_KEY_INVALID, serviceKeyKind missing", async () => {
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new Error("fetch não deveria ser chamado sem SERVICE_ROLE_KEY");
+    }));
+    const result = await listReleases({ limit: 1 });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
+    expect(result.diagnostic).toEqual({
+      stage: "SERVICE_KEY_INVALID",
+      requestAttempted: false,
+      httpStatus: null,
+      postgrestCode: null,
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: false,
+      serviceKeyKind: "missing",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
+    assertNoSecrets(JSON.stringify(result));
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("SUPABASE_SERVICE_ROLE_KEY em formato inválido → stage SERVICE_KEY_INVALID, serviceKeyKind invalid", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "formato-desconhecido-qualquer";
+    registryFailureFetch();
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.registryDiagnostic).toEqual({
+      stage: "SERVICE_KEY_INVALID",
+      requestAttempted: false,
+      httpStatus: null,
+      postgrestCode: null,
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "invalid",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
+    assertNoSecrets(String(res.body));
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
   });
 
   it("registryDiagnostic nunca vaza raw body, URL Supabase ou credenciais mesmo se presentes no erro do PostgREST", async () => {
@@ -1653,8 +1809,19 @@ describe("releases — registryDiagnostic sanitizado (history)", () => {
     });
     const res = await history();
     const body = res.json();
-    expect(Object.keys(body.registryDiagnostic).sort()).toEqual(["httpStatus", "postgrestCode"]);
-    expect(body.registryDiagnostic).toEqual({ httpStatus: 500, postgrestCode: "XX000" });
+    expect(Object.keys(body.registryDiagnostic).sort()).toEqual(REGISTRY_DIAGNOSTIC_KEYS);
+    expect(body.registryDiagnostic).toEqual({
+      stage: "POSTGREST_RESPONSE",
+      requestAttempted: true,
+      httpStatus: 500,
+      postgrestCode: "XX000",
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "legacy",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
     assertNoSecrets(String(res.body));
     expect(String(res.body)).not.toContain("internal error");
     expect(String(res.body)).not.toContain("raw detail");
@@ -1829,7 +1996,18 @@ describe("release-store — autenticação da service key contra o Data API", ()
     const res = await history();
     expect(res.statusCode).toBe(503);
     const body = res.json();
-    expect(body.registryDiagnostic).toEqual({ httpStatus: null, postgrestCode: null });
+    expect(body.registryDiagnostic).toEqual({
+      stage: "SERVICE_KEY_INVALID",
+      requestAttempted: false,
+      httpStatus: null,
+      postgrestCode: null,
+      networkError: null,
+      supabaseUrlConfigured: true,
+      serviceKeyConfigured: true,
+      serviceKeyKind: "invalid",
+      supabaseProjectRef: "hml-x",
+      viteSupabaseProjectRef: null,
+    });
     assertNoSecrets(String(res.body));
     process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
   });

@@ -26,6 +26,23 @@ export const MAX_HISTORY_LIMIT = 50;
 
 const supabaseUrl = () => process.env.SUPABASE_URL || "";
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const viteSupabaseUrl = () => process.env.VITE_SUPABASE_URL || "";
+
+const PROJECT_REF_RE = /^([a-z0-9-]{1,63})\.supabase\.co$/i;
+
+// Extrai somente o project-ref do host Supabase (ex.: "zzixvyspwszewhxzusot").
+// Nunca retorna a URL completa.
+function extractProjectRef(url) {
+  if (typeof url !== "string" || !url) return null;
+  let hostname;
+  try {
+    hostname = new URL(url.trim()).hostname;
+  } catch {
+    return null;
+  }
+  const match = hostname.match(PROJECT_REF_RE);
+  return match ? match[1].toLowerCase() : null;
+}
 
 const SECRET_KEY_PREFIX = "sb_secret_";
 const JWT_SHAPE_RE = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -163,19 +180,62 @@ function sanitizePostgrestCode(value) {
   return POSTGREST_CODE_RE.test(trimmed) ? trimmed : null;
 }
 
-// Diagnóstico sanitizado: somente status HTTP + code curto do PostgREST.
-// Nunca inclui message/details/hint/raw body/URL/headers/credenciais.
-function diagnosticFromResult(result) {
+// Campos de diagnóstico comuns a qualquer estágio: nunca incluem a chave,
+// prefixo de chave, JWT, headers ou a URL completa do Supabase.
+function baseDiagnosticFields() {
+  const url = supabaseUrl();
+  const key = serviceKey();
   return {
-    httpStatus: Number.isFinite(result?.status) ? result.status : null,
-    postgrestCode: sanitizePostgrestCode(result?.body?.code),
+    supabaseUrlConfigured: Boolean(url),
+    serviceKeyConfigured: Boolean(key),
+    serviceKeyKind: key ? classifyServiceKey(key).kind : "missing",
+    supabaseProjectRef: extractProjectRef(url),
+    viteSupabaseProjectRef: extractProjectRef(viteSupabaseUrl()),
   };
 }
 
+function buildDiagnostic(stage, {
+  requestAttempted,
+  httpStatus = null,
+  postgrestCode = null,
+  networkError = null,
+} = {}) {
+  return {
+    stage,
+    requestAttempted,
+    httpStatus,
+    postgrestCode,
+    networkError,
+    ...baseDiagnosticFields(),
+  };
+}
+
+function emptyDiagnostic() {
+  return buildDiagnostic(null, { requestAttempted: false });
+}
+
+// Diagnóstico sanitizado do estágio server-side em que a request falhou.
+// Nunca inclui message/details/hint/raw body/URL completa/headers/credenciais.
+function diagnosticFromResult(result) {
+  return result?.diagnostic || emptyDiagnostic();
+}
+
 async function restRequest(query, { method = "GET", body, prefer } = {}) {
-  if (!supabaseUrl()) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!supabaseUrl()) {
+    return {
+      ok: false,
+      error: "RELEASE_REGISTRY_UNAVAILABLE",
+      diagnostic: buildDiagnostic("SUPABASE_URL_MISSING", { requestAttempted: false }),
+    };
+  }
   const headers = buildServiceRoleHeaders({ json: body !== undefined, prefer });
-  if (!headers) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!headers) {
+    return {
+      ok: false,
+      error: "RELEASE_REGISTRY_UNAVAILABLE",
+      diagnostic: buildDiagnostic("SERVICE_KEY_INVALID", { requestAttempted: false }),
+    };
+  }
   try {
     const response = await fetch(restUrl(query), {
       method,
@@ -188,9 +248,18 @@ async function restRequest(query, { method = "GET", body, prefer } = {}) {
       status: response.status,
       body: parsed.body,
       raw: parsed.raw,
+      diagnostic: buildDiagnostic("POSTGREST_RESPONSE", {
+        requestAttempted: true,
+        httpStatus: response.status,
+        postgrestCode: sanitizePostgrestCode(parsed.body?.code),
+      }),
     };
   } catch {
-    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+    return {
+      ok: false,
+      error: "RELEASE_REGISTRY_UNAVAILABLE",
+      diagnostic: buildDiagnostic("FETCH_NETWORK_ERROR", { requestAttempted: true, networkError: true }),
+    };
   }
 }
 
