@@ -16,6 +16,7 @@ import handler from "../../api/releases.js";
 import { getRun, start } from "workflow/api";
 import { scheduledReleaseWorkflow } from "../../workflows/scheduled-release.js";
 import { executeScheduledRelease } from "../../server/release-core.js";
+import { buildServiceRoleHeaders, classifyServiceKey } from "../../server/release-store.js";
 
 // ════════════════════════════════════════════════════════════
 // RELEASE-AUTO-01 — /api/releases: control plane de preflight.
@@ -49,7 +50,18 @@ const ACTIVE_STATUSES = new Set([
 const GITHUB_READ_TOKEN = "github-read-token-secreto-teste";
 const GITHUB_RELEASE_TOKEN = "github-release-token-secreto-teste";
 const VERCEL_TOKEN = "vercel-token-secreto-teste";
-const SERVICE_ROLE = "supabase-service-role-secreto-teste";
+// JWT legado fake (role=service_role), usado como SUPABASE_SERVICE_ROLE_KEY nos testes.
+// Header: {"alg":"HS256","typ":"JWT"} · Payload: {"role":"service_role",...} · assinatura fake.
+const SERVICE_ROLE =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" +
+  ".eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UtbW9jay10ZXN0ZSIsImlhdCI6MTcwMDAwMDAwMCwiZXhwIjo5OTk5OTk5OTk5fQ" +
+  ".assinatura-fake-de-teste-nao-real";
+// Mesmo formato, porém role=anon — usado só nos testes de fail-closed do release-store.
+const ANON_JWT =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" +
+  ".eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlLW1vY2stdGVzdGUiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6OTk5OTk5OTk5OX0" +
+  ".assinatura-fake-de-teste-nao-real";
+const SECRET_KEY = "sb_secret_teste_nao_real_1234567890";
 const BEARER = "jwt-operador-secreto-teste";
 
 function githubOk(body) {
@@ -1720,6 +1732,115 @@ describe("releases — status e reconciliação GitHub", () => {
       automation: "blocked",
       reason: "PROD_MIGRATION_BASELINE_UNTRUSTED",
     });
+  });
+});
+
+describe("release-store — autenticação da service key contra o Data API", () => {
+  it("classifyServiceKey: sb_secret_ → kind secret", () => {
+    expect(classifyServiceKey(SECRET_KEY)).toEqual({ kind: "secret", key: SECRET_KEY });
+  });
+
+  it("classifyServiceKey: JWT legado role=service_role → kind legacy", () => {
+    expect(classifyServiceKey(SERVICE_ROLE)).toEqual({ kind: "legacy", key: SERVICE_ROLE });
+  });
+
+  it("classifyServiceKey: JWT role=anon → invalid (fail closed)", () => {
+    expect(classifyServiceKey(ANON_JWT)).toEqual({ kind: "invalid" });
+  });
+
+  it("classifyServiceKey: JWT sem role → invalid (fail closed)", () => {
+    const noRoleJwt = "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ4In0.assinatura";
+    expect(classifyServiceKey(noRoleJwt)).toEqual({ kind: "invalid" });
+  });
+
+  it("classifyServiceKey: formato desconhecido → invalid (fail closed)", () => {
+    expect(classifyServiceKey("supabase-service-role-secreto-teste")).toEqual({ kind: "invalid" });
+    expect(classifyServiceKey("")).toEqual({ kind: "invalid" });
+    expect(classifyServiceKey(null)).toEqual({ kind: "invalid" });
+  });
+
+  it("buildServiceRoleHeaders: sb_secret_ usa apenas apikey (sem Authorization Bearer)", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SECRET_KEY;
+    const headers = buildServiceRoleHeaders({ json: true, prefer: "return=representation" });
+    expect(headers.apikey).toBe(SECRET_KEY);
+    expect(headers.authorization).toBeUndefined();
+    expect(headers.Authorization).toBeUndefined();
+    expect(headers.Accept).toBe("application/json");
+    expect(headers["Content-Type"]).toBe("application/json");
+    expect(headers.Prefer).toBe("return=representation");
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("buildServiceRoleHeaders: JWT legado service_role usa apikey + Authorization Bearer", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+    const headers = buildServiceRoleHeaders({});
+    expect(headers.apikey).toBe(SERVICE_ROLE);
+    expect(headers.authorization).toBe(`Bearer ${SERVICE_ROLE}`);
+  });
+
+  it("buildServiceRoleHeaders: JWT anon falha fechado (null, nenhum header)", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = ANON_JWT;
+    expect(buildServiceRoleHeaders({})).toBeNull();
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("buildServiceRoleHeaders: formato desconhecido falha fechado (null, nenhum header)", () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "formato-desconhecido-qualquer";
+    expect(buildServiceRoleHeaders({})).toBeNull();
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("history com service key inválida → RELEASE_REGISTRY_UNAVAILABLE sem chamar o Data API", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = ANON_JWT;
+    const fn = mockFetch({ operatorRows: [superAdminRow] });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
+    expect(registryCalls(fn)).toHaveLength(0);
+    assertNoSecrets(String(res.body));
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("history continua funcionando com mock de service_role (JWT legado)", async () => {
+    const registry = createRegistryMock({
+      seed: [{
+        id: "99999999-9999-4999-8999-999999999999",
+        mode: "immediate",
+        status: "SUCCEEDED",
+        base_sha: SHA_MAIN,
+        target_sha: SHA_HML,
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+      }],
+    });
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry });
+    const res = await history();
+    expect(res.statusCode).toBe(200);
+    expect(res.json().items).toHaveLength(1);
+    const [, options] = registryCalls(fn)[0];
+    expect(options.headers.apikey).toBe(SERVICE_ROLE);
+    expect(options.headers.authorization).toBe(`Bearer ${SERVICE_ROLE}`);
+    assertNoSecrets(String(res.body));
+  });
+
+  it("diagnóstico seguro continua disponível quando a service key falha fechado", async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "formato-desconhecido-qualquer";
+    mockFetch({ operatorRows: [superAdminRow] });
+    const res = await history();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.registryDiagnostic).toEqual({ httpStatus: null, postgrestCode: null });
+    assertNoSecrets(String(res.body));
+    process.env.SUPABASE_SERVICE_ROLE_KEY = SERVICE_ROLE;
+  });
+
+  it("nenhuma service key aparece na resposta em nenhum cenário", async () => {
+    const registry = createRegistryMock();
+    mockFetch({ operatorRows: [superAdminRow], registry });
+    const ok = await history();
+    assertNoSecrets(String(ok.body));
+    expect(String(ok.body)).not.toContain(SECRET_KEY);
+    expect(String(ok.body)).not.toContain(ANON_JWT);
   });
 });
 

@@ -27,6 +27,53 @@ export const MAX_HISTORY_LIMIT = 50;
 const supabaseUrl = () => process.env.SUPABASE_URL || "";
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
+const SECRET_KEY_PREFIX = "sb_secret_";
+const JWT_SHAPE_RE = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
+function decodeJwtPayload(token) {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+// Classifica a service key sem nunca logar seu conteúdo.
+// "secret"  → chave moderna sb_secret_...      (apikey apenas)
+// "legacy"  → JWT legado com role=service_role (apikey + Authorization Bearer)
+// "invalid" → qualquer outro formato ou role != service_role (fail closed)
+export function classifyServiceKey(key) {
+  if (typeof key !== "string" || !key) return { kind: "invalid" };
+  if (key.startsWith(SECRET_KEY_PREFIX)) return { kind: "secret", key };
+  if (JWT_SHAPE_RE.test(key)) {
+    const payload = decodeJwtPayload(key);
+    if (payload && payload.role === "service_role") {
+      return { kind: "legacy", key };
+    }
+    return { kind: "invalid" };
+  }
+  return { kind: "invalid" };
+}
+
+// Constrói os headers de autenticação server-side a partir da service key
+// configurada. Retorna null (fail closed) quando a chave não é reconhecida
+// como service_role — nesse caso nenhuma request REST deve ser feita.
+export function buildServiceRoleHeaders({ json = false, prefer } = {}) {
+  const classification = classifyServiceKey(serviceKey());
+  if (classification.kind === "invalid") return null;
+  const headers = { apikey: classification.key, Accept: "application/json" };
+  if (classification.kind === "legacy") {
+    headers.authorization = `Bearer ${classification.key}`;
+  }
+  if (json) headers["Content-Type"] = "application/json";
+  if (prefer) headers.Prefer = prefer;
+  return headers;
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -82,23 +129,8 @@ export function toPublicRelease(row) {
   };
 }
 
-function restHeaders({ json = false, prefer } = {}) {
-  const headers = {
-    apikey: serviceKey(),
-    authorization: `Bearer ${serviceKey()}`,
-    Accept: "application/json",
-  };
-  if (json) headers["Content-Type"] = "application/json";
-  if (prefer) headers.Prefer = prefer;
-  return headers;
-}
-
 function restUrl(query = "") {
   return `${supabaseUrl()}/rest/v1/${TABLE}${query}`;
-}
-
-function configured() {
-  return Boolean(supabaseUrl() && serviceKey());
 }
 
 async function parseJson(response) {
@@ -141,11 +173,13 @@ function diagnosticFromResult(result) {
 }
 
 async function restRequest(query, { method = "GET", body, prefer } = {}) {
-  if (!configured()) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  if (!supabaseUrl()) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
+  const headers = buildServiceRoleHeaders({ json: body !== undefined, prefer });
+  if (!headers) return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE" };
   try {
     const response = await fetch(restUrl(query), {
       method,
-      headers: restHeaders({ json: body !== undefined, prefer }),
+      headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const parsed = await parseJson(response);
