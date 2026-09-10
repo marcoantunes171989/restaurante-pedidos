@@ -3,18 +3,22 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("workflow/api", () => ({
-  start: vi.fn(async () => ({ runId: "wrun_mock_schedule" })),
-  getRun: vi.fn(() => ({ cancel: vi.fn(async () => {}) })),
-}));
-
-vi.mock("../../workflows/scheduled-release.js", () => ({
-  scheduledReleaseWorkflow: async function scheduledReleaseWorkflow() {},
-}));
+vi.mock("../../server/release-orchestrator-client.js", async () => {
+  const actual = await vi.importActual("../../server/release-orchestrator-client.js");
+  return {
+    ...actual,
+    startOrchestratedRelease: vi.fn(),
+    cancelOrchestratedRelease: vi.fn(),
+  };
+});
 
 import handler from "../../api/releases.js";
-import { getRun, start } from "workflow/api";
-import { scheduledReleaseWorkflow } from "../../workflows/scheduled-release.js";
+import {
+  ReleaseOrchestratorConfigError,
+  ReleaseOrchestratorRequestError,
+  cancelOrchestratedRelease,
+  startOrchestratedRelease,
+} from "../../server/release-orchestrator-client.js";
 import { executeScheduledRelease } from "../../server/release-core.js";
 import { buildServiceRoleHeaders, classifyServiceKey, listReleases } from "../../server/release-store.js";
 
@@ -393,12 +397,16 @@ beforeEach(() => {
   process.env.GITHUB_RELEASE_TOKEN = GITHUB_RELEASE_TOKEN;
   process.env.VERCEL_TOKEN = VERCEL_TOKEN;
   delete process.env.VITE_SUPABASE_URL;
-  start.mockReset();
-  start.mockResolvedValue({ runId: "wrun_mock_schedule" });
-  getRun.mockReset();
-  getRun.mockImplementation((runId) => ({
-    runId,
-    cancel: vi.fn(async () => {}),
+  startOrchestratedRelease.mockReset();
+  startOrchestratedRelease.mockImplementation(async ({ releaseId }) => ({
+    ok: true,
+    releaseId,
+    workflowRunId: "wrun_mock_schedule",
+  }));
+  cancelOrchestratedRelease.mockReset();
+  cancelOrchestratedRelease.mockImplementation(async ({ releaseId }) => ({
+    ok: true,
+    releaseId,
   }));
 });
 
@@ -627,8 +635,8 @@ describe("releases — cancel requer confirmação", () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("CANCEL_CONFIRMATION_REQUIRED");
     expect(fn.mock.calls.some(([url]) => String(url).includes("api.github.com"))).toBe(false);
-    expect(start).not.toHaveBeenCalled();
-    expect(getRun).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
   });
 });
 
@@ -846,7 +854,7 @@ describe("releases — promote guards e dispatch", () => {
     expect(payload.inputs.confirmation).toBe("DEPLOY-PROD");
     expect(payload.inputs.request_id).toBe(body.releaseId);
 
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     readCalls(fn).forEach(([, callOptions]) => {
       expect(callOptions.method).toBe("GET");
       expect(callOptions.headers.Authorization).toBe(`Bearer ${GITHUB_READ_TOKEN}`);
@@ -901,7 +909,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("SCHEDULE_CONFIRMATION_REQUIRED");
     expect(githubCalls(fn)).toHaveLength(0);
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
   });
 
   it("confirmation diferente de AGENDAR → bloqueado", async () => {
@@ -910,7 +918,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("SCHEDULE_CONFIRMATION_REQUIRED");
     expect(githubCalls(fn)).toHaveLength(0);
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
   });
 
   it("schedule sem targetSha → bloqueado", async () => {
@@ -923,7 +931,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("TARGET_SHA_REQUIRED");
     expect(githubCalls(fn)).toHaveLength(0);
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
   });
 
   it("schedule sem scheduledAt → bloqueado", async () => {
@@ -936,7 +944,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
     expect(githubCalls(fn)).toHaveLength(0);
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
   });
 
   it("scheduledAt inválido → bloqueado", async () => {
@@ -944,7 +952,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     const res = await schedule({ scheduledAt: "amanha-as-dez" });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(githubCalls(fn)).toHaveLength(0);
   });
 
@@ -953,7 +961,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     const res = await schedule({ scheduledAt: "2026-12-01T15:00:00" });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(githubCalls(fn)).toHaveLength(0);
   });
 
@@ -962,7 +970,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     const res = await schedule({ scheduledAt: "2020-01-01T00:00:00Z" });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(githubCalls(fn)).toHaveLength(0);
   });
 
@@ -971,7 +979,7 @@ describe("releases — schedule bloqueado sem confirmation/target/horario", () =
     const res = await schedule({ scheduledAt: futureIso(10_000) });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(githubCalls(fn)).toHaveLength(0);
   });
 });
@@ -983,7 +991,7 @@ describe("releases — schedule revalida preflight e não inicia workflow se nã
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_NOT_READY");
     expect(blockerCodes(res.json())).toContain("TARGET_SHA_CHANGED");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(dispatchCalls(fn)).toHaveLength(0);
   });
 
@@ -1003,7 +1011,7 @@ describe("releases — schedule revalida preflight e não inicia workflow se nã
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_NOT_READY");
     expect(blockerCodes(res.json())).toContain("BRANCH_DIVERGED");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(dispatchCalls(fn)).toHaveLength(0);
   });
 
@@ -1026,7 +1034,7 @@ describe("releases — schedule revalida preflight e não inicia workflow se nã
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_NOT_READY");
     expect(blockerCodes(res.json())).toContain("NO_CHANGES_TO_RELEASE");
-    expect(start).not.toHaveBeenCalled();
+    expect(startOrchestratedRelease).not.toHaveBeenCalled();
     expect(dispatchCalls(fn)).toHaveLength(0);
   });
 });
@@ -1058,18 +1066,18 @@ describe("releases — schedule válido inicia workflow durável", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
 
-    expect(start).toHaveBeenCalledTimes(1);
-    expect(start).toHaveBeenCalledWith(scheduledReleaseWorkflow, [{
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(startOrchestratedRelease).toHaveBeenCalledWith({
       releaseId: body.releaseId,
       baseSha: SHA_MAIN,
       targetSha: SHA_HML,
-      scheduledAt: body.scheduledAtUtc,
-    }]);
-    const [, args] = start.mock.calls[0];
-    expect(JSON.stringify(args[0])).not.toContain(GITHUB_READ_TOKEN);
-    expect(JSON.stringify(args[0])).not.toContain(GITHUB_RELEASE_TOKEN);
-    expect(JSON.stringify(args[0])).not.toContain(SERVICE_ROLE);
-    expect(JSON.stringify(args[0])).not.toContain(BEARER);
+      scheduledAtUtc: body.scheduledAtUtc,
+    });
+    const [args] = startOrchestratedRelease.mock.calls[0];
+    expect(JSON.stringify(args)).not.toContain(GITHUB_READ_TOKEN);
+    expect(JSON.stringify(args)).not.toContain(GITHUB_RELEASE_TOKEN);
+    expect(JSON.stringify(args)).not.toContain(SERVICE_ROLE);
+    expect(JSON.stringify(args)).not.toContain(BEARER);
 
     expect(dispatchCalls(fn)).toHaveLength(0);
     expect(actionsCalls(fn)).toHaveLength(0);
@@ -1342,7 +1350,7 @@ describe("releases — promote persiste registry antes do dispatch", () => {
   });
 });
 
-describe("releases — schedule persiste registry antes do start", () => {
+describe("releases — schedule persiste registry antes do start no orquestrador", () => {
   it("cria REQUESTED e após start marca SCHEDULED + workflowRunId", async () => {
     const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
     const res = await schedule({ scheduledAt: "2026-12-01T18:00:00-03:00" });
@@ -1354,117 +1362,167 @@ describe("releases — schedule persiste registry antes do start", () => {
     const stored = [...fn.registry.rows.values()][0];
     expect(stored.status).toBe("SCHEDULED");
     expect(stored.workflow_run_id).toBe("wrun_mock_schedule");
-    expect(start).toHaveBeenCalledTimes(1);
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
     assertNoSecrets(String(res.body));
   });
 
-  it("start failure → FAILED WORKFLOW_START_FAILED", async () => {
-    start.mockRejectedValueOnce(new Error("boom"));
+  it("config ausente/curto ANTES da requisição → FAILED ORCHESTRATOR_CONFIG_UNAVAILABLE, HTTP 503, sem retry", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorConfigError("RELEASE_ORCHESTRATOR_URL_MISSING"),
+    );
     const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
     const res = await schedule();
-    expect(res.statusCode).toBe(502);
-    expect(res.json().error).toBe("WORKFLOW_START_FAILED");
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_CONFIG_UNAVAILABLE");
+    expect(body.orchestratorDiagnostic.uncertain).toBe(false);
     const stored = [...fn.registry.rows.values()][0];
     expect(stored.status).toBe("FAILED");
-    expect(stored.result_code).toBe("WORKFLOW_START_FAILED");
+    expect(stored.result_code).toBe("ORCHESTRATOR_CONFIG_UNAVAILABLE");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
   });
 
-  describe("workflowDiagnostic sanitizado", () => {
-    it("start lança erro → stage START_THROWN com name/code sanitizados", async () => {
-      const error = new Error("falha ao iniciar workflow");
-      error.name = "WorkflowStartError";
-      error.code = "ECONNRESET";
-      start.mockRejectedValueOnce(error);
+  it("network failure → mantém REQUESTED, HTTP 503 incerto, sem retry automático", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE"),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_START_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.uncertain).toBe(true);
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("REQUESTED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it("timeout → mantém REQUESTED, HTTP 503 incerto, sem retry automático", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_TIMEOUT"),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_UNCERTAIN");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("REQUESTED");
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it("HTTP 500 do orquestrador → mantém REQUESTED, HTTP 503 incerto", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_500", { httpStatus: 500 }),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_START_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.httpStatus).toBe(500);
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("REQUESTED");
+  });
+
+  it("HTTP 401 (assinatura rejeitada antes de start()) → comprovadamente não executado, FAILED", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_401", { httpStatus: 401 }),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_REJECTED");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("FAILED");
+    expect(stored.result_code).toBe("ORCHESTRATOR_START_REJECTED");
+  });
+
+  it("HTTP 400 (input inválido antes de start()) → comprovadamente não executado, FAILED", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_400", { httpStatus: 400 }),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_REJECTED");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("FAILED");
+  });
+
+  it("HTTP 422 (sem prova de não-execução) → tratado como incerto, mantém REQUESTED", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_422", { httpStatus: 422 }),
+    );
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_UNCERTAIN");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("REQUESTED");
+  });
+
+  it("2xx sem workflowRunId → resposta malformada, mantém REQUESTED, HTTP 503 incerto", async () => {
+    startOrchestratedRelease.mockImplementationOnce(async ({ releaseId }) => ({ ok: true, releaseId }));
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_UNCERTAIN");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("REQUESTED");
+  });
+
+  it("2xx com releaseId divergente do enviado → malformada, mantém REQUESTED, incerto", async () => {
+    startOrchestratedRelease.mockResolvedValueOnce({
+      ok: true,
+      releaseId: "11111111-1111-4111-8111-111111111111",
+      workflowRunId: "wrun_outro",
+    });
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_START_UNCERTAIN");
+    const stored = [...fn.registry.rows.values()][0];
+    expect(stored.status).toBe("REQUESTED");
+  });
+
+  it("zero retry automático: falha do start nunca dispara uma segunda chamada", async () => {
+    startOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE"),
+    );
+    mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    await schedule();
+    expect(startOrchestratedRelease).toHaveBeenCalledTimes(1);
+  });
+
+  describe("orchestratorDiagnostic sanitizado", () => {
+    it("expõe somente stage/code/httpStatus/uncertain — nunca secret/signature/body/headers/URL/stack/cause", async () => {
+      startOrchestratedRelease.mockRejectedValueOnce(
+        new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_500", { httpStatus: 500 }),
+      );
       mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
       const res = await schedule();
-      expect(res.statusCode).toBe(502);
       const body = res.json();
-      const diagnostic = body.workflowDiagnostic;
-      expect(diagnostic.stage).toBe("START_THROWN");
-      expect(diagnostic.errorName).toBe("WorkflowStartError");
-      expect(diagnostic.errorCode).toBe("ECONNRESET");
-      expect(diagnostic.message).toBe("falha ao iniciar workflow");
-      expect(diagnostic).not.toHaveProperty("stack");
-      expect(diagnostic).not.toHaveProperty("cause");
-      expect(diagnostic).not.toHaveProperty("error");
-      expect(diagnostic).not.toHaveProperty("headers");
+      expect(Object.keys(body.orchestratorDiagnostic).sort()).toEqual(
+        ["code", "httpStatus", "stage", "uncertain"],
+      );
+      expect(body.orchestratorDiagnostic).not.toHaveProperty("stack");
+      expect(body.orchestratorDiagnostic).not.toHaveProperty("cause");
+      expect(body.orchestratorDiagnostic).not.toHaveProperty("message");
+      expect(body.orchestratorDiagnostic).not.toHaveProperty("headers");
+      expect(body.orchestratorDiagnostic).not.toHaveProperty("signature");
+      assertNoSecrets(String(res.body));
     });
 
-    it("respeita limites de tamanho (errorName/errorCode <= 80, message <= 200)", async () => {
-      const error = new Error("x".repeat(400));
-      error.name = "N".repeat(200);
-      error.code = "C".repeat(200);
-      start.mockRejectedValueOnce(error);
-      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-      const res = await schedule();
-      const diagnostic = res.json().workflowDiagnostic;
-      expect(diagnostic.errorName.length).toBeLessThanOrEqual(80);
-      expect(diagnostic.errorCode.length).toBeLessThanOrEqual(80);
-      expect(diagnostic.message.length).toBeLessThanOrEqual(200);
-    });
-
-    it("redige Bearer token da mensagem", async () => {
-      start.mockRejectedValueOnce(new Error(`unauthorized: Bearer ${BEARER}`));
+    it("nunca vaza o secret/JWT/Bearer mesmo quando o erro subjacente os conteria", async () => {
+      startOrchestratedRelease.mockRejectedValueOnce(
+        new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE"),
+      );
       mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
       const res = await schedule();
       const raw = String(res.body);
       expect(raw).not.toContain(BEARER);
-      expect(raw).not.toMatch(/Bearer [^[]/);
-      assertNoSecrets(raw);
-    });
-
-    it("redige chave sb_secret_ da mensagem", async () => {
-      start.mockRejectedValueOnce(new Error("supabase rejeitou sb_secret_abcdef1234567890abcdef"));
-      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-      const res = await schedule();
-      const raw = String(res.body);
-      expect(raw).not.toContain("sb_secret_abcdef1234567890abcdef");
-    });
-
-    it("redige JWT (eyJ...) da mensagem", async () => {
-      start.mockRejectedValueOnce(new Error(`token invalido: ${SERVICE_ROLE}`));
-      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-      const res = await schedule();
-      const raw = String(res.body);
       expect(raw).not.toContain(SERVICE_ROLE);
       assertNoSecrets(raw);
-    });
-
-    it("redige URL completa e query string da mensagem", async () => {
-      start.mockRejectedValueOnce(new Error(
-        "fetch failed: https://hml-x.supabase.co/rest/v1/app_release_runs?apikey=segredo123&select=id",
-      ));
-      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-      const res = await schedule();
-      const raw = String(res.body);
-      expect(raw).not.toContain("https://hml-x.supabase.co");
-      expect(raw).not.toContain("apikey=segredo123");
-      expect(raw).not.toContain("?apikey");
-    });
-
-    it("resposta nunca contém stack, objeto de erro bruto ou headers", async () => {
-      const error = new Error("boom com stack");
-      start.mockRejectedValueOnce(error);
-      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-      const res = await schedule();
-      const raw = String(res.body);
-      expect(raw).not.toContain(error.stack.split("\n")[1] || "at ");
-      expect(res.json()).not.toHaveProperty("stack");
-      expect(res.json()).not.toHaveProperty("headers");
-    });
-
-    it("start resolve sem runId → stage RUN_ID_MISSING, sem errorName/errorCode", async () => {
-      start.mockResolvedValueOnce({});
-      const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-      const res = await schedule();
-      expect(res.statusCode).toBe(502);
-      const diagnostic = res.json().workflowDiagnostic;
-      expect(diagnostic.stage).toBe("RUN_ID_MISSING");
-      expect(diagnostic.errorName).toBeNull();
-      expect(diagnostic.errorCode).toBeNull();
-      const stored = [...fn.registry.rows.values()][0];
-      expect(stored.status).toBe("FAILED");
-      expect(stored.result_code).toBe("WORKFLOW_START_FAILED");
     });
   });
 });
@@ -1475,7 +1533,7 @@ describe("releases — cancel seguro", () => {
     const res = await cancelRelease({ releaseId: "99999999-9999-4999-8999-999999999999" });
     expect(res.statusCode).toBe(404);
     expect(res.json().error).toBe("RELEASE_NOT_FOUND");
-    expect(getRun).not.toHaveBeenCalled();
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
   });
 
   it("cancel immediate → RELEASE_NOT_CANCELABLE", async () => {
@@ -1497,7 +1555,7 @@ describe("releases — cancel seguro", () => {
     const res = await cancelRelease({ releaseId });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_NOT_CANCELABLE");
-    expect(getRun).not.toHaveBeenCalled();
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
   });
 
   it("cancel estado RUNNING → RELEASE_NOT_CANCELABLE", async () => {
@@ -1520,12 +1578,34 @@ describe("releases — cancel seguro", () => {
     const res = await cancelRelease({ releaseId });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_NOT_CANCELABLE");
-    expect(getRun).not.toHaveBeenCalled();
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
   });
 
-  it("cancel SCHEDULED chama getRun.cancel uma vez e marca CANCELED", async () => {
-    const cancel = vi.fn(async () => {});
-    getRun.mockReturnValue({ cancel });
+  it("cancel sem workflow_run_id → ORCHESTRATOR_RUN_ID_UNKNOWN, fail closed sem alterar a row", async () => {
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      registry: createRegistryMock({
+        seed: [{
+          id: releaseId,
+          mode: "scheduled",
+          status: "SCHEDULED",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          workflow_run_id: null,
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("ORCHESTRATOR_RUN_ID_UNKNOWN");
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
+    expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+
+  it("cancel SCHEDULED chama cancelOrchestratedRelease uma vez e marca CANCELED", async () => {
     const releaseId = SCHEDULED_RELEASE_ID;
     const fn = mockFetch({
       operatorRows: [superAdminRow],
@@ -1545,15 +1625,17 @@ describe("releases — cancel seguro", () => {
     const res = await cancelRelease({ releaseId });
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe("CANCELED");
-    expect(getRun).toHaveBeenCalledTimes(1);
-    expect(getRun).toHaveBeenCalledWith("wrun_mock_schedule");
-    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).toHaveBeenCalledTimes(1);
+    expect(cancelOrchestratedRelease).toHaveBeenCalledWith({
+      releaseId,
+      workflowRunId: "wrun_mock_schedule",
+    });
     expect(fn.registry.rows.get(releaseId).status).toBe("CANCELED");
     expect(fn.registry.rows.get(releaseId).result_code).toBe("CANCELED_BY_OPERATOR");
     assertNoSecrets(String(res.body));
   });
 
-  it("cancel já CANCELED é idempotente e não chama getRun", async () => {
+  it("cancel já CANCELED é idempotente e não chama cancelOrchestratedRelease", async () => {
     const releaseId = SCHEDULED_RELEASE_ID;
     mockFetch({
       operatorRows: [superAdminRow],
@@ -1575,35 +1657,95 @@ describe("releases — cancel seguro", () => {
     const res = await cancelRelease({ releaseId });
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe("CANCELED");
-    expect(getRun).not.toHaveBeenCalled();
+    expect(cancelOrchestratedRelease).not.toHaveBeenCalled();
   });
 
-  it("falha cancel → não marca CANCELED", async () => {
-    getRun.mockReturnValue({
-      cancel: vi.fn(async () => {
-        throw new Error("boom");
-      }),
+  function seededScheduled(releaseId, overrides = {}) {
+    return createRegistryMock({
+      seed: [{
+        id: releaseId,
+        mode: "scheduled",
+        status: "SCHEDULED",
+        base_sha: SHA_MAIN,
+        target_sha: SHA_HML,
+        workflow_run_id: "wrun_mock_schedule",
+        created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z",
+        ...overrides,
+      }],
     });
+  }
+
+  it("cancel network failure → preserva SCHEDULED, HTTP 503 incerto", async () => {
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE"),
+    );
     const releaseId = SCHEDULED_RELEASE_ID;
-    const fn = mockFetch({
-      operatorRows: [superAdminRow],
-      registry: createRegistryMock({
-        seed: [{
-          id: releaseId,
-          mode: "scheduled",
-          status: "SCHEDULED",
-          base_sha: SHA_MAIN,
-          target_sha: SHA_HML,
-          workflow_run_id: "wrun_mock_schedule",
-          created_at: "2026-09-01T00:00:00.000Z",
-          updated_at: "2026-09-01T00:00:00.000Z",
-        }],
-      }),
-    });
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry: seededScheduled(releaseId) });
     const res = await cancelRelease({ releaseId });
-    expect(res.statusCode).toBe(502);
-    expect(res.json().error).toBe("WORKFLOW_CANCEL_FAILED");
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_CANCEL_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.uncertain).toBe(true);
     expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+
+  it("cancel timeout → preserva o estado atual, HTTP 503 incerto", async () => {
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_TIMEOUT"),
+    );
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry: seededScheduled(releaseId) });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_CANCEL_UNCERTAIN");
+    expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+
+  it("cancel HTTP 5xx (resposta ambígua) → preserva o estado atual, HTTP 503 incerto", async () => {
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_HTTP_502", { httpStatus: 502 }),
+    );
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry: seededScheduled(releaseId) });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(503);
+    const body = res.json();
+    expect(body.error).toBe("ORCHESTRATOR_CANCEL_UNCERTAIN");
+    expect(body.orchestratorDiagnostic.httpStatus).toBe(502);
+    expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+
+  it("cancel config ausente → ORCHESTRATOR_CONFIG_UNAVAILABLE, preserva o estado atual", async () => {
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorConfigError("RELEASE_ORCHESTRATOR_URL_MISSING"),
+    );
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry: seededScheduled(releaseId) });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_CONFIG_UNAVAILABLE");
+    expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+
+  it("cancel resposta 2xx ambígua (ok !== true) → preserva o estado atual, incerto", async () => {
+    cancelOrchestratedRelease.mockResolvedValueOnce({ ok: false });
+    const releaseId = SCHEDULED_RELEASE_ID;
+    const fn = mockFetch({ operatorRows: [superAdminRow], registry: seededScheduled(releaseId) });
+    const res = await cancelRelease({ releaseId });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("ORCHESTRATOR_CANCEL_UNCERTAIN");
+    expect(fn.registry.rows.get(releaseId).status).toBe("SCHEDULED");
+  });
+
+  it("nenhum secret/signature aparece na resposta de cancel incerto", async () => {
+    cancelOrchestratedRelease.mockRejectedValueOnce(
+      new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE"),
+    );
+    const releaseId = SCHEDULED_RELEASE_ID;
+    mockFetch({ operatorRows: [superAdminRow], registry: seededScheduled(releaseId) });
+    const res = await cancelRelease({ releaseId });
+    assertNoSecrets(String(res.body));
   });
 });
 

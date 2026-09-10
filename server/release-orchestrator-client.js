@@ -1,10 +1,10 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 
 // Client server-side do contrato privado entre o Control Plane do Pedido
-// Prime e apps/release-orchestrator. NÃO integrado em api/releases.js
-// neste gate (RELEASE-AUTO-05C-RUNTIME-ARCH3) — só a primitiva existe.
+// Prime e apps/release-orchestrator. Integrado em api/releases.js
+// (RELEASE-AUTO-05C-RUNTIME-ARCH4) para schedule (start) e cancel.
 //
-// Config futura (env vars, ainda não definidas em produção):
+// Config (env vars):
 //   RELEASE_ORCHESTRATOR_URL
 //   RELEASE_ORCHESTRATOR_HMAC_SECRET
 
@@ -12,6 +12,11 @@ const SIGNATURE_VERSION = "v1";
 const MIN_SECRET_BYTES = 32;
 const START_PATHNAME = "/api/internal/releases/start";
 const CANCEL_PATHNAME = "/api/internal/releases/cancel";
+
+// Entre 10s e 15s — cobre latência normal do orquestrador sem prender a
+// function da Vercel por tempo demais. Timeout NUNCA é tratado como falha
+// definitiva de start()/cancel() — vira estado incerto no chamador.
+export const ORCHESTRATOR_TIMEOUT_MS = 12_000;
 
 export class ReleaseOrchestratorConfigError extends Error {
   constructor(code) {
@@ -21,11 +26,17 @@ export class ReleaseOrchestratorConfigError extends Error {
   }
 }
 
+/**
+ * Erro sanitizado de uma requisição já enviada ao orquestrador. Expõe
+ * somente `code` e `httpStatus` (quando aplicável) — nunca body remoto,
+ * headers, URL completa, stack ou a mensagem original do fetch/rede.
+ */
 export class ReleaseOrchestratorRequestError extends Error {
-  constructor(code) {
+  constructor(code, { httpStatus = null } = {}) {
     super(code);
     this.name = "ReleaseOrchestratorRequestError";
     this.code = code;
+    this.httpStatus = httpStatus;
   }
 }
 
@@ -76,15 +87,24 @@ async function callPrivateEndpoint(pathname, payload, env) {
   const rawBody = JSON.stringify(payload);
   const headers = signRequest(secret, "POST", pathname, rawBody);
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ORCHESTRATOR_TIMEOUT_MS);
+
   let response;
   try {
     response = await fetch(`${baseUrl}${pathname}`, {
       method: "POST",
       headers,
       body: rawBody,
+      signal: controller.signal,
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new ReleaseOrchestratorRequestError("ORCHESTRATOR_TIMEOUT");
+    }
     throw new ReleaseOrchestratorRequestError("ORCHESTRATOR_NETWORK_FAILURE");
+  } finally {
+    clearTimeout(timer);
   }
 
   let json = null;
@@ -95,14 +115,20 @@ async function callPrivateEndpoint(pathname, payload, env) {
   }
 
   if (!response.ok) {
-    throw new ReleaseOrchestratorRequestError(`ORCHESTRATOR_HTTP_${response.status}`);
+    throw new ReleaseOrchestratorRequestError(`ORCHESTRATOR_HTTP_${response.status}`, {
+      httpStatus: response.status,
+    });
   }
 
   return json;
 }
 
 /**
- * Inicia uma release orquestrada. Fail closed se URL/secret ausentes.
+ * Inicia uma release orquestrada. Fail closed se URL/secret ausentes
+ * (lança ReleaseOrchestratorConfigError ANTES de qualquer requisição —
+ * start() do orquestrador comprovadamente não é chamado nesse caminho).
+ * Nunca faz retry: cada chamada desta função dispara no máximo uma
+ * requisição HTTP.
  */
 export async function startOrchestratedRelease(
   { releaseId, baseSha, targetSha, scheduledAtUtc },
@@ -117,6 +143,7 @@ export async function startOrchestratedRelease(
 
 /**
  * Cancela uma release orquestrada. Fail closed se URL/secret ausentes.
+ * Nunca faz retry.
  */
 export async function cancelOrchestratedRelease({ releaseId, workflowRunId }, { env } = {}) {
   return callPrivateEndpoint(CANCEL_PATHNAME, { releaseId, workflowRunId }, env);

@@ -5,16 +5,21 @@
 //  Preflight (GET GitHub, GITHUB_READ_TOKEN) permanece habilitado.
 //  Promote dispara workflow_dispatch do GitHub Actions; NÃO atualiza
 //  main a partir desta function (sem PATCH refs / push / Contents API).
-//  Schedule inicia um workflow durável (Vercel Workflow SDK) e retorna
-//  imediatamente. Cancel cancela somente releases scheduled ainda
-//  não validadas. Database automation continua blocked.
-//  Protegido: Bearer + Super Admin — mesma condição de api/ambientes.js.
+//  Schedule/cancel delegam para apps/release-orchestrator através do
+//  contrato privado server/release-orchestrator-client.js (sem SDK de
+//  workflow direto neste control plane). Database automation continua
+//  blocked. Protegido: Bearer + Super Admin — mesma condição de
+//  api/ambientes.js.
 // ════════════════════════════════════════════════════════════
 
 /* global process */
 import crypto from "node:crypto";
-import { getRun, start } from "workflow/api";
-import { scheduledReleaseWorkflow } from "../workflows/scheduled-release.js";
+import {
+  ReleaseOrchestratorConfigError,
+  ReleaseOrchestratorRequestError,
+  cancelOrchestratedRelease,
+  startOrchestratedRelease,
+} from "../server/release-orchestrator-client.js";
 import {
   DATABASE_STATUS,
   DISPLAY_TIMEZONE,
@@ -87,42 +92,21 @@ function registryDiagnosticPayload(result) {
   };
 }
 
-// Diagnóstico sanitizado de falha ao iniciar o workflow durável (start()).
-// Contém SOMENTE stage/errorName/errorCode/message — nunca stack, cause
-// bruto, o objeto Error, headers ou segredos. Qualquer Bearer/JWT/
-// sb_secret_/apikey/authorization/cookie/token/URL completa/query string
-// presente na mensagem original é redigida antes de sair do processo.
-const WORKFLOW_DIAGNOSTIC_LIMITS = { errorName: 80, errorCode: 80, message: 200 };
-
-const WORKFLOW_REDACT_RULES = [
-  [/https?:\/\/\S+/gi, "[url_redacted]"],
-  [/\bBearer\s+\S+/gi, "[bearer_redacted]"],
-  [/\bsb_secret_\S+/gi, "sb_secret_[redacted]"],
-  [/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, "[jwt_redacted]"],
-  [/\b(apikey|authorization|cookie|token)\s*[:=]\s*\S+/gi, "$1=[redacted]"],
-  [/\?[A-Za-z0-9_]+=\S+/g, "[query_redacted]"],
-  [/[A-Za-z0-9_-]{24,}/g, "[redacted]"],
-];
-
-function redactWorkflowText(raw) {
-  let text = String(raw);
-  for (const [pattern, replacement] of WORKFLOW_REDACT_RULES) {
-    text = text.replace(pattern, replacement);
-  }
-  return text;
+// Diagnóstico sanitizado de start()/cancel() do orquestrador. Contém
+// SOMENTE stage/code/httpStatus/uncertain — nunca secret, signature, body
+// remoto, headers, URL completa, stack ou cause bruto. `code` vem sempre de
+// um enum fixo definido em server/release-orchestrator-client.js, nunca de
+// texto livre da resposta remota.
+function orchestratorDiagnostic(stage, { code = null, httpStatus = null, uncertain = false } = {}) {
+  return { stage, code, httpStatus, uncertain };
 }
 
-function buildWorkflowDiagnostic(stage, error) {
-  const rawMessage = stage === "RUN_ID_MISSING"
-    ? "start() concluiu sem runId"
-    : (error?.message || "Falha desconhecida ao iniciar o workflow");
-  return {
-    stage,
-    errorName: stage === "RUN_ID_MISSING" ? null : clean(error?.name, WORKFLOW_DIAGNOSTIC_LIMITS.errorName),
-    errorCode: stage === "RUN_ID_MISSING" ? null : clean(error?.code, WORKFLOW_DIAGNOSTIC_LIMITS.errorCode),
-    message: clean(redactWorkflowText(rawMessage), WORKFLOW_DIAGNOSTIC_LIMITS.message),
-  };
-}
+// Comprovado lendo apps/release-orchestrator/app/api/internal/releases/
+// {start,cancel}/route.js: HTTP 400 (INVALID_JSON/INVALID_INPUT) e 401
+// (assinatura inválida) sempre respondem ANTES de start()/run.cancel() ser
+// chamado. Qualquer outro código (403/422/5xx) não tem essa garantia e é
+// tratado como incerto.
+const ORCHESTRATOR_PROVEN_NOT_EXECUTED_STATUSES = new Set([400, 401]);
 
 // Reaplica a MESMA condição de autorização de api/ambientes.js
 // (e api/landing-analytics.js / isSuperAdmin): bypass da conta-raiz por
@@ -379,44 +363,80 @@ async function handleSchedule(reqBody, res, operator) {
     });
   }
 
-  const payload = {
-    releaseId,
-    baseSha,
-    targetSha,
-    scheduledAt: scheduled.utc,
-  };
-
-  let run;
+  // CRÍTICO: start() do orquestrador não oferece idempotencyKey — esta
+  // função nunca faz retry automático. Em caso de dúvida sobre se o start
+  // foi de fato executado, a release permanece REQUESTED (linha ativa,
+  // bloqueando nova tentativa concorrente) e a resposta é 503 incerta.
+  let startResult;
   try {
-    run = await start(scheduledReleaseWorkflow, [payload]);
+    startResult = await startOrchestratedRelease({
+      releaseId,
+      baseSha,
+      targetSha,
+      scheduledAtUtc: scheduled.utc,
+    });
   } catch (error) {
-    const diagnostic = buildWorkflowDiagnostic("START_THROWN", error);
-    console.error("[release-schedule] workflow start failed", diagnostic);
-    await markReleaseFailure(releaseId, { resultCode: "WORKFLOW_START_FAILED" });
-    return json(res, 502, {
+    if (error instanceof ReleaseOrchestratorConfigError) {
+      // URL/secret inválidos ANTES da requisição: start() comprovadamente
+      // não foi executado.
+      await markReleaseFailure(releaseId, { resultCode: "ORCHESTRATOR_CONFIG_UNAVAILABLE" });
+      return json(res, 503, {
+        ok: false,
+        error: "ORCHESTRATOR_CONFIG_UNAVAILABLE",
+        action: "schedule",
+        releaseId,
+        orchestratorDiagnostic: orchestratorDiagnostic("START_CONFIG", { code: error.code, uncertain: false }),
+      });
+    }
+
+    const httpStatus = error instanceof ReleaseOrchestratorRequestError ? error.httpStatus : null;
+    const code = error instanceof ReleaseOrchestratorRequestError ? error.code : "ORCHESTRATOR_UNKNOWN_ERROR";
+
+    if (ORCHESTRATOR_PROVEN_NOT_EXECUTED_STATUSES.has(httpStatus)) {
+      await markReleaseFailure(releaseId, { resultCode: "ORCHESTRATOR_START_REJECTED" });
+      return json(res, 503, {
+        ok: false,
+        error: "ORCHESTRATOR_START_REJECTED",
+        action: "schedule",
+        releaseId,
+        orchestratorDiagnostic: orchestratorDiagnostic("START_REJECTED", { code, httpStatus, uncertain: false }),
+      });
+    }
+
+    // timeout / network failure / HTTP 5xx / demais códigos sem prova de
+    // não-execução: mantém REQUESTED, não repete automaticamente.
+    console.error("[release-schedule] start incerto", { code, httpStatus });
+    return json(res, 503, {
       ok: false,
-      error: "WORKFLOW_START_FAILED",
+      error: "ORCHESTRATOR_START_UNCERTAIN",
       action: "schedule",
-      workflowDiagnostic: diagnostic,
+      releaseId,
+      orchestratorDiagnostic: orchestratorDiagnostic("START_UNCERTAIN", { code, httpStatus, uncertain: true }),
     });
   }
 
-  if (!run?.runId) {
-    const diagnostic = buildWorkflowDiagnostic("RUN_ID_MISSING", null);
-    console.error("[release-schedule] workflow start failed", diagnostic);
-    await markReleaseFailure(releaseId, { resultCode: "WORKFLOW_START_FAILED" });
-    return json(res, 502, {
+  const workflowRunId = typeof startResult?.workflowRunId === "string" ? startResult.workflowRunId : "";
+  const startOk = startResult?.ok === true
+    && startResult?.releaseId === releaseId
+    && workflowRunId.length > 0;
+
+  if (!startOk) {
+    // Resposta 2xx malformada (releaseId divergente ou workflowRunId
+    // ausente/vazio): mantém REQUESTED, trata como incerto.
+    console.error("[release-schedule] start incerto (resposta malformada)");
+    return json(res, 503, {
       ok: false,
-      error: "WORKFLOW_START_FAILED",
+      error: "ORCHESTRATOR_START_UNCERTAIN",
       action: "schedule",
-      workflowDiagnostic: diagnostic,
+      releaseId,
+      orchestratorDiagnostic: orchestratorDiagnostic("START_MALFORMED", { uncertain: true }),
     });
   }
 
   const scheduledRow = await transitionRelease(releaseId, {
     fromStatuses: ["REQUESTED"],
     status: "SCHEDULED",
-    extra: { workflow_run_id: run.runId },
+    extra: { workflow_run_id: workflowRunId },
   });
   if (!scheduledRow.ok) {
     return json(res, 502, {
@@ -424,7 +444,7 @@ async function handleSchedule(reqBody, res, operator) {
       error: "WORKFLOW_START_FAILED",
       action: "schedule",
       releaseId,
-      workflowRunId: run.runId,
+      workflowRunId,
     });
   }
 
@@ -433,7 +453,7 @@ async function handleSchedule(reqBody, res, operator) {
     action: "schedule",
     status: "SCHEDULED",
     releaseId,
-    workflowRunId: run.runId,
+    workflowRunId,
     baseSha,
     targetSha,
     scheduledAtUtc: scheduled.utc,
@@ -441,17 +461,6 @@ async function handleSchedule(reqBody, res, operator) {
     database: databasePayload(),
     generatedAt: generatedAt(),
   });
-}
-
-async function cancelWorkflowRun(workflowRunId) {
-  try {
-    const run = getRun(String(workflowRunId));
-    if (typeof run?.cancel !== "function") return { ok: false };
-    await run.cancel();
-    return { ok: true };
-  } catch {
-    return { ok: false };
-  }
 }
 
 async function handleCancel(reqBody, res) {
@@ -505,16 +514,59 @@ async function handleCancel(reqBody, res) {
     });
   }
 
-  if (loaded.row.workflow_run_id) {
-    const canceled = await cancelWorkflowRun(loaded.row.workflow_run_id);
-    if (!canceled.ok) {
-      return json(res, 502, {
+  if (!loaded.row.workflow_run_id) {
+    return json(res, 409, {
+      ok: false,
+      error: "ORCHESTRATOR_RUN_ID_UNKNOWN",
+      action: "cancel",
+      releaseId,
+    });
+  }
+
+  try {
+    const cancelResult = await cancelOrchestratedRelease({
+      releaseId,
+      workflowRunId: loaded.row.workflow_run_id,
+    });
+    const cancelOk = cancelResult?.ok === true
+      && (cancelResult.releaseId === undefined || cancelResult.releaseId === releaseId);
+
+    if (!cancelOk) {
+      // Resposta 2xx ambígua: preserva o estado atual, não marca CANCELED.
+      return json(res, 503, {
         ok: false,
-        error: "WORKFLOW_CANCEL_FAILED",
+        error: "ORCHESTRATOR_CANCEL_UNCERTAIN",
         action: "cancel",
         releaseId,
+        orchestratorDiagnostic: orchestratorDiagnostic("CANCEL_MALFORMED", { uncertain: true }),
       });
     }
+  } catch (error) {
+    if (error instanceof ReleaseOrchestratorConfigError) {
+      // URL/secret inválidos: cancel() comprovadamente não foi executado.
+      // Estado da release é preservado (nem CANCELED, nem qualquer outra
+      // transição).
+      return json(res, 503, {
+        ok: false,
+        error: "ORCHESTRATOR_CONFIG_UNAVAILABLE",
+        action: "cancel",
+        releaseId,
+        orchestratorDiagnostic: orchestratorDiagnostic("CANCEL_CONFIG", { code: error.code, uncertain: false }),
+      });
+    }
+
+    // timeout / network failure / HTTP 4xx/5xx: preserva o estado atual,
+    // nunca marca CANCELED.
+    const httpStatus = error instanceof ReleaseOrchestratorRequestError ? error.httpStatus : null;
+    const code = error instanceof ReleaseOrchestratorRequestError ? error.code : "ORCHESTRATOR_UNKNOWN_ERROR";
+    console.error("[release-cancel] cancel incerto", { code, httpStatus });
+    return json(res, 503, {
+      ok: false,
+      error: "ORCHESTRATOR_CANCEL_UNCERTAIN",
+      action: "cancel",
+      releaseId,
+      orchestratorDiagnostic: orchestratorDiagnostic("CANCEL_UNCERTAIN", { code, httpStatus, uncertain: true }),
+    });
   }
 
   const updated = await transitionRelease(releaseId, {

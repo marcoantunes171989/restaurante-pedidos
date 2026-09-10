@@ -19,7 +19,9 @@ import {
 } from "../../apps/release-orchestrator/lib/release-input.js";
 
 import {
+  ORCHESTRATOR_TIMEOUT_MS,
   ReleaseOrchestratorConfigError,
+  ReleaseOrchestratorRequestError,
   cancelOrchestratedRelease,
   startOrchestratedRelease,
 } from "../../server/release-orchestrator-client.js";
@@ -449,7 +451,97 @@ describe("client server-side — fail closed e nenhum secret vazando", () => {
 
     await expect(
       cancelOrchestratedRelease({ releaseId: RELEASE_ID, workflowRunId: WORKFLOW_RUN_ID })
-    ).rejects.toMatchObject({ code: "ORCHESTRATOR_HTTP_401" });
+    ).rejects.toMatchObject({
+      code: "ORCHESTRATOR_HTTP_401",
+      httpStatus: 401,
+      name: "ReleaseOrchestratorRequestError",
+    });
+
+    assertNoSecretLeaked();
+  });
+
+  it("erro HTTP é instância de ReleaseOrchestratorRequestError e carrega httpStatus por código", async () => {
+    process.env.RELEASE_ORCHESTRATOR_URL = "http://localhost:3100";
+    process.env.RELEASE_ORCHESTRATOR_HMAC_SECRET = SECRET;
+
+    fetchMock.mockImplementation(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    }));
+
+    try {
+      await startOrchestratedRelease({
+        releaseId: RELEASE_ID,
+        baseSha: BASE_SHA,
+        targetSha: TARGET_SHA,
+        scheduledAtUtc: new Date(Date.now() + 60_000).toISOString(),
+      });
+      throw new Error("não deveria chegar aqui");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ReleaseOrchestratorRequestError);
+      expect(err.httpStatus).toBe(500);
+      expect(err.code).toBe("ORCHESTRATOR_HTTP_500");
+    }
+  });
+
+  it("timeout: aborta após ORCHESTRATOR_TIMEOUT_MS (10s-15s) e lança erro sanitizado sem status/URL/mensagem remota", async () => {
+    expect(ORCHESTRATOR_TIMEOUT_MS).toBeGreaterThanOrEqual(10_000);
+    expect(ORCHESTRATOR_TIMEOUT_MS).toBeLessThanOrEqual(15_000);
+
+    process.env.RELEASE_ORCHESTRATOR_URL = "http://localhost:3100";
+    process.env.RELEASE_ORCHESTRATOR_HMAC_SECRET = SECRET;
+
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockImplementation((url, init) => new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => {
+          const err = new Error("aborted");
+          err.name = "AbortError";
+          reject(err);
+        });
+      }));
+
+      const pending = startOrchestratedRelease({
+        releaseId: RELEASE_ID,
+        baseSha: BASE_SHA,
+        targetSha: TARGET_SHA,
+        scheduledAtUtc: new Date(Date.now() + 60_000).toISOString(),
+      });
+      const assertion = expect(pending).rejects.toMatchObject({
+        code: "ORCHESTRATOR_TIMEOUT",
+        httpStatus: null,
+        name: "ReleaseOrchestratorRequestError",
+      });
+      await vi.advanceTimersByTimeAsync(ORCHESTRATOR_TIMEOUT_MS);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("network failure (fetch rejeita sem AbortError) → ORCHESTRATOR_NETWORK_FAILURE, nunca a mensagem original", async () => {
+    process.env.RELEASE_ORCHESTRATOR_URL = "http://localhost:3100";
+    process.env.RELEASE_ORCHESTRATOR_HMAC_SECRET = SECRET;
+
+    fetchMock.mockImplementation(async () => {
+      throw new Error("getaddrinfo ENOTFOUND internal.release-orchestrator.invalid");
+    });
+
+    try {
+      await startOrchestratedRelease({
+        releaseId: RELEASE_ID,
+        baseSha: BASE_SHA,
+        targetSha: TARGET_SHA,
+        scheduledAtUtc: new Date(Date.now() + 60_000).toISOString(),
+      });
+      throw new Error("não deveria chegar aqui");
+    } catch (err) {
+      expect(err.code).toBe("ORCHESTRATOR_NETWORK_FAILURE");
+      expect(err.httpStatus).toBeNull();
+      expect(err.message).not.toContain("ENOTFOUND");
+      expect(err.message).not.toContain("internal.release-orchestrator.invalid");
+    }
 
     assertNoSecretLeaked();
   });
