@@ -879,34 +879,54 @@ describe("releases — workflow production estático", () => {
   });
 });
 
-describe("releases — schedule fail-closed (scheduler em migração, RELEASE-AUTO-06A)", () => {
-  it("schedule com corpo válido e release pronta → RELEASE_SCHEDULER_MIGRATING, sem registry, sem GitHub", async () => {
+describe("releases — schedule (RELEASE-AUTO-06B, scheduler nativo)", () => {
+  it("schedule sem confirmation → SCHEDULE_CONFIRMATION_REQUIRED, sem registry, sem GitHub", async () => {
     const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-    const res = await schedule();
-    expect(res.statusCode).toBe(503);
-    const body = res.json();
-    expect(body.ok).toBe(false);
-    expect(body.error).toBe("RELEASE_SCHEDULER_MIGRATING");
-    expect(body.action).toBe("schedule");
+    const res = await schedule({ confirmation: undefined });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("SCHEDULE_CONFIRMATION_REQUIRED");
     expect(registryPosts(fn)).toHaveLength(0);
     expect(githubCalls(fn)).toHaveLength(0);
-    assertNoSecrets(String(res.body));
   });
 
-  it("schedule sem confirmation/targetSha/scheduledAt → mesmo bloqueio RELEASE_SCHEDULER_MIGRATING", async () => {
+  it("confirmation diferente de AGENDAR → SCHEDULE_CONFIRMATION_REQUIRED", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ confirmation: "PROMOVER" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("SCHEDULE_CONFIRMATION_REQUIRED");
+    expect(registryPosts(fn)).toHaveLength(0);
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("schedule sem targetSha → TARGET_SHA_REQUIRED, sem GitHub", async () => {
     const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
     const res = makeRes();
     await handler(makeReq({
       headers: authHeaders(),
-      body: { action: "schedule" },
+      body: { action: "schedule", confirmation: "AGENDAR", scheduledAt: futureIso() },
     }), res);
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error).toBe("RELEASE_SCHEDULER_MIGRATING");
-    expect(registryPosts(fn)).toHaveLength(0);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("TARGET_SHA_REQUIRED");
     expect(githubCalls(fn)).toHaveLength(0);
   });
 
-  it("schedule com release não pronta (branches divergidas) → ainda RELEASE_SCHEDULER_MIGRATING, não revalida preflight", async () => {
+  it("scheduledAt inválido (sem timezone explícito) → INVALID_SCHEDULE_TIME, sem GitHub", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: "2026-09-10 10:00:00" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("scheduledAt no passado → INVALID_SCHEDULE_TIME", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: new Date(Date.now() - 60_000).toISOString() });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("preflight blocked (branches divergidas) → RELEASE_NOT_READY, sem registry", async () => {
     const fn = mockFetch({
       operatorRows: [superAdminRow],
       github: readyGithub({
@@ -919,10 +939,84 @@ describe("releases — schedule fail-closed (scheduler em migração, RELEASE-AU
       }),
     });
     const res = await schedule();
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error).toBe("RELEASE_SCHEDULER_MIGRATING");
+    expect(res.statusCode).toBe(409);
+    const body = res.json();
+    expect(body.error).toBe("RELEASE_NOT_READY");
+    expect(blockerCodes(body)).toContain("BRANCH_DIVERGED");
     expect(registryPosts(fn)).toHaveLength(0);
-    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("release ativa no registry → RELEASE_ALREADY_IN_PROGRESS sem criar segunda linha", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub(),
+      registry: createRegistryMock({
+        seed: [{
+          id: "33333333-3333-4333-8333-333333333333",
+          mode: "immediate",
+          status: "RUNNING",
+          base_sha: SHA_MAIN,
+          target_sha: SHA_HML,
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      }),
+    });
+    const res = await schedule();
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_ALREADY_IN_PROGRESS");
+    expect(fn.registry.rows.size).toBe(1);
+  });
+
+  it("falha no registry → RELEASE_REGISTRY_UNAVAILABLE", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub(),
+      registry: createRegistryMock({ failWrite: true }),
+    });
+    const res = await schedule();
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error).toBe("RELEASE_REGISTRY_UNAVAILABLE");
+    expect(fn.registry.rows.size).toBe(0);
+  });
+
+  it("schedule success → cria app_release_runs mode=scheduled/status=SCHEDULED diretamente, HTTP 202, sem dispatch GitHub", async () => {
+    const scheduledAt = futureIso(300_000);
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt });
+    expect(res.statusCode).toBe(202);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.action).toBe("schedule");
+    expect(body.status).toBe("SCHEDULED");
+    expect(body.baseSha).toBe(SHA_MAIN);
+    expect(body.targetSha).toBe(SHA_HML);
+    expect(body.scheduledAtUtc).toBe(new Date(scheduledAt).toISOString());
+    expect(body.displayTimezone).toBe("America/Sao_Paulo");
+    expect(body.releaseId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    const posted = registryPosts(fn);
+    expect(posted).toHaveLength(1);
+    const created = JSON.parse(posted[0][1].body);
+    expect(created.mode).toBe("scheduled");
+    expect(created.status).toBe("SCHEDULED");
+    expect(created.base_sha).toBe(SHA_MAIN);
+    expect(created.target_sha).toBe(SHA_HML);
+    expect(created.scheduled_at).toBe(new Date(scheduledAt).toISOString());
+    expect(created.requested_by_user_id).toBe(OPERATOR_ID);
+
+    // Nenhuma chamada externa além do preflight GitHub read-only: sem
+    // /dispatches e sem /actions/workflows runs (isso é responsabilidade
+    // exclusiva do executor, não do schedule).
+    expect(dispatchCalls(fn)).toHaveLength(0);
+    expect(actionsCalls(fn)).toHaveLength(0);
+    readCalls(fn).forEach(([, options]) => {
+      expect(options.method).toBe("GET");
+      expect(options.headers.Authorization).toBe(`Bearer ${GITHUB_READ_TOKEN}`);
+    });
+    assertNoSecrets(String(res.body));
   });
 });
 

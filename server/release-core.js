@@ -406,7 +406,7 @@ export async function reconcileReleaseGithub(release) {
   return transitioned.ok ? transitioned : { ok: true, row: release };
 }
 
-export async function executeReleaseCandidate({ requestedTargetSha, releaseId } = {}) {
+export async function executeReleaseCandidate({ requestedTargetSha, releaseId, idempotent = false } = {}) {
   const preflight = await runPreflight(requestedTargetSha);
   if (!isReleaseReady(preflight, requestedTargetSha)) {
     return { ok: false, error: "RELEASE_NOT_READY", preflight };
@@ -420,7 +420,7 @@ export async function executeReleaseCandidate({ requestedTargetSha, releaseId } 
     targetSha,
     baseSha,
     releaseId: id,
-    idempotent: false,
+    idempotent,
   });
 
   if (!dispatched.ok) return { ...dispatched, preflight };

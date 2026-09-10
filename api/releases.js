@@ -5,24 +5,27 @@
 //  Preflight (GET GitHub, GITHUB_READ_TOKEN) permanece habilitado.
 //  Promote dispara workflow_dispatch do GitHub Actions; NÃO atualiza
 //  main a partir desta function (sem PATCH refs / push / Contents API).
-//  Schedule está fail-closed (RELEASE-AUTO-06A): a arquitetura
-//  apps/release-orchestrator foi removida (voltamos a somente dois
-//  ambientes Vercel — homologação e produção) e nenhum novo agendamento
-//  é aceito até o scheduler RELEASE-AUTO-06B existir. Cancel continua
-//  disponível apenas para encerrar localmente releases scheduled/requested
-//  pendentes do registry — não invoca nenhum serviço externo. Database
-//  automation continua blocked. Protegido: Bearer + Super Admin — mesma
-//  condição de api/ambientes.js.
+//  Schedule (RELEASE-AUTO-06B) apenas revalida o preflight e cria o
+//  registro app_release_runs diretamente como mode=scheduled,
+//  status=SCHEDULED — nenhuma chamada externa além do preflight GitHub
+//  read-only. O claim/dispatch real acontece em /api/releases-executor,
+//  disparado pelo Supabase Cron (HML). Cancel continua disponível apenas
+//  para encerrar localmente releases scheduled/requested pendentes do
+//  registry — não invoca nenhum serviço externo. Database automation
+//  continua blocked. Protegido: Bearer + Super Admin — mesma condição de
+//  api/ambientes.js.
 // ════════════════════════════════════════════════════════════
 
 /* global process */
 import crypto from "node:crypto";
 import {
   DATABASE_STATUS,
+  DISPLAY_TIMEZONE,
   SHA_RE,
   clean,
   executeReleaseCandidate,
   isReleaseReady,
+  parseScheduledAt,
   reconcileReleaseGithub,
   runPreflight,
 } from "../server/release-core.js";
@@ -50,6 +53,7 @@ const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const ALLOWED_METHODS = "OPTIONS, POST";
 const PROMOTION_CONFIRMATION = "PROMOVER";
+const SCHEDULE_CONFIRMATION = "AGENDAR";
 const CANCEL_CONFIRMATION = "CANCELAR";
 
 function operatorFromUser(user) {
@@ -280,18 +284,85 @@ async function handlePromote(reqBody, res, operator) {
   });
 }
 
-// RELEASE-AUTO-06A: apps/release-orchestrator (e o projeto Vercel auxiliar
-// pedido-prime-release-orchestrator-hml) foram removidos — voltamos à
-// arquitetura de somente dois ambientes (homologação + produção). Nenhum
-// scheduler durável substitui isso ainda, então schedule fica fail-closed
-// para qualquer tentativa: nenhuma release é criada nem preflight é
-// consultado antes deste bloqueio. RELEASE-AUTO-06B introduz o novo
-// scheduler.
-async function handleSchedule(res) {
-  return json(res, 503, {
-    ok: false,
-    error: "RELEASE_SCHEDULER_MIGRATING",
+// RELEASE-AUTO-06B: schedule cria a release DIRETAMENTE como
+// mode=scheduled/status=SCHEDULED — não existe mais um passo
+// REQUESTED -> workflow start. O claim atômico e o dispatch idempotente
+// do GitHub acontecem depois, em /api/releases-executor (chamado pelo
+// Supabase Cron), nunca aqui. Nenhuma chamada externa além do preflight
+// GitHub read-only.
+async function handleSchedule(reqBody, res, operator) {
+  if (reqBody.confirmation !== SCHEDULE_CONFIRMATION) {
+    return json(res, 409, {
+      ok: false,
+      error: "SCHEDULE_CONFIRMATION_REQUIRED",
+      action: "schedule",
+    });
+  }
+
+  const requestedTargetSha = clean(reqBody.targetSha, 64);
+  if (!SHA_RE.test(requestedTargetSha || "")) {
+    return json(res, 409, {
+      ok: false,
+      error: "TARGET_SHA_REQUIRED",
+      action: "schedule",
+    });
+  }
+
+  const scheduled = parseScheduledAt(reqBody.scheduledAt);
+  if (!scheduled.ok) {
+    return json(res, 409, {
+      ok: false,
+      error: "INVALID_SCHEDULE_TIME",
+      action: "schedule",
+    });
+  }
+
+  const preflight = await runPreflight(requestedTargetSha);
+  if (!isReleaseReady(preflight, requestedTargetSha)) {
+    return json(res, 409, notReadyPayload(preflight, "schedule"));
+  }
+
+  const baseSha = preflight.destination.sha;
+  const targetSha = preflight.source.sha;
+  const releaseId = crypto.randomUUID();
+
+  const created = await createRelease({
+    id: releaseId,
+    mode: "scheduled",
+    status: "SCHEDULED",
+    baseSha,
+    targetSha,
+    scheduledAt: scheduled.utc,
+    requestedByUserId: operator?.userId || null,
+    requestedByEmail: operator?.email || null,
+  });
+  if (created.conflict) {
+    return json(res, 409, {
+      ok: false,
+      error: "RELEASE_ALREADY_IN_PROGRESS",
+      action: "schedule",
+    });
+  }
+  if (!created.ok) {
+    return json(res, 503, {
+      ok: false,
+      error: "RELEASE_REGISTRY_UNAVAILABLE",
+      action: "schedule",
+      registryDiagnostic: registryDiagnosticPayload(created),
+    });
+  }
+
+  return json(res, 202, {
+    ok: true,
     action: "schedule",
+    status: "SCHEDULED",
+    releaseId,
+    baseSha,
+    targetSha,
+    scheduledAtUtc: scheduled.utc,
+    displayTimezone: DISPLAY_TIMEZONE,
+    database: databasePayload(),
+    generatedAt: generatedAt(),
   });
 }
 
@@ -489,7 +560,7 @@ export default async function handler(req, res) {
   }
 
   if (action === "schedule") {
-    return handleSchedule(res);
+    return handleSchedule(parsed.body, res, auth.operator);
   }
 
   if (action === "promote") {

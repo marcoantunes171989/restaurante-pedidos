@@ -377,3 +377,62 @@ export async function transitionRelease(id, {
   if (terminal && !patch.completed_at) patch.completed_at = nowIso();
   return updateRelease(id, patch, { fromStatuses });
 }
+
+// RELEASE-AUTO-06B — candidatos do scheduler nativo (Supabase HML Cron →
+// /api/releases-executor). Nenhuma migration nova: usa somente colunas já
+// existentes em app_release_runs (mode, status, scheduled_at, updated_at).
+
+// Release SCHEDULED cujo scheduled_at já venceu (<= now). A mais antiga
+// primeiro. Nunca retorna mais de uma linha — o executor processa no
+// máximo uma release por chamada.
+export async function findDueScheduledRelease(nowIso) {
+  const result = await restRequest(
+    `?mode=eq.scheduled&status=eq.SCHEDULED&scheduled_at=lte.${encodeURIComponent(nowIso)}&select=*&order=scheduled_at.asc&limit=1`,
+  );
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
+  return { ok: true, row: firstRow(result.body) };
+}
+
+// Release VALIDATING travada há mais tempo que o timeout de recuperação
+// (claim perdido por execução interrompida). Permite ao executor retomar
+// com idempotent=true em vez de deixá-la presa para sempre.
+export async function findStaleValidatingRelease(staleBeforeIso) {
+  const result = await restRequest(
+    `?mode=eq.scheduled&status=eq.VALIDATING&updated_at=lte.${encodeURIComponent(staleBeforeIso)}&select=*&order=updated_at.asc&limit=1`,
+  );
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
+  return { ok: true, row: firstRow(result.body) };
+}
+
+// Claim atômico (CAS) de um candidato observado por findDueScheduledRelease
+// ou findStaleValidatingRelease: a PATCH só é aplicada se id+status+updated_at
+// ainda casarem com o que foi lido — se outro executor já claimou a linha
+// nesse meio-tempo, updated_at mudou e a PATCH não afeta nenhuma linha.
+// Zero rows retornadas → claimLost: true (fail closed, sem chamada GitHub).
+// Serve tanto para SCHEDULED -> VALIDATING quanto para renovar (mesmo
+// status) VALIDATING stale -> VALIDATING com updated_at fresco.
+export async function claimReleaseForValidation(release) {
+  if (!release || !isReleaseUuid(release.id) || !release.status || !release.updated_at) {
+    return { ok: false, error: "RELEASE_NOT_FOUND" };
+  }
+  const filters = [
+    `id=eq.${encodeURIComponent(release.id)}`,
+    `status=eq.${encodeURIComponent(release.status)}`,
+    `updated_at=eq.${encodeURIComponent(release.updated_at)}`,
+  ];
+  const result = await restRequest(`?${filters.join("&")}`, {
+    method: "PATCH",
+    prefer: "return=representation",
+    body: { status: "VALIDATING", updated_at: nowIso() },
+  });
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
+  const row = firstRow(result.body);
+  if (!row) return { ok: false, claimLost: true, error: "CLAIM_LOST" };
+  return { ok: true, row };
+}
