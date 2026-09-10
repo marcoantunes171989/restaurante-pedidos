@@ -87,6 +87,43 @@ function registryDiagnosticPayload(result) {
   };
 }
 
+// Diagnóstico sanitizado de falha ao iniciar o workflow durável (start()).
+// Contém SOMENTE stage/errorName/errorCode/message — nunca stack, cause
+// bruto, o objeto Error, headers ou segredos. Qualquer Bearer/JWT/
+// sb_secret_/apikey/authorization/cookie/token/URL completa/query string
+// presente na mensagem original é redigida antes de sair do processo.
+const WORKFLOW_DIAGNOSTIC_LIMITS = { errorName: 80, errorCode: 80, message: 200 };
+
+const WORKFLOW_REDACT_RULES = [
+  [/https?:\/\/\S+/gi, "[url_redacted]"],
+  [/\bBearer\s+\S+/gi, "[bearer_redacted]"],
+  [/\bsb_secret_\S+/gi, "sb_secret_[redacted]"],
+  [/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, "[jwt_redacted]"],
+  [/\b(apikey|authorization|cookie|token)\s*[:=]\s*\S+/gi, "$1=[redacted]"],
+  [/\?[A-Za-z0-9_]+=\S+/g, "[query_redacted]"],
+  [/[A-Za-z0-9_-]{24,}/g, "[redacted]"],
+];
+
+function redactWorkflowText(raw) {
+  let text = String(raw);
+  for (const [pattern, replacement] of WORKFLOW_REDACT_RULES) {
+    text = text.replace(pattern, replacement);
+  }
+  return text;
+}
+
+function buildWorkflowDiagnostic(stage, error) {
+  const rawMessage = stage === "RUN_ID_MISSING"
+    ? "start() concluiu sem runId"
+    : (error?.message || "Falha desconhecida ao iniciar o workflow");
+  return {
+    stage,
+    errorName: stage === "RUN_ID_MISSING" ? null : clean(error?.name, WORKFLOW_DIAGNOSTIC_LIMITS.errorName),
+    errorCode: stage === "RUN_ID_MISSING" ? null : clean(error?.code, WORKFLOW_DIAGNOSTIC_LIMITS.errorCode),
+    message: clean(redactWorkflowText(rawMessage), WORKFLOW_DIAGNOSTIC_LIMITS.message),
+  };
+}
+
 // Reaplica a MESMA condição de autorização de api/ambientes.js
 // (e api/landing-analytics.js / isSuperAdmin): bypass da conta-raiz por
 // e-mail, OU super_admin === true, OU (sem loja própria + ids_acesso
@@ -352,21 +389,27 @@ async function handleSchedule(reqBody, res, operator) {
   let run;
   try {
     run = await start(scheduledReleaseWorkflow, [payload]);
-  } catch {
+  } catch (error) {
+    const diagnostic = buildWorkflowDiagnostic("START_THROWN", error);
+    console.error("[release-schedule] workflow start failed", diagnostic);
     await markReleaseFailure(releaseId, { resultCode: "WORKFLOW_START_FAILED" });
     return json(res, 502, {
       ok: false,
       error: "WORKFLOW_START_FAILED",
       action: "schedule",
+      workflowDiagnostic: diagnostic,
     });
   }
 
   if (!run?.runId) {
+    const diagnostic = buildWorkflowDiagnostic("RUN_ID_MISSING", null);
+    console.error("[release-schedule] workflow start failed", diagnostic);
     await markReleaseFailure(releaseId, { resultCode: "WORKFLOW_START_FAILED" });
     return json(res, 502, {
       ok: false,
       error: "WORKFLOW_START_FAILED",
       action: "schedule",
+      workflowDiagnostic: diagnostic,
     });
   }
 

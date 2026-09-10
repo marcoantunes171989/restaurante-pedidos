@@ -1368,6 +1368,105 @@ describe("releases — schedule persiste registry antes do start", () => {
     expect(stored.status).toBe("FAILED");
     expect(stored.result_code).toBe("WORKFLOW_START_FAILED");
   });
+
+  describe("workflowDiagnostic sanitizado", () => {
+    it("start lança erro → stage START_THROWN com name/code sanitizados", async () => {
+      const error = new Error("falha ao iniciar workflow");
+      error.name = "WorkflowStartError";
+      error.code = "ECONNRESET";
+      start.mockRejectedValueOnce(error);
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      expect(res.statusCode).toBe(502);
+      const body = res.json();
+      const diagnostic = body.workflowDiagnostic;
+      expect(diagnostic.stage).toBe("START_THROWN");
+      expect(diagnostic.errorName).toBe("WorkflowStartError");
+      expect(diagnostic.errorCode).toBe("ECONNRESET");
+      expect(diagnostic.message).toBe("falha ao iniciar workflow");
+      expect(diagnostic).not.toHaveProperty("stack");
+      expect(diagnostic).not.toHaveProperty("cause");
+      expect(diagnostic).not.toHaveProperty("error");
+      expect(diagnostic).not.toHaveProperty("headers");
+    });
+
+    it("respeita limites de tamanho (errorName/errorCode <= 80, message <= 200)", async () => {
+      const error = new Error("x".repeat(400));
+      error.name = "N".repeat(200);
+      error.code = "C".repeat(200);
+      start.mockRejectedValueOnce(error);
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      const diagnostic = res.json().workflowDiagnostic;
+      expect(diagnostic.errorName.length).toBeLessThanOrEqual(80);
+      expect(diagnostic.errorCode.length).toBeLessThanOrEqual(80);
+      expect(diagnostic.message.length).toBeLessThanOrEqual(200);
+    });
+
+    it("redige Bearer token da mensagem", async () => {
+      start.mockRejectedValueOnce(new Error(`unauthorized: Bearer ${BEARER}`));
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      const raw = String(res.body);
+      expect(raw).not.toContain(BEARER);
+      expect(raw).not.toMatch(/Bearer [^[]/);
+      assertNoSecrets(raw);
+    });
+
+    it("redige chave sb_secret_ da mensagem", async () => {
+      start.mockRejectedValueOnce(new Error("supabase rejeitou sb_secret_abcdef1234567890abcdef"));
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      const raw = String(res.body);
+      expect(raw).not.toContain("sb_secret_abcdef1234567890abcdef");
+    });
+
+    it("redige JWT (eyJ...) da mensagem", async () => {
+      start.mockRejectedValueOnce(new Error(`token invalido: ${SERVICE_ROLE}`));
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      const raw = String(res.body);
+      expect(raw).not.toContain(SERVICE_ROLE);
+      assertNoSecrets(raw);
+    });
+
+    it("redige URL completa e query string da mensagem", async () => {
+      start.mockRejectedValueOnce(new Error(
+        "fetch failed: https://hml-x.supabase.co/rest/v1/app_release_runs?apikey=segredo123&select=id",
+      ));
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      const raw = String(res.body);
+      expect(raw).not.toContain("https://hml-x.supabase.co");
+      expect(raw).not.toContain("apikey=segredo123");
+      expect(raw).not.toContain("?apikey");
+    });
+
+    it("resposta nunca contém stack, objeto de erro bruto ou headers", async () => {
+      const error = new Error("boom com stack");
+      start.mockRejectedValueOnce(error);
+      mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      const raw = String(res.body);
+      expect(raw).not.toContain(error.stack.split("\n")[1] || "at ");
+      expect(res.json()).not.toHaveProperty("stack");
+      expect(res.json()).not.toHaveProperty("headers");
+    });
+
+    it("start resolve sem runId → stage RUN_ID_MISSING, sem errorName/errorCode", async () => {
+      start.mockResolvedValueOnce({});
+      const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+      const res = await schedule();
+      expect(res.statusCode).toBe(502);
+      const diagnostic = res.json().workflowDiagnostic;
+      expect(diagnostic.stage).toBe("RUN_ID_MISSING");
+      expect(diagnostic.errorName).toBeNull();
+      expect(diagnostic.errorCode).toBeNull();
+      const stored = [...fn.registry.rows.values()][0];
+      expect(stored.status).toBe("FAILED");
+      expect(stored.result_code).toBe("WORKFLOW_START_FAILED");
+    });
+  });
 });
 
 describe("releases — cancel seguro", () => {
