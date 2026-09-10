@@ -2,7 +2,19 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("workflow/api", () => ({
+  start: vi.fn(async () => ({ runId: "wrun_mock_schedule" })),
+}));
+
+vi.mock("../../workflows/scheduled-release.js", () => ({
+  scheduledReleaseWorkflow: async function scheduledReleaseWorkflow() {},
+}));
+
 import handler from "../../api/releases.js";
+import { start } from "workflow/api";
+import { scheduledReleaseWorkflow } from "../../workflows/scheduled-release.js";
+import { executeScheduledRelease } from "../../server/release-core.js";
 
 // ════════════════════════════════════════════════════════════
 // RELEASE-AUTO-01 — /api/releases: control plane de preflight.
@@ -176,6 +188,25 @@ async function promote(extraBody = {}) {
   return res;
 }
 
+function futureIso(extraMs = 120_000) {
+  return new Date(Date.now() + extraMs).toISOString();
+}
+
+async function schedule(extraBody = {}) {
+  const res = makeRes();
+  await handler(makeReq({
+    headers: authHeaders(),
+    body: {
+      action: "schedule",
+      targetSha: SHA_HML,
+      scheduledAt: futureIso(),
+      confirmation: "AGENDAR",
+      ...extraBody,
+    },
+  }), res);
+  return res;
+}
+
 function githubCalls(fn) {
   return fn.mock.calls.filter(([url]) => String(url).includes("api.github.com"));
 }
@@ -216,6 +247,8 @@ beforeEach(() => {
   process.env.GITHUB_RELEASE_TOKEN = GITHUB_RELEASE_TOKEN;
   process.env.VERCEL_TOKEN = VERCEL_TOKEN;
   delete process.env.VITE_SUPABASE_URL;
+  start.mockReset();
+  start.mockResolvedValue({ runId: "wrun_mock_schedule" });
 });
 
 afterEach(() => {
@@ -433,17 +466,18 @@ describe("releases — fail-closed", () => {
 });
 
 describe("releases — ações ainda desabilitadas", () => {
-  it("schedule → 409 RELEASE_ACTION_NOT_ENABLED", async () => {
+  it("cancel → 409 RELEASE_ACTION_NOT_ENABLED", async () => {
     const fn = mockFetch({ operatorRows: [superAdminRow] });
     const res = makeRes();
     await handler(makeReq({
       headers: authHeaders(),
-      body: { action: "schedule" },
+      body: { action: "cancel" },
     }), res);
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe("RELEASE_ACTION_NOT_ENABLED");
-    expect(res.json().action).toBe("schedule");
+    expect(res.json().action).toBe("cancel");
     expect(fn.mock.calls.some(([url]) => String(url).includes("api.github.com"))).toBe(false);
+    expect(start).not.toHaveBeenCalled();
   });
 });
 
@@ -661,6 +695,7 @@ describe("releases — promote guards e dispatch", () => {
     expect(payload.inputs.confirmation).toBe("DEPLOY-PROD");
     expect(payload.inputs.request_id).toBe(body.releaseId);
 
+    expect(start).not.toHaveBeenCalled();
     readCalls(fn).forEach(([, callOptions]) => {
       expect(callOptions.method).toBe("GET");
       expect(callOptions.headers.Authorization).toBe(`Bearer ${GITHUB_READ_TOKEN}`);
@@ -703,3 +738,316 @@ describe("releases — workflow production estático", () => {
     expect(workflow).not.toMatch(/(?:^|[\s"])--force(?:\s|$)/m);
   });
 });
+
+describe("releases — schedule bloqueado sem confirmation/target/horario", () => {
+  it("schedule sem confirmation → SCHEDULE_CONFIRMATION_REQUIRED e nenhum start", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: authHeaders(),
+      body: { action: "schedule", targetSha: SHA_HML, scheduledAt: futureIso() },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("SCHEDULE_CONFIRMATION_REQUIRED");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("confirmation diferente de AGENDAR → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ confirmation: "PROMOVER" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("SCHEDULE_CONFIRMATION_REQUIRED");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("schedule sem targetSha → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: authHeaders(),
+      body: { action: "schedule", confirmation: "AGENDAR", scheduledAt: futureIso() },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("TARGET_SHA_REQUIRED");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("schedule sem scheduledAt → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = makeRes();
+    await handler(makeReq({
+      headers: authHeaders(),
+      body: { action: "schedule", targetSha: SHA_HML, confirmation: "AGENDAR" },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(githubCalls(fn)).toHaveLength(0);
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("scheduledAt inválido → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: "amanha-as-dez" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(start).not.toHaveBeenCalled();
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("scheduledAt sem timezone → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: "2026-12-01T15:00:00" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(start).not.toHaveBeenCalled();
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("scheduledAt no passado → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: "2020-01-01T00:00:00Z" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(start).not.toHaveBeenCalled();
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("scheduledAt < now + 60s → bloqueado", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ scheduledAt: futureIso(10_000) });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("INVALID_SCHEDULE_TIME");
+    expect(start).not.toHaveBeenCalled();
+    expect(githubCalls(fn)).toHaveLength(0);
+  });
+});
+
+describe("releases — schedule revalida preflight e não inicia workflow se não estiver pronto", () => {
+  it("targetSha mudou → não inicia workflow", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({ targetSha: SHA_OTHER });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_READY");
+    expect(blockerCodes(res.json())).toContain("TARGET_SHA_CHANGED");
+    expect(start).not.toHaveBeenCalled();
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("branches divergiram → não inicia workflow", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        compare: () => githubOk(compareBody({
+          status: "diverged",
+          ahead_by: 2,
+          behind_by: 1,
+          mergeBase: SHA_OTHER,
+        })),
+      }),
+    });
+    const res = await schedule();
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_READY");
+    expect(blockerCodes(res.json())).toContain("BRANCH_DIVERGED");
+    expect(start).not.toHaveBeenCalled();
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("NO_CHANGES → não inicia workflow", async () => {
+    const fn = mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({
+        homologacao: () => githubOk(branchBody(SHA_MAIN)),
+        compare: () => githubOk(compareBody({
+          status: "identical",
+          ahead_by: 0,
+          behind_by: 0,
+          mergeBase: SHA_MAIN,
+          commits: [],
+          files: [],
+        })),
+      }),
+    });
+    const res = await schedule({ targetSha: SHA_MAIN });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("RELEASE_NOT_READY");
+    expect(blockerCodes(res.json())).toContain("NO_CHANGES_TO_RELEASE");
+    expect(start).not.toHaveBeenCalled();
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+});
+
+describe("releases — schedule válido inicia workflow durável", () => {
+  it("schedule válido → HTTP 202 com identidade congelada e start único", async () => {
+    const scheduledAt = "2026-12-01T18:00:00-03:00";
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    const res = await schedule({
+      scheduledAt,
+      releaseId: "id-enviado-pelo-frontend",
+    });
+    expect(res.statusCode).toBe(202);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.action).toBe("schedule");
+    expect(body.status).toBe("SCHEDULED");
+    expect(body.baseSha).toBe(SHA_MAIN);
+    expect(body.targetSha).toBe(SHA_HML);
+    expect(body.scheduledAtUtc).toBe("2026-12-01T21:00:00.000Z");
+    expect(body.displayTimezone).toBe("America/Sao_Paulo");
+    expect(body.workflowRunId).toBe("wrun_mock_schedule");
+    expect(body.database).toEqual({
+      automation: "blocked",
+      reason: "PROD_MIGRATION_BASELINE_UNTRUSTED",
+    });
+    expect(body.releaseId).not.toBe("id-enviado-pelo-frontend");
+    expect(body.releaseId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+
+    expect(start).toHaveBeenCalledTimes(1);
+    expect(start).toHaveBeenCalledWith(scheduledReleaseWorkflow, [{
+      releaseId: body.releaseId,
+      baseSha: SHA_MAIN,
+      targetSha: SHA_HML,
+      scheduledAt: body.scheduledAtUtc,
+    }]);
+    const [, args] = start.mock.calls[0];
+    expect(JSON.stringify(args[0])).not.toContain(GITHUB_READ_TOKEN);
+    expect(JSON.stringify(args[0])).not.toContain(GITHUB_RELEASE_TOKEN);
+    expect(JSON.stringify(args[0])).not.toContain(SERVICE_ROLE);
+    expect(JSON.stringify(args[0])).not.toContain(BEARER);
+
+    expect(dispatchCalls(fn)).toHaveLength(0);
+    expect(actionsCalls(fn)).toHaveLength(0);
+    readCalls(fn).forEach(([, callOptions]) => {
+      expect(callOptions.method).toBe("GET");
+      expect(callOptions.headers.Authorization).toBe(`Bearer ${GITHUB_READ_TOKEN}`);
+    });
+    githubCalls(fn).forEach(([callUrl, callOptions]) => {
+      expect(callOptions.method).not.toBe("PATCH");
+      expect(callOptions.method).not.toBe("PUT");
+      expect(String(callUrl)).not.toMatch(/\/git\/refs/);
+    });
+    assertNoSecrets(String(res.body));
+  });
+});
+
+describe("releases — workflow durável estrutural", () => {
+  const source = readFileSync(
+    resolve(process.cwd(), "workflows/scheduled-release.js"),
+    "utf8",
+  );
+
+  it("usa use workflow, sleep absoluto e use step sem timers/cron", () => {
+    expect(source).toContain('"use workflow"');
+    expect(source).toContain("await sleep(new Date(input.scheduledAt))");
+    expect(source).toContain('"use step"');
+    expect(source).not.toContain("setTimeout");
+    expect(source).not.toContain("setInterval");
+    expect(source).not.toMatch(/\bCron\b/);
+    expect(source).not.toContain("GITHUB_RELEASE_TOKEN");
+    expect(source).not.toContain("GITHUB_READ_TOKEN");
+    expect(source).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(source).not.toMatch(/Bearer /);
+  });
+});
+
+describe("releases — step de wake-up revalida e protege o dispatch", () => {
+  const scheduledInput = {
+    releaseId: "11111111-1111-4111-8111-111111111111",
+    baseSha: SHA_MAIN,
+    targetSha: SHA_HML,
+    scheduledAt: "2026-12-01T21:00:00.000Z",
+  };
+
+  it("revalida main e homologacao no wake-up", async () => {
+    const fn = mockFetch({ github: readyGithub() });
+    await executeScheduledRelease(scheduledInput);
+    const urls = githubCalls(fn).map(([url]) => String(url));
+    expect(urls.some((url) => url.includes("/branches/main"))).toBe(true);
+    expect(urls.some((url) => url.includes("/branches/homologacao"))).toBe(true);
+    expect(urls.some((url) => url.includes("/compare/main...homologacao"))).toBe(true);
+  });
+
+  it("não promove se target mudou", async () => {
+    const fn = mockFetch({
+      github: readyGithub({
+        homologacao: () => githubOk(branchBody(SHA_OTHER)),
+      }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("BLOCKED_TARGET_CHANGED");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("não promove se base mudou", async () => {
+    const fn = mockFetch({
+      github: readyGithub({
+        main: () => githubOk(branchBody(SHA_OTHER)),
+        compare: () => githubOk(compareBody({
+          status: "ahead",
+          ahead_by: 2,
+          behind_by: 0,
+          mergeBase: SHA_OTHER,
+        })),
+      }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("BLOCKED_BASE_CHANGED");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("não promove se release ativa", async () => {
+    const fn = mockFetch({
+      github: readyGithub({
+        runs: () => githubOk({
+          workflow_runs: [{ id: 88, status: "in_progress", name: "outra-release" }],
+        }),
+      }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("BLOCKED_RELEASE_IN_PROGRESS");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("usa releaseId como request_id e protege dispatch duplicado", async () => {
+    const fn = mockFetch({
+      github: readyGithub({
+        runs: () => githubOk({
+          workflow_runs: [{
+            id: 99,
+            status: "completed",
+            name: `Production release ${SHA_HML} / ${scheduledInput.releaseId}`,
+          }],
+        }),
+      }),
+    });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe("ALREADY_DISPATCHED");
+    expect(result.workflowRunId).toBe(99);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("dispatch programado envia o mesmo request_id congelado", async () => {
+    const fn = mockFetch({ github: readyGithub() });
+    const result = await executeScheduledRelease(scheduledInput);
+    expect(result.ok).toBe(true);
+    expect(result.status).toBe("DISPATCHED");
+    const posted = dispatchCalls(fn);
+    expect(posted).toHaveLength(1);
+    const payload = JSON.parse(posted[0][1].body);
+    expect(payload.inputs.request_id).toBe(scheduledInput.releaseId);
+    expect(payload.inputs.release_sha).toBe(SHA_HML);
+    expect(payload.inputs.base_sha).toBe(SHA_MAIN);
+    expect(payload.inputs.confirmation).toBe("DEPLOY-PROD");
+    expect(posted[0][1].headers.Authorization).toBe(`Bearer ${GITHUB_RELEASE_TOKEN}`);
+  });
+});
+

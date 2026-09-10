@@ -1,16 +1,30 @@
 // ════════════════════════════════════════════════════════════
-//  Vercel Serverless Function: /api/releases  (RELEASE-AUTO-02)
+//  Vercel Serverless Function: /api/releases  (RELEASE-AUTO-03)
 //  Control plane de releases Homologação → Production.
 //
 //  Preflight (GET GitHub, GITHUB_READ_TOKEN) permanece habilitado.
 //  Promote dispara workflow_dispatch do GitHub Actions; NÃO atualiza
 //  main a partir desta function (sem PATCH refs / push / Contents API).
-//  Schedule continua bloqueado. Database automation continua blocked.
+//  Schedule inicia um workflow durável (Vercel Workflow SDK) e retorna
+//  imediatamente. Cancel continua bloqueado. Database automation
+//  continua blocked.
 //  Protegido: Bearer + Super Admin — mesma condição de api/ambientes.js.
 // ════════════════════════════════════════════════════════════
 
 /* global process */
 import crypto from "node:crypto";
+import { start } from "workflow/api";
+import { scheduledReleaseWorkflow } from "../workflows/scheduled-release.js";
+import {
+  DATABASE_STATUS,
+  DISPLAY_TIMEZONE,
+  SHA_RE,
+  clean,
+  executeReleaseCandidate,
+  isReleaseReady,
+  parseScheduledAt,
+  runPreflight,
+} from "../server/release-core.js";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -21,19 +35,10 @@ function json(res, status, body) {
 
 const baseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-const clean = (v, max = 200) => (v == null ? null : String(v).trim().slice(0, max) || null);
 
 const ALLOWED_METHODS = "OPTIONS, POST";
-const DATABASE_STATUS = {
-  automation: "blocked",
-  reason: "PROD_MIGRATION_BASELINE_UNTRUSTED",
-};
-
-const PRODUCTION_WORKFLOW = "vercel-production-deploy.yml";
 const PROMOTION_CONFIRMATION = "PROMOVER";
-const WORKFLOW_CONFIRMATION = "DEPLOY-PROD";
-const SHA_RE = /^[0-9a-f]{40}$/;
-const ACTIVE_RUN_STATUSES = new Set(["queued", "in_progress", "waiting"]);
+const SCHEDULE_CONFIRMATION = "AGENDAR";
 
 // Reaplica a MESMA condição de autorização de api/ambientes.js
 // (e api/landing-analytics.js / isSuperAdmin): bypass da conta-raiz por
@@ -80,81 +85,6 @@ async function checkAuth(req) {
   return { status: 200 };
 }
 
-const GITHUB_OWNER = "marcoantunes171989";
-const GITHUB_REPO = "restaurante-pedidos";
-const GITHUB_BASE_BRANCH = "main";
-const GITHUB_HEAD_BRANCH = "homologacao";
-const GITHUB_API_URL = "https://api.github.com";
-const GITHUB_TIMEOUT_MS = 7000;
-const GITHUB_ITEM_LIMIT = 100;
-
-const githubReadToken = () => process.env.GITHUB_READ_TOKEN || "";
-const githubReleaseToken = () => process.env.GITHUB_RELEASE_TOKEN || "";
-
-async function githubRequest(path, { token, method = "GET", body } = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GITHUB_TIMEOUT_MS);
-  try {
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "PedidoPrime-Releases/1.0",
-    };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
-    const response = await fetch(`${GITHUB_API_URL}${path}`, {
-      method,
-      signal: controller.signal,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    let parsed = null;
-    let parseError = false;
-    let rawText = "";
-    try {
-      rawText = await response.text();
-    } catch {
-      parseError = true;
-    }
-    if (rawText) {
-      try {
-        parsed = JSON.parse(rawText);
-      } catch {
-        parseError = true;
-      }
-    }
-    return { ok: response.ok, status: response.status, body: parsed, parseError };
-  } catch (err) {
-    if (err?.name === "AbortError") return { ok: false, status: 0, timeout: true };
-    return { ok: false, status: 0, networkError: true };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function githubFetch(path, token) {
-  return githubRequest(path, { token, method: "GET" });
-}
-
-function mapCompareStatus(status) {
-  switch (status) {
-    case "identical": return "SYNCED";
-    case "ahead": return "HML_AHEAD";
-    case "behind": return "PROD_AHEAD";
-    case "diverged": return "DIVERGED";
-    default: return "UNKNOWN";
-  }
-}
-
-function sanitizeCommit(raw) {
-  const sha = raw?.sha ? String(raw.sha) : null;
-  if (!sha) return null;
-  const firstLine = clean(raw?.commit?.message, 2000)?.split("\n")[0]?.slice(0, 200) || "";
-  const author = clean(raw?.commit?.author?.name, 100) || clean(raw?.author?.login, 100) || null;
-  const committedAt = raw?.commit?.author?.date || null;
-  return { sha, shortSha: sha.slice(0, 7), message: firstLine, author, committedAt };
-}
-
 function parseBody(req) {
   const raw = req.body;
   if (raw == null || raw === "") return { ok: true, body: {} };
@@ -173,127 +103,6 @@ function parseBody(req) {
   return { ok: false };
 }
 
-function emptyCompare() {
-  return { ahead: null, behind: null, fastForward: false, status: "UNKNOWN" };
-}
-
-function failClosedPayload({ requestedTargetSha, blockers }) {
-  return {
-    ok: true,
-    action: "preflight",
-    releaseReady: false,
-    source: { branch: GITHUB_HEAD_BRANCH, sha: null },
-    destination: { branch: GITHUB_BASE_BRANCH, sha: null },
-    compare: emptyCompare(),
-    targetSha: null,
-    requestedTargetSha: requestedTargetSha || null,
-    commits: [],
-    filesChanged: 0,
-    blockers,
-    database: DATABASE_STATUS,
-    generatedAt: new Date().toISOString(),
-  };
-}
-
-function extractBranchSha(result) {
-  if (!result?.ok || result.parseError || !result.body?.commit?.sha) return null;
-  return String(result.body.commit.sha);
-}
-
-async function runPreflight(requestedTargetSha) {
-  const token = githubReadToken();
-  if (!token) {
-    return failClosedPayload({
-      requestedTargetSha,
-      blockers: [{ code: "GITHUB_UNAVAILABLE" }],
-    });
-  }
-
-  const [mainResult, hmlResult, compareResult] = await Promise.all([
-    githubFetch(`/repos/${GITHUB_OWNER}/${GITHUB_REPO}/branches/${GITHUB_BASE_BRANCH}`, token),
-    githubFetch(`/repos/${GITHUB_OWNER}/${GITHUB_REPO}/branches/${GITHUB_HEAD_BRANCH}`, token),
-    githubFetch(
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/compare/${GITHUB_BASE_BRANCH}...${GITHUB_HEAD_BRANCH}`,
-      token,
-    ),
-  ]);
-
-  const mainSha = extractBranchSha(mainResult);
-  const homologacaoSha = extractBranchSha(hmlResult);
-  const compareOk = Boolean(
-    compareResult?.ok
-    && !compareResult.parseError
-    && compareResult.body
-    && typeof compareResult.body === "object",
-  );
-
-  if (!mainSha || !homologacaoSha || !compareOk) {
-    return failClosedPayload({
-      requestedTargetSha,
-      blockers: [{ code: "GITHUB_UNAVAILABLE" }],
-    });
-  }
-
-  const body = compareResult.body;
-  const ahead = typeof body.ahead_by === "number" ? body.ahead_by : null;
-  const behind = typeof body.behind_by === "number" ? body.behind_by : null;
-  const githubStatus = typeof body.status === "string" ? body.status : null;
-  const compareStatus = mapCompareStatus(githubStatus);
-  const mergeBase = body.merge_base_commit?.sha ? String(body.merge_base_commit.sha) : null;
-  const fastForward = Boolean(
-    ahead > 0
-    && behind === 0
-    && githubStatus === "ahead"
-    && (!mergeBase || mergeBase === mainSha),
-  );
-
-  const commitsRaw = Array.isArray(body.commits) ? body.commits : [];
-  const filesRaw = Array.isArray(body.files) ? body.files : [];
-  const commits = commitsRaw.slice(0, GITHUB_ITEM_LIMIT).map(sanitizeCommit).filter(Boolean);
-
-  const blockers = [];
-  if (requestedTargetSha && requestedTargetSha !== homologacaoSha) {
-    blockers.push({ code: "TARGET_SHA_CHANGED" });
-  }
-  if (mainSha === homologacaoSha) {
-    blockers.push({ code: "NO_CHANGES_TO_RELEASE" });
-  } else if (!fastForward) {
-    blockers.push({ code: "BRANCH_DIVERGED" });
-  }
-
-  const releaseReady = blockers.length === 0 && fastForward && homologacaoSha !== mainSha;
-
-  return {
-    ok: true,
-    action: "preflight",
-    releaseReady,
-    source: { branch: GITHUB_HEAD_BRANCH, sha: homologacaoSha },
-    destination: { branch: GITHUB_BASE_BRANCH, sha: mainSha },
-    compare: { ahead, behind, fastForward, status: compareStatus },
-    targetSha: homologacaoSha,
-    requestedTargetSha: requestedTargetSha || null,
-    commits,
-    filesChanged: filesRaw.length,
-    blockers,
-    database: DATABASE_STATUS,
-    generatedAt: new Date().toISOString(),
-  };
-}
-
-function isPromoteReady(preflight, requestedTargetSha) {
-  return Boolean(
-    preflight?.releaseReady === true
-    && SHA_RE.test(requestedTargetSha || "")
-    && requestedTargetSha === preflight.source?.sha
-    && requestedTargetSha === preflight.targetSha
-    && preflight.compare?.ahead > 0
-    && preflight.compare?.behind === 0
-    && preflight.compare?.fastForward === true
-    && Array.isArray(preflight.blockers)
-    && preflight.blockers.length === 0,
-  );
-}
-
 function actionDisabledPayload(action) {
   return {
     ok: false,
@@ -304,11 +113,11 @@ function actionDisabledPayload(action) {
   };
 }
 
-function notReadyPayload(preflight) {
+function notReadyPayload(preflight, action = "promote") {
   return {
     ok: false,
     error: "RELEASE_NOT_READY",
-    action: "promote",
+    action,
     releaseReady: false,
     source: preflight.source,
     destination: preflight.destination,
@@ -321,40 +130,6 @@ function notReadyPayload(preflight) {
     database: DATABASE_STATUS,
     generatedAt: preflight.generatedAt || new Date().toISOString(),
   };
-}
-
-async function findActiveProductionRelease(token) {
-  const result = await githubRequest(
-    `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${PRODUCTION_WORKFLOW}/runs?per_page=20`,
-    { token, method: "GET" },
-  );
-  if (!result.ok || result.parseError || !Array.isArray(result.body?.workflow_runs)) {
-    return { ok: false };
-  }
-  for (const run of result.body.workflow_runs) {
-    if (!run || typeof run.status !== "string") return { ok: false };
-    if (ACTIVE_RUN_STATUSES.has(run.status)) return { ok: true, active: true };
-  }
-  return { ok: true, active: false };
-}
-
-async function dispatchProductionRelease({ token, targetSha, baseSha, releaseId }) {
-  return githubRequest(
-    `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${PRODUCTION_WORKFLOW}/dispatches`,
-    {
-      token,
-      method: "POST",
-      body: {
-        ref: GITHUB_BASE_BRANCH,
-        inputs: {
-          release_sha: targetSha,
-          base_sha: baseSha,
-          confirmation: WORKFLOW_CONFIRMATION,
-          request_id: releaseId,
-        },
-      },
-    },
-  );
 }
 
 async function handlePromote(reqBody, res) {
@@ -375,47 +150,32 @@ async function handlePromote(reqBody, res) {
     });
   }
 
-  const preflight = await runPreflight(requestedTargetSha);
-  if (!isPromoteReady(preflight, requestedTargetSha)) {
-    return json(res, 409, notReadyPayload(preflight));
+  const result = await executeReleaseCandidate({ requestedTargetSha });
+  if (result.error === "RELEASE_NOT_READY") {
+    return json(res, 409, notReadyPayload(result.preflight, "promote"));
   }
-
-  const baseSha = preflight.destination.sha;
-  const targetSha = preflight.source.sha;
-  const releaseToken = githubReleaseToken();
-  if (!releaseToken) {
+  if (result.error === "GITHUB_RELEASE_UNAVAILABLE") {
     return json(res, 503, {
       ok: false,
       error: "GITHUB_RELEASE_UNAVAILABLE",
       action: "promote",
     });
   }
-
-  const active = await findActiveProductionRelease(releaseToken);
-  if (!active.ok) {
+  if (result.error === "RELEASE_STATUS_UNAVAILABLE") {
     return json(res, 503, {
       ok: false,
       error: "RELEASE_STATUS_UNAVAILABLE",
       action: "promote",
     });
   }
-  if (active.active) {
+  if (result.error === "RELEASE_ALREADY_IN_PROGRESS") {
     return json(res, 409, {
       ok: false,
       error: "RELEASE_ALREADY_IN_PROGRESS",
       action: "promote",
     });
   }
-
-  const releaseId = crypto.randomUUID();
-  const dispatched = await dispatchProductionRelease({
-    token: releaseToken,
-    targetSha,
-    baseSha,
-    releaseId,
-  });
-
-  if (!dispatched.ok || dispatched.status !== 204 || dispatched.parseError) {
+  if (!result.ok) {
     return json(res, 502, {
       ok: false,
       error: "WORKFLOW_DISPATCH_FAILED",
@@ -427,10 +187,86 @@ async function handlePromote(reqBody, res) {
     ok: true,
     action: "promote",
     status: "DISPATCHED",
+    releaseId: result.releaseId,
+    baseSha: result.baseSha,
+    targetSha: result.targetSha,
+    workflow: result.workflow,
+    database: DATABASE_STATUS,
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+async function handleSchedule(reqBody, res) {
+  if (reqBody.confirmation !== SCHEDULE_CONFIRMATION) {
+    return json(res, 409, {
+      ok: false,
+      error: "SCHEDULE_CONFIRMATION_REQUIRED",
+      action: "schedule",
+    });
+  }
+
+  const requestedTargetSha = clean(reqBody.targetSha, 64);
+  if (!SHA_RE.test(requestedTargetSha || "")) {
+    return json(res, 409, {
+      ok: false,
+      error: "TARGET_SHA_REQUIRED",
+      action: "schedule",
+    });
+  }
+
+  const scheduled = parseScheduledAt(reqBody.scheduledAt);
+  if (!scheduled.ok) {
+    return json(res, 409, {
+      ok: false,
+      error: "INVALID_SCHEDULE_TIME",
+      action: "schedule",
+    });
+  }
+
+  const preflight = await runPreflight(requestedTargetSha);
+  if (!isReleaseReady(preflight, requestedTargetSha)) {
+    return json(res, 409, notReadyPayload(preflight, "schedule"));
+  }
+
+  const baseSha = preflight.destination.sha;
+  const targetSha = preflight.source.sha;
+  const releaseId = crypto.randomUUID();
+  const payload = {
     releaseId,
     baseSha,
     targetSha,
-    workflow: PRODUCTION_WORKFLOW,
+    scheduledAt: scheduled.utc,
+  };
+
+  let run;
+  try {
+    run = await start(scheduledReleaseWorkflow, [payload]);
+  } catch {
+    return json(res, 502, {
+      ok: false,
+      error: "WORKFLOW_START_FAILED",
+      action: "schedule",
+    });
+  }
+
+  if (!run?.runId) {
+    return json(res, 502, {
+      ok: false,
+      error: "WORKFLOW_START_FAILED",
+      action: "schedule",
+    });
+  }
+
+  return json(res, 202, {
+    ok: true,
+    action: "schedule",
+    status: "SCHEDULED",
+    releaseId,
+    workflowRunId: run.runId,
+    baseSha,
+    targetSha,
+    scheduledAtUtc: scheduled.utc,
+    displayTimezone: DISPLAY_TIMEZONE,
     database: DATABASE_STATUS,
     generatedAt: new Date().toISOString(),
   });
@@ -460,8 +296,12 @@ export default async function handler(req, res) {
   const action = clean(parsed.body.action, 40);
   const requestedTargetSha = clean(parsed.body.targetSha, 64);
 
-  if (action === "schedule") {
+  if (action === "cancel") {
     return json(res, 409, actionDisabledPayload(action));
+  }
+
+  if (action === "schedule") {
+    return handleSchedule(parsed.body, res);
   }
 
   if (action === "promote") {
