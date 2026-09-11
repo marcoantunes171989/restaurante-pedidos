@@ -262,19 +262,75 @@ export function mapGithubRunToReleaseStatus(run) {
   return null;
 }
 
+// Diagnóstico sanitizado da consulta GitHub Actions usada por
+// findActiveProductionRelease(). Nunca inclui token, prefixo do token,
+// headers, Authorization, body bruto do GitHub, mensagem do GitHub, URL
+// com credencial ou qualquer segredo — apenas os sinais estruturais abaixo.
+function buildGithubDiagnostic(stage, {
+  tokenConfigured = false,
+  httpStatus = null,
+  timeout = false,
+  networkError = false,
+  parseError = false,
+  workflowRunsArray = false,
+  ok = false,
+} = {}) {
+  return {
+    stage,
+    tokenConfigured,
+    httpStatus,
+    timeout,
+    networkError,
+    parseError,
+    workflowRunsArray,
+    ok,
+  };
+}
+
 export async function findActiveProductionRelease(token) {
+  const tokenConfigured = Boolean(token);
+  if (!tokenConfigured) {
+    return { ok: false, diagnostic: buildGithubDiagnostic("workflow-runs", { tokenConfigured: false }) };
+  }
+
   const result = await githubRequest(
     `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${PRODUCTION_WORKFLOW}/runs?per_page=20`,
     { token, method: "GET" },
   );
-  if (!result.ok || result.parseError || !Array.isArray(result.body?.workflow_runs)) {
-    return { ok: false };
+  const workflowRunsArray = Array.isArray(result.body?.workflow_runs);
+  const queryOk = Boolean(result.ok) && !result.parseError && workflowRunsArray;
+  const diagnostic = buildGithubDiagnostic("workflow-runs", {
+    tokenConfigured: true,
+    httpStatus: typeof result.status === "number" ? result.status : null,
+    timeout: Boolean(result.timeout),
+    networkError: Boolean(result.networkError),
+    parseError: Boolean(result.parseError),
+    workflowRunsArray,
+    ok: queryOk,
+  });
+
+  if (!queryOk) {
+    return { ok: false, diagnostic };
   }
+
   for (const run of result.body.workflow_runs) {
-    if (!run || typeof run.status !== "string") return { ok: false };
-    if (ACTIVE_RUN_STATUSES.has(run.status)) return { ok: true, active: true, run };
+    if (!run || typeof run.status !== "string") {
+      return { ok: false, diagnostic: { ...diagnostic, ok: false } };
+    }
+    if (ACTIVE_RUN_STATUSES.has(run.status)) return { ok: true, active: true, run, diagnostic };
   }
-  return { ok: true, active: false };
+  return { ok: true, active: false, diagnostic };
+}
+
+// RELEASE-AUTO-06N-DIAG-01: verificação Super Admin SOMENTE LEITURA — roda
+// a MESMA consulta usada por findActiveProductionRelease() (com
+// GITHUB_RELEASE_TOKEN, o token usado no dispatch real) e devolve apenas o
+// diagnostic sanitizado. Nunca cria/atualiza app_release_runs e nunca
+// chama workflow_dispatch.
+export async function runReleaseGithubDiagnostic() {
+  const token = githubReleaseToken();
+  const result = await findActiveProductionRelease(token);
+  return { ok: result.ok, diagnostic: result.diagnostic };
 }
 
 export async function findReleaseByRequestId(token, releaseId) {
@@ -335,7 +391,12 @@ async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent })
 
   const active = await findActiveProductionRelease(token);
   if (!active.ok) {
-    return { ok: false, error: "RELEASE_STATUS_UNAVAILABLE", status: "RELEASE_STATUS_UNAVAILABLE" };
+    return {
+      ok: false,
+      error: "RELEASE_STATUS_UNAVAILABLE",
+      status: "RELEASE_STATUS_UNAVAILABLE",
+      diagnostic: active.diagnostic,
+    };
   }
   if (active.active) {
     return {
