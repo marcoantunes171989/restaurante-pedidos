@@ -402,6 +402,7 @@ export async function reconcileReleaseGithub(release) {
     fromStatuses,
     status: nextStatus,
     extra,
+    event: { statusFrom: release.status, source: "github_reconcile" },
   });
   return transitioned.ok ? transitioned : { ok: true, row: release };
 }

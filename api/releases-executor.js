@@ -78,6 +78,16 @@ async function persistDispatched(release, execResult) {
     fromStatuses: ["VALIDATING"],
     status: "DISPATCHED",
     extra,
+    event: {
+      statusFrom: "VALIDATING",
+      source: "executor",
+      // MICROGATE-02 — mesma auditoria de base_sha do promote imediato,
+      // para o caminho agendado (scheduler nativo).
+      metadata: {
+        baseShaOriginal: release.base_sha,
+        baseShaValidatedAtDispatch: execResult.baseSha,
+      },
+    },
   });
   if (!transitioned.ok) {
     // GitHub dispatch confirmado, mas a escrita VALIDATING -> DISPATCHED
@@ -101,6 +111,7 @@ async function handleExecutionResult(release, execResult) {
       fromStatuses: ["VALIDATING"],
       status: "BLOCKED",
       resultCode: "RELEASE_NOT_READY",
+      event: { statusFrom: "VALIDATING", source: "executor" },
     });
     return { result: "BLOCKED", resultCode: "RELEASE_NOT_READY" };
   }
@@ -110,6 +121,7 @@ async function handleExecutionResult(release, execResult) {
       fromStatuses: ["VALIDATING"],
       status: "FAILED",
       resultCode: "GITHUB_RELEASE_UNAVAILABLE",
+      event: { statusFrom: "VALIDATING", source: "executor" },
     });
     return { result: "FAILED", resultCode: "GITHUB_RELEASE_UNAVAILABLE" };
   }
@@ -122,6 +134,7 @@ async function handleExecutionResult(release, execResult) {
       fromStatuses: ["VALIDATING"],
       status: "SCHEDULED",
       resultCode: "WAITING_FOR_ACTIVE_RELEASE",
+      event: { statusFrom: "VALIDATING", source: "executor" },
     });
     return { result: "WAITING_FOR_ACTIVE_RELEASE" };
   }

@@ -5,10 +5,52 @@
 // ════════════════════════════════════════════════════════════
 
 /* global process */
+import crypto from "node:crypto";
 
 const TABLE = "app_release_runs";
+const EVENTS_TABLE = "app_release_events";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ERROR_MESSAGE_MAX = 240;
+const EVENT_METADATA_MAX_JSON_BYTES = 4000;
+
+// MICROGATE-07 — tipos de evento da timeline (app_release_events).
+// Somente os tipos abaixo têm caminho real de emissão no backend; nenhum
+// evento fictício é criado.
+const EVENT_TYPES = new Set([
+  "RELEASE_REQUESTED",
+  "RELEASE_SCHEDULED",
+  "RELEASE_VALIDATION_STARTED",
+  "RELEASE_DISPATCHED",
+  "RELEASE_RUNNING",
+  "RELEASE_SUCCEEDED",
+  "RELEASE_FAILED",
+  "RELEASE_BLOCKED",
+  "RELEASE_CANCELED",
+  "RELEASE_REQUEUED",
+]);
+
+// Origem do evento: quem disparou a transição de estado real.
+const EVENT_SOURCES = new Set(["api", "executor", "github_reconcile"]);
+
+// createRelease é o único ponto que grava o estado inicial (sem status_from).
+const CREATE_STATUS_TO_EVENT_TYPE = {
+  REQUESTED: "RELEASE_REQUESTED",
+  SCHEDULED: "RELEASE_SCHEDULED",
+};
+
+// transitionRelease só é chamado para os estados abaixo; SCHEDULED aqui é
+// sempre um requeue (VALIDATING -> SCHEDULED), nunca a criação inicial —
+// essa passa por createRelease, não por transitionRelease.
+const TRANSITION_STATUS_TO_EVENT_TYPE = {
+  SCHEDULED: "RELEASE_REQUEUED",
+  VALIDATING: "RELEASE_VALIDATION_STARTED",
+  DISPATCHED: "RELEASE_DISPATCHED",
+  RUNNING: "RELEASE_RUNNING",
+  SUCCEEDED: "RELEASE_SUCCEEDED",
+  FAILED: "RELEASE_FAILED",
+  BLOCKED: "RELEASE_BLOCKED",
+  CANCELED: "RELEASE_CANCELED",
+};
 
 export const ACTIVE_RELEASE_STATUSES = [
   "REQUESTED",
@@ -146,8 +188,23 @@ export function toPublicRelease(row) {
   };
 }
 
-function restUrl(query = "") {
-  return `${supabaseUrl()}/rest/v1/${TABLE}${query}`;
+function restUrl(query = "", table = TABLE) {
+  return `${supabaseUrl()}/rest/v1/${table}${query}`;
+}
+
+// Sanitiza metadata da timeline: só aceita objeto plano serializável e
+// dentro de um teto de tamanho. Nunca lança — retorna null em vez de
+// propagar erro para a transição real de estado.
+function sanitizeEventMetadata(metadata) {
+  if (metadata == null || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  let json;
+  try {
+    json = JSON.stringify(metadata);
+  } catch {
+    return null;
+  }
+  if (!json || json.length > EVENT_METADATA_MAX_JSON_BYTES) return null;
+  return JSON.parse(json);
 }
 
 async function parseJson(response) {
@@ -220,7 +277,7 @@ function diagnosticFromResult(result) {
   return result?.diagnostic || emptyDiagnostic();
 }
 
-async function restRequest(query, { method = "GET", body, prefer } = {}) {
+async function restRequest(query, { method = "GET", body, prefer, table = TABLE } = {}) {
   if (!supabaseUrl()) {
     return {
       ok: false,
@@ -237,7 +294,7 @@ async function restRequest(query, { method = "GET", body, prefer } = {}) {
     };
   }
   try {
-    const response = await fetch(restUrl(query), {
+    const response = await fetch(restUrl(query, table), {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -261,6 +318,50 @@ async function restRequest(query, { method = "GET", body, prefer } = {}) {
       diagnostic: buildDiagnostic("FETCH_NETWORK_ERROR", { requestAttempted: true, networkError: true }),
     };
   }
+}
+
+// MICROGATE-07 — grava um evento append-only na timeline forense
+// (app_release_events). Nunca lança: uma falha aqui não pode derrubar a
+// transição real de estado do release em app_release_runs. Nunca chamado
+// diretamente pela API/frontend — somente por createRelease,
+// transitionRelease e claimReleaseForValidation, os únicos pontos que
+// mutam o estado de um release.
+export async function appendReleaseEvent({
+  releaseId,
+  eventType,
+  statusFrom = null,
+  statusTo = null,
+  actorUserId = null,
+  actorEmail = null,
+  source,
+  message = null,
+  metadata = null,
+} = {}) {
+  if (!isReleaseUuid(releaseId) || !EVENT_TYPES.has(eventType) || !EVENT_SOURCES.has(source)) {
+    return { ok: false, error: "RELEASE_EVENT_INVALID_INPUT" };
+  }
+  const payload = {
+    id: crypto.randomUUID(),
+    release_id: releaseId,
+    event_type: eventType,
+    status_from: clean(statusFrom, 40),
+    status_to: clean(statusTo, 40),
+    actor_user_id: isReleaseUuid(actorUserId) ? actorUserId : null,
+    actor_email: clean(actorEmail, 160)?.toLowerCase() || null,
+    source,
+    message: sanitizeErrorMessage(message),
+    metadata: sanitizeEventMetadata(metadata),
+  };
+  const result = await restRequest("", {
+    method: "POST",
+    prefer: "return=minimal",
+    body: payload,
+    table: EVENTS_TABLE,
+  });
+  if (!result.ok) {
+    return { ok: false, error: "RELEASE_EVENT_WRITE_FAILED", diagnostic: diagnosticFromResult(result) };
+  }
+  return { ok: true };
 }
 
 export async function createRelease(input) {
@@ -297,6 +398,18 @@ export async function createRelease(input) {
   const row = firstRow(result.body);
   if (!row?.id) {
     return { ok: false, error: "RELEASE_REGISTRY_UNAVAILABLE", diagnostic: diagnosticFromResult(result) };
+  }
+  const eventType = CREATE_STATUS_TO_EVENT_TYPE[row.status];
+  if (eventType) {
+    await appendReleaseEvent({
+      releaseId: row.id,
+      eventType,
+      statusFrom: null,
+      statusTo: row.status,
+      actorUserId: row.requested_by_user_id || null,
+      actorEmail: row.requested_by_email || null,
+      source: "api",
+    });
   }
   return { ok: true, row };
 }
@@ -364,6 +477,7 @@ export async function transitionRelease(id, {
   resultCode = null,
   errorMessage = null,
   extra = {},
+  event = null,
 } = {}) {
   const terminal = ["SUCCEEDED", "FAILED", "BLOCKED", "CANCELED"].includes(status);
   const patch = {
@@ -375,7 +489,27 @@ export async function transitionRelease(id, {
   if (status === "DISPATCHED" && !patch.dispatched_at) patch.dispatched_at = nowIso();
   if (status === "CANCELED" && !patch.canceled_at) patch.canceled_at = nowIso();
   if (terminal && !patch.completed_at) patch.completed_at = nowIso();
-  return updateRelease(id, patch, { fromStatuses });
+  const result = await updateRelease(id, patch, { fromStatuses });
+  // Só grava evento quando a transição realmente aconteceu (result.ok) —
+  // um retry idempotente que não casa fromStatuses (unchanged/conflict)
+  // não gera evento duplicado.
+  if (result.ok && event) {
+    const eventType = TRANSITION_STATUS_TO_EVENT_TYPE[status];
+    if (eventType) {
+      await appendReleaseEvent({
+        releaseId: id,
+        eventType,
+        statusFrom: event.statusFrom ?? null,
+        statusTo: status,
+        actorUserId: event.actorUserId ?? null,
+        actorEmail: event.actorEmail ?? null,
+        source: event.source,
+        message: event.message ?? null,
+        metadata: event.metadata ?? null,
+      });
+    }
+  }
+  return result;
 }
 
 // RELEASE-AUTO-06B — candidatos do scheduler nativo (Supabase HML Cron →
@@ -434,5 +568,18 @@ export async function claimReleaseForValidation(release) {
   }
   const row = firstRow(result.body);
   if (!row) return { ok: false, claimLost: true, error: "CLAIM_LOST" };
+  // Só é uma transição real de estado (e gera evento) quando o release
+  // ainda não estava VALIDATING. A renovação de claim stale
+  // (VALIDATING -> VALIDATING com updated_at fresco) é o mesmo ciclo de
+  // validação continuando — não deve duplicar RELEASE_VALIDATION_STARTED.
+  if (release.status !== "VALIDATING") {
+    await appendReleaseEvent({
+      releaseId: row.id,
+      eventType: "RELEASE_VALIDATION_STARTED",
+      statusFrom: release.status,
+      statusTo: "VALIDATING",
+      source: "executor",
+    });
+  }
   return { ok: true, row };
 }

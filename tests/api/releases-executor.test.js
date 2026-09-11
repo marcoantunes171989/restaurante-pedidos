@@ -179,9 +179,34 @@ function createExecutorRegistryMock({ seed = [], patchOverride = null } = {}) {
   };
 }
 
-function mockExecutorFetch({ github, registry = createExecutorRegistryMock() } = {}) {
+// Mock da timeline (app_release_events): aceita qualquer INSERT feito por
+// appendReleaseEvent e mantém as linhas em memória (fn.events.rows).
+function createEventsRegistryMock() {
+  const rows = [];
+
+  function jsonResponse(status, payload, ok = status >= 200 && status < 300) {
+    const raw = JSON.stringify(payload);
+    return { ok, status, json: async () => payload, text: async () => raw };
+  }
+
+  return {
+    rows,
+    handle(url, options = {}) {
+      const method = String(options.method || "GET").toUpperCase();
+      if (method === "POST") {
+        const body = JSON.parse(options.body);
+        rows.push(body);
+        return jsonResponse(201, [body]);
+      }
+      return jsonResponse(200, rows);
+    },
+  };
+}
+
+function mockExecutorFetch({ github, registry = createExecutorRegistryMock(), events = createEventsRegistryMock() } = {}) {
   const fn = vi.fn(async (url, options) => {
     const target = String(url);
+    if (target.includes("/rest/v1/app_release_events")) return events.handle(target, options);
     if (target.includes("/rest/v1/app_release_runs")) return registry.handle(target, options);
     if (target.includes("api.github.com")) {
       if (typeof github !== "function") throw new Error(`github fetch inesperado no teste: ${target}`);
@@ -190,6 +215,7 @@ function mockExecutorFetch({ github, registry = createExecutorRegistryMock() } =
     throw new Error(`fetch inesperado no teste: ${target}`);
   });
   fn.registry = registry;
+  fn.events = events;
   vi.stubGlobal("fetch", fn);
   return fn;
 }

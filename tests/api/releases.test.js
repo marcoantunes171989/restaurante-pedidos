@@ -215,6 +215,38 @@ function createRegistryMock({ seed = [], failWrite = false, failWriteWhen = null
   };
 }
 
+// Mock da timeline (app_release_events): aceita qualquer INSERT feito por
+// appendReleaseEvent e mantém as linhas em memória para os testes que
+// verificam quais eventos foram gravados (fn.events.rows).
+function createEventsRegistryMock() {
+  const rows = [];
+
+  function jsonResponse(status, payload, ok = status >= 200 && status < 300) {
+    const raw = JSON.stringify(payload);
+    return { ok, status, json: async () => payload, text: async () => raw };
+  }
+
+  return {
+    rows,
+    handle(url, options = {}) {
+      const method = String(options.method || "GET").toUpperCase();
+      if (method === "POST") {
+        const body = JSON.parse(options.body);
+        rows.push(body);
+        return jsonResponse(201, [body]);
+      }
+      const parsed = new URL(url);
+      const releaseIdFilter = parsed.searchParams.get("release_id");
+      let result = rows;
+      if (releaseIdFilter && releaseIdFilter.startsWith("eq.")) {
+        const id = releaseIdFilter.slice(3);
+        result = rows.filter((row) => row.release_id === id);
+      }
+      return jsonResponse(200, result);
+    },
+  };
+}
+
 function mockFetch({
   userOk = true,
   email = "super@teste.com",
@@ -223,6 +255,7 @@ function mockFetch({
   operatorRows = [],
   github,
   registry = createRegistryMock(),
+  events = createEventsRegistryMock(),
 } = {}) {
   const fn = vi.fn(async (url, options) => {
     const target = String(url);
@@ -234,6 +267,9 @@ function mockFetch({
       if (!operatorOk) return { ok: false, json: async () => [] };
       return { ok: true, json: async () => operatorRows };
     }
+    if (target.includes("/rest/v1/app_release_events")) {
+      return events.handle(target, options);
+    }
     if (target.includes("/rest/v1/app_release_runs")) {
       return registry.handle(target, options);
     }
@@ -244,6 +280,7 @@ function mockFetch({
     throw new Error(`fetch inesperado no teste: ${target}`);
   });
   fn.registry = registry;
+  fn.events = events;
   vi.stubGlobal("fetch", fn);
   return fn;
 }
@@ -850,6 +887,23 @@ describe("releases — promote guards e dispatch", () => {
       expect(String(callUrl)).not.toMatch(/\/git\/refs/);
     });
     assertNoSecrets(String(res.body));
+
+    // MICROGATE 07 — timeline: promote imediato gera RELEASE_REQUESTED
+    // (na criação) e RELEASE_DISPATCHED (após o dispatch confirmado no
+    // GitHub), nessa ordem, para o mesmo release_id.
+    const releaseEvents = fn.events.rows.filter((row) => row.release_id === body.releaseId);
+    expect(releaseEvents.map((row) => row.event_type)).toEqual([
+      "RELEASE_REQUESTED",
+      "RELEASE_DISPATCHED",
+    ]);
+    expect(releaseEvents[0]).toMatchObject({ status_from: null, status_to: "REQUESTED", source: "api" });
+    expect(releaseEvents[1]).toMatchObject({ status_from: "REQUESTED", status_to: "DISPATCHED", source: "api" });
+    // MICROGATE 02 — auditoria forense de base_sha via metadata sanitizada.
+    expect(releaseEvents[1].metadata).toEqual({
+      baseShaOriginal: SHA_MAIN,
+      baseShaValidatedAtDispatch: SHA_MAIN,
+    });
+    assertNoSecrets(JSON.stringify(fn.events.rows));
   });
 });
 
@@ -1173,6 +1227,18 @@ describe("releases — cancel seguro (sem orquestrador externo, RELEASE-AUTO-06A
     expect(fn.registry.rows.get(releaseId).status).toBe("CANCELED");
     expect(fn.registry.rows.get(releaseId).result_code).toBe("CANCELED_BY_OPERATOR");
     assertNoSecrets(String(res.body));
+
+    // MICROGATE 07 — timeline: cancel gera RELEASE_CANCELED com o
+    // status_from real (SCHEDULED) e o operador que cancelou.
+    const releaseEvents = fn.events.rows.filter((row) => row.release_id === releaseId);
+    expect(releaseEvents).toHaveLength(1);
+    expect(releaseEvents[0]).toMatchObject({
+      event_type: "RELEASE_CANCELED",
+      status_from: "SCHEDULED",
+      status_to: "CANCELED",
+      source: "api",
+      actor_email: "super@teste.com",
+    });
   });
 
   it("cancel SCHEDULED sem workflow_run_id também marca CANCELED (não depende de orquestrador)", async () => {

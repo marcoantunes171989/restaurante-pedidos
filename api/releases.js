@@ -174,12 +174,16 @@ function notReadyPayload(preflight, action = "promote") {
   };
 }
 
+// Único chamador (handlePromote) sempre invoca logo após createRelease
+// (mode=immediate, status=REQUESTED) e antes de qualquer outra transição
+// — o release ainda está em REQUESTED neste ponto.
 async function markReleaseFailure(releaseId, { status = "FAILED", resultCode, errorMessage } = {}) {
   await transitionRelease(releaseId, {
     fromStatuses: ["REQUESTED", "SCHEDULED", "WAITING", "VALIDATING", "DISPATCHED", "RUNNING"],
     status,
     resultCode,
     errorMessage,
+    event: { statusFrom: "REQUESTED", source: "api" },
   });
 }
 
@@ -268,6 +272,20 @@ async function handlePromote(reqBody, res, operator) {
     extra: {
       github_run_id: result.githubRunId ?? null,
       github_run_url: result.githubRunUrl || null,
+    },
+    event: {
+      statusFrom: "REQUESTED",
+      source: "api",
+      actorUserId: operator?.userId || null,
+      actorEmail: operator?.email || null,
+      // MICROGATE-02 — auditoria forense do base_sha: registra o base_sha
+      // capturado na criação da release vs. o efetivamente revalidado no
+      // preflight interno de executeReleaseCandidate no momento do
+      // dispatch. Não altera o contrato principal; apenas metadata.
+      metadata: {
+        baseShaOriginal: created.row.base_sha,
+        baseShaValidatedAtDispatch: result.baseSha,
+      },
     },
   });
 
@@ -366,7 +384,7 @@ async function handleSchedule(reqBody, res, operator) {
   });
 }
 
-async function handleCancel(reqBody, res) {
+async function handleCancel(reqBody, res, operator) {
   if (reqBody.confirmation !== CANCEL_CONFIRMATION) {
     return json(res, 409, {
       ok: false,
@@ -425,6 +443,12 @@ async function handleCancel(reqBody, res) {
     fromStatuses: CANCELABLE_RELEASE_STATUSES,
     status: "CANCELED",
     resultCode: "CANCELED_BY_OPERATOR",
+    event: {
+      statusFrom: loaded.row.status,
+      source: "api",
+      actorUserId: operator?.userId || null,
+      actorEmail: operator?.email || null,
+    },
   });
   if (!updated.ok) {
     return json(res, 409, {
@@ -548,7 +572,7 @@ export default async function handler(req, res) {
   const requestedTargetSha = clean(parsed.body.targetSha, 64);
 
   if (action === "cancel") {
-    return handleCancel(parsed.body, res);
+    return handleCancel(parsed.body, res, auth.operator);
   }
 
   if (action === "history") {
