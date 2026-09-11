@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 //
-// Microgate 23 — integração de src/pages/admin/AmbientesAdmin.jsx com a API
-// real /api/ambientes (resources: environments, compare, deployments,
-// health, history). Mocka o módulo local ../../lib/supabase.js (não
+// Microgate 23 + Microgate 03 — integração de src/pages/admin/AmbientesAdmin.jsx
+// com a API real /api/ambientes (resources: environments, compare, deployments,
+// health) e com /api/releases (actions somente-leitura: status, history,
+// preflight). Mocka o módulo local ../../lib/supabase.js (não
 // @supabase/supabase-js) para não depender de VITE_SUPABASE_URL/ANON_KEY em
 // tempo de teste, e mocka globalThis.fetch — nenhuma chamada de rede real.
 import { act } from "react";
@@ -52,10 +53,65 @@ const DEPLOYMENTS_OK = {
 };
 const HEALTH_OK_ENV = { frontend: { status: "ONLINE" }, api: { status: "ONLINE" }, supabase: { status: "ONLINE" }, auth: { status: "ONLINE" }, realtime: { status: "ONLINE" } };
 const HEALTH_OK = { environments: { homologacao: HEALTH_OK_ENV, producao: HEALTH_OK_ENV } };
-const HISTORY_NOT_CONNECTED = { items: [], source: "not_connected" };
 
 function envelope(resource, source, data) {
   return { ok: true, resource, source, generatedAt: new Date().toISOString(), data };
+}
+
+// ── Fixtures do control plane de releases (POST /api/releases) ─────────
+const DATABASE_STATUS = { automation: "blocked", reason: "PROD_MIGRATION_BASELINE_UNTRUSTED" };
+const RELEASE_ID = "11111111-1111-1111-1111-111111111111";
+const TARGET_SHA = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const BASE_SHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+function releaseRow(overrides = {}) {
+  return {
+    releaseId: RELEASE_ID,
+    mode: "immediate",
+    status: "SUCCEEDED",
+    baseSha: BASE_SHA,
+    targetSha: TARGET_SHA,
+    scheduledAt: null,
+    workflowRunId: null,
+    githubRunId: null,
+    githubRunUrl: null,
+    vercelDeploymentId: null,
+    vercelDeploymentUrl: null,
+    requestedBy: { userId: null, email: "marco@example.com" },
+    createdAt: "2026-09-01T10:00:00Z",
+    updatedAt: "2026-09-01T10:05:00Z",
+    dispatchedAt: "2026-09-01T10:01:00Z",
+    completedAt: "2026-09-01T10:05:00Z",
+    canceledAt: null,
+    resultCode: null,
+    errorMessage: null,
+    ...overrides,
+  };
+}
+
+function statusEnvelope(activeRelease) {
+  return { ok: true, action: "status", activeRelease, database: DATABASE_STATUS, generatedAt: "2026-09-01T10:10:00Z" };
+}
+function historyEnvelope(items) {
+  return { ok: true, action: "history", limit: 20, items, database: DATABASE_STATUS, generatedAt: "2026-09-01T10:10:00Z" };
+}
+function preflightEnvelope(overrides = {}) {
+  return {
+    ok: true,
+    action: "preflight",
+    releaseReady: true,
+    source: { branch: "homologacao", sha: TARGET_SHA },
+    destination: { branch: "main", sha: BASE_SHA },
+    compare: { ahead: 2, behind: 0, fastForward: true, status: "HML_AHEAD" },
+    targetSha: TARGET_SHA,
+    requestedTargetSha: null,
+    commits: [],
+    filesChanged: 2,
+    blockers: [],
+    database: DATABASE_STATUS,
+    generatedAt: "2026-09-01T10:10:00Z",
+    ...overrides,
+  };
 }
 
 const DEFAULT_MAP = {
@@ -63,15 +119,27 @@ const DEFAULT_MAP = {
   compare: { status: 200, body: envelope("compare", "github", COMPARE_OK) },
   deployments: { status: 200, body: envelope("deployments", "vercel", DEPLOYMENTS_OK) },
   health: { status: 200, body: envelope("health", "not_connected", HEALTH_OK) },
-  history: { status: 200, body: envelope("history", "not_connected", HISTORY_NOT_CONNECTED) },
+  status: { status: 200, body: statusEnvelope(null) },
+  history: { status: 200, body: historyEnvelope([]) },
+  preflight: { status: 200, body: preflightEnvelope() },
 };
 
+// Roteia tanto GET /api/ambientes?resource=X (chaves: environments, compare,
+// deployments, health) quanto POST /api/releases (chaves: status, history,
+// preflight — o nome da chave é a própria action enviada no body).
 function mockFetch(overrides = {}) {
   const map = { ...DEFAULT_MAP, ...overrides };
   const calls = [];
   globalThis.fetch = vi.fn((url, opts) => {
     calls.push({ url: String(url), opts });
     const u = new URL(String(url), "http://localhost");
+    if (u.pathname === "/api/releases") {
+      let action = null;
+      try { action = JSON.parse(opts?.body || "{}")?.action; } catch { /* corpo não-JSON */ }
+      const entry = map[action];
+      if (!entry) return Promise.resolve({ ok: false, status: 400, json: async () => ({ error: "action_invalida" }) });
+      return Promise.resolve({ ok: entry.status < 400, status: entry.status, json: async () => entry.body });
+    }
     const resource = u.searchParams.get("resource");
     const entry = map[resource];
     if (!entry) return Promise.resolve({ ok: false, status: 400, json: async () => ({ error: "resource_invalido" }) });
@@ -123,7 +191,7 @@ describe("AmbientesAdmin — sessão e segurança do token", () => {
     expect(el.textContent).not.toContain("undefined");
   });
 
-  it("com sessão: envia Authorization Bearer com o access_token da sessão Supabase", async () => {
+  it("com sessão: envia Authorization Bearer com o access_token da sessão Supabase (ambientes e releases)", async () => {
     comSessao();
     mockFetch();
     await renderTela();
@@ -155,14 +223,20 @@ describe("AmbientesAdmin — sessão e segurança do token", () => {
     });
   });
 
-  it("nenhuma requisição usa método diferente de GET (sem POST/PUT/PATCH/DELETE)", async () => {
+  it("chamadas a /api/ambientes usam GET e chamadas a /api/releases usam POST com Content-Type JSON", async () => {
     comSessao();
     mockFetch();
     await renderTela();
     await flush();
 
-    globalThis.fetch.calls.forEach(({ opts }) => {
-      expect(opts.method).toBe("GET");
+    globalThis.fetch.calls.forEach(({ url, opts }) => {
+      const pathname = new URL(url, "http://localhost").pathname;
+      if (pathname === "/api/releases") {
+        expect(opts.method).toBe("POST");
+        expect(opts.headers["Content-Type"]).toBe("application/json");
+      } else {
+        expect(opts.method).toBe("GET");
+      }
     });
   });
 
@@ -178,25 +252,34 @@ describe("AmbientesAdmin — sessão e segurança do token", () => {
   });
 });
 
-describe("AmbientesAdmin — carregamento dos 5 resources", () => {
+describe("AmbientesAdmin — carregamento dos resources (ambientes + releases)", () => {
   it("carrega automaticamente ao montar a tela (sem precisar clicar em nada)", async () => {
     comSessao();
     mockFetch();
     await renderTela();
     await flush();
 
-    expect(globalThis.fetch.calls.length).toBeGreaterThanOrEqual(5);
+    expect(globalThis.fetch.calls.length).toBe(7);
   });
 
-  it("requisita explicitamente environments, compare, deployments, health e history", async () => {
+  it("requisita environments, compare, deployments e health via /api/ambientes, e status/history/preflight via /api/releases", async () => {
     comSessao();
     mockFetch();
     await renderTela();
     await flush();
 
-    const resources = globalThis.fetch.calls.map(({ url }) => new URL(url, "http://localhost").searchParams.get("resource"));
-    ["environments", "compare", "deployments", "health", "history"].forEach((r) => {
-      expect(resources).toContain(r);
+    const ambientesResources = globalThis.fetch.calls
+      .filter(({ url }) => new URL(url, "http://localhost").pathname === "/api/ambientes")
+      .map(({ url }) => new URL(url, "http://localhost").searchParams.get("resource"));
+    ["environments", "compare", "deployments", "health"].forEach((r) => {
+      expect(ambientesResources).toContain(r);
+    });
+
+    const releasesActions = globalThis.fetch.calls
+      .filter(({ url }) => new URL(url, "http://localhost").pathname === "/api/releases")
+      .map(({ opts }) => JSON.parse(opts.body).action);
+    ["status", "history", "preflight"].forEach((a) => {
+      expect(releasesActions).toContain(a);
     });
   });
 });
@@ -239,14 +322,17 @@ describe("AmbientesAdmin — sucesso, isolamento de falhas e estados", () => {
     expect(el.textContent).toContain("4c87dd6"); // environments continua ok
   });
 
-  it("erro total (todos os resources falham) não gera tela em branco", async () => {
+  it("erro total (todos os resources, incluindo releases, falham) não gera tela em branco", async () => {
     comSessao();
+    const erro500 = { status: 500, body: { error: "Erro no servidor." } };
     mockFetch({
-      environments: { status: 500, body: { error: "Erro no servidor." } },
-      compare: { status: 500, body: { error: "Erro no servidor." } },
-      deployments: { status: 500, body: { error: "Erro no servidor." } },
-      health: { status: 500, body: { error: "Erro no servidor." } },
-      history: { status: 500, body: { error: "Erro no servidor." } },
+      environments: erro500,
+      compare: erro500,
+      deployments: erro500,
+      health: erro500,
+      status: erro500,
+      history: erro500,
+      preflight: erro500,
     });
     const el = await renderTela();
     await flush();
@@ -259,7 +345,7 @@ describe("AmbientesAdmin — sucesso, isolamento de falhas e estados", () => {
   it("401 em todos os resources: mostra erro de sessão seguro, sem corpo bruto nem token", async () => {
     comSessao();
     const erro401 = { status: 401, body: { error: "Token inválido." } };
-    mockFetch({ environments: erro401, compare: erro401, deployments: erro401, health: erro401, history: erro401 });
+    mockFetch({ environments: erro401, compare: erro401, deployments: erro401, health: erro401, status: erro401, history: erro401, preflight: erro401 });
     const el = await renderTela();
     await flush();
 
@@ -270,20 +356,20 @@ describe("AmbientesAdmin — sucesso, isolamento de falhas e estados", () => {
   it("403 em todos os resources: mostra estado de não autorizado seguro", async () => {
     comSessao();
     const erro403 = { status: 403, body: { error: "Acesso restrito ao Super Admin." } };
-    mockFetch({ environments: erro403, compare: erro403, deployments: erro403, health: erro403, history: erro403 });
+    mockFetch({ environments: erro403, compare: erro403, deployments: erro403, health: erro403, status: erro403, history: erro403, preflight: erro403 });
     const el = await renderTela();
     await flush();
 
     expect(el.textContent).toContain("Acesso não autorizado para esta área.");
   });
 
-  it("history not_connected é estado válido (empty state), não erro fatal", async () => {
+  it("history vazio (via /api/releases) é estado válido (empty state), não erro fatal", async () => {
     comSessao();
     mockFetch();
     const el = await renderTela();
     await flush();
 
-    expect(el.textContent).toContain("Histórico ainda não conectado.");
+    expect(el.textContent).toContain("Nenhum registro de histórico encontrado.");
   });
 
   it("health UNKNOWN nunca vira ONLINE na UI", async () => {
@@ -406,7 +492,7 @@ describe("AmbientesAdmin — badge Online/Degradado/Offline/Desconhecido (topo d
 });
 
 describe("AmbientesAdmin — refresh manual (sem polling)", () => {
-  it("o botão Atualizar dispara uma nova leitura dos 5 resources", async () => {
+  it("o botão Atualizar dispara uma nova leitura de todos os resources", async () => {
     comSessao();
     mockFetch();
     const el = await renderTela();
@@ -475,5 +561,205 @@ describe("AmbientesAdmin — loading estável", () => {
     // evita promise pendurada
     resolveFetch?.({ ok: true, status: 200, json: async () => envelope("x", "static", {}) });
     await flush();
+  });
+});
+
+// Microgate 03 — integração read-only do release control plane
+// (POST /api/releases, actions: status/history/preflight). promote/schedule/
+// cancel permanecem fora de escopo: nunca são chamados e o botão de
+// promoção continua disabled.
+describe("AmbientesAdmin — release control plane (status)", () => {
+  it("A) status sem activeRelease: mostra estado neutro (nenhuma release ativa)", async () => {
+    comSessao();
+    mockFetch();
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Nenhuma release ativa no momento.");
+  });
+
+  it("B) status com SCHEDULED: reflete visualmente o estado agendado", async () => {
+    comSessao();
+    mockFetch({
+      status: { status: 200, body: statusEnvelope(releaseRow({ status: "SCHEDULED", mode: "scheduled", scheduledAt: "2026-09-02T03:00:00Z" })) },
+    });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Agendada");
+  });
+
+  it("C) status com RUNNING: reflete visualmente o estado em execução", async () => {
+    comSessao();
+    mockFetch({
+      status: { status: 200, body: statusEnvelope(releaseRow({ status: "RUNNING" })) },
+    });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Em execução");
+  });
+});
+
+describe("AmbientesAdmin — release control plane (history)", () => {
+  it("D) history vazio: estado vazio controlado", async () => {
+    comSessao();
+    mockFetch();
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Nenhum registro de histórico encontrado.");
+  });
+
+  it("E) history com SUCCEEDED: renderiza dados reais de forma legível", async () => {
+    comSessao();
+    mockFetch({
+      history: { status: 200, body: historyEnvelope([releaseRow({ status: "SUCCEEDED", githubRunUrl: "https://github.com/org/repo/actions/runs/123" })]) },
+    });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Concluída");
+    expect(el.textContent).toContain(TARGET_SHA.slice(0, 7));
+    expect(el.textContent).toContain("marco@example.com");
+    expect(el.textContent).toContain("Ver execução");
+  });
+
+  it("F) history com FAILED + errorMessage: mostra status e mensagem sanitizada", async () => {
+    comSessao();
+    mockFetch({
+      history: {
+        status: 200,
+        body: historyEnvelope([releaseRow({ status: "FAILED", resultCode: "WORKFLOW_DISPATCH_FAILED", errorMessage: "Falha ao disparar o workflow." })]),
+      },
+    });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Falhou");
+    expect(el.textContent).toContain("Falha ao disparar o workflow.");
+  });
+
+  it("I) falha de history não derruba health/ambientes", async () => {
+    comSessao();
+    mockFetch({ history: { status: 500, body: { error: "Erro no servidor." } } });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("4c87dd6");
+    expect(el.querySelector('[aria-label="Health Homologação"]').textContent).toContain("Online");
+    expect(el.textContent).toContain("Erro no servidor.");
+  });
+
+  it("N) history não renderiza JSON.stringify bruto de um item", async () => {
+    comSessao();
+    mockFetch({
+      history: { status: 200, body: historyEnvelope([releaseRow({ status: "SUCCEEDED" })]) },
+    });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.innerHTML).not.toContain('"releaseId"');
+    expect(el.innerHTML).not.toContain('"targetSha"');
+    expect(el.innerHTML).not.toContain('"requestedBy"');
+  });
+});
+
+describe("AmbientesAdmin — release control plane (preflight)", () => {
+  it("G) preflight releaseReady=true: mostra prontidão positiva", async () => {
+    comSessao();
+    mockFetch({ preflight: { status: 200, body: preflightEnvelope({ releaseReady: true, blockers: [] }) } });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Pronta para promoção");
+  });
+
+  it("H) preflight releaseReady=false + blockers: mostra blockers de forma compreensível", async () => {
+    comSessao();
+    mockFetch({
+      preflight: {
+        status: 200,
+        body: preflightEnvelope({ releaseReady: false, blockers: [{ code: "BRANCH_DIVERGED" }], compare: { ahead: 1, behind: 1, fastForward: false, status: "DIVERGED" } }),
+      },
+    });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Não pronta para promoção");
+    expect(el.textContent).toContain("As branches divergiram (não é fast-forward).");
+  });
+
+  it("preflight releaseReady=true nunca habilita o botão de promoção", async () => {
+    comSessao();
+    mockFetch({ preflight: { status: 200, body: preflightEnvelope({ releaseReady: true, blockers: [] }) } });
+    const el = await renderTela();
+    await flush();
+
+    const botao = Array.from(el.querySelectorAll("button")).find((b) => b.textContent.includes("Promover para Produção"));
+    expect(botao.disabled).toBe(true);
+  });
+});
+
+describe("AmbientesAdmin — release control plane (autorização e escopo mutável)", () => {
+  it("J) 401 de /api/releases não é mascarado como 'sem releases'", async () => {
+    comSessao();
+    const erro401 = { status: 401, body: { error: "Token inválido." } };
+    mockFetch({ status: erro401, history: erro401, preflight: erro401 });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Sessão expirada ou inválida.");
+    expect(el.textContent).not.toContain("Nenhuma release ativa no momento.");
+  });
+
+  it("J) 403 de /api/releases mostra estado de não autorizado, não 'sem releases'", async () => {
+    comSessao();
+    const erro403 = { status: 403, body: { error: "Acesso restrito ao Super Admin." } };
+    mockFetch({ status: erro403, history: erro403, preflight: erro403 });
+    const el = await renderTela();
+    await flush();
+
+    expect(el.textContent).toContain("Acesso não autorizado para esta área.");
+    expect(el.textContent).not.toContain("Nenhuma release ativa no momento.");
+  });
+
+  it("K) botão de promoção para produção permanece disabled", async () => {
+    comSessao();
+    mockFetch();
+    const el = await renderTela();
+    await flush();
+
+    const botao = Array.from(el.querySelectorAll("button")).find((b) => b.textContent.includes("Promover para Produção"));
+    expect(botao).toBeTruthy();
+    expect(botao.disabled).toBe(true);
+  });
+
+  it("L) nenhum fetch é disparado com action promote, schedule ou cancel", async () => {
+    comSessao();
+    mockFetch();
+    await renderTela();
+    await flush();
+
+    const acoesReleases = globalThis.fetch.calls
+      .filter(({ url }) => new URL(url, "http://localhost").pathname === "/api/releases")
+      .map(({ opts }) => JSON.parse(opts.body).action);
+
+    expect(acoesReleases).not.toContain("promote");
+    expect(acoesReleases).not.toContain("schedule");
+    expect(acoesReleases).not.toContain("cancel");
+  });
+
+  it("M) não utiliza mais /api/ambientes?resource=history", async () => {
+    comSessao();
+    mockFetch();
+    await renderTela();
+    await flush();
+
+    const resourcesAmbientes = globalThis.fetch.calls
+      .filter(({ url }) => new URL(url, "http://localhost").pathname === "/api/ambientes")
+      .map(({ url }) => new URL(url, "http://localhost").searchParams.get("resource"));
+
+    expect(resourcesAmbientes).not.toContain("history");
   });
 });

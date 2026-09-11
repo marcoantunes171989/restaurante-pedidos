@@ -8,14 +8,25 @@ import { PageHeader, PrimeButton } from "../../components/Prime";
 import { supabase } from "../../lib/supabase.js";
 
 // ════════════════════════════════════════════════════════════
-//  Ambientes & Releases — Microgate 23
+//  Ambientes & Releases — Microgate 23 + Microgate 03
 //  Consome /api/ambientes (resources: environments, compare, deployments,
-//  health, history) com o Bearer da sessão Supabase já existente. GET-only,
-//  sem polling, sem mock em runtime — falhas por resource são isoladas e
-//  nunca inferem um estado saudável (UNKNOWN nunca vira ONLINE/SYNCED).
+//  health) e /api/releases (actions somente-leitura: status, history,
+//  preflight) com o Bearer da sessão Supabase já existente. Sem polling,
+//  sem mock em runtime — falhas por resource são isoladas e nunca inferem
+//  um estado saudável (UNKNOWN nunca vira ONLINE/SYNCED). promote/schedule/
+//  cancel permanecem fora de escopo: o botão de promoção continua disabled.
 // ════════════════════════════════════════════════════════════
 
-const RESOURCE_NAMES = ["environments", "compare", "deployments", "health", "history"];
+const AMBIENTE_RESOURCE_NAMES = ["environments", "compare", "deployments", "health"];
+
+// Ações somente-leitura do control plane de releases (POST /api/releases).
+const RELEASES_ACTIONS = [
+  { key: "releasesStatus", action: "status" },
+  { key: "releasesHistory", action: "history", extra: { limit: 20 } },
+  { key: "releasesPreflight", action: "preflight" },
+];
+
+const ALL_RESOURCE_KEYS = [...AMBIENTE_RESOURCE_NAMES, ...RELEASES_ACTIONS.map((r) => r.key)];
 
 const ESTADOS_COMPARACAO = {
   SYNCED: { label: "Sincronizados", tom: "ok" },
@@ -55,6 +66,32 @@ const DEPLOY_TOM = {
   ERROR: "erro", CANCELED: "erro", BLOCKED: "erro", UNKNOWN: "neutro",
 };
 
+// Estados possíveis de app_release_runs.status (releases-executor). Mapeamento
+// puramente visual — nenhuma state machine nova é criada (Microgate 03 §9).
+const RELEASE_STATUS_INFO = {
+  REQUESTED: { label: "Solicitada", descricao: "Release solicitada", tom: "alerta" },
+  SCHEDULED: { label: "Agendada", descricao: "Aguardando horário agendado", tom: "alerta" },
+  WAITING: { label: "Aguardando", descricao: "Aguardando execução", tom: "alerta" },
+  VALIDATING: { label: "Validando", descricao: "Validação em andamento", tom: "alerta" },
+  DISPATCHED: { label: "Disparada", descricao: "Workflow disparado no GitHub", tom: "azul" },
+  RUNNING: { label: "Em execução", descricao: "Implantação em andamento", tom: "azul" },
+  SUCCEEDED: { label: "Concluída", descricao: "Release concluída com sucesso", tom: "ok" },
+  FAILED: { label: "Falhou", descricao: "Release falhou", tom: "erro" },
+  BLOCKED: { label: "Bloqueada", descricao: "Release bloqueada", tom: "erro" },
+  CANCELED: { label: "Cancelada", descricao: "Release cancelada", tom: "neutro" },
+};
+
+const RELEASE_MODO_LABEL = { immediate: "Imediata", scheduled: "Agendada" };
+
+// Apenas blockers já existentes em server/release-core.js — nunca inventar
+// códigos novos aqui (Microgate 03 §8).
+const RELEASE_BLOCKER_LABEL = {
+  TARGET_SHA_CHANGED: "O commit de homologação mudou desde a última verificação.",
+  BRANCH_DIVERGED: "As branches divergiram (não é fast-forward).",
+  NO_CHANGES_TO_RELEASE: "Não há mudanças novas para promover.",
+  GITHUB_UNAVAILABLE: "Não foi possível consultar o GitHub agora.",
+};
+
 const PIPELINE_CONCEITUAL = [
   { id: "dev", label: "Desenvolvimento" },
   { id: "hml", label: "Homologação" },
@@ -85,7 +122,7 @@ function estadoInicialResource() {
 
 function estadoInicialResources() {
   const out = {};
-  RESOURCE_NAMES.forEach((r) => { out[r] = estadoInicialResource(); });
+  ALL_RESOURCE_KEYS.forEach((r) => { out[r] = estadoInicialResource(); });
   return out;
 }
 
@@ -106,6 +143,7 @@ function mensagemErroResource(resourceState) {
   if (resourceState.httpStatus === 401) return "Sessão expirada ou inválida.";
   if (resourceState.httpStatus === 403) return "Acesso não autorizado para esta área.";
   if (resourceState.httpStatus === 400) return "Requisição inválida.";
+  if (resourceState.httpStatus === 503) return "Indisponibilidade temporária do controle de releases.";
   if (typeof resourceState.httpStatus === "number" && resourceState.httpStatus >= 500) return "Erro no servidor.";
   return "Não foi possível carregar estes dados.";
 }
@@ -296,6 +334,55 @@ function HealthCard({ nomeAmbiente, ambienteHealth, healthState }) {
   );
 }
 
+// Card responsivo de um item do histórico de releases (POST /api/releases,
+// action:"history"). Nunca usa JSON.stringify(item) — cada campo é lido
+// explicitamente e campos vazios são omitidos (Microgate 03 §6/§7).
+function ReleaseHistoryCard({ item }) {
+  const info = RELEASE_STATUS_INFO[item.status] || { label: item.status || "Desconhecido", tom: "neutro" };
+  const linhas = [
+    { rotulo: "Modo", valor: RELEASE_MODO_LABEL[item.mode] || item.mode },
+    { rotulo: "Target", valor: item.targetSha ? item.targetSha.slice(0, 7) : null, mono: true },
+    { rotulo: "Base", valor: item.baseSha ? item.baseSha.slice(0, 7) : null, mono: true },
+    { rotulo: "Solicitante", valor: item.requestedBy?.email },
+    { rotulo: "Criada em", valor: item.createdAt ? formatarData(item.createdAt) : null },
+    { rotulo: "Agendada para", valor: item.scheduledAt ? formatarData(item.scheduledAt) : null },
+    { rotulo: "Disparada em", valor: item.dispatchedAt ? formatarData(item.dispatchedAt) : null },
+    { rotulo: "Concluída em", valor: item.completedAt ? formatarData(item.completedAt) : null },
+    { rotulo: "Resultado", valor: item.resultCode },
+  ].filter((l) => l.valor);
+
+  return (
+    <li className="min-w-0 rounded-xl border border-[#D1D5DB] bg-[#F9FAFB] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <StatusPill tom={info.tom}><PillIcone tom={info.tom} />{info.label}</StatusPill>
+        {item.githubRunUrl && (
+          <a
+            href={item.githubRunUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-[#012E46] hover:underline"
+          >
+            Ver execução <ExternalLink className="h-3 w-3" aria-hidden="true" />
+          </a>
+        )}
+      </div>
+      <dl className="mt-2.5 space-y-1.5">
+        {linhas.map((l) => (
+          <div key={l.rotulo} className="flex items-start justify-between gap-3 text-[12px]">
+            <dt className="shrink-0 text-[#6B7280]">{l.rotulo}</dt>
+            <dd className={`min-w-0 truncate text-right font-semibold text-[#111111] ${l.mono ? "font-mono" : ""}`}>{l.valor}</dd>
+          </div>
+        ))}
+      </dl>
+      {item.errorMessage && (
+        <p className="mt-2.5 break-words rounded-lg border border-[#F3C1CE] bg-[#FDF0F3] px-2.5 py-1.5 text-[11px] font-semibold text-[#9F1239]">
+          {item.errorMessage}
+        </p>
+      )}
+    </li>
+  );
+}
+
 // Estado vazio para superfície clara (fundo branco), local a esta página.
 function EmptyStateClaro({ icone = null, titulo, dica }) {
   return (
@@ -377,25 +464,45 @@ export default function AmbientesAdmin() {
       setSessaoStatus("ok");
       setResources((prev) => {
         const next = { ...prev };
-        RESOURCE_NAMES.forEach((r) => { next[r] = { ...next[r], status: "loading" }; });
+        ALL_RESOURCE_KEYS.forEach((r) => { next[r] = { ...next[r], status: "loading" }; });
         return next;
       });
 
+      const ambienteFetchers = AMBIENTE_RESOURCE_NAMES.map((resource) => async () => {
+        const response = await fetch(`/api/ambientes?resource=${resource}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        let body = null;
+        try { body = await response.json(); } catch { /* corpo não-JSON */ }
+        if (!response.ok) {
+          return { resource, status: "error", httpStatus: response.status, errorCode: body?.error || null };
+        }
+        return { resource, status: "success", httpStatus: response.status, data: body?.data ?? null, source: body?.source ?? null };
+      });
+
+      // Control plane de releases — somente status/history/preflight
+      // (Microgate 03). Nunca promote/schedule/cancel a partir daqui.
+      const releasesFetchers = RELEASES_ACTIONS.map(({ key, action, extra }) => async () => {
+        const response = await fetch("/api/releases", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ action, ...extra }),
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        let body = null;
+        try { body = await response.json(); } catch { /* corpo não-JSON */ }
+        if (!response.ok) {
+          return { resource: key, status: "error", httpStatus: response.status, errorCode: body?.error || null };
+        }
+        return { resource: key, status: "success", httpStatus: response.status, data: body, source: null };
+      });
+
       const settled = await Promise.allSettled(
-        RESOURCE_NAMES.map(async (resource) => {
-          const response = await fetch(`/api/ambientes?resource=${resource}`, {
-            method: "GET",
-            headers: { Authorization: `Bearer ${token}` },
-            signal: controller.signal,
-            cache: "no-store",
-          });
-          let body = null;
-          try { body = await response.json(); } catch { /* corpo não-JSON */ }
-          if (!response.ok) {
-            return { resource, status: "error", httpStatus: response.status, errorCode: body?.error || null };
-          }
-          return { resource, status: "success", httpStatus: response.status, data: body?.data ?? null, source: body?.source ?? null };
-        }),
+        [...ambienteFetchers, ...releasesFetchers].map((run) => run()),
       );
 
       if (!montadoRef.current || controller.signal.aborted) return;
@@ -403,7 +510,7 @@ export default function AmbientesAdmin() {
       setResources((prev) => {
         const next = { ...prev };
         settled.forEach((result, idx) => {
-          const resource = RESOURCE_NAMES[idx];
+          const resource = ALL_RESOURCE_KEYS[idx];
           if (result.status === "fulfilled") {
             const r = result.value;
             if (r.status === "success") {
@@ -437,18 +544,18 @@ export default function AmbientesAdmin() {
         ? `Atualizado há ${segundos}s`
         : `Atualizado há ${Math.round(segundos / 60)} min`;
 
-  const successCount = RESOURCE_NAMES.filter((r) => resources[r].status === "success").length;
-  const errorCount = RESOURCE_NAMES.filter((r) => resources[r].status === "error").length;
-  const algumAuthErro = RESOURCE_NAMES.some((r) => resources[r].httpStatus === 401);
-  const algumForbidden = RESOURCE_NAMES.some((r) => resources[r].httpStatus === 403);
+  const successCount = ALL_RESOURCE_KEYS.filter((r) => resources[r].status === "success").length;
+  const errorCount = ALL_RESOURCE_KEYS.filter((r) => resources[r].status === "error").length;
+  const algumAuthErro = ALL_RESOURCE_KEYS.some((r) => resources[r].httpStatus === 401);
+  const algumForbidden = ALL_RESOURCE_KEYS.some((r) => resources[r].httpStatus === 403);
 
   let pageStatus = "LOADING";
   if (sessaoStatus === "indisponivel") pageStatus = "AUTH_ERROR";
   else if (algumAuthErro) pageStatus = "AUTH_ERROR";
   else if (algumForbidden) pageStatus = "FORBIDDEN";
-  else if (successCount === RESOURCE_NAMES.length) pageStatus = "SUCCESS";
+  else if (successCount === ALL_RESOURCE_KEYS.length) pageStatus = "SUCCESS";
   else if (successCount > 0 && errorCount > 0) pageStatus = "PARTIAL";
-  else if (errorCount === RESOURCE_NAMES.length) pageStatus = "ERROR";
+  else if (errorCount === ALL_RESOURCE_KEYS.length) pageStatus = "ERROR";
 
   const indicadorStatus = pageStatus === "SUCCESS" ? { rotulo: "Dados atualizados", valor: "●", tom: "ok" }
     : pageStatus === "PARTIAL" ? { rotulo: "Dados parciais", valor: "●", tom: "alerta" }
@@ -476,7 +583,15 @@ export default function AmbientesAdmin() {
   const compareState = resources.compare;
   const deploymentsState = resources.deployments;
   const healthState = resources.health;
-  const historyState = resources.history;
+  const releasesStatusState = resources.releasesStatus;
+  const releasesHistoryState = resources.releasesHistory;
+  const releasesPreflightState = resources.releasesPreflight;
+
+  const activeRelease = releasesStatusState.status === "success" ? releasesStatusState.data?.activeRelease ?? null : null;
+  const historyItems = releasesHistoryState.status === "success" ? (releasesHistoryState.data?.items || []) : [];
+  const preflightData = releasesPreflightState.status === "success" ? releasesPreflightState.data : null;
+  const releaseReady = preflightData?.releaseReady === true;
+  const releaseBlockers = Array.isArray(preflightData?.blockers) ? preflightData.blockers : [];
 
   const envHomologacao = Array.isArray(environmentsState.data)
     ? environmentsState.data.find((e) => e.environment === "homologacao") : null;
@@ -581,6 +696,28 @@ export default function AmbientesAdmin() {
 
       {/* Pipeline (conceitual — sem status dinâmico inventado) */}
       <Secao icone={<GitBranch className="h-4 w-4" aria-hidden="true" />} titulo="Pipeline de release" descricao="Etapas conceituais até a promoção para Produção.">
+        <div className="mb-4">
+          {releasesStatusState.status !== "success" ? (
+            <EstadoResourceInline resourceState={releasesStatusState} rotulo="status da release" />
+          ) : activeRelease ? (
+            <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-[#D1D5DB] bg-[#F9FAFB] p-3">
+              {(() => {
+                const info = RELEASE_STATUS_INFO[activeRelease.status] || { label: activeRelease.status || "Desconhecido", tom: "neutro" };
+                return (
+                  <>
+                    <StatusPill tom={info.tom}><PillIcone tom={info.tom} />{info.label}</StatusPill>
+                    {info.descricao && <span className="text-[12px] text-[#6B7280]">{info.descricao}</span>}
+                  </>
+                );
+              })()}
+              {activeRelease.targetSha && (
+                <span className="font-mono text-[12px] font-semibold text-[#111111]">→ {activeRelease.targetSha.slice(0, 7)}</span>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-[#6B7280]">Nenhuma release ativa no momento.</p>
+          )}
+        </div>
         <div className="flex flex-col lg:flex-row lg:items-stretch">
           {PIPELINE_CONCEITUAL.map((etapa, i) => (
             <PipelineEtapa key={etapa.id} etapa={etapa} ultima={i === PIPELINE_CONCEITUAL.length - 1} />
@@ -695,16 +832,17 @@ export default function AmbientesAdmin() {
 
       {/* Histórico (Central de Releases) */}
       <Secao icone={<History className="h-4 w-4" aria-hidden="true" />} titulo="Histórico de releases">
-        {historyState.status !== "success" ? (
-          <EstadoResourceInline resourceState={historyState} rotulo="histórico" />
-        ) : historyState.data?.source === "not_connected" ? (
-          <EmptyStateClaro titulo="Histórico ainda não conectado." dica="Esta fonte de histórico ainda não está integrada." />
-        ) : (historyState.data?.items || []).length === 0 ? (
-          <EmptyStateClaro titulo="Nenhum registro de histórico encontrado." />
+        {releasesHistoryState.status !== "success" ? (
+          <EstadoResourceInline resourceState={releasesHistoryState} rotulo="histórico de releases" />
+        ) : historyItems.length === 0 ? (
+          <EmptyStateClaro
+            icone={<History className="h-6 w-6" aria-hidden="true" />}
+            titulo="Nenhum registro de histórico encontrado."
+          />
         ) : (
-          <ul className="divide-y divide-[#F3F4F6]">
-            {historyState.data.items.map((item, i) => (
-              <li key={item.id ?? i} className="py-2 text-sm text-[#111111]">{JSON.stringify(item)}</li>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {historyItems.map((item, i) => (
+              <ReleaseHistoryCard key={item.releaseId ?? i} item={item} />
             ))}
           </ul>
         )}
@@ -715,6 +853,37 @@ export default function AmbientesAdmin() {
         <ul>
           {checklist.map((item) => <ChecklistLinha key={item.id} item={item} />)}
         </ul>
+      </Secao>
+
+      {/* Prontidão para release (somente leitura — não habilita promoção) */}
+      <Secao
+        icone={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
+        titulo="Prontidão para release"
+        descricao="Validação somente leitura entre Homologação e Produção."
+      >
+        {releasesPreflightState.status !== "success" ? (
+          <EstadoResourceInline resourceState={releasesPreflightState} rotulo="prontidão para release" />
+        ) : (
+          <div className="flex flex-col gap-3">
+            <StatusPill tom={releaseReady ? "ok" : "alerta"}>
+              <PillIcone tom={releaseReady ? "ok" : "alerta"} />
+              {releaseReady ? "Pronta para promoção" : "Não pronta para promoção"}
+            </StatusPill>
+            {!releaseReady && releaseBlockers.length > 0 && (
+              <ul className="space-y-1.5">
+                {releaseBlockers.map((b, i) => (
+                  <li
+                    key={b.code || i}
+                    className="flex items-start gap-2 rounded-xl border border-[#F9D8AE] bg-[#FFF7ED] px-3 py-2 text-[12px] font-semibold text-[#9A5B12]"
+                  >
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 break-words">{RELEASE_BLOCKER_LABEL[b.code] || b.code}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </Secao>
 
       {/* Ação futura */}
