@@ -322,6 +322,27 @@ export async function findActiveProductionRelease(token) {
   return { ok: true, active: false, diagnostic };
 }
 
+const GITHUB_PAT_PREFIX_RE = /^(ghp_|github_pat_)/;
+const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/;
+
+// RELEASE-AUTO-06N-DIAG-03: metadata sanitizada sobre a integridade do valor
+// de GITHUB_RELEASE_TOKEN recebido no runtime. Nunca retorna o token, nem
+// prefixo/sufixo além do boolean tokenStartsWithGithubPat, nem o hash
+// completo — apenas os 12 primeiros caracteres hex do SHA-256 do valor
+// exato. Função pura, sem I/O, usada tanto no diagnostic real quanto nos
+// testes.
+export function buildTokenIntegrityDiagnostic(rawToken) {
+  const token = typeof rawToken === "string" ? rawToken : "";
+  const tokenFingerprint = crypto.createHash("sha256").update(token, "utf8").digest("hex").slice(0, 12);
+  return {
+    tokenLength: token.length,
+    tokenStartsWithGithubPat: GITHUB_PAT_PREFIX_RE.test(token),
+    tokenHasLeadingOrTrailingWhitespace: token.trim() !== token,
+    tokenHasControlCharacters: CONTROL_CHAR_RE.test(token),
+    tokenFingerprint,
+  };
+}
+
 // RELEASE-AUTO-06N-DIAG-01: verificação Super Admin SOMENTE LEITURA — roda
 // a MESMA consulta usada por findActiveProductionRelease() (com
 // GITHUB_RELEASE_TOKEN, o token usado no dispatch real) e devolve apenas o
@@ -330,7 +351,10 @@ export async function findActiveProductionRelease(token) {
 export async function runReleaseGithubDiagnostic() {
   const token = githubReleaseToken();
   const result = await findActiveProductionRelease(token);
-  return { ok: result.ok, diagnostic: result.diagnostic };
+  return {
+    ok: result.ok,
+    diagnostic: { ...result.diagnostic, ...buildTokenIntegrityDiagnostic(token) },
+  };
 }
 
 export async function findReleaseByRequestId(token, releaseId) {

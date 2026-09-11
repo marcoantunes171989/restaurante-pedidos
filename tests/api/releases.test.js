@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import handler from "../../api/releases.js";
 import { buildServiceRoleHeaders, classifyServiceKey, listReleases } from "../../server/release-store.js";
+import { buildTokenIntegrityDiagnostic } from "../../server/release-core.js";
 
 // ════════════════════════════════════════════════════════════
 // RELEASE-AUTO-01 — /api/releases: control plane de preflight.
@@ -1784,6 +1785,11 @@ describe("releases — release-github-diagnostic", () => {
       parseError: false,
       workflowRunsArray: false,
       ok: false,
+      tokenLength: 0,
+      tokenStartsWithGithubPat: false,
+      tokenHasLeadingOrTrailingWhitespace: false,
+      tokenHasControlCharacters: false,
+      tokenFingerprint: "e3b0c44298fc",
     });
     expect(actionsCalls(fn)).toHaveLength(0);
   });
@@ -1906,6 +1912,77 @@ describe("releases — release-github-diagnostic", () => {
     const res = await releaseGithubDiagnostic();
     expect(res.statusCode).toBe(403);
     expect(githubCalls(fn)).toHaveLength(0);
+  });
+
+  it("token configurado → diagnostic inclui campos sanitizados de integridade do token", async () => {
+    mockFetch({
+      operatorRows: [superAdminRow],
+      github: readyGithub({ runs: () => githubOk({ workflow_runs: [{ id: 1, status: "completed", conclusion: "success" }] }) }),
+    });
+    const res = await releaseGithubDiagnostic();
+    const body = res.json();
+    expect(body.diagnostic.tokenLength).toBe(GITHUB_RELEASE_TOKEN.length);
+    expect(body.diagnostic.tokenStartsWithGithubPat).toBe(false);
+    expect(body.diagnostic.tokenHasLeadingOrTrailingWhitespace).toBe(false);
+    expect(body.diagnostic.tokenHasControlCharacters).toBe(false);
+    expect(body.diagnostic.tokenFingerprint).toBe("59d0646ec810");
+    assertNoSecrets(String(res.body));
+  });
+});
+
+// ════════════════════════════════════════════════════════════
+// RELEASE-AUTO-06N-DIAG-03 — buildTokenIntegrityDiagnostic:
+// função pura de metadata sanitizada sobre GITHUB_RELEASE_TOKEN.
+// Nunca expõe o token, prefixo/sufixo, header Authorization, body do
+// GitHub ou o hash SHA-256 completo — apenas os sinais abaixo.
+// ════════════════════════════════════════════════════════════
+describe("buildTokenIntegrityDiagnostic — metadata sanitizada do token", () => {
+  it("tokenFingerprint tem exatamente 12 caracteres hexadecimais", () => {
+    const result = buildTokenIntegrityDiagnostic(GITHUB_RELEASE_TOKEN);
+    expect(result.tokenFingerprint).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it("token real nunca aparece no resultado", () => {
+    const result = buildTokenIntegrityDiagnostic(GITHUB_RELEASE_TOKEN);
+    const raw = JSON.stringify(result);
+    expect(raw).not.toContain(GITHUB_RELEASE_TOKEN);
+    assertNoSecrets(raw);
+  });
+
+  it("detecta espaço em branco no início/fim do token", () => {
+    expect(buildTokenIntegrityDiagnostic(" ghp_abc123").tokenHasLeadingOrTrailingWhitespace).toBe(true);
+    expect(buildTokenIntegrityDiagnostic("ghp_abc123 ").tokenHasLeadingOrTrailingWhitespace).toBe(true);
+    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenHasLeadingOrTrailingWhitespace).toBe(false);
+  });
+
+  it("detecta caracteres de controle no token", () => {
+    expect(buildTokenIntegrityDiagnostic("ghp_abc\n123").tokenHasControlCharacters).toBe(true);
+    expect(buildTokenIntegrityDiagnostic("ghp_abc\t123").tokenHasControlCharacters).toBe(true);
+    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenHasControlCharacters).toBe(false);
+  });
+
+  it("tokenStartsWithGithubPat identifica prefixos PAT do GitHub", () => {
+    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenStartsWithGithubPat).toBe(true);
+    expect(buildTokenIntegrityDiagnostic("github_pat_abc123").tokenStartsWithGithubPat).toBe(true);
+    expect(buildTokenIntegrityDiagnostic("gho_abc123").tokenStartsWithGithubPat).toBe(false);
+    expect(buildTokenIntegrityDiagnostic("").tokenStartsWithGithubPat).toBe(false);
+  });
+
+  it("tokenLength reflete o tamanho exato do valor recebido", () => {
+    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenLength).toBe(10);
+    expect(buildTokenIntegrityDiagnostic("").tokenLength).toBe(0);
+  });
+
+  it("token ausente (string vazia/não-string) não quebra e retorna metadata neutra", () => {
+    expect(buildTokenIntegrityDiagnostic("")).toEqual({
+      tokenLength: 0,
+      tokenStartsWithGithubPat: false,
+      tokenHasLeadingOrTrailingWhitespace: false,
+      tokenHasControlCharacters: false,
+      tokenFingerprint: "e3b0c44298fc",
+    });
+    expect(buildTokenIntegrityDiagnostic(undefined).tokenFingerprint).toBe("e3b0c44298fc");
+    expect(buildTokenIntegrityDiagnostic(null).tokenFingerprint).toBe("e3b0c44298fc");
   });
 });
 
