@@ -28,7 +28,6 @@ import {
   parseScheduledAt,
   reconcileReleaseGithub,
   runPreflight,
-  runReleaseGithubDiagnostic,
 } from "../server/release-core.js";
 import {
   CANCELABLE_RELEASE_STATUSES,
@@ -446,20 +445,6 @@ async function handleCancel(reqBody, res) {
   });
 }
 
-// RELEASE-AUTO-06N-DIAG-01: SOMENTE LEITURA — mesma autenticação Super
-// Admin, mesma consulta GitHub Actions de findActiveProductionRelease().
-// Nunca cria/atualiza app_release_runs, nunca chama workflow_dispatch,
-// nunca promove/agenda. Retorna apenas o diagnostic sanitizado.
-async function handleReleaseGithubDiagnostic(res) {
-  const result = await runReleaseGithubDiagnostic();
-  return json(res, 200, {
-    ok: true,
-    action: "release-github-diagnostic",
-    diagnostic: result.diagnostic,
-    generatedAt: generatedAt(),
-  });
-}
-
 async function handleHistory(reqBody, res) {
   const limit = clampHistoryLimit(reqBody.limit);
   const listed = await listReleases({ limit });
@@ -564,10 +549,6 @@ export default async function handler(req, res) {
 
   if (action === "cancel") {
     return handleCancel(parsed.body, res);
-  }
-
-  if (action === "release-github-diagnostic") {
-    return handleReleaseGithubDiagnostic(res);
   }
 
   if (action === "history") {

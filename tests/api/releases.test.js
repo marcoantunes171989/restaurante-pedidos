@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import handler from "../../api/releases.js";
 import { buildServiceRoleHeaders, classifyServiceKey, listReleases } from "../../server/release-store.js";
-import { buildTokenIntegrityDiagnostic } from "../../server/release-core.js";
 
 // ════════════════════════════════════════════════════════════
 // RELEASE-AUTO-01 — /api/releases: control plane de preflight.
@@ -86,21 +85,6 @@ function githubAbort() {
   const err = new Error("aborted");
   err.name = "AbortError";
   throw err;
-}
-
-function githubNetworkError() {
-  throw new Error("network down");
-}
-
-function githubMalformed() {
-  return {
-    ok: true,
-    status: 200,
-    json: async () => {
-      throw new Error("bad json");
-    },
-    text: async () => "not-json{{{",
-  };
 }
 
 function makeCommit(sha, { message = "feat: ajuste", author = "marco", date = "2026-09-09T10:00:00Z" } = {}) {
@@ -338,15 +322,6 @@ async function cancelRelease(extraBody = {}) {
   await handler(makeReq({
     headers: authHeaders(),
     body: { action: "cancel", confirmation: "CANCELAR", ...extraBody },
-  }), res);
-  return res;
-}
-
-async function releaseGithubDiagnostic(extraBody = {}) {
-  const res = makeRes();
-  await handler(makeReq({
-    headers: authHeaders(),
-    body: { action: "release-github-diagnostic", ...extraBody },
   }), res);
   return res;
 }
@@ -1759,230 +1734,6 @@ describe("release-store — autenticação da service key contra o Data API", ()
     assertNoSecrets(String(ok.body));
     expect(String(ok.body)).not.toContain(SECRET_KEY);
     expect(String(ok.body)).not.toContain(ANON_JWT);
-  });
-});
-
-// ════════════════════════════════════════════════════════════
-// RELEASE-AUTO-06N-DIAG-01 — release-github-diagnostic:
-// ação Super Admin somente leitura, mesma consulta GitHub Actions de
-// findActiveProductionRelease(), nunca dispatch/promote/schedule/registry.
-// ════════════════════════════════════════════════════════════
-describe("releases — release-github-diagnostic", () => {
-  it("token GITHUB_RELEASE_TOKEN ausente → diagnostic tokenConfigured false, sem chamada GitHub", async () => {
-    delete process.env.GITHUB_RELEASE_TOKEN;
-    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-    const res = await releaseGithubDiagnostic();
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(body.ok).toBe(true);
-    expect(body.action).toBe("release-github-diagnostic");
-    expect(body.diagnostic).toEqual({
-      stage: "workflow-runs",
-      tokenConfigured: false,
-      httpStatus: null,
-      timeout: false,
-      networkError: false,
-      parseError: false,
-      workflowRunsArray: false,
-      ok: false,
-      tokenLength: 0,
-      tokenStartsWithGithubPat: false,
-      tokenHasLeadingOrTrailingWhitespace: false,
-      tokenHasControlCharacters: false,
-      tokenFingerprint: "e3b0c44298fc",
-    });
-    expect(actionsCalls(fn)).toHaveLength(0);
-  });
-
-  it.each([401, 403])("GitHub HTTP %d → diagnostic httpStatus refletido, ok false", async (status) => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({
-        runs: () => githubError(status, { message: "Bad credentials" }),
-      }),
-    });
-    const res = await releaseGithubDiagnostic();
-    expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(body.diagnostic.tokenConfigured).toBe(true);
-    expect(body.diagnostic.httpStatus).toBe(status);
-    expect(body.diagnostic.ok).toBe(false);
-    expect(body.diagnostic.timeout).toBe(false);
-    expect(body.diagnostic.networkError).toBe(false);
-    expect(body.diagnostic.parseError).toBe(false);
-    expect(body.diagnostic.workflowRunsArray).toBe(false);
-  });
-
-  it("timeout na consulta GitHub → diagnostic timeout true, ok false", async () => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({ runs: () => githubAbort() }),
-    });
-    const res = await releaseGithubDiagnostic();
-    const body = res.json();
-    expect(body.diagnostic.timeout).toBe(true);
-    expect(body.diagnostic.httpStatus).toBe(0);
-    expect(body.diagnostic.ok).toBe(false);
-  });
-
-  it("networkError na consulta GitHub → diagnostic networkError true, ok false", async () => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({ runs: () => githubNetworkError() }),
-    });
-    const res = await releaseGithubDiagnostic();
-    const body = res.json();
-    expect(body.diagnostic.networkError).toBe(true);
-    expect(body.diagnostic.timeout).toBe(false);
-    expect(body.diagnostic.ok).toBe(false);
-  });
-
-  it("parseError no corpo do GitHub → diagnostic parseError true, ok false", async () => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({ runs: () => githubMalformed() }),
-    });
-    const res = await releaseGithubDiagnostic();
-    const body = res.json();
-    expect(body.diagnostic.parseError).toBe(true);
-    expect(body.diagnostic.httpStatus).toBe(200);
-    expect(body.diagnostic.workflowRunsArray).toBe(false);
-    expect(body.diagnostic.ok).toBe(false);
-  });
-
-  it("workflow_runs ausente no corpo (200 válido) → workflowRunsArray false, ok false", async () => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({ runs: () => githubOk({ message: "sem campo workflow_runs" }) }),
-    });
-    const res = await releaseGithubDiagnostic();
-    const body = res.json();
-    expect(body.diagnostic.httpStatus).toBe(200);
-    expect(body.diagnostic.parseError).toBe(false);
-    expect(body.diagnostic.workflowRunsArray).toBe(false);
-    expect(body.diagnostic.ok).toBe(false);
-  });
-
-  it("workflow_runs válido → diagnostic ok true", async () => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({ runs: () => githubOk({ workflow_runs: [{ id: 1, status: "completed", conclusion: "success" }] }) }),
-    });
-    const res = await releaseGithubDiagnostic();
-    const body = res.json();
-    expect(body.diagnostic.httpStatus).toBe(200);
-    expect(body.diagnostic.workflowRunsArray).toBe(true);
-    expect(body.diagnostic.ok).toBe(true);
-    expect(body.diagnostic.timeout).toBe(false);
-    expect(body.diagnostic.networkError).toBe(false);
-    expect(body.diagnostic.parseError).toBe(false);
-  });
-
-  it("nenhum segredo aparece na resposta do diagnóstico", async () => {
-    mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-    const res = await releaseGithubDiagnostic();
-    assertNoSecrets(String(res.body));
-  });
-
-  it("diagnostic action não chama workflow_dispatch", async () => {
-    const fn = mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({
-        runs: () => githubOk({ workflow_runs: [{ id: 1, status: "in_progress" }] }),
-      }),
-    });
-    const res = await releaseGithubDiagnostic();
-    expect(res.statusCode).toBe(200);
-    expect(dispatchCalls(fn)).toHaveLength(0);
-  });
-
-  it("diagnostic action não cria nem atualiza app_release_runs", async () => {
-    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
-    const res = await releaseGithubDiagnostic();
-    expect(res.statusCode).toBe(200);
-    expect(registryCalls(fn)).toHaveLength(0);
-    expect(fn.registry.rows.size).toBe(0);
-  });
-
-  it("usuário autenticado porém não Super Admin → 403, sem consultar GitHub", async () => {
-    const fn = mockFetch({
-      operatorRows: [{ ativo: true, super_admin: false, loja_id: 5, ids_acesso: [] }],
-      github: readyGithub(),
-    });
-    const res = await releaseGithubDiagnostic();
-    expect(res.statusCode).toBe(403);
-    expect(githubCalls(fn)).toHaveLength(0);
-  });
-
-  it("token configurado → diagnostic inclui campos sanitizados de integridade do token", async () => {
-    mockFetch({
-      operatorRows: [superAdminRow],
-      github: readyGithub({ runs: () => githubOk({ workflow_runs: [{ id: 1, status: "completed", conclusion: "success" }] }) }),
-    });
-    const res = await releaseGithubDiagnostic();
-    const body = res.json();
-    expect(body.diagnostic.tokenLength).toBe(GITHUB_RELEASE_TOKEN.length);
-    expect(body.diagnostic.tokenStartsWithGithubPat).toBe(false);
-    expect(body.diagnostic.tokenHasLeadingOrTrailingWhitespace).toBe(false);
-    expect(body.diagnostic.tokenHasControlCharacters).toBe(false);
-    expect(body.diagnostic.tokenFingerprint).toBe("59d0646ec810");
-    assertNoSecrets(String(res.body));
-  });
-});
-
-// ════════════════════════════════════════════════════════════
-// RELEASE-AUTO-06N-DIAG-03 — buildTokenIntegrityDiagnostic:
-// função pura de metadata sanitizada sobre GITHUB_RELEASE_TOKEN.
-// Nunca expõe o token, prefixo/sufixo, header Authorization, body do
-// GitHub ou o hash SHA-256 completo — apenas os sinais abaixo.
-// ════════════════════════════════════════════════════════════
-describe("buildTokenIntegrityDiagnostic — metadata sanitizada do token", () => {
-  it("tokenFingerprint tem exatamente 12 caracteres hexadecimais", () => {
-    const result = buildTokenIntegrityDiagnostic(GITHUB_RELEASE_TOKEN);
-    expect(result.tokenFingerprint).toMatch(/^[0-9a-f]{12}$/);
-  });
-
-  it("token real nunca aparece no resultado", () => {
-    const result = buildTokenIntegrityDiagnostic(GITHUB_RELEASE_TOKEN);
-    const raw = JSON.stringify(result);
-    expect(raw).not.toContain(GITHUB_RELEASE_TOKEN);
-    assertNoSecrets(raw);
-  });
-
-  it("detecta espaço em branco no início/fim do token", () => {
-    expect(buildTokenIntegrityDiagnostic(" ghp_abc123").tokenHasLeadingOrTrailingWhitespace).toBe(true);
-    expect(buildTokenIntegrityDiagnostic("ghp_abc123 ").tokenHasLeadingOrTrailingWhitespace).toBe(true);
-    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenHasLeadingOrTrailingWhitespace).toBe(false);
-  });
-
-  it("detecta caracteres de controle no token", () => {
-    expect(buildTokenIntegrityDiagnostic("ghp_abc\n123").tokenHasControlCharacters).toBe(true);
-    expect(buildTokenIntegrityDiagnostic("ghp_abc\t123").tokenHasControlCharacters).toBe(true);
-    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenHasControlCharacters).toBe(false);
-  });
-
-  it("tokenStartsWithGithubPat identifica prefixos PAT do GitHub", () => {
-    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenStartsWithGithubPat).toBe(true);
-    expect(buildTokenIntegrityDiagnostic("github_pat_abc123").tokenStartsWithGithubPat).toBe(true);
-    expect(buildTokenIntegrityDiagnostic("gho_abc123").tokenStartsWithGithubPat).toBe(false);
-    expect(buildTokenIntegrityDiagnostic("").tokenStartsWithGithubPat).toBe(false);
-  });
-
-  it("tokenLength reflete o tamanho exato do valor recebido", () => {
-    expect(buildTokenIntegrityDiagnostic("ghp_abc123").tokenLength).toBe(10);
-    expect(buildTokenIntegrityDiagnostic("").tokenLength).toBe(0);
-  });
-
-  it("token ausente (string vazia/não-string) não quebra e retorna metadata neutra", () => {
-    expect(buildTokenIntegrityDiagnostic("")).toEqual({
-      tokenLength: 0,
-      tokenStartsWithGithubPat: false,
-      tokenHasLeadingOrTrailingWhitespace: false,
-      tokenHasControlCharacters: false,
-      tokenFingerprint: "e3b0c44298fc",
-    });
-    expect(buildTokenIntegrityDiagnostic(undefined).tokenFingerprint).toBe("e3b0c44298fc");
-    expect(buildTokenIntegrityDiagnostic(null).tokenFingerprint).toBe("e3b0c44298fc");
   });
 });
 

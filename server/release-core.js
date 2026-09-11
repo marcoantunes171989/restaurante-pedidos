@@ -262,99 +262,19 @@ export function mapGithubRunToReleaseStatus(run) {
   return null;
 }
 
-// Diagnóstico sanitizado da consulta GitHub Actions usada por
-// findActiveProductionRelease(). Nunca inclui token, prefixo do token,
-// headers, Authorization, body bruto do GitHub, mensagem do GitHub, URL
-// com credencial ou qualquer segredo — apenas os sinais estruturais abaixo.
-function buildGithubDiagnostic(stage, {
-  tokenConfigured = false,
-  httpStatus = null,
-  timeout = false,
-  networkError = false,
-  parseError = false,
-  workflowRunsArray = false,
-  ok = false,
-} = {}) {
-  return {
-    stage,
-    tokenConfigured,
-    httpStatus,
-    timeout,
-    networkError,
-    parseError,
-    workflowRunsArray,
-    ok,
-  };
-}
-
 export async function findActiveProductionRelease(token) {
-  const tokenConfigured = Boolean(token);
-  if (!tokenConfigured) {
-    return { ok: false, diagnostic: buildGithubDiagnostic("workflow-runs", { tokenConfigured: false }) };
-  }
-
   const result = await githubRequest(
     `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/${PRODUCTION_WORKFLOW}/runs?per_page=20`,
     { token, method: "GET" },
   );
-  const workflowRunsArray = Array.isArray(result.body?.workflow_runs);
-  const queryOk = Boolean(result.ok) && !result.parseError && workflowRunsArray;
-  const diagnostic = buildGithubDiagnostic("workflow-runs", {
-    tokenConfigured: true,
-    httpStatus: typeof result.status === "number" ? result.status : null,
-    timeout: Boolean(result.timeout),
-    networkError: Boolean(result.networkError),
-    parseError: Boolean(result.parseError),
-    workflowRunsArray,
-    ok: queryOk,
-  });
-
-  if (!queryOk) {
-    return { ok: false, diagnostic };
+  if (!result.ok || result.parseError || !Array.isArray(result.body?.workflow_runs)) {
+    return { ok: false };
   }
-
   for (const run of result.body.workflow_runs) {
-    if (!run || typeof run.status !== "string") {
-      return { ok: false, diagnostic: { ...diagnostic, ok: false } };
-    }
-    if (ACTIVE_RUN_STATUSES.has(run.status)) return { ok: true, active: true, run, diagnostic };
+    if (!run || typeof run.status !== "string") return { ok: false };
+    if (ACTIVE_RUN_STATUSES.has(run.status)) return { ok: true, active: true, run };
   }
-  return { ok: true, active: false, diagnostic };
-}
-
-const GITHUB_PAT_PREFIX_RE = /^(ghp_|github_pat_)/;
-const CONTROL_CHAR_RE = /[\x00-\x1f\x7f]/;
-
-// RELEASE-AUTO-06N-DIAG-03: metadata sanitizada sobre a integridade do valor
-// de GITHUB_RELEASE_TOKEN recebido no runtime. Nunca retorna o token, nem
-// prefixo/sufixo além do boolean tokenStartsWithGithubPat, nem o hash
-// completo — apenas os 12 primeiros caracteres hex do SHA-256 do valor
-// exato. Função pura, sem I/O, usada tanto no diagnostic real quanto nos
-// testes.
-export function buildTokenIntegrityDiagnostic(rawToken) {
-  const token = typeof rawToken === "string" ? rawToken : "";
-  const tokenFingerprint = crypto.createHash("sha256").update(token, "utf8").digest("hex").slice(0, 12);
-  return {
-    tokenLength: token.length,
-    tokenStartsWithGithubPat: GITHUB_PAT_PREFIX_RE.test(token),
-    tokenHasLeadingOrTrailingWhitespace: token.trim() !== token,
-    tokenHasControlCharacters: CONTROL_CHAR_RE.test(token),
-    tokenFingerprint,
-  };
-}
-
-// RELEASE-AUTO-06N-DIAG-01: verificação Super Admin SOMENTE LEITURA — roda
-// a MESMA consulta usada por findActiveProductionRelease() (com
-// GITHUB_RELEASE_TOKEN, o token usado no dispatch real) e devolve apenas o
-// diagnostic sanitizado. Nunca cria/atualiza app_release_runs e nunca
-// chama workflow_dispatch.
-export async function runReleaseGithubDiagnostic() {
-  const token = githubReleaseToken();
-  const result = await findActiveProductionRelease(token);
-  return {
-    ok: result.ok,
-    diagnostic: { ...result.diagnostic, ...buildTokenIntegrityDiagnostic(token) },
-  };
+  return { ok: true, active: false };
 }
 
 export async function findReleaseByRequestId(token, releaseId) {
@@ -415,12 +335,7 @@ async function dispatchNewRelease({ targetSha, baseSha, releaseId, idempotent })
 
   const active = await findActiveProductionRelease(token);
   if (!active.ok) {
-    return {
-      ok: false,
-      error: "RELEASE_STATUS_UNAVAILABLE",
-      status: "RELEASE_STATUS_UNAVAILABLE",
-      diagnostic: active.diagnostic,
-    };
+    return { ok: false, error: "RELEASE_STATUS_UNAVAILABLE", status: "RELEASE_STATUS_UNAVAILABLE" };
   }
   if (active.active) {
     return {
