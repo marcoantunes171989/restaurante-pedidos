@@ -1,10 +1,13 @@
 // ════════════════════════════════════════════════════════════
 //  Microgate 08-B3-B — Cliente HTTP do aviso de manutenção (frontend).
+//  Microgate 08-B5-B — helpers puros do Frontend Operation Guard.
 //
-//  Único consumidor previsto: useMaintenanceState. Lê GET /api/maintenance
-//  (leitura pública, sem Authorization) e valida defensivamente o payload —
-//  nunca confia ciegamente no shape devolvido pela API. Nenhuma escrita,
-//  nenhum write fence: isto é puramente informativo (fase NOTICE).
+//  Único consumidor previsto do fetch: useMaintenanceState. Lê GET
+//  /api/maintenance (leitura pública, sem Authorization) e valida
+//  defensivamente o payload — nunca confia ciegamente no shape
+//  devolvido pela API. Nenhuma escrita, nenhum write fence de
+//  autoridade: isto é puramente informativo (fase NOTICE) + UX
+//  safety (isMaintenanceWriteBlocked / assertMaintenanceWriteAllowed).
 // ════════════════════════════════════════════════════════════
 
 const VALID_PHASES = new Set([
@@ -96,4 +99,43 @@ export async function fetchMaintenanceState({ signal } = {}) {
   }
 
   return { ok: true, state };
+}
+
+// ════════════════════════════════════════════════════════════
+//  Microgate 08-B5-B — Frontend Operation Guard (UX safety).
+//
+//  Conjunto DISCRETO de fases bloqueantes. Não usar ordem lexical,
+//  comparação >, <, localeCompare nem índice semântico de fase.
+//  Unknown / ausente / NOTICE / NORMAL / CANCELED = fail-open.
+//  Isto NÃO é autoridade de segurança: não faz fetch, poll,
+//  Supabase, write nem side effect.
+// ════════════════════════════════════════════════════════════
+
+export const MAINTENANCE_FENCE_ACTIVE = "MAINTENANCE_FENCE_ACTIVE";
+
+const WRITE_BLOCKING_PHASES = new Set([
+  "FENCING",
+  "DRAINING",
+  "QUIESCENT",
+  "RELEASING",
+  "SMOKE",
+  "RECOVERING",
+  "ABORTING",
+  "FAILED",
+]);
+
+const MAINTENANCE_FENCE_MESSAGE =
+  "Manutenção em andamento. Novas operações estão temporariamente pausadas.";
+
+export function isMaintenanceWriteBlocked(state) {
+  if (!state || typeof state !== "object") return false;
+  return WRITE_BLOCKING_PHASES.has(state.phase);
+}
+
+export function assertMaintenanceWriteAllowed(state) {
+  if (!isMaintenanceWriteBlocked(state)) return;
+  const error = new Error(MAINTENANCE_FENCE_MESSAGE);
+  error.code = MAINTENANCE_FENCE_ACTIVE;
+  error.phase = state.phase;
+  throw error;
 }

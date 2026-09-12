@@ -122,6 +122,7 @@ import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from 
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
 import { useMaintenanceState } from "./hooks/useMaintenanceState";
+import { MaintenanceStateProvider } from "./context/MaintenanceStateContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
 import { MSG_DISPOSITIVO_BLOQUEADO } from "./lib/accessControl/constants";
@@ -1411,6 +1412,8 @@ export default function RestaurantePedidoApp() {
   // pública de /api/maintenance, chamada EXATAMENTE UMA VEZ aqui na raiz
   // global pós-login — nenhuma tela interna deve chamar isto de novo, sob
   // pena de duplicar o polling. Só fase NOTICE; nenhum bloqueio de ação.
+  // Microgate 08-B5-B: este resultado único alimenta MaintenanceStateProvider
+  // (sem segundo poller). Nenhum fluxo de negócio observa o guard neste gate.
   const maintenance = useMaintenanceState();
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
@@ -4178,6 +4181,7 @@ export default function RestaurantePedidoApp() {
   const emOperacional = activeTab === "opmobile";
 
   return (
+    <MaintenanceStateProvider value={maintenance}>
     <div data-theme="light" className="tema-claro-area min-h-screen bg-[#F7F8FA] text-[#182230]">
       {/* Container global único (Microgate 08-B3-B): MaintenanceNotice e o
           aviso de pagamento pendente empilham verticalmente aqui, nunca em
@@ -4370,6 +4374,7 @@ export default function RestaurantePedidoApp() {
       </div>
       )}
     </div>
+    </MaintenanceStateProvider>
   );
 }
 
