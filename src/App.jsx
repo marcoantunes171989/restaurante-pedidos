@@ -121,6 +121,8 @@ import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
+import { useMaintenanceState } from "./hooks/useMaintenanceState";
+import { MaintenanceNotice } from "./components/MaintenanceNotice";
 import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
 import { MSG_DISPOSITIVO_BLOQUEADO } from "./lib/accessControl/constants";
 import { resolverTelaAcesso } from "./lib/accessControl/screens";
@@ -1405,6 +1407,11 @@ export default function RestaurantePedidoApp() {
       ? { ...resolverTelaAcesso({ activeTab, adminSection, opmobileTab }), contextKey: lojaAtual ?? "geral" }
       : null,
   );
+  // Aviso informativo de manutenção programada (Microgate 08-B3-B): leitura
+  // pública de /api/maintenance, chamada EXATAMENTE UMA VEZ aqui na raiz
+  // global pós-login — nenhuma tela interna deve chamar isto de novo, sob
+  // pena de duplicar o polling. Só fase NOTICE; nenhum bloqueio de ação.
+  const maintenance = useMaintenanceState();
   // SaaS: assinatura e plano da empresa em foco (Fase 1 — somente exibição)
   const assinaturaAtual = lojaAtual != null ? (assinaturas.find((a) => a.lojaId === lojaAtual) || null) : null;
   const planoAtual = getCurrentCompanyPlan(assinaturaAtual, planos);
@@ -4172,11 +4179,19 @@ export default function RestaurantePedidoApp() {
 
   return (
     <div data-theme="light" className="tema-claro-area min-h-screen bg-[#F7F8FA] text-[#182230]">
-      {avisoOverdue && (
-        <div className="sticky top-0 z-[80] border-b border-amber-400/30 bg-amber-500/15 px-4 py-2.5 text-center backdrop-blur-xl">
-          <p className="text-sm font-bold text-amber-100">⚠ Pagamento pendente — seu acesso será bloqueado em <b className="text-white">{Math.max(0, avisoOverdue.dias)} dia(s)</b> se o pagamento não for regularizado.{avisoOverdue.obs ? ` Motivo: ${avisoOverdue.obs}.` : ""} Entre em contato com o suporte.</p>
-        </div>
-      )}
+      {/* Container global único (Microgate 08-B3-B): MaintenanceNotice e o
+          aviso de pagamento pendente empilham verticalmente aqui, nunca em
+          stickies independentes — evita sobreposição de dois elementos
+          top-0. MaintenanceNotice não é sticky em si; quem é sticky é este
+          wrapper. */}
+      <div className="sticky top-0 z-[85] w-full">
+        <MaintenanceNotice status={maintenance.status} state={maintenance.state} />
+        {avisoOverdue && (
+          <div className="border-b border-amber-400/30 bg-amber-500/15 px-4 py-2.5 text-center backdrop-blur-xl">
+            <p className="text-sm font-bold text-amber-100">⚠ Pagamento pendente — seu acesso será bloqueado em <b className="text-white">{Math.max(0, avisoOverdue.dias)} dia(s)</b> se o pagamento não for regularizado.{avisoOverdue.obs ? ` Motivo: ${avisoOverdue.obs}.` : ""} Entre em contato com o suporte.</p>
+          </div>
+        )}
+      </div>
       {precisaNomear && (
         <NomearDispositivoModal
           lojas={lojas}
