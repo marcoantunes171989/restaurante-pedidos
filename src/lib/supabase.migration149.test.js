@@ -17,6 +17,7 @@ const migration148 = readFileSync(
 
 const OLD_STATUSES = ["IN_FLIGHT", "COMPLETED", "FAILED", "EXPIRED"];
 const NEW_STATUSES = ["IN_FLIGHT", "COMPLETED", "FAILED", "EXPIRED", "CANCELED"];
+const TERMINAL_TIMESTAMPS = ["completed_at", "failed_at", "expired_at", "canceled_at"];
 
 const STATUS_CONSTRAINT = "app_maintenance_operations_status_check";
 const LIFECYCLE_CONSTRAINT = "app_maintenance_operations_lifecycle_check";
@@ -27,6 +28,20 @@ function extractInList(texto, constraintName) {
   const match = texto.match(re);
   expect(match, `lista IN de ${constraintName} não encontrada`).toBeTruthy();
   return [...match[1].matchAll(/'([^']+)'/g)].map((item) => item[1]);
+}
+
+function extractLifecycleBlock(texto) {
+  const re = new RegExp(`add constraint ${LIFECYCLE_CONSTRAINT}[\\s\\S]*?check \\(([\\s\\S]*?)\\);`, "i");
+  const match = texto.match(re);
+  expect(match, "corpo do novo lifecycle_check não encontrado").toBeTruthy();
+  return match[1];
+}
+
+function extractStatusBranch(lifecycleBody, status) {
+  const re = new RegExp(`status = '${status}'([\\s\\S]*?)(?:\\)\\s*(?:or|$))`, "i");
+  const match = lifecycleBody.match(re);
+  expect(match, `branch de status = '${status}' não encontrado na lifecycle_check`).toBeTruthy();
+  return match[1];
 }
 
 describe("migration 149 — existência e transação", () => {
@@ -52,10 +67,15 @@ describe("migration 149 — existência e transação", () => {
     ].map((m) => m[1]);
     expect(new Set(tabelasAlteradas)).toEqual(new Set(["app_maintenance_operations"]));
   });
+
+  it("não cria migration150 nem qualquer arquivo fora do escopo autorizado", () => {
+    const arquivos150 = readdirSync("supabase/migrations").filter((f) => /^150[_.]/.test(f));
+    expect(arquivos150).toEqual([]);
+  });
 });
 
 describe("migration 149 — precheck fail-closed", () => {
-  it("possui precheck 149 antes do ALTER TABLE", () => {
+  it("possui precheck 149 antes das alterações de schema", () => {
     expect(sql).toMatch(/precheck 149/i);
     const idxPrecheck = sql.search(/precheck 149/i);
     const idxAlter = sql.search(/alter table public\.app_maintenance_operations\s*\n\s*drop constraint/i);
@@ -71,11 +91,30 @@ describe("migration 149 — precheck fail-closed", () => {
     );
   });
 
-  it("valida que a definição atual aceita exatamente os 4 estados antigos", () => {
+  it("valida que canceled_at ainda não existe antes da alteração (guarda de drift)", () => {
+    expect(sqlSemComentarios).toMatch(/coluna canceled_at já existe/i);
+  });
+
+  it("valida que a definição atual de status_check aceita exatamente os 4 estados antigos", () => {
     expect(sqlSemComentarios).toMatch(/definição atual de app_maintenance_operations_status_check inesperada/i);
     expect(sqlSemComentarios).toContain(
       "''IN_FLIGHT''::text, ''COMPLETED''::text, ''FAILED''::text, ''EXPIRED''::text",
     );
+  });
+
+  it("valida que a definição atual de lifecycle_check ainda é o contrato anterior (sem CANCELED)", () => {
+    expect(sqlSemComentarios).toMatch(
+      new RegExp(`constraint ${LIFECYCLE_CONSTRAINT} ausente`, "i"),
+    );
+    expect(sqlSemComentarios).toMatch(/definição atual de app_maintenance_operations_lifecycle_check inesperada/i);
+    const idxPrecheckLifecycle = sqlSemComentarios.search(
+      /definição atual de app_maintenance_operations_lifecycle_check inesperada/i,
+    );
+    const blocoPrecheckLifecycle = sqlSemComentarios.slice(
+      Math.max(0, idxPrecheckLifecycle - 400),
+      idxPrecheckLifecycle,
+    );
+    expect(blocoPrecheckLifecycle).not.toMatch(/canceled_at/i);
   });
 
   it("valida que nenhuma row atual tem status fora dos 4 estados antigos", () => {
@@ -89,7 +128,7 @@ describe("migration 149 — precheck fail-closed", () => {
     const blocoPrecheck = sql.match(/precheck 149[\s\S]*?end \$\$;/i)[0];
     const falhas = [...blocoPrecheck.matchAll(/if\s+[\s\S]*?then/gi)];
     expect(falhas.length).toBeGreaterThan(0);
-    expect(blocoPrecheck.match(/raise exception/gi).length).toBeGreaterThanOrEqual(4);
+    expect(blocoPrecheck.match(/raise exception/gi).length).toBeGreaterThanOrEqual(6);
   });
 });
 
@@ -116,11 +155,127 @@ describe("migration 149 — alteração da constraint de status", () => {
     expect(adicionados).toEqual(["CANCELED"]);
   });
 
-  it("é o único ALTER TABLE / único par DROP+ADD CONSTRAINT do arquivo", () => {
+  it("faz exatamente dois pares DROP+ADD CONSTRAINT (status_check e lifecycle_check)", () => {
     const drops = sqlSemComentarios.match(/drop constraint/gi) || [];
     const adds = sqlSemComentarios.match(/add constraint/gi) || [];
-    expect(drops).toHaveLength(1);
-    expect(adds).toHaveLength(1);
+    expect(drops).toHaveLength(2);
+    expect(adds).toHaveLength(2);
+    expect(sqlSemComentarios).toMatch(new RegExp(`drop constraint ${STATUS_CONSTRAINT}`, "i"));
+    expect(sqlSemComentarios).toMatch(new RegExp(`drop constraint ${LIFECYCLE_CONSTRAINT}`, "i"));
+  });
+});
+
+describe("migration 149 — coluna canceled_at", () => {
+  it("faz exatamente um ADD COLUMN canceled_at", () => {
+    const addColumns = sqlSemComentarios.match(/add\s+column/gi) || [];
+    expect(addColumns).toHaveLength(1);
+    expect(sqlSemComentarios).toMatch(/add column canceled_at/i);
+  });
+
+  it("tipo é timestamptz", () => {
+    expect(sqlSemComentarios).toMatch(/add column canceled_at\s+timestamptz/i);
+  });
+
+  it("é nullable — não usa NOT NULL", () => {
+    const addColumnStmt = sqlSemComentarios.match(/add column canceled_at[^;]*;/i)[0];
+    expect(addColumnStmt).toMatch(/add column canceled_at\s+timestamptz\s+null\b/i);
+    expect(addColumnStmt).not.toMatch(/not null/i);
+  });
+
+  it("não tem DEFAULT", () => {
+    const addColumnStmt = sqlSemComentarios.match(/add column canceled_at[^;]*;/i)[0];
+    expect(addColumnStmt).not.toMatch(/default/i);
+  });
+
+  it("não faz DROP COLUMN nem ALTER COLUMN em nenhuma coluna", () => {
+    expect(sqlSemComentarios).not.toMatch(/drop\s+column/i);
+    expect(sqlSemComentarios).not.toMatch(/alter\s+column/i);
+  });
+
+  it("postcheck valida tipo, nullable e ausência de default de canceled_at", () => {
+    expect(sqlSemComentarios).toMatch(/canceled_at ausente após ALTER TABLE/i);
+    expect(sqlSemComentarios).toMatch(/canceled_at deveria ser timestamptz/i);
+    expect(sqlSemComentarios).toMatch(/canceled_at deveria ser nullable/i);
+    expect(sqlSemComentarios).toMatch(/canceled_at não deveria ter DEFAULT/i);
+  });
+});
+
+describe("migration 149 — lifecycle_check atualizada para CANCELED", () => {
+  const lifecycleBody = extractLifecycleBlock(sqlSemComentarios);
+
+  it("adiciona um branch novo para status = 'CANCELED'", () => {
+    expect(lifecycleBody).toMatch(/status = 'CANCELED'/i);
+  });
+
+  it("CANCELED exige canceled_at IS NOT NULL", () => {
+    const branch = extractStatusBranch(lifecycleBody, "CANCELED");
+    expect(branch).toMatch(/canceled_at is not null/i);
+  });
+
+  it("CANCELED exige exclusividade: completed_at, failed_at e expired_at IS NULL", () => {
+    const branch = extractStatusBranch(lifecycleBody, "CANCELED");
+    expect(branch).toMatch(/completed_at is null/i);
+    expect(branch).toMatch(/failed_at is null/i);
+    expect(branch).toMatch(/expired_at is null/i);
+  });
+
+  it("COMPLETED exige exclusividade de completed_at (demais terminais NULL, incluindo canceled_at)", () => {
+    const branch = extractStatusBranch(lifecycleBody, "COMPLETED");
+    expect(branch).toMatch(/completed_at is not null/i);
+    expect(branch).toMatch(/failed_at is null/i);
+    expect(branch).toMatch(/expired_at is null/i);
+    expect(branch).toMatch(/canceled_at is null/i);
+  });
+
+  it("FAILED exige exclusividade de failed_at (demais terminais NULL, incluindo canceled_at)", () => {
+    const branch = extractStatusBranch(lifecycleBody, "FAILED");
+    expect(branch).toMatch(/failed_at is not null/i);
+    expect(branch).toMatch(/completed_at is null/i);
+    expect(branch).toMatch(/expired_at is null/i);
+    expect(branch).toMatch(/canceled_at is null/i);
+  });
+
+  it("EXPIRED exige exclusividade de expired_at (demais terminais NULL, incluindo canceled_at)", () => {
+    const branch = extractStatusBranch(lifecycleBody, "EXPIRED");
+    expect(branch).toMatch(/expired_at is not null/i);
+    expect(branch).toMatch(/completed_at is null/i);
+    expect(branch).toMatch(/failed_at is null/i);
+    expect(branch).toMatch(/canceled_at is null/i);
+  });
+
+  it("IN_FLIGHT não aceita nenhum timestamp terminal, incluindo canceled_at", () => {
+    const branch = extractStatusBranch(lifecycleBody, "IN_FLIGHT");
+    for (const campo of TERMINAL_TIMESTAMPS) {
+      expect(branch).toMatch(new RegExp(`${campo} is null`, "i"));
+    }
+    expect(branch).not.toMatch(/is not null/i);
+  });
+
+  it("exclusividade estrutural: cada um dos 5 branches referencia os 4 timestamps terminais", () => {
+    for (const status of NEW_STATUSES) {
+      const branch = extractStatusBranch(lifecycleBody, status);
+      for (const campo of TERMINAL_TIMESTAMPS) {
+        expect(
+          branch,
+          `branch de ${status} deveria referenciar ${campo}`,
+        ).toMatch(new RegExp(campo, "i"));
+      }
+    }
+  });
+
+  it("não reaproveita failed_at, completed_at ou expired_at para representar cancelamento", () => {
+    const branch = extractStatusBranch(lifecycleBody, "CANCELED");
+    expect(branch).not.toMatch(/failed_at is not null/i);
+    expect(branch).not.toMatch(/completed_at is not null/i);
+    expect(branch).not.toMatch(/expired_at is not null/i);
+  });
+
+  it("postcheck valida a definição final literal da lifecycle_check com suporte a CANCELED", () => {
+    expect(sqlSemComentarios).toContain(
+      "status = ''CANCELED''::text) AND (canceled_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL)",
+    );
+    expect(sqlSemComentarios).toMatch(/canceled_at não participa da lifecycle_check final/i);
+    expect(sqlSemComentarios).toMatch(/CANCELED não é reconhecido pela lifecycle_check final/i);
   });
 });
 
@@ -138,6 +293,10 @@ describe("migration 149 — postcheck fail-closed", () => {
     expect(sqlSemComentarios).toMatch(/CANCELED ausente na allowlist final/i);
   });
 
+  it("valida constraint de lifecycle count=1, nome preservado", () => {
+    expect(sqlSemComentarios).toMatch(/v_lifecycle_check_count <> 1/i);
+  });
+
   it("valida presença de IN_FLIGHT, COMPLETED, FAILED e EXPIRED na allowlist final", () => {
     for (const status of OLD_STATUSES) {
       expect(sqlSemComentarios).toMatch(
@@ -146,7 +305,7 @@ describe("migration 149 — postcheck fail-closed", () => {
     }
   });
 
-  it("valida exatamente 5 valores permitidos (definição literal final)", () => {
+  it("valida exatamente 5 valores permitidos (definição literal final do status_check)", () => {
     expect(sqlSemComentarios).toContain(
       "''IN_FLIGHT''::text, ''COMPLETED''::text, ''FAILED''::text, ''EXPIRED''::text, ''CANCELED''::text",
     );
@@ -162,14 +321,10 @@ describe("migration 149 — postcheck fail-closed", () => {
     }
   });
 
-  it("valida que app_maintenance_operations_lifecycle_check não foi alterada", () => {
+  it("valida que status_check e lifecycle_check permanecem constraints distintas", () => {
     expect(sqlSemComentarios).toMatch(
-      new RegExp(`${LIFECYCLE_CONSTRAINT} foi alterada`, "i"),
+      /status_check e lifecycle_check não deveriam ser a mesma constraint/i,
     );
-    expect(sqlSemComentarios).toContain(
-      "status = ''IN_FLIGHT''::text) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL)",
-    );
-    expect(sqlSemComentarios).not.toMatch(/CANCELED[\s\S]{0,120}completed_at/i);
   });
 
   it("valida presença das demais constraints (epoch, operation_key, failure_code, timestamps, pkey)", () => {
@@ -189,7 +344,7 @@ describe("migration 149 — postcheck fail-closed", () => {
     expect(sqlSemComentarios).toMatch(/esperado 9, encontrado/i);
   });
 
-  it("valida índices intactos em nome e quantidade (5)", () => {
+  it("valida índices intactos em nome e quantidade (5) — nenhum índice novo", () => {
     for (const indice of [
       "app_maintenance_operations_pkey",
       "app_maintenance_operations_in_flight_expires_idx",
@@ -200,6 +355,7 @@ describe("migration 149 — postcheck fail-closed", () => {
       expect(sqlSemComentarios).toContain(indice);
     }
     expect(sqlSemComentarios).toMatch(/v_index_count <> 5/i);
+    expect(sqlSemComentarios).not.toMatch(/create\s+(unique\s+)?index/i);
   });
 
   it("valida ausência de função e trigger criadas", () => {
@@ -226,12 +382,6 @@ describe("migration 149 — proibições explícitas de escopo", () => {
     expect(sqlSemComentarios).not.toMatch(/drop\s+index/i);
   });
 
-  it("não faz ADD COLUMN, DROP COLUMN ou ALTER COLUMN", () => {
-    expect(sqlSemComentarios).not.toMatch(/add\s+column/i);
-    expect(sqlSemComentarios).not.toMatch(/drop\s+column/i);
-    expect(sqlSemComentarios).not.toMatch(/alter\s+column/i);
-  });
-
   it("não faz INSERT, UPDATE, DELETE ou TRUNCATE em dados", () => {
     expect(sqlSemComentarios).not.toMatch(/^\s*insert\s+into\s+public\./im);
     expect(sqlSemComentarios).not.toMatch(/^\s*update\s+public\./im);
@@ -245,9 +395,10 @@ describe("migration 149 — proibições explícitas de escopo", () => {
     expect(sqlSemComentarios).not.toMatch(/alter\s+owner/i);
   });
 
-  it("não habilita/desabilita RLS", () => {
+  it("não habilita/desabilita RLS nem toca ACL", () => {
     expect(sqlSemComentarios).not.toMatch(/enable row level security/i);
     expect(sqlSemComentarios).not.toMatch(/disable row level security/i);
+    expect(sqlSemComentarios).not.toMatch(/\bacl\b/i);
   });
 
   it("não altera app_maintenance_state nem app_assert_business_write_allowed", () => {
@@ -269,6 +420,17 @@ describe("migration 149 — proibições explícitas de escopo", () => {
     ]) {
       expect(sqlSemComentarios).not.toContain(nome);
     }
+  });
+
+  it("não implementa begin_internal, finish_internal ou cancel_internal", () => {
+    expect(sqlSemComentarios).not.toMatch(/begin_internal/i);
+    expect(sqlSemComentarios).not.toMatch(/finish_internal/i);
+    expect(sqlSemComentarios).not.toMatch(/cancel_internal/i);
+  });
+
+  it("não cria migration150", () => {
+    const arquivos150 = readdirSync("supabase/migrations").filter((f) => /^150[_.]/.test(f));
+    expect(arquivos150).toEqual([]);
   });
 
   it("não modifica as migrations 141, 142 ou 148 (arquivos preservados)", () => {
@@ -310,16 +472,12 @@ describe("migration 149 — semântica do status terminal CANCELED", () => {
     expect(distintos.has("COMPLETED")).toBe(true);
   });
 
-  it("documenta CANCELED como terminal, sem implementar begin/finish/cancel", () => {
-    expect(sql).toMatch(/status terminal/i);
-    expect(sql).toMatch(/amplia apenas o contrato/i);
-    expect(sql).toMatch(/NÃO implementa begin\/finish\/cancel/i);
-  });
-
-  it("não amplia a lifecycle_check (coerência status↔timestamps) para aceitar CANCELED", () => {
-    expect(sqlSemComentarios).not.toMatch(
-      new RegExp(`${LIFECYCLE_CONSTRAINT}[\\s\\S]*?drop constraint`, "i"),
+  it("CANCELED agora é um estado terminal utilizável (lifecycle_check foi ampliada)", () => {
+    expect(sqlSemComentarios).toMatch(
+      new RegExp(`drop constraint ${LIFECYCLE_CONSTRAINT}`, "i"),
     );
-    expect(sqlSemComentarios).not.toMatch(/status = 'CANCELED'/i);
+    expect(sqlSemComentarios).toMatch(
+      new RegExp(`add constraint ${LIFECYCLE_CONSTRAINT}[\\s\\S]*?status = 'CANCELED'`, "i"),
+    );
   });
 });

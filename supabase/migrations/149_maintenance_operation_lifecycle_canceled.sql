@@ -1,32 +1,35 @@
 -- ════════════════════════════════════════════════════════════
---  149 — Adiciona status terminal CANCELED ao Operation Registry
---  (B11-B0).
+--  149 — Completa o lifecycle terminal CANCELED no Operation
+--  Registry (B11-B0).
 --
---  Amplia SOMENTE a allowlist de status de
---  public.app_maintenance_operations, trocando a CHECK constraint
+--  Parte 1 (allowlist): amplia a CHECK constraint
 --    app_maintenance_operations_status_check
 --  de 4 para 5 valores permitidos, preservando o mesmo nome de
 --  constraint:
 --
 --    IN_FLIGHT, COMPLETED, FAILED, EXPIRED, CANCELED
 --
---  ESCOPO NEGATIVO — NÃO implementa begin/finish/cancel. NÃO cria
---  função, RPC, trigger, índice, coluna. NÃO altera
---  app_maintenance_operations_lifecycle_check (constraint de
---  coerência status↔timestamps definida na migration 141) nem
---  qualquer outra constraint, índice, default, RLS, ACL ou grant
---  de app_maintenance_operations. NÃO altera
---  app_maintenance_state nem app_assert_business_write_allowed.
---  NÃO integra onboarding/checkout/pedidos/fiscal/user-admin/
---  heartbeat. NÃO faz INSERT/UPDATE/DELETE. NÃO modifica as
---  migrations 141, 142 ou 148.
+--  Parte 2 (coluna): adiciona
+--    public.app_maintenance_operations.canceled_at timestamptz NULL
+--  sem DEFAULT, sem backfill, sem qualquer DML.
 --
---  NOTA: como app_maintenance_operations_lifecycle_check permanece
---  inalterada e não existe coluna canceled_at, um status='CANCELED'
---  passa a ser aceito pela allowlist desta migration mas ainda é
---  rejeitado pela lifecycle_check em qualquer INSERT/UPDATE real —
---  isso é intencional: este gate amplia apenas o contrato, sem
---  habilitar uso efetivo do status (fica para o core B11-B).
+--  Parte 3 (coerência): atualiza
+--    app_maintenance_operations_lifecycle_check
+--  para reconhecer CANCELED como estado terminal válido, exigindo
+--  canceled_at IS NOT NULL e os demais três timestamps terminais
+--  (completed_at/failed_at/expired_at) IS NULL — e, simetricamente,
+--  exigindo canceled_at IS NULL em todos os demais estados. A
+--  exclusividade entre os quatro timestamps terminais passa a ser
+--  estrutural (imposta pela própria CHECK constraint), não apenas
+--  por convenção de nomes.
+--
+--  ESCOPO NEGATIVO — NÃO implementa begin/finish/cancel. NÃO cria
+--  função, RPC, trigger, índice. NÃO altera RLS, ACL, GRANT/REVOKE
+--  nem owner. NÃO faz INSERT/UPDATE/DELETE/TRUNCATE. NÃO cria
+--  migration150. NÃO altera app_maintenance_state nem
+--  app_assert_business_write_allowed. NÃO integra
+--  onboarding/checkout/pedidos/fiscal/user-admin/heartbeat. NÃO
+--  modifica as migrations 141, 142 ou 148.
 -- ════════════════════════════════════════════════════════════
 
 begin;
@@ -38,6 +41,7 @@ do $$
 declare
   v_reloid oid;
   v_condef text;
+  v_lifecycle_condef text;
   v_bad_rows integer;
 begin
   v_reloid := to_regclass('public.app_maintenance_operations');
@@ -50,6 +54,13 @@ begin
     where attrelid = v_reloid and attname = 'status' and not attisdropped
   ) then
     raise exception 'precheck 149: coluna status ausente em app_maintenance_operations.';
+  end if;
+
+  if exists (
+    select 1 from pg_attribute
+    where attrelid = v_reloid and attname = 'canceled_at' and not attisdropped
+  ) then
+    raise exception 'precheck 149: coluna canceled_at já existe (drift inesperado).';
   end if;
 
   if not exists (
@@ -69,6 +80,23 @@ begin
     raise exception 'precheck 149: definição atual de app_maintenance_operations_status_check inesperada (drift): %', v_condef;
   end if;
 
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = v_reloid and conname = 'app_maintenance_operations_lifecycle_check'
+  ) then
+    raise exception 'precheck 149: constraint app_maintenance_operations_lifecycle_check ausente.';
+  end if;
+
+  select pg_get_constraintdef(oid) into v_lifecycle_condef
+  from pg_constraint
+  where conrelid = v_reloid and conname = 'app_maintenance_operations_lifecycle_check';
+
+  if v_lifecycle_condef is distinct from
+    'CHECK ((((status = ''IN_FLIGHT''::text) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL)) OR ((status = ''COMPLETED''::text) AND (completed_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL)) OR ((status = ''FAILED''::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (expired_at IS NULL)) OR ((status = ''EXPIRED''::text) AND (expired_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL))))'
+  then
+    raise exception 'precheck 149: definição atual de app_maintenance_operations_lifecycle_check inesperada (drift): %', v_lifecycle_condef;
+  end if;
+
   select count(*) into v_bad_rows
   from public.app_maintenance_operations
   where status not in ('IN_FLIGHT', 'COMPLETED', 'FAILED', 'EXPIRED');
@@ -78,7 +106,7 @@ begin
 end $$;
 
 -- ════════════════════════════════════════════════════════════
---  1) ALTERAÇÃO — amplia SOMENTE a allowlist de status
+--  1) ALTERAÇÃO — amplia a allowlist de status
 -- ════════════════════════════════════════════════════════════
 alter table public.app_maintenance_operations
   drop constraint app_maintenance_operations_status_check;
@@ -94,6 +122,38 @@ alter table public.app_maintenance_operations
     ));
 
 -- ════════════════════════════════════════════════════════════
+--  2) ALTERAÇÃO — adiciona canceled_at (sem default, sem DML)
+-- ════════════════════════════════════════════════════════════
+alter table public.app_maintenance_operations
+  add column canceled_at timestamptz null;
+
+-- ════════════════════════════════════════════════════════════
+--  3) ALTERAÇÃO — lifecycle_check passa a reconhecer CANCELED
+-- ════════════════════════════════════════════════════════════
+alter table public.app_maintenance_operations
+  drop constraint app_maintenance_operations_lifecycle_check;
+
+alter table public.app_maintenance_operations
+  add constraint app_maintenance_operations_lifecycle_check
+    check (
+      (status = 'IN_FLIGHT'
+        and completed_at is null and failed_at is null and expired_at is null
+        and canceled_at is null)
+      or (status = 'COMPLETED'
+        and completed_at is not null and failed_at is null and expired_at is null
+        and canceled_at is null)
+      or (status = 'FAILED'
+        and failed_at is not null and completed_at is null and expired_at is null
+        and canceled_at is null)
+      or (status = 'EXPIRED'
+        and expired_at is not null and completed_at is null and failed_at is null
+        and canceled_at is null)
+      or (status = 'CANCELED'
+        and canceled_at is not null and completed_at is null and failed_at is null
+        and expired_at is null)
+    );
+
+-- ════════════════════════════════════════════════════════════
 --  POSTCHECK fail-closed
 -- ════════════════════════════════════════════════════════════
 do $$
@@ -102,14 +162,38 @@ declare
   v_condef text;
   v_status_check_count integer;
   v_lifecycle_condef text;
+  v_lifecycle_check_count integer;
   v_optype_condef text;
   v_index_count integer;
+  v_col_type text;
+  v_col_nullable boolean;
+  v_col_has_default boolean;
 begin
   v_reloid := to_regclass('public.app_maintenance_operations');
   if v_reloid is null then
     raise exception 'postcheck 149: public.app_maintenance_operations não encontrada.';
   end if;
 
+  -- 3.a) coluna canceled_at: existe, timestamptz, nullable, sem default.
+  select format_type(a.atttypid, a.atttypmod), not a.attnotnull, a.atthasdef
+  into v_col_type, v_col_nullable, v_col_has_default
+  from pg_attribute a
+  where a.attrelid = v_reloid and a.attname = 'canceled_at' and not a.attisdropped;
+
+  if v_col_type is null then
+    raise exception 'postcheck 149: coluna canceled_at ausente após ALTER TABLE.';
+  end if;
+  if v_col_type <> 'timestamp with time zone' then
+    raise exception 'postcheck 149: canceled_at deveria ser timestamptz, encontrado %.', v_col_type;
+  end if;
+  if not v_col_nullable then
+    raise exception 'postcheck 149: canceled_at deveria ser nullable.';
+  end if;
+  if v_col_has_default then
+    raise exception 'postcheck 149: canceled_at não deveria ter DEFAULT.';
+  end if;
+
+  -- 3.b) status_check: exatamente 1, nome preservado, 5 valores.
   select count(*) into v_status_check_count
   from pg_constraint
   where conrelid = v_reloid and conname = 'app_maintenance_operations_status_check';
@@ -143,7 +227,7 @@ begin
     raise exception 'postcheck 149: CANCELED ausente na allowlist final.';
   end if;
 
-  -- operation_type constraint intacta (nome + definição literal).
+  -- 3.c) operation_type constraint intacta (nome + definição literal).
   select pg_get_constraintdef(oid) into v_optype_condef
   from pg_constraint
   where conrelid = v_reloid and conname = 'app_maintenance_operations_operation_type_check';
@@ -153,14 +237,40 @@ begin
     raise exception 'postcheck 149: app_maintenance_operations_operation_type_check foi alterada.';
   end if;
 
-  -- lifecycle_check (coerência status↔timestamps) intacta.
+  -- 3.d) lifecycle_check: exatamente 1, nome preservado, CANCELED suportado.
+  select count(*) into v_lifecycle_check_count
+  from pg_constraint
+  where conrelid = v_reloid and conname = 'app_maintenance_operations_lifecycle_check';
+  if v_lifecycle_check_count <> 1 then
+    raise exception 'postcheck 149: esperado exatamente 1 constraint app_maintenance_operations_lifecycle_check, encontrado %.', v_lifecycle_check_count;
+  end if;
+
   select pg_get_constraintdef(oid) into v_lifecycle_condef
   from pg_constraint
   where conrelid = v_reloid and conname = 'app_maintenance_operations_lifecycle_check';
+
   if v_lifecycle_condef is distinct from
-    'CHECK ((((status = ''IN_FLIGHT''::text) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL)) OR ((status = ''COMPLETED''::text) AND (completed_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL)) OR ((status = ''FAILED''::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (expired_at IS NULL)) OR ((status = ''EXPIRED''::text) AND (expired_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL))))'
+    'CHECK ((((status = ''IN_FLIGHT''::text) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (canceled_at IS NULL)) OR ((status = ''COMPLETED''::text) AND (completed_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (canceled_at IS NULL)) OR ((status = ''FAILED''::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (expired_at IS NULL) AND (canceled_at IS NULL)) OR ((status = ''EXPIRED''::text) AND (expired_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (canceled_at IS NULL)) OR ((status = ''CANCELED''::text) AND (canceled_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL))))'
   then
-    raise exception 'postcheck 149: app_maintenance_operations_lifecycle_check foi alterada.';
+    raise exception 'postcheck 149: definição final de app_maintenance_operations_lifecycle_check inesperada: %', v_lifecycle_condef;
+  end if;
+
+  if v_lifecycle_condef not like '%canceled_at%' then
+    raise exception 'postcheck 149: canceled_at não participa da lifecycle_check final.';
+  end if;
+  if v_lifecycle_condef not like '%''CANCELED''%' then
+    raise exception 'postcheck 149: CANCELED não é reconhecido pela lifecycle_check final.';
+  end if;
+
+  -- 3.e) status_check e lifecycle_check permanecem constraints distintas.
+  if (
+    select oid from pg_constraint
+    where conrelid = v_reloid and conname = 'app_maintenance_operations_status_check'
+  ) = (
+    select oid from pg_constraint
+    where conrelid = v_reloid and conname = 'app_maintenance_operations_lifecycle_check'
+  ) then
+    raise exception 'postcheck 149: status_check e lifecycle_check não deveriam ser a mesma constraint.';
   end if;
 
   -- Demais constraints intactas (presença, sem checar redefinição literal).
@@ -183,13 +293,14 @@ begin
     raise exception 'postcheck 149: app_maintenance_operations_pkey ausente.';
   end if;
 
-  -- Nenhuma constraint a mais/menos: exatamente as 9 constraints originais.
+  -- Nenhuma constraint a mais/menos: exatamente as 9 constraints originais
+  -- (ADD COLUMN não cria constraint própria; DROP+ADD preserva contagem).
   if (select count(*) from pg_constraint where conrelid = v_reloid) <> 9 then
     raise exception 'postcheck 149: número inesperado de constraints em app_maintenance_operations (esperado 9, encontrado %).',
       (select count(*) from pg_constraint where conrelid = v_reloid);
   end if;
 
-  -- Índices intactos em quantidade e nome.
+  -- Índices intactos em quantidade e nome (ADD COLUMN não cria índice).
   select count(*) into v_index_count
   from pg_index i
   join pg_class ic on ic.oid = i.indexrelid
