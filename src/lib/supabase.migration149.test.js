@@ -424,6 +424,12 @@ describe("migration 149 — proibições explícitas de escopo", () => {
     expect(sqlSemComentarios).not.toMatch(/cancel_internal/i);
   });
 
+  it("não define nem implementa o Operation Registry Core (invariante permanente)", () => {
+    expect(sqlSemComentarios).not.toMatch(/app_maintenance_operation_begin_internal/i);
+    expect(sqlSemComentarios).not.toMatch(/app_maintenance_operation_finish_internal/i);
+    expect(sqlSemComentarios).not.toMatch(/app_maintenance_operation_cancel_internal/i);
+  });
+
   it("não modifica as migrations 141, 142 ou 148 (arquivos preservados)", () => {
     // migration142 já referencia 'CANCELED' como valor de app_maintenance_state.phase
     // (enum distinto de app_maintenance_operations.status) — não é sinal de alteração.
