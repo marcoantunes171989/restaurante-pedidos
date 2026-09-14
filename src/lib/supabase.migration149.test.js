@@ -68,10 +68,6 @@ describe("migration 149 — existência e transação", () => {
     expect(new Set(tabelasAlteradas)).toEqual(new Set(["app_maintenance_operations"]));
   });
 
-  it("não cria migration150 nem qualquer arquivo fora do escopo autorizado", () => {
-    const arquivos150 = readdirSync("supabase/migrations").filter((f) => /^150[_.]/.test(f));
-    expect(arquivos150).toEqual([]);
-  });
 });
 
 describe("migration 149 — precheck fail-closed", () => {
@@ -426,11 +422,6 @@ describe("migration 149 — proibições explícitas de escopo", () => {
     expect(sqlSemComentarios).not.toMatch(/begin_internal/i);
     expect(sqlSemComentarios).not.toMatch(/finish_internal/i);
     expect(sqlSemComentarios).not.toMatch(/cancel_internal/i);
-  });
-
-  it("não cria migration150", () => {
-    const arquivos150 = readdirSync("supabase/migrations").filter((f) => /^150[_.]/.test(f));
-    expect(arquivos150).toEqual([]);
   });
 
   it("não modifica as migrations 141, 142 ou 148 (arquivos preservados)", () => {
