@@ -5,7 +5,9 @@
 //  (mode="edit"). Reúne, para o usuário, dados operacionais + fiscais num só
 //  fluxo — a persistência continua dividida por segurança:
 //    • operacional → tab_lojas         (via onCriarEmpresa / onSalvarOperacional)
-//    • fiscal      → loja_fiscal_emitente (via emitenteApi.salvar)
+//    • fiscal      → loja_fiscal_emitente
+//         create: emitente via onCriarEmpresa (cadastrarEmpresa/onboarding)
+//         edit:   emitenteApi.salvar / salvarLojaFiscalEmitente
 //
 //  Reutiliza a validação da Fase 6.2 (emitenteFiscalService) e as máscaras
 //  (lib/masks). NÃO implementa XML/certificado/CSC/SEFAZ. Paleta light oficial.
@@ -187,11 +189,11 @@ function LojaCadastroModal({
       if (ehEdicao) {
         await onSalvarOperacional(lojaId, { nome: form.nome.trim(), prefixo: pfx, documento: docNorm || null, modo_uso: form.modoUso, logo_url: form.logoUrl || null, funcionamento: form.funcionamento });
       } else {
-        const nova = await onCriarEmpresa({ nomeLoja: form.nome.trim(), prefixo: pfx, documento: docNorm, modoUso: form.modoUso, logoUrl: form.logoUrl });
+        const nova = await onCriarEmpresa({ nomeLoja: form.nome.trim(), prefixo: pfx, documento: docNorm, modoUso: form.modoUso, logoUrl: form.logoUrl, emitente: fiscalPayload });
         lojaId = nova?.id;
         if (!lojaId) throw new Error("A empresa não pôde ser criada.");
       }
-      if (lojaId != null && emitenteApi?.salvar) {
+      if (ehEdicao && lojaId != null && emitenteApi?.salvar) {
         const ok = await emitenteApi.salvar(lojaId, fiscalPayload);
         if (!ok) throw new Error("Empresa salva, mas o cadastro fiscal falhou. Verifique a migration 107/109.");
       }

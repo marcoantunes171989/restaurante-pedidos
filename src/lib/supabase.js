@@ -2463,28 +2463,24 @@ export async function inserirLoja(loja) {
 }
 
 // ── Onboarding SaaS: cria loja + admin + dados iniciais ──────
-// Migration 124: os passos 2 (prefixo único) e 3 (criação da loja) passam a
-// ser resolvidos ATOMICAMENTE dentro de app_criar_loja (SUPER-ONLY —
-// consistente com o comentário original "somente o administrador geral
-// cadastra empresas"; canAccess/isSuperAdmin já gateiam a tela que chama
-// criarEmpresa() em App.jsx). loja_prefixo_duplicado substitui a checagem
-// manual anterior (TOCTOU entre dois round-trips do cliente).
-// O passo 1 (e-mail único) e o seed de tab_formas_pagamento permanecem
-// como estavam — tab_usuarios e tab_formas_pagamento estão fora do escopo
-// desta migration (domínio Auth/Usuários e não há regressão de acesso
-// nelas por esta tarefa).
-export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = '', email = '', senha = '', documento = null, modoUso = 'interno', logoUrl = '', cargoId = null, cargoNome = 'Gestor' }) {
+// Prechecks sem mutation → app_onboarding_criar_loja (captura loja_id +
+// operation_id) → Auth existente se criarGestor → 5× criar_categoria →
+// seed formas → salvar emitente (quando vier no create) → finish(true).
+// Falha após operation_id terminaliza FAILED exatamente uma vez.
+// Sem cancel automático. loja_prefixo_duplicado segue mapeado no cliente.
+export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = '', email = '', senha = '', documento = null, modoUso = 'interno', logoUrl = '', cargoId = null, cargoNome = 'Gestor', emitente }) {
   // Usuário gestor é opcional: quando informado, cria o login; senão, só a empresa
   // (os usuários são cadastrados depois na tela "Usuários").
   const criarGestor = !!(email && senha)
-  // 1. Verifica e-mail único (apenas se houver gestor)
+  const TERMINALIZATION_MAX_CALLS = 1
+  // 1. Verifica e-mail único (apenas se houver gestor) — sem mutation, antes da operation.
   if (criarGestor) {
     const { data: existe } = await supabase.from('tab_usuarios').select('id').eq('email', email).maybeSingle()
     if (existe) throw new Error('Já existe um usuário com este e-mail.')
   }
-  // 2/3. Cria a loja (RPC valida prefixo único atomicamente — ver cabeçalho)
+  // 2/3. Cria a loja e abre a operation IN_FLIGHT (prefixo único atômico no servidor).
   let loja, e1
-  ;({ data: loja, error: e1 } = await supabase.rpc('app_criar_loja', {
+  ;({ data: loja, error: e1 } = await supabase.rpc('app_onboarding_criar_loja', {
     p_nome: nomeLoja, p_prefixo: prefixo, p_plano: 'free',
     p_email_responsavel: email || null, p_documento: documento || null,
     p_modo_uso: modoUso || 'interno', p_logo_url: logoUrl || null,
@@ -2493,43 +2489,93 @@ export async function cadastrarEmpresa({ nomeLoja, prefixo, nomeResponsavel = ''
     if (/loja_prefixo_duplicado/.test(e1.message || '')) throw new Error('Já existe uma loja com este prefixo. Escolha outras iniciais.')
     throw e1
   }
-  const lojaId = loja.id
-  // 4. Cria o gestor (acesso total) — via API que grava só HASH (fase 7.2.1),
-  //    nunca senha em texto claro. Sincroniza Supabase Auth para o login/JWT.
-  if (criarGestor) {
-    await gerenciarUsuarioAuth({
-      acao: 'criar',
-      email,
-      senha,
-      nome: nomeResponsavel,
-      lojaId,
-      perfil: cargoNome || 'Gestor',
-      cargoId: cargoId || null,
-      ativo: true,
-      idsAcesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'],
-      persistirPerfil: true,
-    })
+  const lojaId = loja?.id
+  const operationId = loja?.operation_id
+  if (lojaId == null || operationId == null || operationId === '') {
+    throw new Error('Onboarding não retornou loja_id e operation_id válidos.')
   }
-  // 5. Seed de categorias e formas de pagamento padrão para a nova loja.
-  // tab_categorias fechada (migration 124) — seed passa por app_criar_categoria
-  // (o caller é super_admin nesta etapa, então pode criar na loja recém-criada).
-  // p_ordem preserva a sequência 1..5 original (pré-124: insert direto com
-  // `ordem: i + 1`) — sem isso as 5 categorias cairiam todas no default da
-  // coluna (0) e ficariam desordenadas/empatadas.
+
+  let terminalizationAttempted = false
+  let terminalizationCalls = 0
+  async function terminalizarOnboarding(success) {
+    if (terminalizationAttempted || terminalizationCalls >= TERMINALIZATION_MAX_CALLS) return
+    terminalizationAttempted = true
+    terminalizationCalls += 1
+    const { error } = await supabase.rpc('app_onboarding_finish', {
+      p_operation_id: operationId,
+      p_loja_id: lojaId,
+      p_success: success,
+    })
+    if (error) throw error
+  }
+
   try {
+    // 4. Cria o gestor (acesso total) — via API que grava só HASH (fase 7.2.1),
+    //    nunca senha em texto claro. Sincroniza Supabase Auth para o login/JWT.
+    //    Sem compensação Auth neste gate; falha aqui é falha do onboarding.
+    if (criarGestor) {
+      await gerenciarUsuarioAuth({
+        acao: 'criar',
+        email,
+        senha,
+        nome: nomeResponsavel,
+        lojaId,
+        perfil: cargoNome || 'Gestor',
+        cargoId: cargoId || null,
+        ativo: true,
+        idsAcesso: ['tablet', 'kitchen', 'panel', 'cashier', 'admin'],
+        persistirPerfil: true,
+      })
+    }
+    // 5. Seed de categorias padrão (operation-aware). Erros NÃO são engolidos.
     const categoriasPadraoSeed = ['Entradas', 'Pratos principais', 'Lanches', 'Bebidas', 'Sobremesas']
     for (let i = 0; i < categoriasPadraoSeed.length; i++) {
-      await supabase.rpc('app_criar_categoria', { p_loja_id: lojaId, p_nome: categoriasPadraoSeed[i], p_ordem: i + 1 })
+      const { error } = await supabase.rpc('app_onboarding_criar_categoria', {
+        p_operation_id: operationId,
+        p_loja_id: lojaId,
+        p_nome: categoriasPadraoSeed[i],
+        p_setor_id: null,
+        p_impressora_id: null,
+        p_ordem: i + 1,
+      })
+      if (error) throw error
     }
-  } catch {}
-  try {
-    await supabase.from('tab_formas_pagamento').insert([
-      { nome: 'Dinheiro', tipo: 'dinheiro', permite_troco: true, loja_id: lojaId },
-      { nome: 'Cartão de Crédito', tipo: 'cartao_credito', permite_troco: false, loja_id: lojaId },
-      { nome: 'Cartão de Débito', tipo: 'cartao_debito', permite_troco: false, loja_id: lojaId },
-      { nome: 'PIX', tipo: 'pix', permite_troco: false, loja_id: lojaId },
-    ])
-  } catch {}
+    {
+      const { error } = await supabase.rpc('app_onboarding_seed_formas_pagamento', {
+        p_operation_id: operationId,
+        p_loja_id: lojaId,
+      })
+      if (error) throw error
+    }
+    if (emitente != null) {
+      const { error } = await supabase.rpc('app_onboarding_salvar_emitente', {
+        p_operation_id: operationId,
+        p_loja_id: lojaId,
+        p_dados: emitenteParaDb(emitente),
+      })
+      if (error) throw error
+    }
+    await terminalizarOnboarding(true)
+  } catch (err) {
+    if (!terminalizationAttempted) {
+      try {
+        await terminalizarOnboarding(false)
+      } catch (erroTerminalizacao) {
+        try {
+          if (err && typeof err === 'object') {
+            const diagnostico = erroTerminalizacao?.message || String(erroTerminalizacao)
+            Object.defineProperty(err, 'terminalizationError', {
+              value: diagnostico,
+              enumerable: false,
+              configurable: true,
+              writable: true,
+            })
+          }
+        } catch { /* diagnóstico auxiliar nunca substitui o erro original */ }
+      }
+    }
+    throw err
+  }
   return { loja: { id: loja.id, nome: loja.nome, prefixo: loja.prefixo, active: loja.ativo, plano: loja.plano }, email }
 }
 // Migration 124: tab_lojas fechada a authenticated/anon. UPDATE passa por
