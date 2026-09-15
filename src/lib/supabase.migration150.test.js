@@ -60,9 +60,11 @@ describe("migration 150 — existência e transação", () => {
     expect(semFinal.toLowerCase().endsWith("commit;")).toBe(true);
   });
 
-  it("migration151 ausente", () => {
+  it("migration151 agora existe", () => {
     const arquivos151 = readdirSync("supabase/migrations").filter((f) => /^151[_.]/.test(f));
-    expect(arquivos151).toEqual([]);
+    expect(arquivos151).toEqual([
+      "151_onboarding_operation_registry_integration.sql"
+    ]);
   });
 
   it("não modifica migration141, 142 ou 149 (arquivos preservados)", () => {
