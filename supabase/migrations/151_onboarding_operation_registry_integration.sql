@@ -15,11 +15,15 @@
 --    public.app_onboarding_finish(uuid, bigint, boolean)
 --    public.app_onboarding_cancel(uuid, bigint)
 --
---  Writers subsequentes exigem id/type/status/operation_key e
---  expires_at > clock_timestamp() antes de
---  app_assert_business_write_allowed(p_operation_id, 'ONBOARDING').
---  FINISH/CANCEL validam o binding mas NÃO exigem TTL futuro
---  (podem terminalizar operação vencida).
+--  Writers subsequentes (categoria, seed, emitente) adquirem
+--  ROW LOCK (PERFORM ... FOR UPDATE) no binding
+--  id/type/status/operation_key com expires_at > clock_timestamp()
+--  antes de app_assert_business_write_allowed(p_operation_id,
+--  'ONBOARDING'). O lock é mantido até o COMMIT implícito da RPC.
+--  Dois writers da mesma operação serializam. FINISH/CANCEL
+--  validam o binding mas NÃO exigem TTL futuro (podem
+--  terminalizar operação vencida); seus UPDATEs no core150
+--  esperam o row lock do writer.
 --
 --  ACL pública autenticada: SECURITY DEFINER, search_path=public,
 --  owner postgres, REVOKE ALL de PUBLIC/anon/service_role,
@@ -268,15 +272,16 @@ begin
       using errcode = 'P0001', detail = 'ONBOARDING_OPERATION_NOT_IN_FLIGHT';
   end if;
 
-  if not exists (
-    select 1
-    from public.app_maintenance_operations o
-    where o.id = p_operation_id
-      and o.operation_type = 'ONBOARDING'
-      and o.status = 'IN_FLIGHT'
-      and o.operation_key = 'ONBOARDING:loja:' || p_loja_id::text
-      and o.expires_at > clock_timestamp()
-  ) then
+  perform 1
+  from public.app_maintenance_operations o
+  where o.id = p_operation_id
+    and o.operation_type = 'ONBOARDING'
+    and o.status = 'IN_FLIGHT'
+    and o.operation_key = 'ONBOARDING:loja:' || p_loja_id::text
+    and o.expires_at > clock_timestamp()
+  for update;
+
+  if not found then
     raise exception '%', 'Operação de onboarding inexistente, expirada ou não vinculada a esta loja.'
       using errcode = 'P0001', detail = 'ONBOARDING_OPERATION_NOT_IN_FLIGHT';
   end if;
@@ -294,7 +299,7 @@ end;
 $$;
 
 comment on function public.app_onboarding_criar_categoria(uuid, bigint, text, bigint, bigint, integer) is
-  'Onboarding + Operation Registry: SUPER ADMIN. Valida binding IN_FLIGHT/TTL, chama assert ONBOARDING e delega a app_criar_categoria. Não substitui app_criar_categoria.';
+  'Onboarding + Operation Registry: SUPER ADMIN. Adquire ROW LOCK FOR UPDATE no binding IN_FLIGHT/TTL, chama assert ONBOARDING e delega a app_criar_categoria. Não substitui app_criar_categoria.';
 
 revoke all on function public.app_onboarding_criar_categoria(uuid, bigint, text, bigint, bigint, integer) from public;
 revoke all on function public.app_onboarding_criar_categoria(uuid, bigint, text, bigint, bigint, integer) from anon;
@@ -346,15 +351,16 @@ begin
       using errcode = 'P0001', detail = 'ONBOARDING_OPERATION_NOT_IN_FLIGHT';
   end if;
 
-  if not exists (
-    select 1
-    from public.app_maintenance_operations o
-    where o.id = p_operation_id
-      and o.operation_type = 'ONBOARDING'
-      and o.status = 'IN_FLIGHT'
-      and o.operation_key = 'ONBOARDING:loja:' || p_loja_id::text
-      and o.expires_at > clock_timestamp()
-  ) then
+  perform 1
+  from public.app_maintenance_operations o
+  where o.id = p_operation_id
+    and o.operation_type = 'ONBOARDING'
+    and o.status = 'IN_FLIGHT'
+    and o.operation_key = 'ONBOARDING:loja:' || p_loja_id::text
+    and o.expires_at > clock_timestamp()
+  for update;
+
+  if not found then
     raise exception '%', 'Operação de onboarding inexistente, expirada ou não vinculada a esta loja.'
       using errcode = 'P0001', detail = 'ONBOARDING_OPERATION_NOT_IN_FLIGHT';
   end if;
@@ -371,7 +377,7 @@ end;
 $$;
 
 comment on function public.app_onboarding_seed_formas_pagamento(uuid, bigint) is
-  'Onboarding + Operation Registry: SUPER ADMIN. Valida binding IN_FLIGHT/TTL, chama assert ONBOARDING e insere o conjunto padrão de formas de pagamento (Dinheiro, Cartão de Crédito, Cartão de Débito, PIX). Sem retry e sem idempotência artificial.';
+  'Onboarding + Operation Registry: SUPER ADMIN. Adquire ROW LOCK FOR UPDATE no binding IN_FLIGHT/TTL, chama assert ONBOARDING e insere o conjunto padrão de formas de pagamento (Dinheiro, Cartão de Crédito, Cartão de Débito, PIX). Sem retry e sem idempotência artificial.';
 
 revoke all on function public.app_onboarding_seed_formas_pagamento(uuid, bigint) from public;
 revoke all on function public.app_onboarding_seed_formas_pagamento(uuid, bigint) from anon;
@@ -447,15 +453,16 @@ begin
       using errcode = 'P0001', detail = 'ONBOARDING_OPERATION_NOT_IN_FLIGHT';
   end if;
 
-  if not exists (
-    select 1
-    from public.app_maintenance_operations o
-    where o.id = p_operation_id
-      and o.operation_type = 'ONBOARDING'
-      and o.status = 'IN_FLIGHT'
-      and o.operation_key = 'ONBOARDING:loja:' || p_loja_id::text
-      and o.expires_at > clock_timestamp()
-  ) then
+  perform 1
+  from public.app_maintenance_operations o
+  where o.id = p_operation_id
+    and o.operation_type = 'ONBOARDING'
+    and o.status = 'IN_FLIGHT'
+    and o.operation_key = 'ONBOARDING:loja:' || p_loja_id::text
+    and o.expires_at > clock_timestamp()
+  for update;
+
+  if not found then
     raise exception '%', 'Operação de onboarding inexistente, expirada ou não vinculada a esta loja.'
       using errcode = 'P0001', detail = 'ONBOARDING_OPERATION_NOT_IN_FLIGHT';
   end if;
@@ -591,7 +598,7 @@ end;
 $$;
 
 comment on function public.app_onboarding_salvar_emitente(uuid, bigint, jsonb) is
-  'Onboarding + Operation Registry: SUPER ADMIN. Valida binding IN_FLIGHT/TTL, chama assert ONBOARDING e faz UPSERT do emitente fiscal. p_loja_id é a autoridade; loja_id no jsonb é ignorado. Allowlist explícita de colunas — sem jsonb_populate_record.';
+  'Onboarding + Operation Registry: SUPER ADMIN. Adquire ROW LOCK FOR UPDATE no binding IN_FLIGHT/TTL, chama assert ONBOARDING e faz UPSERT do emitente fiscal. p_loja_id é a autoridade; loja_id no jsonb é ignorado. Allowlist explícita de colunas — sem jsonb_populate_record.';
 
 revoke all on function public.app_onboarding_salvar_emitente(uuid, bigint, jsonb) from public;
 revoke all on function public.app_onboarding_salvar_emitente(uuid, bigint, jsonb) from anon;

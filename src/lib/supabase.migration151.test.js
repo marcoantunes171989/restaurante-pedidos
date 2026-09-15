@@ -114,6 +114,29 @@ function cabecaDaFuncao(texto, nomeFuncao) {
   return match[0];
 }
 
+const LOCK_STMT_RE =
+  /perform\s+1\s+from\s+public\.app_maintenance_operations\s+o\s+where[\s\S]*?for\s+update/i;
+
+const MUTACAO_COMERCIAL = {
+  app_onboarding_criar_categoria: /return\s+public\.app_criar_categoria\s*\(/i,
+  app_onboarding_seed_formas_pagamento: /insert\s+into\s+public\.tab_formas_pagamento/i,
+  app_onboarding_salvar_emitente: /insert\s+into\s+public\.loja_fiscal_emitente/i,
+};
+
+function blocoRowLock(corpo, fn) {
+  const ocorrencias = corpo.match(new RegExp(LOCK_STMT_RE.source, "gi")) || [];
+  expect(ocorrencias, `${fn} deveria ter exatamente 1 PERFORM ... FOR UPDATE`).toHaveLength(1);
+  const match = corpo.match(LOCK_STMT_RE);
+  expect(match, `bloco de row lock em ${fn} não encontrado`).toBeTruthy();
+  return match[0];
+}
+
+function idxObrigatorio(corpo, re, fn, rotulo) {
+  const idx = corpo.search(re);
+  expect(idx, `${fn}: ${rotulo} não encontrado`).toBeGreaterThan(-1);
+  return idx;
+}
+
 const corpos = Object.fromEntries(ONBOARDING_FNS.map((fn) => [fn, corpoDaFuncao(sqlSemComentarios, fn)]));
 
 describe("migration 151 — existência e transação", () => {
@@ -330,6 +353,156 @@ describe("migration 151 — writers (categoria, formas, emitente)", () => {
     expect(corpo).toMatch(/values\s*\(\s*p_loja_id\s*,/i);
     expect(corpo).toMatch(/on conflict\s*\(\s*loja_id\s*\)\s*do update/i);
     expect(corpo).not.toMatch(/nfce_prox_numero\s*=/i);
+  });
+});
+
+describe("migration 151 — row lock FOR UPDATE nos writers comerciais", () => {
+  it("os 3 writers possuem FOR UPDATE de row-level na operação", () => {
+    for (const fn of WRITER_FNS) {
+      const lock = blocoRowLock(corpos[fn], fn);
+      expect(lock, fn).toMatch(/\bfor\s+update\b/i);
+      expect(lock, fn).not.toMatch(/skip\s+locked/i);
+      expect(lock, fn).not.toMatch(/nowait/i);
+      expect(lock, fn).not.toMatch(/key\s+share/i);
+    }
+  });
+
+  it("o predicate do lock contém id, ONBOARDING, IN_FLIGHT, operation_key e TTL", () => {
+    for (const fn of WRITER_FNS) {
+      const lock = blocoRowLock(corpos[fn], fn);
+      expect(lock, fn).toMatch(/o\.id\s*=\s*p_operation_id/i);
+      expect(lock, fn).toMatch(/o\.operation_type\s*=\s*'ONBOARDING'/i);
+      expect(lock, fn).toMatch(/o\.status\s*=\s*'IN_FLIGHT'/i);
+      expect(lock, fn).toMatch(
+        /o\.operation_key\s*=\s*'ONBOARDING:loja:'\s*\|\|\s*p_loja_id::text/i,
+      );
+      expect(lock, fn).toMatch(/o\.expires_at\s*>\s*clock_timestamp\s*\(\)/i);
+    }
+  });
+
+  it("SUPER ADMIN ocorre antes do FOR UPDATE; lock antes do assert; assert antes da mutação", () => {
+    for (const fn of WRITER_FNS) {
+      const corpo = corpos[fn];
+      const idxAuth = idxObrigatorio(corpo, /super_admin_required/, fn, "SUPER ADMIN");
+      const idxLock = idxObrigatorio(corpo, /\bfor\s+update\b/i, fn, "FOR UPDATE");
+      const idxAssert = idxObrigatorio(
+        corpo,
+        /app_assert_business_write_allowed/i,
+        fn,
+        "assert",
+      );
+      const idxMut = idxObrigatorio(corpo, MUTACAO_COMERCIAL[fn], fn, "mutação comercial");
+      expect(idxLock, `${fn} lock após auth`).toBeGreaterThan(idxAuth);
+      expect(idxAssert, `${fn} assert após lock`).toBeGreaterThan(idxLock);
+      expect(idxMut, `${fn} mutação após assert`).toBeGreaterThan(idxAssert);
+    }
+  });
+
+  it("falha fechado se a row travada for inválida/expirada (IF NOT FOUND após FOR UPDATE)", () => {
+    for (const fn of WRITER_FNS) {
+      const corpo = corpos[fn];
+      const idxLock = idxObrigatorio(corpo, /\bfor\s+update\b/i, fn, "FOR UPDATE");
+      const depois = corpo.slice(idxLock);
+      const idxNotFound = depois.search(/if\s+not\s+found\s+then/i);
+      const idxAssertRel = depois.search(/app_assert_business_write_allowed/i);
+      expect(idxNotFound, fn).toBeGreaterThan(-1);
+      expect(idxAssertRel, fn).toBeGreaterThan(idxNotFound);
+      expect(depois.slice(idxNotFound, idxAssertRel), fn).toMatch(
+        /ONBOARDING_OPERATION_NOT_IN_FLIGHT/,
+      );
+    }
+  });
+
+  it("exatamente os 3 writers comerciais são lock-aware", () => {
+    const lockAware = ONBOARDING_FNS.filter((fn) => /\bfor\s+update\b/i.test(corpos[fn]));
+    expect(lockAware).toEqual([...WRITER_FNS]);
+    expect(lockAware).toHaveLength(3);
+  });
+
+  it("writers abandonam EXISTS sem lock e não usam KEY SHARE, advisory lock, GUC, SKIP LOCKED ou NOWAIT", () => {
+    for (const fn of WRITER_FNS) {
+      const corpo = corpos[fn];
+      expect(corpo, fn).not.toMatch(/if\s+not\s+exists/i);
+      expect(corpo, fn).not.toMatch(/pg_advisory/i);
+      expect(corpo, fn).not.toMatch(/set_config\s*\(/i);
+      expect(corpo, fn).not.toMatch(/current_setting\s*\(/i);
+      expect(corpo, fn).not.toMatch(/for\s+key\s+share/i);
+      expect(corpo, fn).not.toMatch(/skip\s+locked/i);
+      expect(corpo, fn).not.toMatch(/\bnowait\b/i);
+    }
+  });
+
+  it("o lock é mantido até o fim da transação da RPC (sem COMMIT/UNLOCK antecipado)", () => {
+    for (const fn of WRITER_FNS) {
+      const corpo = corpos[fn];
+      expect(corpo, fn).not.toMatch(/\bcommit\s*;/i);
+      expect(corpo, fn).not.toMatch(/\brollback\s*;/i);
+      expect(corpo, fn).not.toMatch(/pg_advisory_unlock/i);
+      expect(corpo.match(/\bfor\s+update\b/gi) || [], fn).toHaveLength(1);
+    }
+  });
+
+  it("dois writers da mesma operação serializam na mesma row de app_maintenance_operations", () => {
+    const normalizados = WRITER_FNS.map((fn) =>
+      blocoRowLock(corpos[fn], fn).replace(/\s+/g, " ").toLowerCase(),
+    );
+    expect(new Set(normalizados).size).toBe(1);
+    expect(normalizados[0]).toMatch(/o\.id = p_operation_id/);
+    expect(normalizados[0]).toMatch(/for update/);
+  });
+
+  it("finish/cancel não ganham requisito de TTL e continuam chamando core150", () => {
+    for (const fn of FINISH_CANCEL_FNS) {
+      const corpo = corpos[fn];
+      expect(corpo, fn).not.toMatch(/\bfor\s+update\b/i);
+      expect(corpo, fn).not.toMatch(/clock_timestamp\s*\(/i);
+      expect(corpo, fn).not.toMatch(/expires_at\s*>/i);
+      expect(corpo, fn).not.toMatch(/app_assert_business_write_allowed/i);
+      expect(corpo, fn).toMatch(/if\s+not\s+exists/i);
+    }
+    expect(corpos.app_onboarding_finish).toMatch(
+      /perform\s+public\.app_maintenance_operation_finish_internal\s*\(\s*p_operation_id\s*,\s*'ONBOARDING'\s*,\s*p_success\s*\)/i,
+    );
+    expect(corpos.app_onboarding_cancel).toMatch(
+      /perform\s+public\.app_maintenance_operation_cancel_internal\s*\(\s*p_operation_id\s*,\s*'ONBOARDING'\s*\)/i,
+    );
+  });
+
+  it("criar_loja permanece sem alteração semântica de row lock de writer", () => {
+    const corpo = corpos.app_onboarding_criar_loja;
+    expect(corpo).not.toMatch(/\bfor\s+update\b/i);
+    expect(corpo).not.toMatch(/if\s+not\s+exists/i);
+    const idxBegin = corpo.search(
+      /app_maintenance_operation_begin_internal\s*\(\s*'ONBOARDING'\s*\)/i,
+    );
+    const idxCriar = corpo.search(/public\.app_criar_loja\s*\(/i);
+    const idxBind = corpo.search(
+      /operation_key\s*=\s*'ONBOARDING:loja:'\s*\|\|\s*v_loja_id::text/i,
+    );
+    expect(idxBegin).toBeGreaterThan(-1);
+    expect(idxCriar).toBeGreaterThan(idxBegin);
+    expect(idxBind).toBeGreaterThan(idxCriar);
+  });
+
+  it("nenhuma função legacy nem o core150/assert142 é redefinida", () => {
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_criar_loja\s*\(/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_criar_categoria\s*\(/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_maintenance_operation_begin_internal/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_maintenance_operation_finish_internal/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_maintenance_operation_cancel_internal/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_assert_business_write_allowed/i,
+    );
   });
 });
 
