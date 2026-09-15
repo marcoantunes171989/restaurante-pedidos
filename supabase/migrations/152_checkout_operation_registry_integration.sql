@@ -20,6 +20,22 @@
 --  IN_FLIGHT vira EXPIRED (expired_at = now(), demais timestamps
 --  terminais NULL) compatível com lifecycle_check live.
 --
+--  Autoridade financeira (commit): loja_id/pedido_ids só de
+--  operation+claims; comandas derivadas de tab_pedidos; total e
+--  troco reconstruídos no servidor; caixa aberto da loja lockado
+--  (skip se inexistente); fidelidade earn/redeem live (sem array
+--  do cliente, sem adjust).
+--
+--  Ordem total de locks no commit (sem ciclo com begin):
+--    1. tab_pedidos id ASC
+--    2. app_maintenance_operations (esta operation)
+--    3. tab_fidelidade_regras da loja habilitada (se houver)
+--    4. tab_clientes identificados (telefone ASC, id ASC)
+--    5. tab_cupons (SELECT FOR UPDATE + cupom_consumir, se houver)
+--    6. tab_produtos id ASC
+--    7. tab_caixas da loja status=aberto id ASC (se houver)
+--  Begin já locka pedidos ASC → operations relacionadas ASC.
+--
 --  SHA256: extensions.digest(text, text) comprovado no HML
 --  (pgcrypto). search_path=public exige qualificação.
 --
@@ -139,11 +155,23 @@ begin
   if to_regclass('public.tab_pagamentos') is null then
     raise exception 'precheck 152: public.tab_pagamentos não existe.';
   end if;
+  if to_regclass('public.tab_caixas') is null then
+    raise exception 'precheck 152: public.tab_caixas não existe.';
+  end if;
   if to_regclass('public.tab_caixa_mov') is null then
     raise exception 'precheck 152: public.tab_caixa_mov não existe.';
   end if;
+  if to_regclass('public.tab_comandas') is null then
+    raise exception 'precheck 152: public.tab_comandas não existe.';
+  end if;
   if to_regclass('public.tab_fidelidade_transacoes') is null then
     raise exception 'precheck 152: public.tab_fidelidade_transacoes não existe.';
+  end if;
+  if to_regclass('public.tab_fidelidade_regras') is null then
+    raise exception 'precheck 152: public.tab_fidelidade_regras não existe.';
+  end if;
+  if to_regclass('public.tab_clientes') is null then
+    raise exception 'precheck 152: public.tab_clientes não existe.';
   end if;
   if to_regclass('public.tab_lojas') is null then
     raise exception 'precheck 152: public.tab_lojas não existe.';
@@ -416,16 +444,31 @@ declare
   v_mesa text;
   v_total numeric;
   v_troco numeric;
+  v_subtotal numeric;
+  v_taxa numeric;
+  v_acrescimo numeric;
+  v_desconto_manual numeric;
+  v_desconto_cupom numeric;
+  v_total_pre_cupom numeric;
+  v_recebido numeric;
   v_detalhes jsonb;
   v_comandas text[];
   v_cupom jsonb;
   v_cupom_id bigint;
   v_cupom_res json;
+  v_cupom_row public.tab_cupons%rowtype;
   v_caixa_id bigint;
-  v_fid jsonb;
-  v_fid_item jsonb;
-  v_fid_tipo text;
-  v_fid_order text;
+  v_caixa public.tab_caixas%rowtype;
+  v_pag_ok boolean;
+  v_fid_regra public.tab_fidelidade_regras%rowtype;
+  v_fid_ok boolean;
+  v_cli public.tab_clientes%rowtype;
+  v_tel text;
+  v_tel_conta text;
+  v_valor_pontos numeric;
+  v_valor_earn numeric;
+  v_saldo integer;
+  v_pts integer;
   v_somas jsonb;
   v_prod_ids bigint[];
   v_prod_id bigint;
@@ -571,7 +614,12 @@ begin
 
   v_payload := v_payload
     - 'loja_id' - 'lojaId'
-    - 'pedido_ids' - 'pedidoIds';
+    - 'pedido_ids' - 'pedidoIds'
+    - 'comandas'
+    - 'total'
+    - 'troco'
+    - 'caixa_id' - 'caixaId'
+    - 'fidelidade_transacoes';
 
   v_status := nullif(btrim(coalesce(v_payload->>'status', '')), '');
   if v_status is not null and v_status <> 'entregue' then
@@ -584,12 +632,33 @@ begin
   end if;
 
   v_detalhes := coalesce(v_payload->'detalhes', '[]'::jsonb);
-  v_mesa := nullif(btrim(coalesce(v_payload->>'mesa', '')), '');
-  v_total := coalesce(nullif(v_payload->>'total', '')::numeric, 0);
-  v_troco := coalesce(nullif(v_payload->>'troco', '')::numeric, 0);
-  v_forma := nullif(btrim(coalesce(v_payload->>'pagamento_forma', v_payload->>'pagamentoForma', '')), '');
+  if jsonb_typeof(v_detalhes) is distinct from 'array' then
+    raise exception '%', 'Payload de checkout inválido.'
+      using errcode = 'P0001', detail = 'CHECKOUT_PAYLOAD_INVALID';
+  end if;
 
-  if v_forma is null and jsonb_typeof(v_detalhes) = 'array' then
+  if exists (
+    select 1
+    from jsonb_array_elements(v_detalhes) as d
+    where jsonb_typeof(d) is distinct from 'object'
+       or coalesce((d->>'valor')::numeric, 0) < 0
+  ) then
+    raise exception '%', 'Payload de checkout inválido.'
+      using errcode = 'P0001', detail = 'CHECKOUT_PAYLOAD_INVALID';
+  end if;
+
+  v_mesa := nullif(btrim(coalesce(v_payload->>'mesa', '')), '');
+  v_forma := nullif(btrim(coalesce(v_payload->>'pagamento_forma', v_payload->>'pagamentoForma', '')), '');
+  v_taxa := coalesce(nullif(btrim(coalesce(v_payload->>'taxa_servico', v_payload->>'taxaServico', '')), '')::numeric, 0);
+  v_acrescimo := coalesce(nullif(btrim(coalesce(v_payload->>'acrescimo', '')), '')::numeric, 0);
+  v_desconto_manual := coalesce(nullif(btrim(coalesce(v_payload->>'desconto_manual', v_payload->>'descontoManual', '')), '')::numeric, 0);
+
+  if v_taxa < 0 or v_acrescimo < 0 or v_desconto_manual < 0 then
+    raise exception '%', 'Payload de checkout inválido.'
+      using errcode = 'P0001', detail = 'CHECKOUT_PAYLOAD_INVALID';
+  end if;
+
+  if v_forma is null then
     select string_agg(forma, ' + ' order by valor desc, forma)
       into v_forma
     from (
@@ -601,17 +670,14 @@ begin
     ) s;
   end if;
 
-  select array_agg(p.comanda order by p.id)
+  select coalesce(array_agg(x order by x), '{}'::text[])
     into v_comandas
-  from public.tab_pedidos p
-  where p.id = any (v_ids);
-
-  if v_payload ? 'comandas' and jsonb_typeof(v_payload->'comandas') = 'array' then
-    select array_agg(btrim(x) order by btrim(x))
-      into v_comandas
-    from jsonb_array_elements_text(v_payload->'comandas') as x
-    where btrim(x) <> '';
-  end if;
+  from (
+    select distinct btrim(p.comanda) as x
+    from public.tab_pedidos p
+    where p.id = any (v_ids)
+      and nullif(btrim(p.comanda), '') is not null
+  ) s;
 
   if v_mesa is null then
     select p.mesa into v_mesa
@@ -621,32 +687,133 @@ begin
     limit 1;
   end if;
 
+  select coalesce(sum(
+           coalesce((item->>'price')::numeric, 0)
+           * coalesce((item->>'quantity')::numeric, 0)
+         ), 0)
+    into v_subtotal
+  from public.tab_pedidos p
+  cross join lateral jsonb_array_elements(
+    case
+      when jsonb_typeof(coalesce(p.itens, '[]'::jsonb)) = 'array' then coalesce(p.itens, '[]'::jsonb)
+      else '[]'::jsonb
+    end
+  ) as item
+  where p.id = any (v_ids);
+
+  if v_subtotal < 0 then
+    raise exception '%', 'Total de checkout negativo.'
+      using errcode = 'P0001', detail = 'CHECKOUT_TOTAL_NEGATIVE';
+  end if;
+
+  v_fid_regra := null;
+  v_fid_ok := false;
+  select r.*
+    into v_fid_regra
+  from public.tab_fidelidade_regras r
+  where r.loja_id = v_loja_id
+    and coalesce(r.ativo, true) is not false
+    and r.valor_por_ponto > 0
+    and r.pontos_por_real > 0
+  order by r.id asc
+  limit 1
+  for update;
+  v_fid_ok := found;
+
+  v_tel_conta := null;
+  select nullif(btrim(p.cliente_telefone), '')
+    into v_tel_conta
+  from public.tab_pedidos p
+  where p.id = any (v_ids)
+    and nullif(btrim(p.cliente_telefone), '') is not null
+  order by p.id asc
+  limit 1;
+
+  for v_tel in
+    select distinct nullif(btrim(p.cliente_telefone), '') as tel
+    from public.tab_pedidos p
+    where p.id = any (v_ids)
+      and nullif(btrim(p.cliente_telefone), '') is not null
+    order by 1
+  loop
+    perform 1
+    from public.tab_clientes c
+    where c.telefone = v_tel
+      and (c.loja_id is null or c.loja_id = v_loja_id)
+    order by c.id asc
+    limit 1
+    for update;
+  end loop;
+
+  v_desconto_cupom := 0;
   v_cupom := v_payload->'cupom';
+  v_cupom_id := null;
   if v_cupom is not null and jsonb_typeof(v_cupom) = 'object' then
     v_cupom_id := nullif(btrim(coalesce(v_cupom->>'cupom_id', v_cupom->>'cupomId', '')), '')::bigint;
+  end if;
 
-    if v_cupom_id is not null then
-      v_cupom_res := public.cupom_consumir(
-        v_cupom_id,
-        v_loja_id,
-        coalesce(
-          nullif(btrim(coalesce(v_cupom->>'valor_conta', v_cupom->>'valorConta', '')), '')::numeric,
-          v_total
-        ),
-        coalesce(
-          nullif(btrim(coalesce(v_cupom->>'valor_desconto', v_cupom->>'valorDesconto', '')), '')::numeric,
-          0
-        ),
-        coalesce(nullif(btrim(coalesce(v_cupom->>'mesa', '')), ''), v_mesa),
-        coalesce(v_comandas, '{}'::text[]),
-        nullif(btrim(coalesce(v_cupom->>'cliente_telefone', v_cupom->>'clienteTelefone', '')), ''),
-        coalesce(nullif(btrim(coalesce(v_cupom->>'canal', '')), ''), 'interno')
-      );
-      if coalesce(v_cupom_res->>'ok', '') is distinct from 'true' then
-        raise exception '%', coalesce(v_cupom_res->>'motivo', 'Cupom indisponível no momento do pagamento.')
-          using errcode = 'P0001', detail = 'CHECKOUT_CUPOM_CONSUMO_FAILED';
+  v_total_pre_cupom := round(greatest(0, v_subtotal + v_taxa + v_acrescimo - v_desconto_manual), 2);
+
+  if v_cupom_id is not null then
+    select *
+      into v_cupom_row
+    from public.tab_cupons
+    where id = v_cupom_id
+    for update;
+
+    if found then
+      if v_cupom_row.tipo = 'valor' then
+        v_desconto_cupom := v_cupom_row.valor;
+      else
+        v_desconto_cupom := round(coalesce(v_total_pre_cupom, 0) * v_cupom_row.valor / 100.0, 2);
       end if;
+      v_desconto_cupom := least(greatest(coalesce(v_desconto_cupom, 0), 0), coalesce(v_total_pre_cupom, 0));
     end if;
+
+    v_total := round(greatest(0, v_total_pre_cupom - coalesce(v_desconto_cupom, 0)), 2);
+    if v_total < 0 then
+      raise exception '%', 'Total de checkout negativo.'
+        using errcode = 'P0001', detail = 'CHECKOUT_TOTAL_NEGATIVE';
+    end if;
+
+    v_cupom_res := public.cupom_consumir(
+      v_cupom_id,
+      v_loja_id,
+      v_total_pre_cupom,
+      coalesce(v_desconto_cupom, 0),
+      coalesce(nullif(btrim(coalesce(v_cupom->>'mesa', '')), ''), v_mesa),
+      coalesce(v_comandas, '{}'::text[]),
+      coalesce(
+        nullif(btrim(coalesce(v_cupom->>'cliente_telefone', v_cupom->>'clienteTelefone', '')), ''),
+        v_tel_conta
+      ),
+      coalesce(nullif(btrim(coalesce(v_cupom->>'canal', '')), ''), 'interno')
+    );
+    if coalesce(v_cupom_res->>'ok', '') is distinct from 'true' then
+      raise exception '%', coalesce(v_cupom_res->>'motivo', 'Cupom indisponível no momento do pagamento.')
+        using errcode = 'P0001', detail = 'CHECKOUT_CUPOM_CONSUMO_FAILED';
+    end if;
+  else
+    v_total := v_total_pre_cupom;
+    if v_total < 0 then
+      raise exception '%', 'Total de checkout negativo.'
+        using errcode = 'P0001', detail = 'CHECKOUT_TOTAL_NEGATIVE';
+    end if;
+  end if;
+
+  select coalesce(sum(coalesce((d->>'valor')::numeric, 0)), 0)
+    into v_recebido
+  from jsonb_array_elements(v_detalhes) as d;
+
+  if v_recebido + 0.001 < v_total then
+    raise exception '%', 'Pagamento insuficiente para o total do checkout.'
+      using errcode = 'P0001', detail = 'CHECKOUT_PAGAMENTO_INSUFICIENTE';
+  end if;
+
+  v_troco := round(greatest(0, v_recebido - v_total), 2);
+  if v_troco < 0 then
+    raise exception '%', 'Troco de checkout negativo.'
+      using errcode = 'P0001', detail = 'CHECKOUT_TROCO_NEGATIVE';
   end if;
 
   for v_rec in
@@ -731,23 +898,80 @@ begin
     end loop;
   end if;
 
-  insert into public.tab_pagamentos (
-    mesa,
-    comandas,
-    total,
-    troco,
-    detalhes,
-    loja_id
-  ) values (
-    v_mesa,
-    coalesce(v_comandas, '{}'::text[]),
-    v_total,
-    v_troco,
-    v_detalhes,
-    v_loja_id
+  if v_total < 0 then
+    raise exception '%', 'Total de checkout negativo.'
+      using errcode = 'P0001', detail = 'CHECKOUT_TOTAL_NEGATIVE';
+  end if;
+  if v_troco < 0 then
+    raise exception '%', 'Troco de checkout negativo.'
+      using errcode = 'P0001', detail = 'CHECKOUT_TROCO_NEGATIVE';
+  end if;
+
+  v_pag_ok := (
+    v_loja_id is not null
+    and coalesce(v_total, -1) >= 0
+    and coalesce(v_troco, -1) >= 0
+    and jsonb_typeof(v_detalhes) = 'array'
+    and (
+      coalesce(v_caller.super_admin, false)
+      or (
+        coalesce(cardinality(v_comandas), 0) > 0
+        and not exists (
+          select 1
+          from unnest(v_comandas) informado(codigo)
+          where nullif(btrim(informado.codigo), '') is null
+        )
+        and cardinality(v_comandas) = (
+          select count(distinct btrim(informado.codigo))
+          from unnest(v_comandas) informado(codigo)
+        )
+        and not exists (
+          select 1
+          from unnest(v_comandas) informado(codigo)
+          left join public.tab_comandas c on c.codigo = btrim(informado.codigo)
+          where c.id is null or c.loja_id is distinct from v_loja_id
+        )
+      )
+    )
   );
 
-  v_caixa_id := nullif(btrim(coalesce(v_payload->>'caixa_id', v_payload->>'caixaId', '')), '')::bigint;
+  if v_pag_ok then
+    insert into public.tab_pagamentos (
+      mesa,
+      comandas,
+      total,
+      troco,
+      detalhes,
+      loja_id
+    ) values (
+      v_mesa,
+      coalesce(v_comandas, '{}'::text[]),
+      v_total,
+      v_troco,
+      v_detalhes,
+      v_loja_id
+    );
+  end if;
+
+  v_caixa_id := null;
+  for v_caixa in
+    select *
+    from public.tab_caixas c
+    where c.loja_id = v_loja_id
+      and c.status = 'aberto'
+    order by c.id asc
+    for update
+  loop
+    if v_caixa.loja_id is distinct from v_loja_id then
+      continue;
+    end if;
+    if v_caixa.status is distinct from 'aberto' then
+      continue;
+    end if;
+    if v_caixa_id is null then
+      v_caixa_id := v_caixa.id;
+    end if;
+  end loop;
 
   if v_caixa_id is not null then
     if jsonb_typeof(v_detalhes) = 'array' and jsonb_array_length(v_detalhes) > 0 then
@@ -787,42 +1011,103 @@ begin
     end if;
   end if;
 
-  v_fid := v_payload->'fidelidade_transacoes';
-  if v_fid is not null and jsonb_typeof(v_fid) = 'array' then
-    for v_fid_item in select * from jsonb_array_elements(v_fid) loop
-      if jsonb_typeof(v_fid_item) is distinct from 'object' then
-        raise exception '%', 'Payload de checkout inválido.'
-          using errcode = 'P0001', detail = 'CHECKOUT_PAYLOAD_INVALID';
-      end if;
+  if v_fid_ok then
+    select coalesce(sum(coalesce((d->>'valor')::numeric, 0)), 0)
+      into v_valor_pontos
+    from jsonb_array_elements(v_detalhes) as d
+    where coalesce(d->>'forma', '') ~* 'pontos';
 
-      v_fid_tipo := coalesce(nullif(btrim(v_fid_item->>'tipo'), ''), 'earn');
-      if v_fid_tipo not in ('earn', 'redeem', 'adjust') then
-        raise exception '%', 'Payload de checkout inválido.'
-          using errcode = 'P0001', detail = 'CHECKOUT_PAYLOAD_INVALID';
-      end if;
+    if v_tel_conta is not null and coalesce(v_valor_pontos, 0) > 0 then
+      select c.*
+        into v_cli
+      from public.tab_clientes c
+      where c.telefone = v_tel_conta
+        and (c.loja_id is null or c.loja_id = v_loja_id)
+      order by c.id asc
+      limit 1;
 
-      v_fid_order := nullif(btrim(coalesce(v_fid_item->>'order_id', v_fid_item->>'orderId', '')), '');
-      if v_fid_order is not null and not (v_fid_order = any (v_ids)) then
-        raise exception '%', 'Payload de checkout inválido.'
-          using errcode = 'P0001', detail = 'CHECKOUT_PAYLOAD_INVALID';
-      end if;
+      if found then
+        select coalesce(sum(t.pontos), 0)::integer
+          into v_saldo
+        from public.tab_fidelidade_transacoes t
+        where t.cliente_id = v_cli.id;
 
-      insert into public.tab_fidelidade_transacoes (
-        loja_id,
-        cliente_id,
-        order_id,
-        pontos,
-        tipo,
-        descricao
-      ) values (
-        v_loja_id,
-        nullif(btrim(coalesce(v_fid_item->>'cliente_id', v_fid_item->>'clienteId', '')), '')::bigint,
-        v_fid_order,
-        coalesce((v_fid_item->>'pontos')::integer, 0),
-        v_fid_tipo,
-        nullif(btrim(coalesce(v_fid_item->>'descricao', '')), '')
-      );
-    end loop;
+        v_pts := least(
+          v_saldo,
+          round(v_valor_pontos * v_fid_regra.pontos_por_real)::integer
+        );
+        if v_pts > 0 then
+          insert into public.tab_fidelidade_transacoes (
+            loja_id,
+            cliente_id,
+            order_id,
+            pontos,
+            tipo,
+            descricao
+          ) values (
+            v_loja_id,
+            v_cli.id,
+            null,
+            -v_pts,
+            'redeem',
+            concat('Pagamento com pontos ', v_valor_pontos::text)
+          );
+        end if;
+      end if;
+    end if;
+
+    if v_fid_regra.valor_por_ponto > 0 then
+      for v_tel, v_valor_earn in
+        select p.cliente_telefone,
+               coalesce(sum(
+                 coalesce((item->>'price')::numeric, 0)
+                 * coalesce((item->>'quantity')::numeric, 0)
+               ), 0)
+        from public.tab_pedidos p
+        cross join lateral jsonb_array_elements(
+          case
+            when jsonb_typeof(coalesce(p.itens, '[]'::jsonb)) = 'array' then coalesce(p.itens, '[]'::jsonb)
+            else '[]'::jsonb
+          end
+        ) as item
+        where p.id = any (v_ids)
+          and nullif(btrim(p.cliente_telefone), '') is not null
+        group by p.cliente_telefone
+      loop
+        if v_tel is not distinct from v_tel_conta then
+          v_valor_earn := greatest(0, v_valor_earn - coalesce(v_valor_pontos, 0));
+        end if;
+
+        select c.*
+          into v_cli
+        from public.tab_clientes c
+        where c.telefone = v_tel
+          and (c.loja_id is null or c.loja_id = v_loja_id)
+        order by c.id asc
+        limit 1;
+
+        if found then
+          v_pts := floor(v_valor_earn / v_fid_regra.valor_por_ponto)::integer;
+          if v_pts > 0 then
+            insert into public.tab_fidelidade_transacoes (
+              loja_id,
+              cliente_id,
+              order_id,
+              pontos,
+              tipo,
+              descricao
+            ) values (
+              v_loja_id,
+              v_cli.id,
+              null,
+              v_pts,
+              'earn',
+              concat('Compra ', v_valor_earn::text)
+            );
+          end if;
+        end if;
+      end loop;
+    end if;
   end if;
 
   perform public.app_maintenance_operation_finish_internal(
@@ -841,7 +1126,7 @@ end;
 $$;
 
 comment on function public.app_checkout_commit(uuid, jsonb) is
-  'Checkout + Operation Registry: pacote comercial atômico (cupom, pagar, estoque ASC, pagamento, caixa, fidelidade) e finish_internal(CHECKOUT, true). COMPLETED é idempotente sem mutação. Auditoria fica fora.';
+  'Checkout + Operation Registry: pacote comercial atômico (cupom, pagar, estoque ASC, pagamento, caixa, fidelidade) e finish_internal(CHECKOUT, true). COMPLETED é idempotente sem mutação. Auditoria fica fora. Autoridade financeira server-side: claims, comandas/total/troco/caixa/fidelidade derivados no servidor.';
 
 revoke all on function public.app_checkout_commit(uuid, jsonb) from public;
 revoke all on function public.app_checkout_commit(uuid, jsonb) from anon;

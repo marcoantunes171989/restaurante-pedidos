@@ -500,6 +500,220 @@ describe("migration 152 — app_checkout_commit", () => {
   });
 });
 
+describe("migration 152 — autoridade financeira server-side", () => {
+  const corpo = corpos.app_checkout_commit;
+  const idxCompleted = corpo.search(/v_op\.status\s*=\s*'COMPLETED'/i);
+  const idxPag = corpo.search(/insert\s+into\s+public\.tab_pagamentos/i);
+  const idxCaixaMov = corpo.search(/insert\s+into\s+public\.tab_caixa_mov/i);
+  const idxFid = corpo.search(/insert\s+into\s+public\.tab_fidelidade_transacoes/i);
+
+  it("A. p_payload.loja_id não é autoridade — v_loja_id vem das claims", () => {
+    expect(corpo).toMatch(/min\(\s*c\.loja_id\s*\)/i);
+    expect(corpo).toMatch(/from\s+public\.app_checkout_operation_pedidos c/i);
+    expect(corpo).not.toMatch(/v_loja_id\s*:=\s*[\s\S]{0,120}v_payload/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'loja_id'/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'lojaId'/i);
+  });
+
+  it("B. p_payload.pedido_ids não é autoridade — ids vêm das claims", () => {
+    expect(corpo).toMatch(/array_agg\(\s*c\.pedido_id\s+order by\s+c\.pedido_id\s*\)/i);
+    expect(corpo).not.toMatch(/v_ids\s*:=\s*[\s\S]{0,120}v_payload/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'pedido_ids'/i);
+    expect(corpo).not.toMatch(/v_payload\s*->\s*'pedido_ids'/i);
+  });
+
+  it("C. p_payload.comandas não substitui as claims — comandas derivadas de tab_pedidos", () => {
+    expect(corpo).toMatch(/select distinct btrim\(\s*p\.comanda\s*\)/i);
+    expect(corpo).toMatch(/from\s+public\.tab_pedidos p/i);
+    expect(corpo).not.toMatch(/jsonb_array_elements_text\(\s*v_payload\s*->\s*'comandas'/i);
+    expect(corpo).not.toMatch(/v_comandas\s*:=\s*[\s\S]{0,160}v_payload\s*->\s*'comandas'/i);
+    expect(corpo).toMatch(/-\s*'comandas'/i);
+  });
+
+  it("D. total é derivado/validado server-side a partir dos itens persistidos", () => {
+    expect(corpo).toMatch(/item->>'price'/i);
+    expect(corpo).toMatch(/item->>'quantity'/i);
+    expect(corpo).toMatch(/into\s+v_subtotal/i);
+    expect(corpo).toMatch(/v_total_pre_cupom\s*:=/i);
+    expect(corpo).not.toMatch(/v_total\s*:=\s*coalesce\(\s*nullif\(\s*v_payload\s*->>\s*'total'/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'total'/i);
+  });
+
+  it("E. total negativo é rejeitado", () => {
+    expect(corpo).toMatch(/v_subtotal\s*<\s*0/i);
+    expect(corpo).toMatch(/v_total\s*<\s*0/i);
+    expect(corpo).toMatch(/CHECKOUT_TOTAL_NEGATIVE/);
+    const idxNeg = idxObrigatorio(corpo, /CHECKOUT_TOTAL_NEGATIVE/, "commit", "total negativo");
+    expect(idxPag).toBeGreaterThan(idxNeg);
+  });
+
+  it("F. troco é derivado/validado de recebido menos devido", () => {
+    expect(corpo).toMatch(/into\s+v_recebido/i);
+    expect(corpo).toMatch(/v_troco\s*:=\s*round\(\s*greatest\(\s*0\s*,\s*v_recebido\s*-\s*v_total/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'troco'/i);
+    expect(corpo).not.toMatch(/v_troco\s*:=\s*coalesce\(\s*nullif\(\s*v_payload/i);
+  });
+
+  it("G. troco negativo é impossível/rejeitado", () => {
+    expect(corpo).toMatch(/greatest\(\s*0\s*,\s*v_recebido\s*-\s*v_total/i);
+    expect(corpo).toMatch(/v_troco\s*<\s*0/i);
+    expect(corpo).toMatch(/CHECKOUT_TROCO_NEGATIVE/);
+    const idxTrocoNeg = idxObrigatorio(corpo, /CHECKOUT_TROCO_NEGATIVE/, "commit", "troco negativo");
+    expect(idxPag).toBeGreaterThan(idxTrocoNeg);
+  });
+
+  it("H. caixa precisa pertencer à loja das claims", () => {
+    expect(corpo).toMatch(/from\s+public\.tab_caixas c/i);
+    expect(corpo).toMatch(/c\.loja_id\s*=\s*v_loja_id/i);
+    expect(corpo).toMatch(/v_caixa\.loja_id\s+is distinct from\s+v_loja_id/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'caixa_id'/i);
+    expect(corpo).not.toMatch(/v_payload\s*->>\s*'caixaId'/i);
+  });
+
+  it("I. caixa precisa estar aberto", () => {
+    expect(corpo).toMatch(/c\.status\s*=\s*'aberto'/i);
+    expect(corpo).toMatch(/v_caixa\.status\s+is distinct from\s+'aberto'/i);
+  });
+
+  it("J. ausência de caixa válido não grava movimento de caixa", () => {
+    const idxLock = idxObrigatorio(
+      corpo,
+      /from\s+public\.tab_caixas[\s\S]*?for update/i,
+      "commit",
+      "lock caixa",
+    );
+    const idxSkip = idxObrigatorio(corpo, /if v_caixa_id is not null then/i, "commit", "skip caixa");
+    expect(idxSkip).toBeGreaterThan(idxLock);
+    expect(idxCaixaMov).toBeGreaterThan(idxSkip);
+    expect(corpo).toMatch(/v_caixa_id\s*:=\s*null/i);
+    expect(corpo).toMatch(/v_caixa_id\s*:=\s*v_caixa\.id/i);
+  });
+
+  it("K. fidelidade não aceita array arbitrário do cliente", () => {
+    expect(corpo).toMatch(/-\s*'fidelidade_transacoes'/i);
+    expect(corpo).not.toMatch(/v_payload\s*->\s*'fidelidade_transacoes'/i);
+    expect(corpo).not.toMatch(/jsonb_array_elements\(\s*v_payload\s*->\s*'fidelidade_transacoes'/i);
+    expect(corpo).not.toMatch(/v_fid_item\s*->>\s*'pontos'/i);
+    expect(corpo).not.toMatch(/v_fid_item\s*->>\s*'cliente_id'/i);
+  });
+
+  it("L. adjust não é permitido no checkout", () => {
+    expect(corpo).not.toMatch(/'adjust'/i);
+    expect(corpo).toMatch(/'redeem'/i);
+    expect(corpo).toMatch(/'earn'/i);
+  });
+
+  it("M. earn usa regra e cliente live", () => {
+    expect(corpo).toMatch(/from\s+public\.tab_fidelidade_regras r/i);
+    expect(corpo).toMatch(/r\.valor_por_ponto\s*>\s*0/i);
+    expect(corpo).toMatch(/floor\(\s*v_valor_earn\s*\/\s*v_fid_regra\.valor_por_ponto/i);
+    expect(corpo).toMatch(/from\s+public\.tab_clientes c/i);
+    expect(corpo).toMatch(/c\.telefone\s*=\s*v_tel/i);
+    expect(corpo).toMatch(/tipo,\s*[\s\S]*?'earn'/i);
+  });
+
+  it("N. redeem usa regra e saldo live", () => {
+    expect(corpo).toMatch(/r\.pontos_por_real\s*>\s*0/i);
+    expect(corpo).toMatch(/v_fid_regra\.pontos_por_real/i);
+    expect(corpo).toMatch(/sum\(\s*t\.pontos\s*\)/i);
+    expect(corpo).toMatch(/from\s+public\.tab_fidelidade_transacoes t/i);
+    expect(corpo).toMatch(/~?\*?\s*'pontos'/i);
+    expect(corpo).toMatch(/tipo,\s*[\s\S]*?'redeem'/i);
+    expect(corpo).toMatch(/-v_pts/i);
+  });
+
+  it("O. retry COMPLETED não repete financeiro", () => {
+    expect(idxCompleted).toBeGreaterThan(-1);
+    expect(idxPag).toBeGreaterThan(idxCompleted);
+    expect(idxCaixaMov).toBeGreaterThan(idxCompleted);
+    expect(idxFid).toBeGreaterThan(idxCompleted);
+    const trechoAntes = corpo.slice(idxCompleted, idxPag);
+    expect(trechoAntes).toMatch(/'idempotent'\s*,\s*true/i);
+    expect(trechoAntes).toMatch(/return jsonb_build_object/i);
+    expect(trechoAntes).not.toMatch(/insert\s+into\s+public\.tab_pagamentos/i);
+    expect(trechoAntes).not.toMatch(/insert\s+into\s+public\.tab_caixa_mov/i);
+    expect(trechoAntes).not.toMatch(/insert\s+into\s+public\.tab_fidelidade_transacoes/i);
+  });
+
+  it("P. SECURITY DEFINER replica invariantes comerciais do INSERT de pagamento", () => {
+    const idxPolicy = idxObrigatorio(
+      corpo,
+      /cardinality\(\s*v_comandas\s*\)/i,
+      "commit",
+      "policy comandas",
+    );
+    expect(corpo).toMatch(/left join public\.tab_comandas c on c\.codigo\s*=\s*btrim\(\s*informado\.codigo\s*\)/i);
+    expect(corpo).toMatch(/c\.loja_id\s+is distinct from\s+v_loja_id/i);
+    expect(corpo).toMatch(/coalesce\(\s*v_total\s*,\s*-1\s*\)\s*>=\s*0/i);
+    expect(corpo).toMatch(/coalesce\(\s*v_troco\s*,\s*-1\s*\)\s*>=\s*0/i);
+    expect(corpo).toMatch(/jsonb_typeof\(\s*v_detalhes\s*\)\s*=\s*'array'/i);
+    expect(idxPag).toBeGreaterThan(idxPolicy);
+    expect(corpo).toMatch(/if v_pag_ok then/i);
+  });
+
+  it("Q. legacy/core/151 continuam congelados no arquivo 152", () => {
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_maintenance_operation_begin_internal/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_maintenance_operation_finish_internal/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.cupom_consumir/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_pedido_marcar_pago/i,
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /create\s+(or\s+replace\s+)?function\s+public\.app_onboarding_criar_loja/i,
+    );
+  });
+
+  it("ordem de locks financeiros é total e caixa vem depois dos produtos", () => {
+    const idxPedidos = idxObrigatorio(
+      corpo,
+      /from\s+public\.tab_pedidos[\s\S]*?order by p\.id asc\s+for update/i,
+      "commit",
+      "lock pedidos",
+    );
+    const idxOp = idxObrigatorio(
+      corpo,
+      /from\s+public\.app_maintenance_operations o[\s\S]*?for update/i,
+      "commit",
+      "lock operation",
+    );
+    const idxFidLock = idxObrigatorio(
+      corpo,
+      /from\s+public\.tab_fidelidade_regras[\s\S]*?for update/i,
+      "commit",
+      "lock regra fidelidade",
+    );
+    const idxCliLock = idxObrigatorio(
+      corpo,
+      /from\s+public\.tab_clientes[\s\S]*?for update/i,
+      "commit",
+      "lock clientes",
+    );
+    const idxProd = idxObrigatorio(
+      corpo,
+      /from\s+public\.tab_produtos pr[\s\S]*?order by pr\.id asc\s+for update/i,
+      "commit",
+      "lock produtos",
+    );
+    const idxCaixaLock = idxObrigatorio(
+      corpo,
+      /from\s+public\.tab_caixas[\s\S]*?order by c\.id asc\s+for update/i,
+      "commit",
+      "lock caixas",
+    );
+    expect(idxOp).toBeGreaterThan(idxPedidos);
+    expect(idxFidLock).toBeGreaterThan(idxOp);
+    expect(idxCliLock).toBeGreaterThan(idxFidLock);
+    expect(idxProd).toBeGreaterThan(idxCliLock);
+    expect(idxCaixaLock).toBeGreaterThan(idxProd);
+  });
+});
+
 describe("migration 152 — status, fail e cancel", () => {
   it("status reconcilia por operation_id e por loja + pedido_ids canônicos, sem mutação", () => {
     const corpo = corpos.app_checkout_status;
