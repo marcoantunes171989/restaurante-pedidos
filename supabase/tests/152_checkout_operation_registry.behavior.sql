@@ -1272,7 +1272,10 @@ BEGIN
   RAISE NOTICE 'M_timeout_reconciliation=PASS';
 
   ------------------------------------------------------------------
-  -- P — IDs/markers + higiene de fence + resumo fail-closed
+  -- P — higiene de fence + markers in-tx; residuo DEFERRED
+  --     P_PROOF_MODE=POST_ROLLBACK_READ_ONLY_RECONCILIATION
+  --     A prova real de zero residuo so existe apos ROLLBACK, via
+  --     HML-RO. Este bloco NAO marca P como PASS.
   ------------------------------------------------------------------
   UPDATE public.app_maintenance_state
      SET phase = v_phase0,
@@ -1313,28 +1316,36 @@ BEGIN
   RAISE NOTICE 'TRUE_TWO_SESSION_RACE_EXECUTED=NAO';
 
   INSERT INTO bt152_results VALUES (
-    'P', 'P_zero_residuo_ROLLBACK', 'PASS',
-    'fixtures marcadas; fence restaurada; descarte textual ao fim do arquivo'
+    'P', 'P_zero_residuo_ROLLBACK', 'DEFERRED',
+    'in-tx so declara P; prova de residuo fica para HML-RO pos-ROLLBACK'
   );
-  RAISE NOTICE 'P_zero_residuo_ROLLBACK=PASS';
+  RAISE NOTICE 'P_zero_residuo_ROLLBACK=DEFERRED';
+  RAISE NOTICE 'P_PROOF_MODE=POST_ROLLBACK_READ_ONLY_RECONCILIATION';
+  RAISE NOTICE 'P_READY_FOR_RECONCILIATION=SIM';
 
-  IF (SELECT count(*) FROM bt152_results WHERE status = 'PASS') IS DISTINCT FROM 16 THEN
-    RAISE EXCEPTION 'RESUMO_FAIL: SCENARIOS_PASS != 16'
+  IF (SELECT count(*) FROM bt152_results WHERE status = 'PASS') IS DISTINCT FROM 15 THEN
+    RAISE EXCEPTION 'RESUMO_FAIL: SCENARIOS_PASS_IN_TX != 15'
       USING ERRCODE = 'TE000';
   END IF;
-  IF (SELECT count(*) FROM bt152_results WHERE status IS DISTINCT FROM 'PASS') IS DISTINCT FROM 0 THEN
-    RAISE EXCEPTION 'RESUMO_FAIL: SCENARIOS_FAIL != 0'
+  IF (SELECT count(*) FROM bt152_results
+        WHERE scenario <> 'P' AND status IS DISTINCT FROM 'PASS') IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'RESUMO_FAIL: SCENARIOS_FAIL_IN_TX != 0'
       USING ERRCODE = 'TE000';
   END IF;
-  IF (SELECT string_agg(scenario, ',' ORDER BY scenario) FROM bt152_results)
-       IS DISTINCT FROM 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P' THEN
-    RAISE EXCEPTION 'RESUMO_FAIL: SCENARIOS != A..P'
+  IF (SELECT status FROM bt152_results WHERE scenario = 'P') IS DISTINCT FROM 'DEFERRED' THEN
+    RAISE EXCEPTION 'RESUMO_FAIL: P deveria estar DEFERRED in-tx'
+      USING ERRCODE = 'TE000';
+  END IF;
+  IF (SELECT string_agg(scenario, ',' ORDER BY scenario)
+        FROM bt152_results WHERE status = 'PASS')
+       IS DISTINCT FROM 'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O' THEN
+    RAISE EXCEPTION 'RESUMO_FAIL: SCENARIOS_PASS_IN_TX != A..O'
       USING ERRCODE = 'TE000';
   END IF;
 
-  RAISE NOTICE 'SCENARIOS_PASS=16';
-  RAISE NOTICE 'SCENARIOS_FAIL=0';
-  RAISE NOTICE '=== 152_checkout_operation_registry.behavior PASS A..P ===';
+  RAISE NOTICE 'SCENARIOS_PASS_IN_TX=15';
+  RAISE NOTICE 'SCENARIOS_FAIL_IN_TX=0';
+  RAISE NOTICE '=== 152_checkout_operation_registry.behavior A..O PASS_IN_TX; P DEFERRED ===';
 END;
 $test$;
 
@@ -1349,11 +1360,20 @@ ROLLBACK;
 -- chamada mutable). NAO executar agora. NAO sao um segundo mutable
 -- call. Colar no HML-ro / SQL Editor somente leitura.
 --
+-- P_PROOF_MODE=POST_ROLLBACK_READ_ONLY_RECONCILIATION
+-- P soh e PASS depois destas queries HML-RO. O SQL mutavel acima
+-- para em A-O = 15/15 (P=DEFERRED). Processo externo:
+--   Mutable call: A-O = 15/15
+--   HML-RO post-rollback: P = PASS
+--   FINAL_SCENARIOS_PASS = 16/16
+-- FINAL_SCENARIOS_PASS nao e resultado pre-ROLLBACK deste arquivo.
+--
 -- Esperado apos o descarte da transacao de teste:
---   fixture residue = 0
---   checkout test operations = 0
---   checkout test claims = 0
---   maintenance state original preservado (NORMAL/0/3, fence NULL)
+--   TEST_FIXTURE_RESIDUE = 0
+--   TEST_OPERATION_RESIDUE = 0
+--   TEST_CLAIM_RESIDUE = 0
+--   MAINTENANCE_STATE_PRESERVED = SIM
+--   migration152 continua live exatamente uma vez
 -- =====================================================================
 --
 -- SELECT phase, epoch, version, fence_effective_at
