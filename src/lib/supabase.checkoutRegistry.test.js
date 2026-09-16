@@ -454,3 +454,74 @@ describe("Q. CentralDoCaixa continua chegando ao novo checkout via App.baixarCom
     expect(centralSrc).not.toMatch(/checkoutBegin|checkoutCommit|executarCheckoutOperationRegistry/);
   });
 });
+
+// B11-C2-FE2A — antes desta correção, o catch em torno de
+// executarCheckoutOperationRegistry só fazia console.error e deixava
+// baixarComandas resolver normalmente (notify("success") + { alertas: [] }),
+// mesmo quando o checkout falhou definitivamente. O caller (CashierPdv) não
+// tinha como distinguir sucesso de falha terminal.
+describe("R. baixarComandas propaga falha terminal do checkout (não engole erro)", () => {
+  it("A/D. o catch relança o erro do checkout (throw err) em vez de resolver normalmente", () => {
+    const corpo = corpoBaixarComandas();
+    expect(corpo).toMatch(
+      /catch \(err\) \{[\s\S]*?console\.error\("Erro ao finalizar pagamento:", err\);\s*throw err;\s*\}/,
+    );
+  });
+
+  it("B/C. o MESMO objeto de erro é relançado — sem `new Error(...)`, preservando terminalizationError/cause", () => {
+    const corpo = corpoBaixarComandas();
+    const idxCatch = corpo.indexOf("catch (err)");
+    const idxThrow = corpo.indexOf("throw err;", idxCatch);
+    expect(idxCatch).toBeGreaterThan(-1);
+    expect(idxThrow).toBeGreaterThan(idxCatch);
+    const blocoCatch = corpo.slice(idxCatch, idxThrow + "throw err;".length);
+    expect(blocoCatch).not.toMatch(/new Error\(/);
+  });
+
+  it("G. baixarComandas não chama checkoutFail/checkoutBegin/checkoutCommit diretamente — fail/retry continuam autoridade exclusiva do registry", () => {
+    const corpo = corpoBaixarComandas();
+    expect(corpo).not.toMatch(/checkoutFail\(/);
+    expect(corpo).not.toMatch(/checkoutBegin\(/);
+    expect(corpo).not.toMatch(/checkoutCommit\(/);
+  });
+
+  it("H. baixarComandas chama executarCheckoutOperationRegistry uma única vez (sem retry/duplicação local)", () => {
+    const corpo = corpoBaixarComandas();
+    const ocorrencias = corpo.match(/executarCheckoutOperationRegistry\(/g) || [];
+    expect(ocorrencias).toHaveLength(1);
+  });
+
+  it("E. sucesso normal continua com o mesmo shape de retorno — notify(\"success\") e { alertas: alertasEstoque } permanecem após o catch, fora do caminho de erro", () => {
+    const corpo = corpoBaixarComandas();
+    const idxThrow = corpo.indexOf("throw err;");
+    const resto = corpo.slice(idxThrow + "throw err;".length);
+    expect(resto).toMatch(/notify\("success"/);
+    expect(resto).toMatch(/return \{ alertas: alertasEstoque \}/);
+  });
+});
+
+describe("S. CashierPdv não trata rejeição de baixarComandas como sucesso", () => {
+  it("F. confirmarEFinalizar ganhou catch para a rejeição, com notify(\"error\", ...) e sem side effects de sucesso", () => {
+    const corpo = corpoConfirmarEFinalizar();
+    const idxBaixa = corpo.indexOf("await baixarComandas(");
+    const idxCatch = corpo.indexOf("catch (err)", idxBaixa);
+    const idxFinally = corpo.indexOf("finally", idxBaixa);
+    expect(idxBaixa).toBeGreaterThan(-1);
+    expect(idxCatch).toBeGreaterThan(idxBaixa);
+    expect(idxFinally).toBeGreaterThan(idxCatch);
+    const blocoCatch = corpo.slice(idxCatch, idxFinally);
+    expect(blocoCatch).toMatch(/notify\("error"/);
+    expect(blocoCatch).not.toMatch(/setSucesso\(/);
+    expect(blocoCatch).not.toMatch(/auditar\(/);
+    expect(blocoCatch).not.toMatch(/baixarComandas\(/);
+  });
+
+  it("F. setSucesso/auditar (caminho feliz) continuam somente entre o await e o catch — não migraram para dentro do catch", () => {
+    const corpo = corpoConfirmarEFinalizar();
+    const idxBaixa = corpo.indexOf("await baixarComandas(");
+    const idxCatch = corpo.indexOf("catch (err)", idxBaixa);
+    const blocoTry = corpo.slice(idxBaixa, idxCatch);
+    expect(blocoTry).toMatch(/auditar\(/);
+    expect(blocoTry).toMatch(/setSucesso\(/);
+  });
+});

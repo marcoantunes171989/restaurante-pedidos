@@ -1025,6 +1025,11 @@ export default function CashierPdv({
           localizacao: cad?.localizacao || "",
         });
       }
+    } catch (err) {
+      // baixarComandas agora propaga falha terminal do checkout (Operation Registry
+      // esgotou seu contrato) — sem este catch, o pagamento falhava em silêncio e o
+      // botão só reabilitava, sem avisar o operador do caixa.
+      notify("error", "Não foi possível finalizar o pagamento: " + (err?.message || "tente novamente."));
     } finally {
       processandoRef.current = false;
       setProcessando(false);

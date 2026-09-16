@@ -2462,7 +2462,13 @@ export default function RestaurantePedidoApp() {
             ...(manterStatus ? {} : { status: "entregue" }),
           };
           await executarCheckoutOperationRegistry({ lojaId: lojaAtual, pedidoIds, payload });
-        } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
+        } catch (err) {
+          // Falha terminal do checkout (Operation Registry já esgotou begin/reconcile/
+          // commit/retry/fail) precisa ser propagada — engolir aqui faria o caller
+          // (CashierPdv/CentralDoCaixa) tratar o pagamento como concluído.
+          console.error("Erro ao finalizar pagamento:", err);
+          throw err;
+        }
       }
       notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
       return { alertas: alertasEstoque };
