@@ -8,7 +8,8 @@ import {
   fetchAcessos,   inserirAcesso,   atualizarAcesso,   escutarAcessos,
   fetchPedidos,   inserirPedido,   escutarPedidos,
   atualizarStatusPedido, marcarSetorProntoPedido, atualizarItensPedido,
-  atualizarClientePedido, transferirMesaPedido, solicitarContaMesa, marcarPagoPedido,
+  atualizarClientePedido, transferirMesaPedido, solicitarContaMesa,
+  executarCheckoutOperationRegistry,
   fetchFormasPagamento, inserirFormaPagamento, atualizarFormaPagamento, escutarFormasPagamento,
   fetchCategorias, inserirCategoria, atualizarCategoria, excluirCategoria, escutarCategorias,
   fetchLojas, atualizarLoja, salvarFuncionamentoLoja, escutarLojas, cadastrarEmpresa, registrarLicencaHistorico,
@@ -16,7 +17,6 @@ import {
   fetchCargos, inserirCargo, atualizarCargo, excluirCargo, escutarCargos,
   fetchMesas, inserirMesa, atualizarMesa, excluirMesa,
   fetchClientes, escutarClientes, upsertCliente,
-  baixarEstoque, registrarPagamento,
   excluirProduto, excluirFormaPagamento, excluirUsuario,
   STATUS_APP_PARA_DB,
   uploadImagemProduto, validarImagemProduto,
@@ -2425,8 +2425,6 @@ export default function RestaurantePedidoApp() {
     if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
     processandoBaixaRef.current.add(chave);
     try {
-      // Itens vendidos (para baixa de estoque)
-      const itensVendidos = alvo.flatMap((o) => o.items.map((it) => ({ name: it.name, quantity: it.quantity })));
       // Forma(s) de pagamento REAL do caixa (info.detalhes) — grava no pedido para
       // o Financeiro/relatórios agruparem por forma (PIX, Dinheiro, Pontos…). Sem
       // isso, pagamentos internos apareciam como "Não informado". Formas distintas
@@ -2439,51 +2437,31 @@ export default function RestaurantePedidoApp() {
         return Object.entries(porF).sort((a, b) => b[1] - a[1]).map(([f]) => f).join(" + ") || null;
       })();
       setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
+      // Sem alertas de estoque nesta via: o commit atômico (migration 152) baixa o
+      // estoque dentro da mesma transação comercial, sem calcular alerta de mínimo —
+      // shape preservado ({ alertas: [] }), só o conteúdo fica vazio.
       let alertasEstoque = [];
       if (dbReady) {
         try {
-          await Promise.all(alvo.map((o) => marcarPagoPedido(o.id, formaLabel || null, manterStatus ? null : "entregue")));
-          const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
-          alertasEstoque = r?.alertas || [];
-          if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
-          // Caixa aberto: registra a venda como movimento (por forma de pagamento). Tolerante.
-          if (info && caixaAberto) {
-            try {
-              const formas = Array.isArray(info.detalhes) && info.detalhes.length ? info.detalhes : [{ forma: "Pagamento", valor: info.total }];
-              await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
-            } catch {}
-          }
-          // Fidelidade: RESGATE (pagamento com pontos) + concessão de pontos ao
-          // cliente identificado (por telefone). Tolerante — nunca derruba a baixa.
-          if (fidRegraAtual) {
-            try {
-              const detalhes = Array.isArray(info?.detalhes) ? info.detalhes : [];
-              // Valor pago com a forma "Pontos" nesta baixa (0 se não usou pontos).
-              const valorPontos = detalhes.filter((d) => /pontos/i.test(d.forma || "")).reduce((s, d) => s + (Number(d.valor) || 0), 0);
-              const pontosPorReal = Number(fidRegraAtual.pontosPorReal) || 100;
-              // Cliente da conta (os pedidos do alvo compartilham o mesmo telefone).
-              const telConta = alvo.map((o) => o.clienteTelefone).find(Boolean) || null;
-              const cliConta = telConta ? clientes.find((c) => c.telefone === telConta && (c.lojaId == null || c.lojaId === lojaAtual)) : null;
-              // 1) Resgate: debita os pontos correspondentes ao valor pago em pontos
-              //    (clamp ao saldo real — o front já limita, isto é defensivo).
-              if (cliConta && valorPontos > 0) {
-                const saldoAtual = fidTransacoes.reduce((s, t) => s + (t.clienteId === cliConta.id ? (Number(t.pontos) || 0) : 0), 0);
-                const ptsResgate = Math.min(saldoAtual, Math.round(valorPontos * pontosPorReal));
-                if (ptsResgate > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cliConta.id, pontos: -ptsResgate, tipo: "redeem", descricao: `Pagamento com pontos ${formatCurrency(valorPontos)}` }); setFidTransacoes((cur) => [t, ...cur]); }
-              }
-              // 2) Ganho: pontos sobre o valor pago — exceto a parcela paga em pontos.
-              if (fidRegraAtual.valorPorPonto > 0) {
-                const porCliente = {};
-                alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
-                if (telConta && porCliente[telConta] != null) porCliente[telConta] = Math.max(0, porCliente[telConta] - valorPontos);
-                for (const [tel, valor] of Object.entries(porCliente)) {
-                  const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
-                  const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
-                  if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
-                }
-              }
-            } catch {}
-          }
+          // app_checkout_begin + app_checkout_commit (Operation Registry) substituem
+          // aqui os writers separados de cupom/pagar/estoque/pagamento/caixa/fidelidade
+          // — tudo isso já é atômico dentro do commit. Autoridade financeira
+          // (comandas/total/troco/caixa_id/fidelidade_transacoes) é 100% server-side;
+          // o payload só leva os campos comerciais legítimos do contrato da migration152.
+          const pedidoIds = alvo.map((o) => o.id);
+          const payload = {
+            ...(info?.mesa != null ? { mesa: info.mesa } : {}),
+            ...(formaLabel ? { pagamento_forma: formaLabel } : {}),
+            ...(Array.isArray(info?.detalhes) ? { detalhes: info.detalhes } : {}),
+            ...(info?.taxaServico > 0 ? { taxa_servico: info.taxaServico } : {}),
+            ...(info?.acrescimo > 0 ? { acrescimo: info.acrescimo } : {}),
+            ...(info?.descontoManual > 0 ? { desconto_manual: info.descontoManual } : {}),
+            ...(info?.checkoutCupom?.cupomId != null
+              ? { cupom: { cupom_id: info.checkoutCupom.cupomId, canal: info.checkoutCupom.canal || "interno" } }
+              : {}),
+            ...(manterStatus ? {} : { status: "entregue" }),
+          };
+          await executarCheckoutOperationRegistry({ lojaId: lojaAtual, pedidoIds, payload });
         } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
       }
       notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);

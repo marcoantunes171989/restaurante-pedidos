@@ -111,7 +111,6 @@ export default function CashierPdv({
   separarItensPedidos = async () => {},
   notify = () => {},
   validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
-  consumirCupom = async () => ({ ok: true }),
   onSair,
 }) {
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
@@ -939,23 +938,10 @@ export default function CashierPdv({
     const contaKey = contaSel.key;
     const mesaFechada = contaSel.mesa;
     try {
-      // Cupom: reconfere a disponibilidade AGORA e consome uma unidade. Se
-      // acabou entre a aplicação e o fechamento, o pagamento não segue.
-      if (cupomSel?.id) {
-        const uso = await consumirCupom({
-          cupomId: cupomSel.id,
-          valorConta: totalSel,
-          valorDesconto: descontoCupom,
-          mesa: mesaFechada,
-          comandas: [...contaSel.comandas],
-          clienteTelefone: contaSel.telefone || null,
-          canal: canalDaConta(contaSel),
-        });
-        if (!uso?.ok) {
-          notify("error", uso?.motivo || "Cupom indisponível. Remova o cupom para concluir o pagamento.");
-          return;
-        }
-      }
+      // Cupom: o consumo deixou de ser pré-checkout (app_checkout_commit da
+      // migration152 consome atomicamente dentro do commit). Aqui só passamos
+      // os metadados legítimos (cupom_id/canal) — se o cupom esgotou entre a
+      // aplicação e o fechamento, o próprio commit falha e nada é gravado.
       // Cada parcela vai como uma linha de detalhe — é assim que tab_pagamentos,
       // o movimento de caixa e o relatório por forma conseguem separar o split.
       const detalhes = pagamentosSel.map((p) => ({ forma: p.forma, valor: p.valor }));
@@ -965,7 +951,11 @@ export default function CashierPdv({
         troco: trocoSel,
         detalhes,
         comandas: [...contaSel.comandas],
+        taxaServico: taxaValorSel,
+        acrescimo: acrescimoSel,
+        descontoManual: descontoManualSel,
         ...(descontoCupom > 0 ? { desconto: descontoCupom, cupom: cupomSel?.codigo } : {}),
+        ...(cupomSel?.id ? { checkoutCupom: { cupomId: cupomSel.id, canal: canalDaConta(contaSel) } } : {}),
       };
       const baixa = await baixarComandas(contaSel.comandas, info);
       auditar("finalizar_pagamento", "comanda", null, {

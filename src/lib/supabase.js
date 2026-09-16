@@ -3387,6 +3387,199 @@ export async function marcarPagoPedido(id, pagamentoForma = null, status = null)
   return dbParaPedido(data)
 }
 
+// ════════════════════════════════════════════════════════════
+//  Checkout + Operation Registry (migration 152) — 5 RPCs:
+//  begin/commit/status/fail/cancel. Autoridade financeira é
+//  100% server-side (comandas/total/troco/caixa/fidelidade
+//  derivados no banco); o cliente só envia loja_id/pedido_ids
+//  (para localizar a operação) e o payload comercial legítimo
+//  do commit. NÃO substitui cupom_consumir/app_pedido_marcar_pago/
+//  app_baixar_estoque_produto — esses continuam servindo fluxos
+//  fora do novo checkout.
+//
+//  Classificação de erro (sem heurística): postgrest-js só deixa
+//  `code` vazio e `status` 0 quando o fetch nunca chegou a uma
+//  resposta HTTP (rede/DNS/abort/timeout) — qualquer resposta do
+//  servidor (mesmo erro Postgres/PostgREST) chega com `status`
+//  HTTP real e `code` (SQLSTATE/PGRST). Por isso `status === 0`
+//  é o sinal seguro de ambiguidade de transporte; erro.ambiguous
+//  marca essa distinção para quem orquestra o retry/reconciliação.
+// ════════════════════════════════════════════════════════════
+function erroCheckoutRegistry(error, status) {
+  const e = new Error(error?.message || 'Erro desconhecido na chamada do checkout.')
+  e.code = error?.code || ''
+  e.detail = error?.details ?? error?.detail ?? null
+  e.ambiguous = status === 0 || status == null
+  return e
+}
+async function chamarCheckoutRpc(nome, params) {
+  let resp
+  try {
+    resp = await supabase.rpc(nome, params)
+  } catch (err) {
+    // Exceção crua antes de qualquer resposta HTTP — mesma prova de
+    // ambiguidade de transporte que status===0 (sem confirmação do servidor).
+    const e = new Error(err?.message || String(err))
+    e.code = ''
+    e.ambiguous = true
+    throw e
+  }
+  const { data, error, status } = resp
+  if (error) throw erroCheckoutRegistry(error, status)
+  return data
+}
+
+export async function checkoutBegin(lojaId, pedidoIds) {
+  const data = await chamarCheckoutRpc('app_checkout_begin', {
+    p_loja_id: lojaId,
+    p_pedido_ids: pedidoIds,
+  })
+  return {
+    operationId: data?.operation_id ?? null,
+    operationKey: data?.operation_key ?? null,
+    pedidoIds: data?.pedido_ids ?? [],
+    expiresAt: data?.expires_at ?? null,
+  }
+}
+
+export async function checkoutCommit(operationId, payload) {
+  const data = await chamarCheckoutRpc('app_checkout_commit', {
+    p_operation_id: operationId,
+    p_payload: payload || {},
+  })
+  return {
+    ok: data?.ok === true,
+    idempotent: data?.idempotent === true,
+    operationId: data?.operation_id ?? null,
+    status: data?.status ?? null,
+  }
+}
+
+export async function checkoutStatus({ operationId = null, lojaId = null, pedidoIds = null } = {}) {
+  const data = await chamarCheckoutRpc('app_checkout_status', {
+    p_operation_id: operationId,
+    p_loja_id: lojaId,
+    p_pedido_ids: pedidoIds,
+  })
+  return {
+    found: data?.found === true,
+    operationId: data?.operation_id ?? null,
+    operationKey: data?.operation_key ?? null,
+    status: data?.status ?? null,
+    expiresAt: data?.expires_at ?? null,
+    pedidoIds: data?.pedido_ids ?? [],
+  }
+}
+
+export async function checkoutFail(operationId) {
+  const data = await chamarCheckoutRpc('app_checkout_fail', { p_operation_id: operationId })
+  return { ok: data?.ok === true, operationId: data?.operation_id ?? null, status: data?.status ?? null }
+}
+
+// cancel existe como wrapper (contrato completo), mas não é conectado à UI
+// neste gate (B11-C2-FE1) — o cancelamento atual continua sendo pré-begin.
+export async function checkoutCancel(operationId) {
+  const data = await chamarCheckoutRpc('app_checkout_cancel', { p_operation_id: operationId })
+  return { ok: data?.ok === true, operationId: data?.operation_id ?? null, status: data?.status ?? null }
+}
+
+// ── Orquestração do checkout (App.baixarComandas é o único chamador) ──
+// begin (só na confirmação do usuário) → commit (payload comercial
+// legítimo). Regras de ambiguidade/retry do gate B11-C2-FE1:
+//  - erro determinístico do begin: propaga, sem retry, sem 2º begin;
+//  - erro ambíguo do begin (sem prova de chegada ao servidor): reconcilia
+//    via status(loja+pedido_ids); só reaproveita a operation se
+//    found=true com operation_id válido — senão propaga o erro
+//    original, nunca um 2º begin;
+//  - commit ok ou status já COMPLETED: sucesso idempotente;
+//  - commit ambíguo + status IN_FLIGHT: no máximo 1 retry
+//    (COMMIT_RETRY_MAX); retry ambíguo de novo reconcilia 1x mais e
+//    nunca chama um 3º commit;
+//  - falha determinística do commit: no máximo 1 chamada a
+//    app_checkout_fail (FAIL_CALL_MAX); se o fail também falhar,
+//    preserva o erro original e anexa terminalizationError (mesmo
+//    padrão do onboarding em cadastrarEmpresa), sem nunca chamar fail
+//    quando o status já é COMPLETED/FAILED/CANCELED ou sem
+//    operation_id válido.
+async function checkoutStatusSeguro(params) {
+  try {
+    return await checkoutStatus(params)
+  } catch {
+    return null
+  }
+}
+
+// Chamada única por tentativa de checkout: só é acionada no ramo de falha
+// determinística do commit (1ª tentativa OU retry, nunca as duas — o ramo
+// que chama isto sempre encerra com throw) — FAIL_CALL_MAX=1 é garantido
+// pelo próprio grafo de chamadas de checkoutCommitComRetry, sem contador.
+async function checkoutTerminalizarFalha(operationId, erroOriginal) {
+  try {
+    await checkoutFail(operationId)
+  } catch (erroTerminalizacao) {
+    try {
+      if (erroOriginal && typeof erroOriginal === 'object') {
+        Object.defineProperty(erroOriginal, 'terminalizationError', {
+          value: erroTerminalizacao?.message || String(erroTerminalizacao),
+          enumerable: false,
+          configurable: true,
+          writable: true,
+        })
+      }
+    } catch { /* diagnóstico auxiliar nunca substitui o erro original */ }
+  }
+}
+
+async function checkoutBeginComReconciliacao(lojaId, pedidoIds) {
+  try {
+    return await checkoutBegin(lojaId, pedidoIds)
+  } catch (err) {
+    if (!err?.ambiguous) throw err // determinístico: propaga, sem retry.
+    const status = await checkoutStatusSeguro({ lojaId, pedidoIds })
+    if (status?.found && status.operationId) {
+      return { operationId: status.operationId }
+    }
+    throw err // sem prova inequívoca: preserva o erro original, sem 2º begin.
+  }
+}
+
+async function checkoutCommitComRetry(operationId, payload) {
+  try {
+    return await checkoutCommit(operationId, payload)
+  } catch (err) {
+    if (!err?.ambiguous) {
+      await checkoutTerminalizarFalha(operationId, err)
+      throw err
+    }
+    const status1 = await checkoutStatusSeguro({ operationId })
+    if (status1?.status === 'COMPLETED') {
+      return { ok: true, idempotent: true, operationId, status: 'COMPLETED' }
+    }
+    if (status1?.status !== 'IN_FLIGHT') {
+      throw err // FAILED/CANCELED/EXPIRED/não encontrado: erro, sem retry.
+    }
+    // COMMIT_RETRY_MAX = 1: uma única nova tentativa permitida.
+    try {
+      return await checkoutCommit(operationId, payload)
+    } catch (err2) {
+      if (!err2?.ambiguous) {
+        await checkoutTerminalizarFalha(operationId, err2)
+        throw err2
+      }
+      const status2 = await checkoutStatusSeguro({ operationId })
+      if (status2?.status === 'COMPLETED') {
+        return { ok: true, idempotent: true, operationId, status: 'COMPLETED' }
+      }
+      throw err2 // sem prova: preserva o erro ambíguo do retry, nunca um 3º commit.
+    }
+  }
+}
+
+export async function executarCheckoutOperationRegistry({ lojaId, pedidoIds, payload }) {
+  const begin = await checkoutBeginComReconciliacao(lojaId, pedidoIds)
+  return await checkoutCommitComRetry(begin.operationId, payload)
+}
+
 export function escutarPedidos(onMudanca, onStatus) {
   // Protege contra dois tipos de corrida:
   //

@@ -702,14 +702,43 @@ describe("migration 132 — frontend usa as RPCs, não INSERT/UPDATE direto (src
     expect(corpo).not.toMatch(/p_setor_status/);
   });
 
-  it("App.jsx chama os sete wrappers novos (nenhum fluxo ficou preso a nomes antigos)", () => {
-    for (const { js: jsFn } of WRAPPERS) {
+  it("App.jsx chama os seis wrappers diretos ainda em uso (nenhum fluxo de status/itens/cliente/mesa/conta ficou preso a nomes antigos)", () => {
+    // marcarPagoPedido saiu desta lista: migration152 moveu a chamada de
+    // dentro de baixarComandas para o checkout atômico (Operation Registry) —
+    // ver os dois testes abaixo. Os outros seis (cinco wrappers diretos +
+    // solicitarContaMesa) continuam chamados normalmente por App.jsx.
+    const WRAPPERS_DIRETOS_EM_APP = WRAPPERS.filter(({ js: jsFn }) => jsFn !== "marcarPagoPedido");
+    for (const { js: jsFn } of WRAPPERS_DIRETOS_EM_APP) {
       expect(appJs).toMatch(new RegExp(`\\b${jsFn}\\(`));
     }
     expect(appJs).toMatch(/\bsolicitarContaMesa\(/);
     expect(appJs).not.toMatch(/\batualizarPedido\b/);
     expect(appJs).not.toMatch(/\batualizarPagamentoPedido\b/);
     expect(appJs).not.toMatch(/\bsolicitarContaPedido\b/);
+  });
+
+  // migration152 (checkout Operation Registry) substituiu, dentro de
+  // baixarComandas, a chamada direta a marcarPagoPedido (e aos demais
+  // writers legacy de estoque/pagamento/caixa/fidelidade/cupom) por um
+  // checkout atômico (begin + commit numa única transação). O wrapper
+  // marcarPagoPedido e a RPC app_pedido_marcar_pago continuam existindo e
+  // testados acima (chamada correta a app_pedido_marcar_pago) e em
+  // supabase.checkoutRegistry.test.js (item P) — só deixaram de ser
+  // chamados separadamente nesse caminho específico.
+  it("App.jsx não chama mais marcarPagoPedido diretamente — baixarComandas usa o checkout atômico (checkoutBegin → checkoutCommit via executarCheckoutOperationRegistry)", () => {
+    expect(appJs).not.toMatch(/\bmarcarPagoPedido\(/);
+    expect(appJs).toMatch(/\bexecutarCheckoutOperationRegistry\(/);
+  });
+
+  it("supabase.js: executarCheckoutOperationRegistry é o único orquestrador do checkout — chama checkoutBegin (app_checkout_begin) e checkoutCommit (app_checkout_commit) internamente", () => {
+    const idxFn = js.indexOf("export async function executarCheckoutOperationRegistry(");
+    expect(idxFn).toBeGreaterThan(-1);
+    const corpo = js.slice(idxFn, idxFn + 400);
+    expect(corpo).toMatch(/checkoutBeginComReconciliacao/);
+    expect(corpo).toMatch(/checkoutCommitComRetry/);
+    // checkoutBegin/checkoutCommit chamam as RPCs via o helper chamarCheckoutRpc.
+    expect(js).toMatch(/chamarCheckoutRpc\(\s*'app_checkout_begin'/);
+    expect(js).toMatch(/chamarCheckoutRpc\(\s*'app_checkout_commit'/);
   });
 });
 
@@ -824,11 +853,18 @@ describe("R0H-C5C6 Ponto 2 — marcar pago documenta a exceção da state machin
     expect(corpoPago).toMatch(/v_pedido\.status = 'cancelado' then\s*\n\s*raise exception 'transicao_status_invalida';/);
   });
 
-  it("baixarComandas (App.jsx) chama marcarPagoPedido com status='entregue' incondicional ao status atual (evidência da exceção real, não simulada)", () => {
+  it("baixarComandas (App.jsx) envia status='entregue' ao checkout atômico incondicional ao status atual do pedido (evidência da exceção real preservada na nova arquitetura)", () => {
     const idxFn = appJs.indexOf("async function baixarComandas(");
     expect(idxFn).toBeGreaterThan(-1);
-    const corpo = appJs.slice(idxFn, idxFn + 3600);
-    expect(corpo).toMatch(/marcarPagoPedido\(o\.id, formaLabel \|\| null, manterStatus \? null : "entregue"\)/);
+    const corpo = appJs.slice(idxFn, idxFn + 4200);
+    // A exceção de negócio (cashier pode marcar 'entregue' a partir de
+    // recebido/preparando/finalizado) não é mais aplicada via chamada direta
+    // a marcarPagoPedido — o payload comercial do commit atômico (migration152)
+    // carrega o mesmo status='entregue' incondicional, e app_checkout_commit
+    // aplica a regra server-side dentro da mesma transação.
+    expect(corpo).not.toMatch(/marcarPagoPedido\(/);
+    expect(corpo).toMatch(/manterStatus \? \{\} : \{ status: "entregue" \}/);
+    expect(corpo).toMatch(/executarCheckoutOperationRegistry\(/);
     // `alvo` (pedidos afetados) não filtra por o.status — só por paymentStatus.
     const idxAlvo = corpo.indexOf("const alvo = orders.filter(");
     expect(idxAlvo).toBeGreaterThan(-1);
