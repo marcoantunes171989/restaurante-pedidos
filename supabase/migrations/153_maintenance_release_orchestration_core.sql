@@ -19,12 +19,24 @@
 --  FENCING ou RELEASING. Emite exatamente 1 evento ORCHESTRATION_STARTED
 --  — nunca RELEASE_STARTED (reservado para QUIESCENT->RELEASING).
 --
+--  Transições estruturais (as 16 edges) exigem binding COMPLETO
+--  (release_id IS NOT NULL AND target_sha IS NOT NULL) — o ciclo já
+--  passou pelo START. NORMAL idle (phase=NORMAL, release_id=NULL,
+--  target_sha=NULL) NÃO pode ir para CANCELED. Binding parcial também
+--  é fail-closed. START (NORMAL->NORMAL unbound) NÃO passa por
+--  transition_internal e continua responsável por NULL/NULL -> full/full.
+--
+--  SUCCESS CLEAR é determinístico: SMOKE->NORMAL sempre produz
+--  phase=NORMAL, release_id=NULL, target_sha=NULL, version+1 na mesma
+--  UPDATE. O caller não escolhe se o binding é limpo.
+--  Nenhuma outra edge estrutural limpa binding.
+--
 --  CANCEL (NORMAL/NOTICE -> CANCELED) e FAIL (FENCING/DRAINING/QUIESCENT
 --  -> FAILED) delegam ao core privado, que valida CAS (expected_phase +
---  expected_version), valida a transição contra as 16 edges estruturais
---  exatas e grava, na mesma transação, exatamente 1 evento por UPDATE
---  real. VERSION_CONFLICT e STATE_CONFLICT não produzem UPDATE nem
---  evento.
+--  expected_version), exige binding ativo completo, valida a transição
+--  contra as 16 edges estruturais exatas e grava, na mesma transação,
+--  exatamente 1 evento por UPDATE real. VERSION_CONFLICT e STATE_CONFLICT
+--  não produzem UPDATE nem evento.
 --
 --  O binding_guard (1 trigger BEFORE UPDATE) permite somente 3 padrões
 --  de mudança de binding: bind inicial (NORMAL->NORMAL, unbound->full),
@@ -157,7 +169,6 @@ create function public.app_maintenance_orchestration_transition_internal(
   p_to_phase text,
   p_release_id uuid,
   p_target_sha text,
-  p_clear_binding boolean,
   p_actor_user_id uuid,
   p_actor_email text,
   p_reason text,
@@ -206,6 +217,15 @@ begin
       using errcode = 'P0001', detail = 'VERSION_CONFLICT';
   end if;
 
+  -- Binding completo obrigatório ANTES de qualquer transição estrutural:
+  -- release_id IS NOT NULL AND target_sha IS NOT NULL. Binding parcial
+  -- (um NULL e outro não) também falha. STATE_CONFLICT: 0 UPDATE, 0 evento.
+  -- START (NORMAL->NORMAL unbound) não usa esta função.
+  if v_release_id is null or v_target_sha is null then
+    raise exception '%', 'Active orchestration binding required.'
+      using errcode = 'P0001', detail = 'STATE_CONFLICT';
+  end if;
+
   -- 7) validação estrutural: exatamente as 16 edges exatas (sem wildcard, sem self-edge).
   if not exists (
     select 1
@@ -247,14 +267,16 @@ begin
     end if;
   end if;
 
-  -- binding: sem mudança por padrão (mid-cycle change proibido); só muda se
-  -- explicitamente solicitado (clear ou novo bind aplicável por um wrapper futuro).
-  if p_clear_binding then
+  -- SUCCESS CLEAR determinístico: somente a edge SMOKE -> NORMAL limpa o
+  -- binding (full/full -> NULL/NULL) na mesma UPDATE. Caller não controla.
+  -- Demais edges estruturais preservam o binding lockado (sem coalesce de
+  -- parâmetros — mid-cycle replacement continua proibido).
+  if p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL' then
     v_new_release_id := null;
     v_new_target_sha := null;
   else
-    v_new_release_id := coalesce(p_release_id, v_release_id);
-    v_new_target_sha := coalesce(p_target_sha, v_target_sha);
+    v_new_release_id := v_release_id;
+    v_new_target_sha := v_target_sha;
   end if;
 
   -- 10) UPDATE real: version = version + 1.
@@ -297,16 +319,16 @@ end;
 $$;
 
 comment on function public.app_maintenance_orchestration_transition_internal(
-  text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb
+  text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb
 ) is
-  'Core PRIVADO do Maintenance/Release Orchestration — transição estrutural genérica. Lock order state->release, CAS de phase+version fail-closed (STATE_CONFLICT/VERSION_CONFLICT sem UPDATE/evento), valida a transição contra as 16 edges estruturais exatas (INVALID_TRANSITION caso contrário), nunca altera app_release_runs, e grava exatamente 1 evento por UPDATE real na mesma transação. Uso interno pelos wrappers públicos (start via lógica própria; cancel/fail via este core) — não é RPC pública.';
+  'Core PRIVADO do Maintenance/Release Orchestration — transição estrutural genérica. Lock order state->release, CAS de phase+version fail-closed (STATE_CONFLICT/VERSION_CONFLICT sem UPDATE/evento), exige binding ativo completo (release_id e target_sha NOT NULL; STATE_CONFLICT se ausente), valida a transição contra as 16 edges estruturais exatas (INVALID_TRANSITION caso contrário), limpa binding deterministicamente somente em SMOKE->NORMAL (sem parâmetro caller-controlled de clear), nunca altera app_release_runs, e grava exatamente 1 evento por UPDATE real na mesma transação. Uso interno pelos wrappers públicos (start via lógica própria; cancel/fail via este core) — não é RPC pública.';
 
-revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb) from public;
-revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb) from anon;
-revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb) from authenticated;
-revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb) from service_role;
+revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb) from public;
+revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb) from anon;
+revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb) from authenticated;
+revoke all on function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb) from service_role;
 
-alter function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb) owner to postgres;
+alter function public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb) owner to postgres;
 
 -- ════════════════════════════════════════════════════════════
 --  3) PRIVATE — app_maintenance_orchestration_binding_guard (trigger)
@@ -538,7 +560,6 @@ begin
     'CANCELED',
     null,
     null,
-    false,
     p_actor_user_id,
     p_actor_email,
     p_reason,
@@ -594,7 +615,6 @@ begin
     'FAILED',
     null,
     null,
-    false,
     p_actor_user_id,
     p_actor_email,
     p_reason,
@@ -663,7 +683,7 @@ begin
   end if;
 
   v_transition_oid := to_regprocedure(
-    'public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb)'
+    'public.app_maintenance_orchestration_transition_internal(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb)'
   );
   v_guard_oid := to_regprocedure('public.app_maintenance_orchestration_binding_guard()');
   v_start_oid := to_regprocedure('public.app_maintenance_orchestration_start(uuid, text, uuid, text, text, jsonb)');

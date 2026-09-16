@@ -57,6 +57,11 @@ const START_FN = "app_maintenance_orchestration_start";
 const CANCEL_FN = "app_maintenance_orchestration_cancel";
 const FAIL_FN = "app_maintenance_orchestration_fail";
 
+const TRANSITION_SIGNATURE_TYPES =
+  "text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb";
+const TRANSITION_SIGNATURE_TYPES_ANTIGA_COM_BOOLEAN =
+  "text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb";
+
 function corpoDaFuncao(texto, nomeFuncao) {
   const re = new RegExp(
     `create function public\\.${nomeFuncao}\\s*\\([\\s\\S]*?as \\$\\$([\\s\\S]*?)\\$\\$;`,
@@ -67,11 +72,48 @@ function corpoDaFuncao(texto, nomeFuncao) {
   return match[1];
 }
 
+function assinaturaDaFuncao(texto, nomeFuncao) {
+  const re = new RegExp(
+    `create function public\\.${nomeFuncao}\\s*\\(([\\s\\S]*?)\\)\\s*returns`,
+    "i",
+  );
+  const match = texto.match(re);
+  expect(match, `assinatura de ${nomeFuncao} não encontrada`).toBeTruthy();
+  return match[1];
+}
+
+function updateDoSingleton(corpo) {
+  const match = corpo.match(
+    /update\s+public\.app_maintenance_state[\s\S]*?where scope = 'global';/i,
+  );
+  expect(match, "UPDATE de app_maintenance_state não encontrado").toBeTruthy();
+  return match[0];
+}
+
+function performTransitionArgs(corpo, rotulo) {
+  const match = corpo.match(
+    new RegExp(`perform\\s+public\\.${TRANSITION_FN}\\s*\\(([\\s\\S]*?)\\)\\s*;`, "i"),
+  );
+  expect(match, `perform de ${TRANSITION_FN} não encontrado em ${rotulo}`).toBeTruthy();
+  return match[1];
+}
+
 const corpoTransition = corpoDaFuncao(sqlSemComentarios, TRANSITION_FN);
 const corpoGuard = corpoDaFuncao(sqlSemComentarios, GUARD_FN);
 const corpoStart = corpoDaFuncao(sqlSemComentarios, START_FN);
 const corpoCancel = corpoDaFuncao(sqlSemComentarios, CANCEL_FN);
 const corpoFail = corpoDaFuncao(sqlSemComentarios, FAIL_FN);
+const assinaturaTransition = assinaturaDaFuncao(sqlSemComentarios, TRANSITION_FN);
+const idxVersionConflict = corpoTransition.search(/VERSION_CONFLICT/i);
+const idxBindingGuard = corpoTransition.search(
+  /v_release_id is null or v_target_sha is null/i,
+);
+const idxBindingRaise = corpoTransition.search(/Active orchestration binding required/i);
+const idxEdges = corpoTransition.search(/from \(values/i);
+const idxUpdateTransition = corpoTransition.search(
+  /update\s+public\.app_maintenance_state/i,
+);
+const trechoAntesDoUpdate = corpoTransition.slice(0, idxUpdateTransition);
 
 describe("migration 153 — existência e transação", () => {
   it("arquivo 153 existe, é legível e é único", () => {
@@ -318,6 +360,116 @@ describe("migration 153 — matriz estrutural de 16 edges exatas", () => {
   });
 });
 
+describe("migration 153 — active binding obrigatório nas 16 transições estruturais", () => {
+  it("transition_internal exige binding completo (release_id e target_sha NOT NULL) depois do CAS e antes do UPDATE", () => {
+    expect(idxVersionConflict).toBeGreaterThan(-1);
+    expect(idxBindingGuard).toBeGreaterThan(idxVersionConflict);
+    expect(idxBindingRaise).toBeGreaterThan(idxBindingGuard);
+    expect(idxUpdateTransition).toBeGreaterThan(idxBindingRaise);
+    expect(trechoAntesDoUpdate).toMatch(/v_release_id is null or v_target_sha is null/i);
+    expect(trechoAntesDoUpdate).toMatch(/'Active orchestration binding required\.'/);
+    expect(trechoAntesDoUpdate).toMatch(/detail = 'STATE_CONFLICT'/);
+  });
+
+  it("o guard usa o state lockado (v_release_id/v_target_sha), não os parâmetros do caller", () => {
+    expect(trechoAntesDoUpdate).not.toMatch(/p_release_id is null or p_target_sha is null/i);
+    expect(trechoAntesDoUpdate).not.toMatch(/p_release_id is not null and p_target_sha is not null/i);
+    const selectLock = corpoTransition.match(
+      /select phase, version, epoch, release_id, target_sha\s+into v_phase, v_version, v_epoch, v_release_id, v_target_sha/i,
+    );
+    expect(selectLock, "SELECT FOR UPDATE não carrega release_id/target_sha").toBeTruthy();
+  });
+
+  it("UNBOUND NORMAL -> CANCELED é proibido: cancel aceita NORMAL, mas o core falha com STATE_CONFLICT antes do UPDATE", () => {
+    expect(corpoCancel).toMatch(/p_expected_phase not in \('NORMAL', 'NOTICE'\)/i);
+    expect(corpoCancel).toMatch(/'CANCELED'/);
+    expect(corpoCancel).not.toMatch(/v_release_id/i);
+    expect(corpoCancel).not.toMatch(/release_id is not null/i);
+    expect(performTransitionArgs(corpoCancel, "cancel")).toMatch(/'CANCELED'/);
+    expect(idxBindingRaise).toBeGreaterThan(-1);
+    expect(idxUpdateTransition).toBeGreaterThan(idxBindingRaise);
+    expect(corpoTransition).toMatch(/\('NORMAL',\s*'CANCELED'\)/i);
+  });
+
+  it("NORMAL->CANCELED só avança com release_id e target_sha presentes (mesmo guard do core)", () => {
+    expect(corpoTransition).toMatch(/\('NORMAL',\s*'CANCELED'\)/i);
+    expect(trechoAntesDoUpdate).toMatch(/v_release_id is null or v_target_sha is null/i);
+    expect(trechoAntesDoUpdate).toMatch(/detail = 'STATE_CONFLICT'/);
+  });
+
+  it("NORMAL->NOTICE também exige active binding", () => {
+    expect(corpoTransition).toMatch(/\('NORMAL',\s*'NOTICE'\)/i);
+    expect(idxBindingGuard).toBeGreaterThan(-1);
+    expect(idxEdges).toBeGreaterThan(idxBindingGuard);
+  });
+
+  it("NOTICE->CANCELED exige active binding via o mesmo core", () => {
+    expect(corpoTransition).toMatch(/\('NOTICE',\s*'CANCELED'\)/i);
+    expect(corpoCancel).toMatch(/p_expected_phase not in \('NORMAL', 'NOTICE'\)/i);
+    expect(idxBindingRaise).toBeGreaterThan(-1);
+    expect(idxUpdateTransition).toBeGreaterThan(idxBindingRaise);
+  });
+
+  it("transições a partir de FENCING/DRAINING/QUIESCENT exigem active binding", () => {
+    for (const [from, to] of [
+      ["FENCING", "DRAINING"],
+      ["FENCING", "FAILED"],
+      ["DRAINING", "QUIESCENT"],
+      ["DRAINING", "FAILED"],
+      ["QUIESCENT", "RELEASING"],
+      ["QUIESCENT", "FAILED"],
+    ]) {
+      expect(corpoTransition).toMatch(new RegExp(`\\('${from}',\\s*'${to}'\\)`, "i"));
+    }
+    expect(corpoFail).toMatch(/p_expected_phase not in \('FENCING', 'DRAINING', 'QUIESCENT'\)/i);
+    expect(idxBindingGuard).toBeGreaterThan(-1);
+    expect(idxUpdateTransition).toBeGreaterThan(idxBindingGuard);
+  });
+
+  it("transições de RELEASING/SMOKE/RECOVERING/ABORTING exigem active binding", () => {
+    for (const [from, to] of [
+      ["RELEASING", "SMOKE"],
+      ["RELEASING", "ABORTING"],
+      ["SMOKE", "NORMAL"],
+      ["SMOKE", "RECOVERING"],
+      ["RECOVERING", "FAILED"],
+      ["ABORTING", "FAILED"],
+    ]) {
+      expect(corpoTransition).toMatch(new RegExp(`\\('${from}',\\s*'${to}'\\)`, "i"));
+    }
+    expect(idxBindingGuard).toBeGreaterThan(-1);
+    expect(idxUpdateTransition).toBeGreaterThan(idxBindingGuard);
+  });
+
+  it("nenhuma das 16 edges estruturais pode executar unbound (guard único, sem bypass por fase)", () => {
+    expect(STRUCTURAL_EDGES).toHaveLength(16);
+    const edgesEncontradas = [
+      ...corpoTransition.matchAll(/\('([A-Z]+)',\s*'([A-Z]+)'\)/g),
+    ].map((m) => `${m[1]}->${m[2]}`);
+    expect(edgesEncontradas).toHaveLength(16);
+    for (const [from, to] of STRUCTURAL_EDGES) {
+      expect(edgesEncontradas).toContain(`${from}->${to}`);
+    }
+    const guards = corpoTransition.match(/v_release_id is null or v_target_sha is null/gi) || [];
+    expect(guards).toHaveLength(1);
+    expect(idxBindingGuard).toBeGreaterThan(idxVersionConflict);
+    expect(idxEdges).toBeGreaterThan(idxBindingGuard);
+    expect(idxUpdateTransition).toBeGreaterThan(idxEdges);
+    expect(trechoAntesDoUpdate).not.toMatch(
+      /if p_expected_phase\s*=\s*'NORMAL'[\s\S]*v_release_id is null or v_target_sha is null/i,
+    );
+  });
+
+  it("START continua exigindo UNBOUND e não é afetado pelo novo guard estrutural", () => {
+    expect(corpoStart).not.toMatch(new RegExp(TRANSITION_FN, "i"));
+    expect(corpoStart).not.toMatch(/Active orchestration binding required/i);
+    expect(corpoStart).toMatch(/v_phase is distinct from 'NORMAL'/i);
+    expect(corpoStart).toMatch(/v_release_id is not null or v_target_sha is not null/i);
+    expect(corpoStart).toMatch(/ACTIVE_RELEASE_CONFLICT/);
+    expect(corpoTransition).not.toMatch(/\('NORMAL',\s*'NORMAL'\)/i);
+  });
+});
+
 describe("migration 153 — CAS fail-closed no core privado", () => {
   it("bloqueia por STATE_CONFLICT quando phase não coincide, antes de qualquer UPDATE", () => {
     const idxStateConflict = corpoTransition.search(/STATE_CONFLICT/i);
@@ -474,10 +626,61 @@ describe("migration 153 — binding_guard", () => {
   });
 });
 
+describe("migration 153 — success clear determinístico (SMOKE->NORMAL)", () => {
+  it("SMOKE->NORMAL limpa binding de forma determinística na mesma UPDATE (phase NORMAL, NULL/NULL, version+1)", () => {
+    expect(corpoTransition).toMatch(/p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL'/i);
+    const clearBlock = corpoTransition.match(
+      /if p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL' then([\s\S]*?)else([\s\S]*?)end if;/i,
+    );
+    expect(clearBlock, "bloco determinístico SMOKE->NORMAL não encontrado").toBeTruthy();
+    expect(clearBlock[1]).toMatch(/v_new_release_id\s*:=\s*null/i);
+    expect(clearBlock[1]).toMatch(/v_new_target_sha\s*:=\s*null/i);
+    expect(clearBlock[2]).toMatch(/v_new_release_id\s*:=\s*v_release_id/i);
+    expect(clearBlock[2]).toMatch(/v_new_target_sha\s*:=\s*v_target_sha/i);
+    const update = updateDoSingleton(corpoTransition);
+    expect(update).toMatch(/phase\s*=\s*p_to_phase/i);
+    expect(update).toMatch(/release_id\s*=\s*v_new_release_id/i);
+    expect(update).toMatch(/target_sha\s*=\s*v_new_target_sha/i);
+    expect(update).toMatch(/version\s*=\s*version\s*\+\s*1/i);
+    expect(idxUpdateTransition).toBeGreaterThan(
+      corpoTransition.search(/p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL'/i),
+    );
+  });
+
+  it("p_clear_binding caller-controlled foi removido da assinatura e da lógica executável", () => {
+    expect(assinaturaTransition).not.toMatch(/p_clear_binding/i);
+    expect(assinaturaTransition).not.toMatch(/\bboolean\b/i);
+    expect(corpoTransition).not.toMatch(/p_clear_binding/i);
+    expect(corpoTransition).not.toMatch(/if p_clear_binding/i);
+    expect(sqlSemComentarios).not.toMatch(/p_clear_binding\s+boolean/i);
+    expect(sqlSemComentarios).not.toContain(TRANSITION_SIGNATURE_TYPES_ANTIGA_COM_BOOLEAN);
+    expect(sqlSemComentarios).toContain(TRANSITION_SIGNATURE_TYPES);
+    for (const args of [
+      performTransitionArgs(corpoCancel, "cancel"),
+      performTransitionArgs(corpoFail, "fail"),
+    ]) {
+      expect(args).not.toMatch(/\bfalse\b/i);
+      expect(args).not.toMatch(/\btrue\b/i);
+    }
+  });
+
+  it("nenhuma outra edge estrutural limpa binding (somente SMOKE->NORMAL atribui NULL)", () => {
+    const nullRelease = corpoTransition.match(/v_new_release_id\s*:=\s*null/gi) || [];
+    const nullTarget = corpoTransition.match(/v_new_target_sha\s*:=\s*null/gi) || [];
+    expect(nullRelease).toHaveLength(1);
+    expect(nullTarget).toHaveLength(1);
+    expect(corpoTransition).not.toMatch(/coalesce\s*\(\s*p_release_id/i);
+    expect(corpoTransition).not.toMatch(/coalesce\s*\(\s*p_target_sha/i);
+    expect(corpoStart).toMatch(/release_id\s*=\s*p_release_id/i);
+    expect(corpoStart).not.toMatch(/release_id\s*=\s*null/i);
+    expect(corpoGuard).toMatch(/OLD\.phase = 'SMOKE' and NEW\.phase = 'NORMAL'/i);
+  });
+});
+
 describe("migration 153 — ACL e privacidade", () => {
   it("core privado (transition_internal, binding_guard) tem REVOKE ALL de public/anon/authenticated/service_role", () => {
     for (const fn of [
-      `${TRANSITION_FN}\\(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb\\)`,
+      `${TRANSITION_FN}\\(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb\\)`,
       `${GUARD_FN}\\(\\)`,
     ]) {
       for (const role of ["public", "anon", "authenticated", "service_role"]) {
@@ -517,7 +720,7 @@ describe("migration 153 — ACL e privacidade", () => {
 
   it("todas as 5 funções usam owner postgres", () => {
     for (const fn of [
-      `${TRANSITION_FN}\\(text, integer, text, uuid, text, boolean, uuid, text, text, text, text, text, jsonb\\)`,
+      `${TRANSITION_FN}\\(text, integer, text, uuid, text, uuid, text, text, text, text, text, jsonb\\)`,
       `${GUARD_FN}\\(\\)`,
       `${START_FN}\\(uuid, text, uuid, text, text, jsonb\\)`,
       `${CANCEL_FN}\\(text, integer, uuid, text, text, jsonb\\)`,
@@ -551,6 +754,50 @@ describe("migration 153 — ACL e privacidade", () => {
     expect(revokesDeTabela).toHaveLength(1);
     expect(revokesDeTabela[0]).toMatch(/app_maintenance_state/i);
   });
+
+  it("assinatura real de transition_internal (sem boolean) é a usada em REVOKE/OWNER/postcheck", () => {
+    const tipos = [...assinaturaTransition.matchAll(/p_\w+\s+(\w+)/gi)].map((m) =>
+      m[1].toLowerCase(),
+    );
+    expect(tipos).toEqual([
+      "text",
+      "integer",
+      "text",
+      "uuid",
+      "text",
+      "uuid",
+      "text",
+      "text",
+      "text",
+      "text",
+      "text",
+      "jsonb",
+    ]);
+    expect(assinaturaTransition).not.toMatch(/\bboolean\b/i);
+    expect(sqlSemComentarios).toContain(
+      `app_maintenance_orchestration_transition_internal(${TRANSITION_SIGNATURE_TYPES})`,
+    );
+    expect(sqlSemComentarios).toMatch(
+      new RegExp(
+        `to_regprocedure\\(\\s*'public\\.${TRANSITION_FN}\\(${TRANSITION_SIGNATURE_TYPES}\\)'`,
+        "i",
+      ),
+    );
+    expect(sqlSemComentarios).not.toContain(TRANSITION_SIGNATURE_TYPES_ANTIGA_COM_BOOLEAN);
+  });
+
+  it("não cria RPC pública nova além de start/cancel/fail", () => {
+    const criadas = [
+      ...sqlSemComentarios.matchAll(/create function public\.(\w+)\s*\(/gi),
+    ].map((m) => m[1]);
+    expect(criadas.filter((n) => n.startsWith("app_maintenance_orchestration_"))).toEqual([
+      TRANSITION_FN,
+      GUARD_FN,
+      START_FN,
+      CANCEL_FN,
+      FAIL_FN,
+    ]);
+  });
 });
 
 describe("migration 153 — postcheck fail-closed", () => {
@@ -576,6 +823,18 @@ describe("migration 153 — postcheck fail-closed", () => {
   it("valida ACL de service_role em app_maintenance_state (SELECT sim, UPDATE não)", () => {
     expect(sqlSemComentarios).toMatch(/service_role deveria manter SELECT em app_maintenance_state/i);
     expect(sqlSemComentarios).toMatch(/service_role NÃO deveria mais ter UPDATE direto em app_maintenance_state/i);
+  });
+
+  it("postcheck resolve transition_internal pela assinatura nova (sem boolean)", () => {
+    expect(sqlSemComentarios).toMatch(
+      new RegExp(
+        `to_regprocedure\\(\\s*'public\\.${TRANSITION_FN}\\(${TRANSITION_SIGNATURE_TYPES}\\)'`,
+        "i",
+      ),
+    );
+    expect(sqlSemComentarios).not.toMatch(
+      /transition_internal\(text, integer, text, uuid, text, boolean/i,
+    );
   });
 });
 
