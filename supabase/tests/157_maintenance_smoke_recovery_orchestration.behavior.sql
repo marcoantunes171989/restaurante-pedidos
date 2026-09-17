@@ -108,32 +108,50 @@
 --   legitima NAO e executada nem simulada.
 --   TRUE_TWO_SESSION_RACE_EXECUTED = NAO
 --
--- Topologia (B16-A5A-R1 — reparo do savepoint flow):
+-- Topologia (B16-A5A-R1 — reparo do savepoint flow; B16-A5A-R2 —
+-- reparo do failure path):
 --   SAVEPOINT/ROLLBACK TO SAVEPOINT sao statements TOP-LEVEL do batch,
 --   FORA de qualquer bloco DO/PLpgSQL (Postgres nao permite controle
 --   de transacao dentro de PL/pgSQL). O harness e dividido em 3 blocos
---   DO sequenciais dentro da mesma transacao:
+--   DO sequenciais dentro da mesma transacao, cada um com um bloco
+--   interno BEGIN/EXCEPTION WHEN OTHERS proprio — nenhum RAISE
+--   EXCEPTION interno escapa do seu DO:
 --     part1 — guard + fixture + ciclo pre-B16 ate CHECKPOINT_SMOKE,
 --       grava o contexto necessario (release/target_sha/versao/epoch
 --       de SMOKE, snapshot da release sintetica) em bt16a5a_ctx (TEMP
 --       TABLE criada ANTES do SAVEPOINT, portanto sobrevive ao
---       ROLLBACK TO SAVEPOINT).
+--       ROLLBACK TO SAVEPOINT). Falha e capturada e registrada em
+--       bt16a5a_control (failed=true, failed_stage='part1').
 --     SAVEPOINT sp_smoke;
---     part2 — CENARIO A (SUCCESS): roda success, valida TODOS os
---       invariantes; SOMENTE depois de todos os asserts PASS, avanca
---       bt16a5a_success_flag (TEMP SEQUENCE criada ANTES do SAVEPOINT).
---       NAO insere checkpoint transacional em bt16a5a_results, pois
---       essa linha seria revertida pelo rollback do savepoint a seguir
---       e nao pode servir de evidencia final.
+--     part2 — roda somente se bt16a5a_control.failed=false. CENARIO A
+--       (SUCCESS): roda success, valida TODOS os invariantes; SOMENTE
+--       depois de todos os asserts PASS, avanca bt16a5a_success_flag
+--       (TEMP SEQUENCE criada ANTES do SAVEPOINT). NAO insere
+--       checkpoint transacional em bt16a5a_results, pois essa linha
+--       seria revertida pelo rollback do savepoint a seguir e nao pode
+--       servir de evidencia final. Falha e capturada e reportada via
+--       bt16a5a_part2_fail_flag (TEMP SEQUENCE criada ANTES do
+--       SAVEPOINT) — nao via bt16a5a_control, pois uma escrita nessa
+--       tabela dentro de part2 seria desfeita pelo ROLLBACK TO
+--       SAVEPOINT a seguir.
 --     ROLLBACK TO SAVEPOINT sp_smoke;
---     part3 — prova volta a SMOKE e MAINTENANCE_COMPLETED=0; roda
---       CENARIO B (RECOVER->FAIL); grava os checkpoints restantes.
+--     part3 — avalia bt16a5a_control.failed e
+--       bt16a5a_part2_fail_flag.is_called ANTES de rodar RECOVER/FAIL;
+--       se houver falha previa, nao executa o CENARIO B, registra o
+--       estado final em bt16a5a_control e retorna. Caso contrario,
+--       prova volta a SMOKE e MAINTENANCE_COMPLETED=0, roda CENARIO B
+--       (RECOVER->FAIL) e grava os checkpoints restantes. Falha e
+--       capturada e registrada em bt16a5a_control
+--       (failed_stage='part3').
 --   Evidencia do CENARIO A atravessa o ROLLBACK TO SAVEPOINT
 --   exclusivamente via bt16a5a_success_flag (nextval antes do
 --   rollback preserva is_called=true depois dele — sequences nao sao
 --   revertidas por ROLLBACK TO SAVEPOINT, ao contrario de tabelas). O
---   SELECT final sintetiza a linha CHECKPOINT_SUCCESS a partir dessa
---   sequence; os demais 14 checkpoints vem de bt16a5a_results.
+--   SELECT final le bt16a5a_control/bt16a5a_success_flag/
+--   bt16a5a_part2_fail_flag para produzir overall_status/failed_stage/
+--   failure_message/success_flag/part2_fail_flag, e agrega os
+--   checkpoints presentes em bt16a5a_results (ate 14 em PASS; menos
+--   em FAIL, nunca fabricados).
 --
 -- Seguranca:
 --   Uma transacao (abre no inicio, descarta no fim). Nenhuma
@@ -141,14 +159,17 @@
 --     Sem DDL permanente. Sem mutacao de migration history. Sem Auth
 --     API. Sem extensao nova (pgcrypto ja habilitada, usada apenas
 --     para gen_random_bytes/gen_random_uuid, ja em uso pelo core).
---     Sem objeto permanente — bt16a5a_results, bt16a5a_ctx (TEMP
---     TABLE) e bt16a5a_success_flag (TEMP SEQUENCE) sao todos objetos
---     de sessao, descartados no ROLLBACK final. A release sintetica e
+--     Sem objeto permanente — bt16a5a_results, bt16a5a_ctx,
+--     bt16a5a_control (TEMP TABLE), bt16a5a_success_flag e
+--     bt16a5a_part2_fail_flag (TEMP SEQUENCE) sao todos objetos de
+--     sessao, descartados no ROLLBACK final. A release sintetica e
 --     criada e descartada dentro desta unica transacao (nunca
 --     comitada). SAVEPOINT/ROLLBACK TO SAVEPOINT (top-level) provam
 --     reversibilidade do cenario A (SUCCESS) sem perder o restante do
 --     harness. Expectativa nao atendida => RAISE EXCEPTION
---     (fail-closed).
+--     (fail-closed), capturada por um handler EXCEPTION WHEN OTHERS
+--     interno a cada bloco DO (B16-A5A-R2) — nenhuma exception escapa
+--     ate impedir o SELECT final e o ROLLBACK final do arquivo.
 --   Nao faz UPDATE direto em app_maintenance_state para forjar fases —
 --     toda transicao de fase passa por uma RPC publica real.
 --   Nao faz INSERT direto em app_maintenance_events — todo evento e
@@ -188,6 +209,27 @@ CREATE TEMP TABLE bt16a5a_ctx (
 -- externa). Criada ANTES do savepoint.
 CREATE TEMP SEQUENCE bt16a5a_success_flag START 1;
 
+-- B16-A5A-R2: controle de falha fail-closed. Uma unica row, criada e
+-- inicializada ANTES do SAVEPOINT (portanto TEMP TABLE transacional
+-- normal — sobrevive a ROLLBACK TO SAVEPOINT porque so e escrita antes
+-- dele, em part1; qualquer escrita em part2, que roda depois do
+-- SAVEPOINT, seria desfeita por ROLLBACK TO SAVEPOINT, por isso part2
+-- reporta falha via bt16a5a_part2_fail_flag, nao via esta tabela).
+CREATE TEMP TABLE bt16a5a_control (
+  failed       boolean NOT NULL,
+  failed_stage text,
+  sqlstate     text,
+  message      text
+);
+INSERT INTO bt16a5a_control (failed, failed_stage, sqlstate, message)
+VALUES (false, NULL, NULL, NULL);
+
+-- Canal de evidencia de falha do CENARIO A que atravessa o
+-- ROLLBACK TO SAVEPOINT sp_smoke (sequences nao sao revertidas por
+-- ROLLBACK TO SAVEPOINT). Criada ANTES do savepoint, espelhando
+-- bt16a5a_success_flag.
+CREATE TEMP SEQUENCE bt16a5a_part2_fail_flag START 1;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- PART 1 — guard + fixture + ciclo pre-B16 ate CHECKPOINT_SMOKE
 -- ═══════════════════════════════════════════════════════════════════
@@ -224,6 +266,14 @@ DECLARE
   v_fail_oid oid;
   v_fail_src text;
 BEGIN
+  -- B16-A5A-R2: subtransacao interna — qualquer RAISE EXCEPTION dentro
+  -- deste bloco (guard fail-closed ou assertion de checkpoint) e
+  -- capturada aqui; as mutacoes parciais anteriores ao erro sao
+  -- desfeitas pelo proprio handler (savepoint implicito do PL/pgSQL),
+  -- e o estado de falha e registrado em bt16a5a_control (tabela
+  -- transacional normal, criada ANTES do SAVEPOINT top-level).
+  -- Nenhuma exception escapa deste DO.
+  BEGIN
   RAISE NOTICE '=== 157_maintenance_smoke_recovery_orchestration.behavior inicio (part1) tag=% ===', v_tag;
 
   -- ═══════════════════════════════════════════════════════════════
@@ -557,6 +607,14 @@ BEGIN
   );
 
   RAISE NOTICE '=== part1 PASS_IN_TX (ate CHECKPOINT_SMOKE, contexto persistido em bt16a5a_ctx) ===';
+  EXCEPTION WHEN OTHERS THEN
+    UPDATE bt16a5a_control
+       SET failed = true,
+           failed_stage = 'part1',
+           sqlstate = SQLSTATE,
+           message = SQLERRM;
+    RAISE NOTICE 'part1 FAIL capturado (fail-closed): sqlstate=% message=%', SQLSTATE, SQLERRM;
+  END;
 END;
 $part1$;
 
@@ -589,7 +647,26 @@ DECLARE
   v_evt_release_id    text;
 
   v_rel_after         public.app_release_runs%rowtype;
+
+  v_control_failed    boolean;
 BEGIN
+  -- B16-A5A-R2: part2 so roda se part1 nao marcou falha em
+  -- bt16a5a_control. Se part1 falhou, pula todo o cenario A sem
+  -- tentar ler bt16a5a_ctx (que pode nao ter sido populado).
+  SELECT failed INTO v_control_failed FROM bt16a5a_control;
+  IF v_control_failed THEN
+    RAISE NOTICE 'part2 SKIPPED: falha previa registrada em bt16a5a_control (stage=%)',
+      (SELECT failed_stage FROM bt16a5a_control);
+    RETURN;
+  END IF;
+
+  -- B16-A5A-R2: subtransacao interna — qualquer RAISE EXCEPTION do
+  -- cenario A (SUCCESS) e capturada aqui. Como este bloco roda depois
+  -- do SAVEPOINT top-level, uma UPDATE em bt16a5a_control aqui seria
+  -- desfeita por ROLLBACK TO SAVEPOINT; por isso a evidencia de falha
+  -- usa bt16a5a_part2_fail_flag (TEMP SEQUENCE, imune a
+  -- ROLLBACK TO SAVEPOINT). Nenhuma exception escapa deste DO.
+  BEGIN
   SELECT release_id, target_sha, actor_email, reason, metadata,
          smoke_version, smoke_epoch, release_snapshot
     INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
@@ -644,6 +721,10 @@ BEGIN
   PERFORM nextval('pg_temp.bt16a5a_success_flag');
 
   RAISE NOTICE 'CHECKPOINT_SUCCESS=PASS (part2; evidencia via TEMP sequence, nao persistida em bt16a5a_results)';
+  EXCEPTION WHEN OTHERS THEN
+    PERFORM nextval('pg_temp.bt16a5a_part2_fail_flag');
+    RAISE NOTICE 'part2 FAIL capturado (fail-closed): sqlstate=% message=%', SQLSTATE, SQLERRM;
+  END;
 END;
 $part2$;
 
@@ -680,7 +761,33 @@ DECLARE
 
   v_rel_after         public.app_release_runs%rowtype;
   v_success_flag_called boolean;
+
+  v_control_failed    boolean;
+  v_part2_failed       boolean;
 BEGIN
+  -- B16-A5A-R2: subtransacao interna — qualquer RAISE EXCEPTION deste
+  -- bloco (guard, CENARIO B, ou RESUMO) e capturada aqui e registrada
+  -- em bt16a5a_control. Nenhuma exception escapa deste DO.
+  BEGIN
+  -- B16-A5A-R2: antes de rodar RECOVER/FAIL, avalia se part1 ou part2
+  -- ja falharam. Se sim, nao executa o CENARIO B — apenas registra o
+  -- estado final de falha e retorna normalmente.
+  SELECT failed INTO v_control_failed FROM bt16a5a_control;
+  SELECT coalesce(is_called, false) INTO v_part2_failed FROM bt16a5a_part2_fail_flag;
+
+  IF v_control_failed OR v_part2_failed THEN
+    IF NOT v_control_failed THEN
+      UPDATE bt16a5a_control
+         SET failed = true,
+             failed_stage = 'part2',
+             sqlstate = NULL,
+             message = 'part2 assertion/runtime failure';
+    END IF;
+    RAISE NOTICE 'part3 SKIPPED (RECOVER/FAIL nao executado): falha previa (control.failed=%, part2_fail_flag=%)',
+      v_control_failed, v_part2_failed;
+    RETURN;
+  END IF;
+
   SELECT release_id, target_sha, actor_email, reason, metadata,
          smoke_version, smoke_epoch, release_snapshot
     INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
@@ -835,29 +942,84 @@ BEGIN
   RAISE NOTICE 'CHECKPOINTS_PASS_IN_TX=15 (14 em bt16a5a_results + CHECKPOINT_SUCCESS via TEMP sequence)';
   RAISE NOTICE 'CHECKPOINTS_FAIL_IN_TX=0';
   RAISE NOTICE '=== 157_maintenance_smoke_recovery_orchestration.behavior PASS_IN_TX (rollback-only) ===';
+  EXCEPTION WHEN OTHERS THEN
+    UPDATE bt16a5a_control
+       SET failed = true,
+           failed_stage = 'part3',
+           sqlstate = SQLSTATE,
+           message = SQLERRM;
+    RAISE NOTICE 'part3 FAIL capturado (fail-closed): sqlstate=% message=%', SQLSTATE, SQLERRM;
+  END;
 END;
 $part3$;
 
--- SELECT final — os 14 checkpoints persistidos em bt16a5a_results, mais
--- CHECKPOINT_SUCCESS sintetizado a partir de bt16a5a_success_flag (o
--- unico canal de evidencia do cenario A que sobrevive ao ROLLBACK TO
--- SAVEPOINT sp_smoke). RAISE NOTICE nao e usado como evidencia.
-SELECT seq, checkpoint, status, detail
-  FROM (
-    SELECT seq, checkpoint, status, detail
-      FROM bt16a5a_results
-    UNION ALL
-    SELECT
-      11,
-      'CHECKPOINT_SUCCESS',
-      CASE WHEN is_called THEN 'PASS' ELSE 'FAIL' END,
-      format(
-        'evidencia via TEMP sequence bt16a5a_success_flag (is_called=%s, last_value=%s) — row transacional pos-savepoint omitida por desenho (D2)',
-        is_called, last_value
-      )
-      FROM bt16a5a_success_flag
-  ) final_checkpoints
- ORDER BY seq;
+-- SELECT final (B16-A5A-R2) — sempre alcancavel, independente de qual
+-- stage (part1/part2/part3) tenha falhado, porque so depende de
+-- objetos criados ANTES do SAVEPOINT (bt16a5a_control,
+-- bt16a5a_success_flag, bt16a5a_part2_fail_flag) ou no inicio do
+-- arquivo, antes de qualquer DO (bt16a5a_results). Nenhum RAISE
+-- EXCEPTION interno de part1/part2/part3 escapa mais ate aqui — todos
+-- os RAISE EXCEPTION do corpo real sao capturados pelos handlers
+-- internos de cada bloco DO (ver EXCEPTION WHEN OTHERS em part1/
+-- part2/part3 acima).
+--
+-- overall_status = PASS somente se: control.failed=false E
+-- part2_fail_flag.is_called=false E success_flag.is_called=true E
+-- exatamente 14 checkpoints em bt16a5a_results, todos PASS (D12).
+-- Qualquer outra combinacao = FAIL. Em FAIL, os checkpoints exibidos
+-- sao exatamente os que ocorreram (nunca fabricados).
+WITH ctrl AS (
+  SELECT failed, failed_stage, sqlstate, message FROM bt16a5a_control
+),
+succ AS (
+  SELECT is_called AS success_called FROM bt16a5a_success_flag
+),
+p2 AS (
+  SELECT is_called AS part2_failed FROM bt16a5a_part2_fail_flag
+),
+chk AS (
+  SELECT
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object('seq', seq, 'checkpoint', checkpoint, 'status', status, 'detail', detail)
+        ORDER BY seq
+      ),
+      '[]'::jsonb
+    ) AS checkpoints,
+    count(*) AS checkpoint_count,
+    count(*) FILTER (WHERE status IS DISTINCT FROM 'PASS') AS non_pass_count
+  FROM bt16a5a_results
+),
+verdict AS (
+  SELECT (
+    NOT ctrl.failed
+    AND NOT p2.part2_failed
+    AND succ.success_called
+    AND chk.checkpoint_count = 14
+    AND chk.non_pass_count = 0
+  ) AS is_pass
+  FROM ctrl, succ, p2, chk
+)
+SELECT
+  CASE WHEN verdict.is_pass THEN 'PASS' ELSE 'FAIL' END AS overall_status,
+  CASE
+    WHEN ctrl.failed THEN ctrl.failed_stage
+    WHEN p2.part2_failed THEN 'part2'
+    WHEN NOT verdict.is_pass THEN 'summary'
+    ELSE NULL
+  END AS failed_stage,
+  CASE
+    WHEN ctrl.failed THEN coalesce(ctrl.message, 'part1/part3 runtime failure')
+    WHEN p2.part2_failed THEN 'part2 assertion/runtime failure'
+    WHEN NOT verdict.is_pass THEN 'summary invariant violated (checkpoint count/status mismatch)'
+    ELSE NULL
+  END AS failure_message,
+  ctrl.sqlstate AS failed_sqlstate,
+  succ.success_called AS success_flag,
+  p2.part2_failed AS part2_fail_flag,
+  chk.checkpoint_count,
+  chk.checkpoints
+FROM ctrl, succ, p2, chk, verdict;
 
 ROLLBACK;
 
