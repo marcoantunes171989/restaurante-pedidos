@@ -124,6 +124,44 @@ function sqlForaDeCorpos(texto) {
   return texto.replace(/as \$\$[\s\S]*?\$\$;/gi, "as $$ $$;");
 }
 
+const COMMENT_ON_FUNCTION_RE =
+  /^comment\s+on\s+function\s+public\.(\w+)\s*\(([^)]*)\)\s+is\s+'((?:[^']|'')*)'\s*;/i;
+
+function sqlForaDeDollarQuotes(texto) {
+  return sqlForaDeCorpos(texto).replace(/do\s+\$\$[\s\S]*?end\s+\$\$;/gi, "do $$ end $$;");
+}
+
+function commentsOnFunctionExecutaveis(texto) {
+  const fora = sqlForaDeDollarQuotes(texto);
+  const starts = [...fora.matchAll(/comment\s+on\s+function\b/gi)];
+  const parsed = starts.map((start) => {
+    const rest = fora.slice(start.index);
+    const match = rest.match(COMMENT_ON_FUNCTION_RE);
+    if (!match) {
+      return {
+        valid: false,
+        index: start.index,
+        prefix: rest.slice(0, 240),
+      };
+    }
+    return {
+      valid: true,
+      name: match[1],
+      args: match[2].replace(/\s+/g, " ").trim(),
+      literal: match[3].replace(/''/g, "'"),
+      full: match[0],
+      index: start.index,
+      end: start.index + match[0].length,
+    };
+  });
+  return { fora, parsed };
+}
+
+function indiceCreateOrReplace(fora, nomeFuncao) {
+  const re = new RegExp(`create\\s+or\\s+replace\\s+function\\s+public\\.${nomeFuncao}\\s*\\(`, "i");
+  return fora.search(re);
+}
+
 function blocoDo(texto, indice) {
   const blocos = [...texto.matchAll(/do\s+\$\$[\s\S]*?end\s+\$\$;/gi)].map((m) => m[0]);
   expect(blocos.length, "esperados exatamente 2 blocos DO (precheck e postcheck)").toBe(2);
@@ -680,5 +718,72 @@ describe("migration 155 — semântica 154 ↔ 155", () => {
       expect(bare154).toContain(fn);
     }
     expect(nomesCreateOrReplace(sql154SemComentarios)).toEqual(REPLACED_FNS);
+  });
+});
+
+describe("migration 155 — COMMENT ON FUNCTION executáveis", () => {
+  const { fora, parsed } = commentsOnFunctionExecutaveis(sql);
+  const { parsed: parsed154 } = commentsOnFunctionExecutaveis(sql154);
+  const porNome155 = Object.fromEntries(parsed.filter((c) => c.valid).map((c) => [c.name, c]));
+  const porNome154 = Object.fromEntries(parsed154.filter((c) => c.valid).map((c) => [c.name, c]));
+
+  it("todo COMMENT ON FUNCTION possui término sintático completo", () => {
+    expect(parsed.length).toBeGreaterThan(0);
+    for (const comment of parsed) {
+      expect(comment.valid, `COMMENT incompleto: ${comment.prefix ?? comment.name}`).toBe(true);
+      expect(comment.full).toMatch(/\bis\b/i);
+      expect(comment.full.trim().endsWith(";")).toBe(true);
+      expect(comment.literal.length).toBeGreaterThan(0);
+    }
+    expect(parsed.map((c) => c.name)).toEqual(ALL_11);
+  });
+
+  it("COMMENT de quiesce fecha antes do CREATE OR REPLACE de quiescence_probe", () => {
+    const quiesce = porNome155.app_maintenance_orchestration_quiesce;
+    const idxProbe = indiceCreateOrReplace(fora, "app_maintenance_orchestration_quiescence_probe");
+    expect(quiesce, "COMMENT de quiesce não encontrado ou inválido").toBeTruthy();
+    expect(quiesce.valid).toBe(true);
+    expect(idxProbe).toBeGreaterThan(-1);
+    expect(quiesce.end).toBeLessThan(idxProbe);
+  });
+
+  it("COMMENT de quiescence_probe fecha antes do CREATE OR REPLACE de release_start", () => {
+    const probe = porNome155.app_maintenance_orchestration_quiescence_probe;
+    const idxRelease = indiceCreateOrReplace(fora, "app_maintenance_orchestration_release_start");
+    expect(probe, "COMMENT de quiescence_probe não encontrado ou inválido").toBeTruthy();
+    expect(probe.valid).toBe(true);
+    expect(idxRelease).toBeGreaterThan(-1);
+    expect(probe.end).toBeLessThan(idxRelease);
+  });
+
+  it("nenhum COMMENT aberto engloba outro CREATE OR REPLACE FUNCTION", () => {
+    const creates = [
+      ...fora.matchAll(/create\s+or\s+replace\s+function\s+public\.(\w+)\s*\(/gi),
+    ];
+    expect(creates).toHaveLength(11);
+    for (const comment of parsed) {
+      expect(comment.valid).toBe(true);
+      expect(comment.full).not.toMatch(/create\s+or\s+replace\s+function/i);
+      const engolido = creates.filter((c) => c.index > comment.index && c.index < comment.end);
+      expect(engolido.map((c) => c[1])).toEqual([]);
+    }
+    for (let i = 0; i < creates.length - 1; i += 1) {
+      const between = fora.slice(creates[i].index, creates[i + 1].index);
+      const internos = [...between.matchAll(/comment\s+on\s+function\b/gi)];
+      for (const interno of internos) {
+        const trecho = between.slice(interno.index);
+        const fechado = trecho.match(COMMENT_ON_FUNCTION_RE);
+        expect(fechado, "COMMENT aberto entre CREATE OR REPLACE consecutivos").toBeTruthy();
+        expect(interno.index + fechado[0].length).toBeLessThanOrEqual(between.length);
+      }
+    }
+  });
+
+  it("COMMENTs relevantes correspondem semanticamente aos da migration154 final", () => {
+    for (const fn of ALL_11) {
+      expect(porNome154[fn], `COMMENT canônico ausente na 154: ${fn}`).toBeTruthy();
+      expect(porNome155[fn], `COMMENT ausente na 155: ${fn}`).toBeTruthy();
+      expect(porNome155[fn].literal).toBe(porNome154[fn].literal);
+    }
   });
 });

@@ -1026,7 +1026,7 @@ end;
 $$;
 
 comment on function public.app_maintenance_orchestration_quiesce(integer, uuid, text, text, jsonb) is
-  'RPC PÚBLICA (service_role) — QUIESCE. Exclusive barrier, DRAINING+version, expire_internal, drain count;
+  'RPC PÚBLICA (service_role) — QUIESCE. Exclusive barrier, DRAINING+version, expire_internal, drain count; somente se 0: OPERATION_DRAINED idempotente do cohort (exclui histórico pré-fence e EXPIRED), depois transition_internal DRAINING->QUIESCENT (QUIESCENCE_REACHED) e quiet_since/quiescent_at sem segundo version+1. count>0 = STATE_CONFLICT atômico (nenhuma edge, nenhum OPERATION_DRAINED).';
 
 create or replace function public.app_maintenance_orchestration_quiescence_probe(
   p_expected_version integer,
