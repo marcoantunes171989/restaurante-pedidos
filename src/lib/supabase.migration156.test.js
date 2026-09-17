@@ -13,6 +13,10 @@ const migration153 = readFileSync(
   "supabase/migrations/153_maintenance_release_orchestration_core.sql",
   "utf8",
 );
+const migration153SemComentarios = migration153
+  .split("\n")
+  .map((linha) => linha.replace(/\r$/, "").replace(/--.*$/, ""))
+  .join("\n");
 
 const EVENT_TYPES_17 = [
   "NOTICE_STARTED",
@@ -184,6 +188,122 @@ describe("migration 156 — precheck/postcheck fail-closed", () => {
     expect(sqlSemComentarios).toMatch(/anon\/authenticated NÃO deveriam ter EXECUTE/i);
     expect(sqlSemComentarios).toMatch(/service_role deveria ter EXECUTE/i);
     expect(sqlSemComentarios).toMatch(/PUBLIC NÃO deveria ter EXECUTE/i);
+  });
+});
+
+describe("migration 156 — precheck de colunas NOTICE (tipos canônicos reais da migration140)", () => {
+  it("migration140 declara notice_started_at/scheduled_for como timestamptz e message_public como text (tipos-fonte, não presumidos)", () => {
+    expect(migration140).toMatch(/notice_started_at\s+timestamptz\s+null/i);
+    expect(migration140).toMatch(/scheduled_for\s+timestamptz\s+null/i);
+    expect(migration140).toMatch(/message_public\s+text\s+null/i);
+  });
+
+  it("precheck 156 valida, via pg_attribute, a existência das 3 colunas NOTICE antes do CREATE FUNCTION", () => {
+    const idxPrecheck = sqlSemComentarios.search(/precheck 156/i);
+    const idxCreate = sqlSemComentarios.search(new RegExp(`create function public\\.${NOTICE_FN}`, "i"));
+    for (const coluna of ["notice_started_at", "scheduled_for", "message_public"]) {
+      const idxCheck = sqlSemComentarios.search(new RegExp(`attname = '${coluna}'`, "i"));
+      expect(idxCheck, `checagem de pg_attribute para ${coluna} não encontrada`).toBeGreaterThan(idxPrecheck);
+      expect(idxCheck).toBeLessThan(idxCreate);
+      expect(sqlSemComentarios).toMatch(
+        new RegExp(`coluna ${coluna} ausente em app_maintenance_state \\(migration 140 ausente/drift\\)`, "i"),
+      );
+    }
+  });
+
+  it("precheck valida o tipo canônico real (timestamp with time zone) de notice_started_at e scheduled_for via format_type", () => {
+    expect(sqlSemComentarios).toMatch(/notice_started_at deveria ser timestamptz, encontrado/i);
+    expect(sqlSemComentarios).toMatch(/scheduled_for deveria ser timestamptz, encontrado/i);
+    const checagensTimestamptz = (
+      sqlSemComentarios.match(/if v_col_type <> 'timestamp with time zone' then/gi) || []
+    ).length;
+    expect(checagensTimestamptz).toBe(2);
+  });
+
+  it("precheck valida o tipo canônico real (text) de message_public via format_type", () => {
+    expect(sqlSemComentarios).toMatch(/message_public deveria ser text, encontrado/i);
+    expect(sqlSemComentarios).toMatch(/if v_col_type <> 'text' then/i);
+  });
+
+  it("cada checagem de coluna é fail-closed (RAISE EXCEPTION próprio para ausência e para tipo divergente) — removê-la quebraria esta contagem", () => {
+    const ausencias = (
+      sqlSemComentarios.match(/ausente em app_maintenance_state \(migration 140 ausente\/drift\)/gi) || []
+    ).length;
+    const tipos = (sqlSemComentarios.match(/deveria ser (timestamptz|text), encontrado/gi) || []).length;
+    expect(ausencias, "esperado 1 RAISE EXCEPTION de ausência por coluna NOTICE (3 colunas)").toBe(3);
+    expect(tipos, "esperado 1 RAISE EXCEPTION de tipo por coluna NOTICE (3 colunas)").toBe(3);
+  });
+
+  it("não altera tabela/coluna: precheck de colunas é somente leitura (sem ALTER TABLE/ADD COLUMN)", () => {
+    expect(sqlSemComentarios).not.toMatch(/alter\s+table\s+public\.app_maintenance_state/i);
+    expect(sqlSemComentarios).not.toMatch(/add\s+column/i);
+  });
+});
+
+describe("migration 156 — correlação NULL binding com o contrato real da migration153 (NORMAL -> NOTICE)", () => {
+  const corpoTransitionInternal153 = corpoDaFuncao(migration153SemComentarios, TRANSITION_FN);
+  const corpoBindingGuard153 = corpoDaFuncao(migration153SemComentarios, GUARD_FN);
+  const p_expected_phase = listaArgsTransition[0].replace(/'/g, "");
+  const p_to_phase = listaArgsTransition[2].replace(/'/g, "");
+
+  it("migration153 é efetivamente lida nesta suíte (correlação estática, arquivo não modificado)", () => {
+    expect(migration153).toMatch(new RegExp(`create function public\\.${TRANSITION_FN}`, "i"));
+    expect(migration153).toMatch(new RegExp(`create function public\\.${GUARD_FN}`, "i"));
+  });
+
+  it("transition_internal obtém release_id/target_sha do state lockado (SELECT ... FOR UPDATE), não dos parâmetros p_release_id/p_target_sha", () => {
+    expect(corpoTransitionInternal153).toMatch(
+      /select phase, version, epoch, release_id, target_sha\s+into v_phase, v_version, v_epoch, v_release_id, v_target_sha\s+from public\.app_maintenance_state\s+where scope = 'global'\s+for update;/i,
+    );
+  });
+
+  it("p_release_id NULL apenas pula a validação/lock opcional da release referenciada — não afeta o binding preservado", () => {
+    const match = corpoTransitionInternal153.match(/if p_release_id is not null then([\s\S]*?)end if;/i);
+    expect(match, "guard condicional de p_release_id não encontrado em migration153").toBeTruthy();
+    expect(match[1]).toMatch(/from public\.app_release_runs/i);
+    expect(match[1]).toMatch(/for update;/i);
+  });
+
+  it("para a edge genérica NORMAL -> NOTICE (fora de SMOKE->NORMAL), v_new_release_id/v_new_target_sha recebem os valores lockados v_release_id/v_target_sha — nunca os parâmetros p_release_id/p_target_sha", () => {
+    const bloco = corpoTransitionInternal153.match(
+      /if p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL' then([\s\S]*?)else([\s\S]*?)end if;/i,
+    );
+    expect(bloco, "branch condicional de binding (SMOKE->NORMAL vs. demais edges) não encontrado").toBeTruthy();
+    const [, blocoSmoke, blocoElse] = bloco;
+    expect(blocoSmoke).toMatch(/v_new_release_id\s*:=\s*null;/i);
+    expect(blocoSmoke).toMatch(/v_new_target_sha\s*:=\s*null;/i);
+    expect(blocoElse).toMatch(/v_new_release_id\s*:=\s*v_release_id;/i);
+    expect(blocoElse).toMatch(/v_new_target_sha\s*:=\s*v_target_sha;/i);
+    expect(blocoElse).not.toMatch(/v_new_release_id\s*:=\s*p_release_id/i);
+    expect(blocoElse).not.toMatch(/v_new_target_sha\s*:=\s*p_target_sha/i);
+  });
+
+  it("somente a edge SMOKE -> NORMAL limpa o binding: v_new_release_id/target_sha := null aparecem exatamente 1 vez cada, e só dentro dessa condição", () => {
+    const idxCondicaoSmoke = corpoTransitionInternal153.search(
+      /if p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL' then/i,
+    );
+    expect(idxCondicaoSmoke).toBeGreaterThan(-1);
+    const releaseNull = [...corpoTransitionInternal153.matchAll(/v_new_release_id\s*:=\s*null;/gi)];
+    const targetNull = [...corpoTransitionInternal153.matchAll(/v_new_target_sha\s*:=\s*null;/gi)];
+    expect(releaseNull).toHaveLength(1);
+    expect(targetNull).toHaveLength(1);
+    expect(releaseNull[0].index).toBeGreaterThan(idxCondicaoSmoke);
+    expect(targetNull[0].index).toBeGreaterThan(idxCondicaoSmoke);
+  });
+
+  it("binding_guard permite NEW release/target idênticos ao OLD (comparação NULL-safe), preservando o binding sem trocá-lo mid-cycle", () => {
+    expect(corpoBindingGuard153).toMatch(
+      /if NEW\.release_id is not distinct from OLD\.release_id\s+and NEW\.target_sha is not distinct from OLD\.target_sha then\s+return NEW;\s+end if;/i,
+    );
+  });
+
+  it("correlação explícita: a chamada NORMAL->NOTICE de migration156 passa p_release_id=NULL/p_target_sha=NULL e essa edge nunca é a edge SMOKE->NORMAL que limpa binding — portanto cai no branch que preserva v_release_id/v_target_sha lockados", () => {
+    expect(listaArgsTransition[3]).toBe("null");
+    expect(listaArgsTransition[4]).toBe("null");
+    const isSmokeToNormalEdge = p_expected_phase === "SMOKE" && p_to_phase === "NORMAL";
+    expect(isSmokeToNormalEdge, "edge chamada por 156 não pode ser SMOKE->NORMAL (edge de clear)").toBe(false);
+    expect(p_expected_phase).toBe("NORMAL");
+    expect(p_to_phase).toBe("NOTICE");
   });
 });
 

@@ -50,10 +50,47 @@ declare
   v_prosecdef boolean;
   v_proconfig text[];
   v_prorettype oid;
+  v_col_type text;
 begin
   v_state_reloid := to_regclass('public.app_maintenance_state');
   if v_state_reloid is null then
     raise exception 'precheck 156: public.app_maintenance_state não existe (migration 140 ausente).';
+  end if;
+
+  -- Dependência de colunas NOTICE (migration 140): notice_started_at,
+  -- scheduled_for e message_public precisam existir com os tipos
+  -- canônicos reais definidos pela tabela (timestamptz, timestamptz,
+  -- text). Não presume tipo — lê pg_attribute/format_type. Fail-closed:
+  -- não cria/altera coluna, apenas valida dependência antes do CREATE
+  -- FUNCTION abaixo.
+  select format_type(a.atttypid, a.atttypmod) into v_col_type
+  from pg_attribute a
+  where a.attrelid = v_state_reloid and a.attname = 'notice_started_at' and not a.attisdropped;
+  if v_col_type is null then
+    raise exception 'precheck 156: coluna notice_started_at ausente em app_maintenance_state (migration 140 ausente/drift).';
+  end if;
+  if v_col_type <> 'timestamp with time zone' then
+    raise exception 'precheck 156: notice_started_at deveria ser timestamptz, encontrado %.', v_col_type;
+  end if;
+
+  select format_type(a.atttypid, a.atttypmod) into v_col_type
+  from pg_attribute a
+  where a.attrelid = v_state_reloid and a.attname = 'scheduled_for' and not a.attisdropped;
+  if v_col_type is null then
+    raise exception 'precheck 156: coluna scheduled_for ausente em app_maintenance_state (migration 140 ausente/drift).';
+  end if;
+  if v_col_type <> 'timestamp with time zone' then
+    raise exception 'precheck 156: scheduled_for deveria ser timestamptz, encontrado %.', v_col_type;
+  end if;
+
+  select format_type(a.atttypid, a.atttypmod) into v_col_type
+  from pg_attribute a
+  where a.attrelid = v_state_reloid and a.attname = 'message_public' and not a.attisdropped;
+  if v_col_type is null then
+    raise exception 'precheck 156: coluna message_public ausente em app_maintenance_state (migration 140 ausente/drift).';
+  end if;
+  if v_col_type <> 'text' then
+    raise exception 'precheck 156: message_public deveria ser text, encontrado %.', v_col_type;
   end if;
 
   v_events_reloid := to_regclass('public.app_maintenance_events');
