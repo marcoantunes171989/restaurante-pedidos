@@ -950,6 +950,13 @@ begin
 
   perform public.app_maintenance_operation_expire_internal();
 
+  v_count := public.app_maintenance_drain_in_flight_count_internal();
+
+  if v_count is distinct from 0 then
+    raise exception '%', 'Ainda existem operações em voo no ciclo corrente.'
+      using errcode = 'P0001', detail = 'STATE_CONFLICT';
+  end if;
+
   insert into public.app_maintenance_events (
     id,
     maintenance_epoch,
@@ -985,13 +992,6 @@ begin
         and e.metadata->>'operation_id' = o.id::text
     );
 
-  v_count := public.app_maintenance_drain_in_flight_count_internal();
-
-  if v_count is distinct from 0 then
-    raise exception '%', 'Ainda existem operações em voo no ciclo corrente.'
-      using errcode = 'P0001', detail = 'STATE_CONFLICT';
-  end if;
-
   perform public.app_maintenance_orchestration_transition_internal(
     'DRAINING',
     p_expected_version,
@@ -1017,7 +1017,7 @@ end;
 $$;
 
 comment on function public.app_maintenance_orchestration_quiesce(integer, uuid, text, text, jsonb) is
-  'RPC PÚBLICA (service_role) — QUIESCE. Exclusive barrier, DRAINING+version, expire_internal, OPERATION_DRAINED idempotente do cohort (exclui histórico pré-fence e EXPIRED), drain count; somente se 0: transition_internal DRAINING->QUIESCENT (QUIESCENCE_REACHED) e quiet_since/quiescent_at sem segundo version+1. count>0 = STATE_CONFLICT atômico.';
+  'RPC PÚBLICA (service_role) — QUIESCE. Exclusive barrier, DRAINING+version, expire_internal, drain count; somente se 0: OPERATION_DRAINED idempotente do cohort (exclui histórico pré-fence e EXPIRED), depois transition_internal DRAINING->QUIESCENT (QUIESCENCE_REACHED) e quiet_since/quiescent_at sem segundo version+1. count>0 = STATE_CONFLICT atômico (nenhuma edge, nenhum OPERATION_DRAINED).';
 
 revoke all on function public.app_maintenance_orchestration_quiesce(integer, uuid, text, text, jsonb) from public;
 revoke all on function public.app_maintenance_orchestration_quiesce(integer, uuid, text, text, jsonb) from anon;

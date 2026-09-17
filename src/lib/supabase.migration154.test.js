@@ -482,15 +482,17 @@ describe("migration 154 — OPERATION_DRAINED e quiesce", () => {
 
   it("quiesce count zero antes da edge", () => {
     const idxExpire = corpoQuiesce.search(/app_maintenance_operation_expire_internal/i);
-    const idxDrained = corpoQuiesce.search(/'OPERATION_DRAINED'/);
     const idxCount = corpoQuiesce.search(/app_maintenance_drain_in_flight_count_internal/i);
     const idxCountConflict = corpoQuiesce.search(/v_count is distinct from 0/i);
+    const idxDrainedInsert = corpoQuiesce.search(
+      /insert\s+into\s+public\.app_maintenance_events[\s\S]*?'OPERATION_DRAINED'/i,
+    );
     const idxTransition = corpoQuiesce.search(new RegExp(TRANSITION_FN, "i"));
     expect(idxExpire).toBeGreaterThan(-1);
-    expect(idxDrained).toBeGreaterThan(idxExpire);
-    expect(idxCount).toBeGreaterThan(idxDrained);
+    expect(idxCount).toBeGreaterThan(idxExpire);
     expect(idxCountConflict).toBeGreaterThan(idxCount);
-    expect(idxTransition).toBeGreaterThan(idxCountConflict);
+    expect(idxDrainedInsert).toBeGreaterThan(idxCountConflict);
+    expect(idxTransition).toBeGreaterThan(idxDrainedInsert);
     expect(corpoQuiesce).toMatch(/'DRAINING'/);
     expect(corpoQuiesce).toMatch(/'QUIESCENT'/);
     expect(corpoQuiesce).toMatch(/'QUIESCENCE_REACHED'/);
@@ -501,6 +503,56 @@ describe("migration 154 — OPERATION_DRAINED e quiesce", () => {
     expect(aux[0]).not.toMatch(/version\s*=\s*version\s*\+\s*1/i);
     expect(aux[0]).toMatch(/quiet_since/i);
     expect(aux[0]).toMatch(/quiescent_at/i);
+  });
+
+  it("expire aparece antes do count no corpo executável de quiesce", () => {
+    const idxExpire = corpoQuiesce.search(/app_maintenance_operation_expire_internal/i);
+    const idxCount = corpoQuiesce.search(/app_maintenance_drain_in_flight_count_internal/i);
+    expect(idxExpire).toBeGreaterThan(-1);
+    expect(idxCount).toBeGreaterThan(idxExpire);
+  });
+
+  it("count aparece antes do INSERT de OPERATION_DRAINED no corpo executável de quiesce", () => {
+    const idxCount = corpoQuiesce.search(/app_maintenance_drain_in_flight_count_internal/i);
+    const idxDrainedInsert = corpoQuiesce.search(
+      /insert\s+into\s+public\.app_maintenance_events[\s\S]*?'OPERATION_DRAINED'/i,
+    );
+    expect(idxCount).toBeGreaterThan(-1);
+    expect(idxDrainedInsert).toBeGreaterThan(idxCount);
+  });
+
+  it("OPERATION_DRAINED aparece antes de transition_internal no corpo executável de quiesce", () => {
+    const idxDrainedInsert = corpoQuiesce.search(
+      /insert\s+into\s+public\.app_maintenance_events[\s\S]*?'OPERATION_DRAINED'/i,
+    );
+    const idxTransition = corpoQuiesce.search(new RegExp(TRANSITION_FN, "i"));
+    expect(idxDrainedInsert).toBeGreaterThan(-1);
+    expect(idxTransition).toBeGreaterThan(idxDrainedInsert);
+  });
+
+  it("ordem total executável do quiesce é EXPIRE < COUNT < DRAINED < TRANSITION", () => {
+    const idxExpire = corpoQuiesce.search(/app_maintenance_operation_expire_internal/i);
+    const idxCount = corpoQuiesce.search(/app_maintenance_drain_in_flight_count_internal/i);
+    const idxDrainedInsert = corpoQuiesce.search(
+      /insert\s+into\s+public\.app_maintenance_events[\s\S]*?'OPERATION_DRAINED'/i,
+    );
+    const idxTransition = corpoQuiesce.search(new RegExp(TRANSITION_FN, "i"));
+    expect(idxExpire).toBeGreaterThan(-1);
+    expect(idxCount).toBeGreaterThan(idxExpire);
+    expect(idxDrainedInsert).toBeGreaterThan(idxCount);
+    expect(idxTransition).toBeGreaterThan(idxDrainedInsert);
+  });
+
+  it("OPERATION_DRAINED scan BEFORE count é proibido (OPERATION_DRAINED_TERMINALIZATION_RACE)", () => {
+    const idxCount = corpoQuiesce.search(/app_maintenance_drain_in_flight_count_internal/i);
+    const idxDrainedInsert = corpoQuiesce.search(
+      /insert\s+into\s+public\.app_maintenance_events[\s\S]*?'OPERATION_DRAINED'/i,
+    );
+    expect(idxCount).toBeGreaterThan(-1);
+    expect(idxDrainedInsert).toBeGreaterThan(idxCount);
+    const prefixUntilCount = corpoQuiesce.slice(0, idxCount);
+    expect(prefixUntilCount).not.toMatch(/'OPERATION_DRAINED'/);
+    expect(prefixUntilCount).not.toMatch(/insert\s+into\s+public\.app_maintenance_events/i);
   });
 });
 
