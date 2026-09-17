@@ -9,6 +9,13 @@ describe("resolverTelaAcesso", () => {
     expect(t.screenLabel).toMatch(/Controle/i);
   });
 
+  it("resolve admin.manutencao", () => {
+    const t = resolverTelaAcesso({ activeTab: "admin", adminSection: "manutencao" });
+    expect(t.screenKey).toBe("admin.manutencao");
+    expect(t.route).toBe("/admin/manutencao");
+    expect(t.screenLabel).toBe("Manutenção");
+  });
+
   it("resolve caixa PDV", () => {
     const t = resolverTelaAcesso({ activeTab: "cashier" });
     expect(t.screenKey).toBe("cashier");
