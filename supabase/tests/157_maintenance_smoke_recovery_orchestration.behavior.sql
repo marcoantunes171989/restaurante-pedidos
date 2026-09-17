@@ -76,7 +76,8 @@
 --     QUIESCENCE_PROBE_PASSED do epoch atual; version+1.
 --   smoke (157): RELEASING->SMOKE, version+1, smoke_started_at,
 --     binding preservado (core passa null/null a transition_internal,
---     que mantem v_release_id/v_target_sha correntes).
+--     que mantem v_release_id/v_target_sha correntes), evento
+--     SMOKE_STARTED.
 --   success (157): SMOKE->NORMAL, version+1, epoch preservado,
 --     binding limpo deterministicamente pelo core (SUCCESS_CLEAR —
 --     unica edge que zera release_id/target_sha), evento
@@ -107,18 +108,47 @@
 --   legitima NAO e executada nem simulada.
 --   TRUE_TWO_SESSION_RACE_EXECUTED = NAO
 --
+-- Topologia (B16-A5A-R1 — reparo do savepoint flow):
+--   SAVEPOINT/ROLLBACK TO SAVEPOINT sao statements TOP-LEVEL do batch,
+--   FORA de qualquer bloco DO/PLpgSQL (Postgres nao permite controle
+--   de transacao dentro de PL/pgSQL). O harness e dividido em 3 blocos
+--   DO sequenciais dentro da mesma transacao:
+--     part1 — guard + fixture + ciclo pre-B16 ate CHECKPOINT_SMOKE,
+--       grava o contexto necessario (release/target_sha/versao/epoch
+--       de SMOKE, snapshot da release sintetica) em bt16a5a_ctx (TEMP
+--       TABLE criada ANTES do SAVEPOINT, portanto sobrevive ao
+--       ROLLBACK TO SAVEPOINT).
+--     SAVEPOINT sp_smoke;
+--     part2 — CENARIO A (SUCCESS): roda success, valida TODOS os
+--       invariantes; SOMENTE depois de todos os asserts PASS, avanca
+--       bt16a5a_success_flag (TEMP SEQUENCE criada ANTES do SAVEPOINT).
+--       NAO insere checkpoint transacional em bt16a5a_results, pois
+--       essa linha seria revertida pelo rollback do savepoint a seguir
+--       e nao pode servir de evidencia final.
+--     ROLLBACK TO SAVEPOINT sp_smoke;
+--     part3 — prova volta a SMOKE e MAINTENANCE_COMPLETED=0; roda
+--       CENARIO B (RECOVER->FAIL); grava os checkpoints restantes.
+--   Evidencia do CENARIO A atravessa o ROLLBACK TO SAVEPOINT
+--   exclusivamente via bt16a5a_success_flag (nextval antes do
+--   rollback preserva is_called=true depois dele — sequences nao sao
+--   revertidas por ROLLBACK TO SAVEPOINT, ao contrario de tabelas). O
+--   SELECT final sintetiza a linha CHECKPOINT_SUCCESS a partir dessa
+--   sequence; os demais 14 checkpoints vem de bt16a5a_results.
+--
 -- Seguranca:
 --   Uma transacao (abre no inicio, descarta no fim). Nenhuma
 --     confirmacao persistente (sem COMMIT em nenhum ponto do arquivo).
 --     Sem DDL permanente. Sem mutacao de migration history. Sem Auth
 --     API. Sem extensao nova (pgcrypto ja habilitada, usada apenas
 --     para gen_random_bytes/gen_random_uuid, ja em uso pelo core).
---     Sem objeto permanente. Tabela temporaria de resultado (bt16a5a_
---     results) e a unica tabela de teste. A release sintetica e criada
---     e descartada dentro desta unica transacao (nunca comitada).
---     SAVEPOINT usado para provar reversibilidade do cenario A (SUCCESS)
---     sem perder o restante do harness. Expectativa nao atendida =>
---     RAISE EXCEPTION (fail-closed).
+--     Sem objeto permanente — bt16a5a_results, bt16a5a_ctx (TEMP
+--     TABLE) e bt16a5a_success_flag (TEMP SEQUENCE) sao todos objetos
+--     de sessao, descartados no ROLLBACK final. A release sintetica e
+--     criada e descartada dentro desta unica transacao (nunca
+--     comitada). SAVEPOINT/ROLLBACK TO SAVEPOINT (top-level) provam
+--     reversibilidade do cenario A (SUCCESS) sem perder o restante do
+--     harness. Expectativa nao atendida => RAISE EXCEPTION
+--     (fail-closed).
 --   Nao faz UPDATE direto em app_maintenance_state para forjar fases —
 --     toda transicao de fase passa por uma RPC publica real.
 --   Nao faz INSERT direto em app_maintenance_events — todo evento e
@@ -137,7 +167,31 @@ CREATE TEMP TABLE bt16a5a_results (
   detail     text    NOT NULL
 );
 
-DO $test$
+-- Contexto que precisa sobreviver ao ROLLBACK TO SAVEPOINT sp_smoke —
+-- por isso e criado e populado ANTES do savepoint (part1), e somente
+-- lido (nunca escrito) em part2/part3.
+CREATE TEMP TABLE bt16a5a_ctx (
+  release_id       uuid NOT NULL,
+  target_sha       text NOT NULL,
+  base_sha         text NOT NULL,
+  actor_email      text NOT NULL,
+  reason           text NOT NULL,
+  metadata         jsonb NOT NULL,
+  smoke_version    integer NOT NULL,
+  smoke_epoch      integer NOT NULL,
+  release_snapshot public.app_release_runs NOT NULL
+);
+
+-- Unico canal de evidencia do CENARIO A (SUCCESS) que atravessa o
+-- ROLLBACK TO SAVEPOINT sp_smoke: sequences nao sao revertidas por
+-- ROLLBACK TO SAVEPOINT (apenas por ROLLBACK/COMMIT da transacao
+-- externa). Criada ANTES do savepoint.
+CREATE TEMP SEQUENCE bt16a5a_success_flag START 1;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- PART 1 — guard + fixture + ciclo pre-B16 ate CHECKPOINT_SMOKE
+-- ═══════════════════════════════════════════════════════════════════
+DO $part1$
 DECLARE
   v_tag           constant text := replace(gen_random_uuid()::text, '-', '');
   v_actor_email   constant text := 'b16a5a.' || v_tag || '@bt.local';
@@ -148,7 +202,6 @@ DECLARE
   v_base_sha      text;
   v_target_sha    text;
   v_rel_before    public.app_release_runs%rowtype;
-  v_rel_after     public.app_release_runs%rowtype;
 
   v_phase         text;
   v_epoch         integer;
@@ -160,11 +213,8 @@ DECLARE
   v_version_pre   integer;
 
   v_smoke_started_at    timestamptz;
-  v_completed_at        timestamptz;
-  v_recovering_at       timestamptz;
   v_release_started_at  timestamptz;
 
-  v_evt_release_id text;
   v_evt_count      integer;
 
   v_count integer;
@@ -174,7 +224,7 @@ DECLARE
   v_fail_oid oid;
   v_fail_src text;
 BEGIN
-  RAISE NOTICE '=== 157_maintenance_smoke_recovery_orchestration.behavior inicio tag=% ===', v_tag;
+  RAISE NOTICE '=== 157_maintenance_smoke_recovery_orchestration.behavior inicio (part1) tag=% ===', v_tag;
 
   -- ═══════════════════════════════════════════════════════════════
   -- GUARD fail-closed — RPCs B16 canonicas (STATE B) + baseline
@@ -480,34 +530,89 @@ BEGIN
       v_phase, v_version, v_version_pre + 1, v_smoke_started_at, v_rel_id_state, v_sha_state;
   END IF;
 
+  -- D3: assert explicito de SMOKE_STARTED (nao apenas phase/version).
+  SELECT count(*) INTO v_evt_count
+  FROM public.app_maintenance_events
+  WHERE event_type = 'SMOKE_STARTED' AND maintenance_epoch = v_epoch;
+  IF v_evt_count IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'CHECKPOINT_SMOKE_FAIL: esperado exatamente 1 SMOKE_STARTED no epoch % (=%)', v_epoch, v_evt_count;
+  END IF;
+
   INSERT INTO bt16a5a_results VALUES (
     10, 'CHECKPOINT_SMOKE', 'PASS',
-    format('phase=SMOKE version %s->%s epoch=1 binding preservado', v_version_pre, v_version)
+    format('phase=SMOKE version %s->%s epoch=1 binding preservado, SMOKE_STARTED emitido', v_version_pre, v_version)
   );
   RAISE NOTICE 'CHECKPOINT_SMOKE=PASS';
 
   -- ═══════════════════════════════════════════════════════════════
-  -- SAVEPOINT — ponto de retorno para o cenario A (SUCCESS)
+  -- Persiste em bt16a5a_ctx tudo que part2/part3 precisam, ANTES do
+  -- SAVEPOINT top-level que vem a seguir (fora deste bloco DO).
   -- ═══════════════════════════════════════════════════════════════
-  SAVEPOINT sp_smoke;
+  INSERT INTO bt16a5a_ctx (
+    release_id, target_sha, base_sha, actor_email, reason, metadata,
+    smoke_version, smoke_epoch, release_snapshot
+  ) VALUES (
+    v_release_id, v_target_sha, v_base_sha, v_actor_email, v_reason, v_metadata,
+    v_version, v_epoch, v_rel_before
+  );
 
-  -- ───────────────────────────────────────────────────────────────
-  -- CENARIO A: SMOKE -> SUCCESS -> NORMAL
-  -- ───────────────────────────────────────────────────────────────
-  v_version_pre := v_version;
+  RAISE NOTICE '=== part1 PASS_IN_TX (ate CHECKPOINT_SMOKE, contexto persistido em bt16a5a_ctx) ===';
+END;
+$part1$;
+
+-- SAVEPOINT top-level — ponto de retorno para o cenario A (SUCCESS).
+-- NAO pode estar dentro de um bloco DO/PLpgSQL (D1).
+SAVEPOINT sp_smoke;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- PART 2 — CENARIO A: SMOKE -> SUCCESS -> NORMAL
+-- ═══════════════════════════════════════════════════════════════════
+DO $part2$
+DECLARE
+  v_release_id        uuid;
+  v_target_sha        text;
+  v_actor_email       text;
+  v_reason            text;
+  v_metadata          jsonb;
+  v_smoke_version     integer;
+  v_smoke_epoch       integer;
+  v_release_snapshot  public.app_release_runs;
+
+  v_phase             text;
+  v_epoch             integer;
+  v_version           integer;
+  v_rel_id_state      uuid;
+  v_sha_state         text;
+  v_completed_at      timestamptz;
+
+  v_evt_count         integer;
+  v_evt_release_id    text;
+
+  v_rel_after         public.app_release_runs%rowtype;
+BEGIN
+  SELECT release_id, target_sha, actor_email, reason, metadata,
+         smoke_version, smoke_epoch, release_snapshot
+    INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
+         v_smoke_version, v_smoke_epoch, v_release_snapshot
+  FROM bt16a5a_ctx;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'BLOCKED_FIXTURE_NOT_SAFE: bt16a5a_ctx vazio ao entrar no cenario A (SUCCESS)';
+  END IF;
+
   PERFORM public.app_maintenance_orchestration_success(
-    v_version_pre, NULL, v_actor_email, v_reason, v_metadata
+    v_smoke_version, NULL, v_actor_email, v_reason, v_metadata
   );
 
   SELECT phase, epoch, version, release_id, target_sha, completed_at
     INTO v_phase, v_epoch, v_version, v_rel_id_state, v_sha_state, v_completed_at
   FROM public.app_maintenance_state WHERE scope = 'global';
 
-  IF v_phase IS DISTINCT FROM 'NORMAL' OR v_version IS DISTINCT FROM v_version_pre + 1
-     OR v_epoch IS DISTINCT FROM 1 OR v_completed_at IS NULL
+  IF v_phase IS DISTINCT FROM 'NORMAL' OR v_version IS DISTINCT FROM v_smoke_version + 1
+     OR v_epoch IS DISTINCT FROM v_smoke_epoch OR v_completed_at IS NULL
      OR v_rel_id_state IS NOT NULL OR v_sha_state IS NOT NULL THEN
-    RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: phase=% version=%(esperado %) binding=%/% (esperado NULL/NULL) completed_at=%',
-      v_phase, v_version, v_version_pre + 1, v_rel_id_state, v_sha_state, v_completed_at;
+    RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: phase=% version=%(esperado %) epoch=%(esperado %) binding=%/% (esperado NULL/NULL) completed_at=%',
+      v_phase, v_version, v_smoke_version + 1, v_epoch, v_smoke_epoch, v_rel_id_state, v_sha_state, v_completed_at;
   END IF;
 
   SELECT count(*) INTO v_evt_count
@@ -526,28 +631,79 @@ BEGIN
     RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: evento MAINTENANCE_COMPLETED.release_id deveria ser NULL (SUCCESS_CLEAR), obtido %', v_evt_release_id;
   END IF;
 
-  INSERT INTO bt16a5a_results VALUES (
-    11, 'CHECKPOINT_SUCCESS', 'PASS',
-    format('phase=NORMAL version %s->%s binding limpo, MAINTENANCE_COMPLETED.release_id=NULL', v_version_pre, v_version)
-  );
-  RAISE NOTICE 'CHECKPOINT_SUCCESS=PASS';
+  SELECT * INTO v_rel_after FROM public.app_release_runs WHERE id = v_release_id;
+  IF v_release_snapshot IS DISTINCT FROM v_rel_after THEN
+    RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: app_release_runs.% foi alterada durante o cenario A (SUCCESS)', v_release_id;
+  END IF;
 
-  -- ───────────────────────────────────────────────────────────────
-  -- Descarta o CENARIO A: volta exatamente para o estado pos-SMOKE
-  -- ───────────────────────────────────────────────────────────────
-  ROLLBACK TO SAVEPOINT sp_smoke;
+  -- D2: SOMENTE depois de TODOS os asserts acima terem passado, avanca
+  -- a evidencia que precisa sobreviver ao ROLLBACK TO SAVEPOINT a
+  -- seguir. Nenhuma linha e inserida em bt16a5a_results aqui — seria
+  -- revertida pelo rollback do savepoint e nao pode ser evidencia
+  -- final do cenario SUCCESS.
+  PERFORM nextval('pg_temp.bt16a5a_success_flag');
 
+  RAISE NOTICE 'CHECKPOINT_SUCCESS=PASS (part2; evidencia via TEMP sequence, nao persistida em bt16a5a_results)';
+END;
+$part2$;
+
+-- ROLLBACK TO SAVEPOINT top-level — descarta o CENARIO A (SUCCESS) e
+-- volta exatamente para o estado pos-SMOKE. NAO pode estar dentro de
+-- um bloco DO/PLpgSQL (D1).
+ROLLBACK TO SAVEPOINT sp_smoke;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- PART 3 — prova volta a SMOKE, CENARIO B: SMOKE -> RECOVERING -> FAILED
+-- ═══════════════════════════════════════════════════════════════════
+DO $part3$
+DECLARE
+  v_release_id        uuid;
+  v_target_sha        text;
+  v_actor_email       text;
+  v_reason            text;
+  v_metadata          jsonb;
+  v_smoke_version     integer;
+  v_smoke_epoch       integer;
+  v_release_snapshot  public.app_release_runs;
+
+  v_phase             text;
+  v_epoch             integer;
+  v_version           integer;
+  v_version_pre       integer;
+  v_rel_id_state      uuid;
+  v_sha_state         text;
+  v_smoke_started_at  timestamptz;
+  v_recovering_at     timestamptz;
+
+  v_count             integer;
+  v_evt_count         integer;
+
+  v_rel_after         public.app_release_runs%rowtype;
+  v_success_flag_called boolean;
+BEGIN
+  SELECT release_id, target_sha, actor_email, reason, metadata,
+         smoke_version, smoke_epoch, release_snapshot
+    INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
+         v_smoke_version, v_smoke_epoch, v_release_snapshot
+  FROM bt16a5a_ctx;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'BLOCKED_FIXTURE_NOT_SAFE: bt16a5a_ctx vazio apos ROLLBACK TO SAVEPOINT';
+  END IF;
+
+  -- ═══════════════════════════════════════════════════════════════
+  -- CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE — prova retorno a SMOKE e que
+  -- o MAINTENANCE_COMPLETED do cenario A foi revertido (D3).
+  -- ═══════════════════════════════════════════════════════════════
   SELECT phase, epoch, version, release_id, target_sha, smoke_started_at
     INTO v_phase, v_epoch, v_version, v_rel_id_state, v_sha_state, v_smoke_started_at
   FROM public.app_maintenance_state WHERE scope = 'global';
 
-  -- v_version_pre aqui ainda guarda a versao capturada ANTES do success
-  -- (ou seja, a versao de SMOKE) — deve ser exatamente o que voltou.
-  IF v_phase IS DISTINCT FROM 'SMOKE' OR v_version IS DISTINCT FROM v_version_pre
-     OR v_epoch IS DISTINCT FROM 1 OR v_smoke_started_at IS NULL
+  IF v_phase IS DISTINCT FROM 'SMOKE' OR v_version IS DISTINCT FROM v_smoke_version
+     OR v_epoch IS DISTINCT FROM v_smoke_epoch OR v_smoke_started_at IS NULL
      OR v_rel_id_state IS DISTINCT FROM v_release_id OR v_sha_state IS DISTINCT FROM v_target_sha THEN
     RAISE EXCEPTION 'CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE_FAIL: esperado SMOKE/version=%/bound, obtido phase=% version=% bound=%/%',
-      v_version_pre, v_phase, v_version, v_rel_id_state, v_sha_state;
+      v_smoke_version, v_phase, v_version, v_rel_id_state, v_sha_state;
   END IF;
 
   SELECT count(*) INTO v_count
@@ -557,15 +713,22 @@ BEGIN
     RAISE EXCEPTION 'CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE_FAIL: active_releases deveria voltar a 1 apos ROLLBACK TO SAVEPOINT (=%)', v_count;
   END IF;
 
+  SELECT count(*) INTO v_evt_count
+  FROM public.app_maintenance_events
+  WHERE event_type = 'MAINTENANCE_COMPLETED' AND maintenance_epoch = v_epoch;
+  IF v_evt_count IS DISTINCT FROM 0 THEN
+    RAISE EXCEPTION 'CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE_FAIL: MAINTENANCE_COMPLETED deveria ser 0 apos ROLLBACK TO SAVEPOINT (=%)', v_evt_count;
+  END IF;
+
   INSERT INTO bt16a5a_results VALUES (
     12, 'CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE', 'PASS',
-    format('ROLLBACK TO SAVEPOINT restaurou phase=SMOKE version=%s binding=%s/%s', v_version, v_rel_id_state, v_sha_state)
+    format('ROLLBACK TO SAVEPOINT restaurou phase=SMOKE version=%s binding=%s/%s, MAINTENANCE_COMPLETED=0', v_version, v_rel_id_state, v_sha_state)
   );
   RAISE NOTICE 'CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE=PASS';
 
-  -- ───────────────────────────────────────────────────────────────
+  -- ═══════════════════════════════════════════════════════════════
   -- CENARIO B: SMOKE -> RECOVERING -> FAILED
-  -- ───────────────────────────────────────────────────────────────
+  -- ═══════════════════════════════════════════════════════════════
   v_version_pre := v_version;
   PERFORM public.app_maintenance_orchestration_recover(
     v_version_pre, NULL, v_actor_email, v_reason, v_metadata
@@ -576,15 +739,23 @@ BEGIN
   FROM public.app_maintenance_state WHERE scope = 'global';
 
   IF v_phase IS DISTINCT FROM 'RECOVERING' OR v_version IS DISTINCT FROM v_version_pre + 1
-     OR v_epoch IS DISTINCT FROM 1 OR v_recovering_at IS NULL
+     OR v_epoch IS DISTINCT FROM v_smoke_epoch OR v_recovering_at IS NULL
      OR v_rel_id_state IS DISTINCT FROM v_release_id OR v_sha_state IS DISTINCT FROM v_target_sha THEN
     RAISE EXCEPTION 'CHECKPOINT_RECOVER_FAIL: phase=% version=%(esperado %) binding=%/% (esperado preservado %/%) recovering_at=%',
       v_phase, v_version, v_version_pre + 1, v_rel_id_state, v_sha_state, v_release_id, v_target_sha, v_recovering_at;
   END IF;
 
+  -- D3: assert explicito de RECOVERY_STARTED (nao apenas phase/version).
+  SELECT count(*) INTO v_evt_count
+  FROM public.app_maintenance_events
+  WHERE event_type = 'RECOVERY_STARTED' AND maintenance_epoch = v_epoch;
+  IF v_evt_count IS DISTINCT FROM 1 THEN
+    RAISE EXCEPTION 'CHECKPOINT_RECOVER_FAIL: esperado exatamente 1 RECOVERY_STARTED no epoch % (=%)', v_epoch, v_evt_count;
+  END IF;
+
   INSERT INTO bt16a5a_results VALUES (
     13, 'CHECKPOINT_RECOVER', 'PASS',
-    format('phase=RECOVERING version %s->%s binding preservado', v_version_pre, v_version)
+    format('phase=RECOVERING version %s->%s binding preservado, RECOVERY_STARTED emitido', v_version_pre, v_version)
   );
   RAISE NOTICE 'CHECKPOINT_RECOVER=PASS';
 
@@ -598,7 +769,7 @@ BEGIN
   FROM public.app_maintenance_state WHERE scope = 'global';
 
   IF v_phase IS DISTINCT FROM 'FAILED' OR v_version IS DISTINCT FROM v_version_pre + 1
-     OR v_epoch IS DISTINCT FROM 1
+     OR v_epoch IS DISTINCT FROM v_smoke_epoch
      OR v_rel_id_state IS DISTINCT FROM v_release_id OR v_sha_state IS DISTINCT FROM v_target_sha THEN
     RAISE EXCEPTION 'CHECKPOINT_FAIL_FAIL: phase=% version=%(esperado %) binding=%/% (esperado preservado %/%)',
       v_phase, v_version, v_version_pre + 1, v_rel_id_state, v_sha_state, v_release_id, v_target_sha;
@@ -619,11 +790,12 @@ BEGIN
 
   -- ═══════════════════════════════════════════════════════════════
   -- CHECKPOINT_RELEASE_RUNS_UNCHANGED — nenhuma RPC B16/pre-B16
-  -- alterou a linha sintetica (hash de linha inteira, nao so colunas
-  -- assumidas)
+  -- alterou a linha sintetica em todo o ciclo (part1 + part2 + part3),
+  -- comparada contra o snapshot de composto gravado em bt16a5a_ctx
+  -- antes do SAVEPOINT.
   -- ═══════════════════════════════════════════════════════════════
   SELECT * INTO v_rel_after FROM public.app_release_runs WHERE id = v_release_id;
-  IF v_rel_before IS DISTINCT FROM v_rel_after THEN
+  IF v_release_snapshot IS DISTINCT FROM v_rel_after THEN
     RAISE EXCEPTION 'CHECKPOINT_RELEASE_RUNS_UNCHANGED_FAIL: app_release_runs.% foi alterada por alguma RPC do ciclo', v_release_id;
   END IF;
 
@@ -634,25 +806,57 @@ BEGIN
   RAISE NOTICE 'CHECKPOINT_RELEASE_RUNS_UNCHANGED=PASS';
 
   -- ═══════════════════════════════════════════════════════════════
-  -- RESUMO — fail-closed se qualquer checkpoint nao for PASS
+  -- RESUMO — fail-closed se qualquer checkpoint nao for PASS.
+  --
+  -- bt16a5a_results contem 14 checkpoints transacionais (1-10 de
+  -- part1 + 12-15 de part3). O 15o checkpoint logico
+  -- (CHECKPOINT_SUCCESS, do cenario A) NAO e exigido como row em
+  -- bt16a5a_results — essa row seria removida pelo ROLLBACK TO
+  -- SAVEPOINT por desenho (D2). A evidencia dele e
+  -- bt16a5a_success_flag ter avancado (is_called=true) ANTES do
+  -- rollback do savepoint.
   -- ═══════════════════════════════════════════════════════════════
   IF (SELECT count(*) FROM bt16a5a_results WHERE status IS DISTINCT FROM 'PASS') IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION 'RESUMO_FAIL: existe checkpoint com status != PASS'
       USING ERRCODE = 'TE000';
   END IF;
-  IF (SELECT count(*) FROM bt16a5a_results) IS DISTINCT FROM 15 THEN
-    RAISE EXCEPTION 'RESUMO_FAIL: esperado exatamente 15 checkpoints, obtido %', (SELECT count(*) FROM bt16a5a_results)
+  IF (SELECT count(*) FROM bt16a5a_results) IS DISTINCT FROM 14 THEN
+    RAISE EXCEPTION 'RESUMO_FAIL: esperado exatamente 14 checkpoints persistidos em bt16a5a_results (o 15o, CHECKPOINT_SUCCESS, e comprovado pela TEMP sequence bt16a5a_success_flag e nao pode ser uma row transacional pos-savepoint), obtido %',
+      (SELECT count(*) FROM bt16a5a_results)
       USING ERRCODE = 'TE000';
   END IF;
 
-  RAISE NOTICE 'CHECKPOINTS_PASS_IN_TX=15';
+  SELECT is_called INTO v_success_flag_called FROM bt16a5a_success_flag;
+  IF v_success_flag_called IS NOT TRUE THEN
+    RAISE EXCEPTION 'RESUMO_FAIL: bt16a5a_success_flag nao foi avancada (is_called=%) — cenario A (SUCCESS) nao comprovado antes do ROLLBACK TO SAVEPOINT', v_success_flag_called
+      USING ERRCODE = 'TE000';
+  END IF;
+
+  RAISE NOTICE 'CHECKPOINTS_PASS_IN_TX=15 (14 em bt16a5a_results + CHECKPOINT_SUCCESS via TEMP sequence)';
   RAISE NOTICE 'CHECKPOINTS_FAIL_IN_TX=0';
   RAISE NOTICE '=== 157_maintenance_smoke_recovery_orchestration.behavior PASS_IN_TX (rollback-only) ===';
 END;
-$test$;
+$part3$;
 
+-- SELECT final — os 14 checkpoints persistidos em bt16a5a_results, mais
+-- CHECKPOINT_SUCCESS sintetizado a partir de bt16a5a_success_flag (o
+-- unico canal de evidencia do cenario A que sobrevive ao ROLLBACK TO
+-- SAVEPOINT sp_smoke). RAISE NOTICE nao e usado como evidencia.
 SELECT seq, checkpoint, status, detail
-  FROM bt16a5a_results
+  FROM (
+    SELECT seq, checkpoint, status, detail
+      FROM bt16a5a_results
+    UNION ALL
+    SELECT
+      11,
+      'CHECKPOINT_SUCCESS',
+      CASE WHEN is_called THEN 'PASS' ELSE 'FAIL' END,
+      format(
+        'evidencia via TEMP sequence bt16a5a_success_flag (is_called=%s, last_value=%s) — row transacional pos-savepoint omitida por desenho (D2)',
+        is_called, last_value
+      )
+      FROM bt16a5a_success_flag
+  ) final_checkpoints
  ORDER BY seq;
 
 ROLLBACK;
