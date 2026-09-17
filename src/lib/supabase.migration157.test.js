@@ -8,12 +8,21 @@ const sqlSemComentarios = sql
   .map((linha) => linha.replace(/\r$/, "").replace(/--.*$/, ""))
   .join("\n");
 
+const migration138 = readFileSync("supabase/migrations/138_release_control_plane.sql", "utf8");
 const migration140 = readFileSync("supabase/migrations/140_maintenance_state.sql", "utf8");
 const migration153 = readFileSync(
   "supabase/migrations/153_maintenance_release_orchestration_core.sql",
   "utf8",
 );
 const migration153SemComentarios = migration153
+  .split("\n")
+  .map((linha) => linha.replace(/\r$/, "").replace(/--.*$/, ""))
+  .join("\n");
+const migration154 = readFileSync(
+  "supabase/migrations/154_maintenance_fence_drain_quiescence.sql",
+  "utf8",
+);
+const migration154SemComentarios = migration154
   .split("\n")
   .map((linha) => linha.replace(/\r$/, "").replace(/--.*$/, ""))
   .join("\n");
@@ -176,6 +185,63 @@ function allowlistFail(corpo) {
   return match[1];
 }
 
+function indiceDoFragmento(texto, fragmento, rotulo) {
+  const idx = texto.search(fragmento);
+  expect(idx, `${rotulo} não encontrado`).toBeGreaterThan(-1);
+  return idx;
+}
+
+function provarPhaseAntesDeVersion(corpo, faseEsperada) {
+  const idxPhase = indiceDoFragmento(
+    corpo,
+    new RegExp(`v_phase is distinct from '${faseEsperada}'`, "i"),
+    `phase check ${faseEsperada}`,
+  );
+  const idxVersion = indiceDoFragmento(
+    corpo,
+    /v_version is distinct from p_expected_version/i,
+    `version check após ${faseEsperada}`,
+  );
+  expect(idxPhase, `phase ${faseEsperada} deve ocorrer antes de version`).toBeLessThan(idxVersion);
+  return { idxPhase, idxVersion };
+}
+
+function contarDmlAppReleaseRuns(texto, verbo) {
+  const padroes = {
+    update: /\bupdate\s+(?:only\s+)?(?:public\.)?app_release_runs\b/gi,
+    insert: /\binsert\s+into\s+(?:public\.)?app_release_runs\b/gi,
+    delete: /\bdelete\s+from\s+(?:public\.)?app_release_runs\b/gi,
+  };
+  return [...texto.matchAll(padroes[verbo])].length;
+}
+
+function lockOrderBarrierStateRelease(corpo, rotulo) {
+  const idxBarrier = indiceDoFragmento(
+    corpo,
+    new RegExp(`${BARRIER_FN}\\(\\s*true\\s*\\)`, "i"),
+    `${rotulo}: barrier exclusiva`,
+  );
+  const idxState = indiceDoFragmento(
+    corpo,
+    /from\s+public\.app_maintenance_state/i,
+    `${rotulo}: singleton`,
+  );
+  const idxStateLockRel = corpo.slice(idxState).search(/for update;/i);
+  expect(idxStateLockRel, `${rotulo}: singleton FOR UPDATE`).toBeGreaterThan(-1);
+  const idxStateLock = idxState + idxStateLockRel;
+  const idxRelease = indiceDoFragmento(
+    corpo,
+    /from\s+public\.app_release_runs/i,
+    `${rotulo}: app_release_runs`,
+  );
+  const idxReleaseLockRel = corpo.slice(idxRelease).search(/for update;/i);
+  expect(idxReleaseLockRel, `${rotulo}: app_release_runs FOR UPDATE`).toBeGreaterThan(-1);
+  const idxReleaseLock = idxRelease + idxReleaseLockRel;
+  expect(idxBarrier, `${rotulo}: barrier antes do singleton`).toBeLessThan(idxStateLock);
+  expect(idxStateLock, `${rotulo}: singleton antes da release`).toBeLessThan(idxReleaseLock);
+  return { idxBarrier, idxStateLock, idxReleaseLock };
+}
+
 const corpoSmoke = corpoDaFuncao(sqlSemComentarios, SMOKE_FN);
 const corpoSuccess = corpoDaFuncao(sqlSemComentarios, SUCCESS_FN);
 const corpoRecover = corpoDaFuncao(sqlSemComentarios, RECOVER_FN);
@@ -184,6 +250,8 @@ const corpoFail153 = corpoDaFuncao(migration153SemComentarios, FAIL_FN);
 const corpoTransition153 = corpoDaFuncao(migration153SemComentarios, TRANSITION_FN);
 const corpoGuard153 = corpoDaFuncao(migration153SemComentarios, GUARD_FN);
 const corpoBarrier155 = corpoDaFuncao(migration155SemComentarios, BARRIER_FN);
+const corpoReleaseStart154 = corpoDaFuncao(migration154SemComentarios, RELEASE_START_FN);
+const corpoReleaseStart155 = corpoDaFuncao(migration155SemComentarios, RELEASE_START_FN);
 const blocoSmoke = blocoCompletoDaFuncao(sqlSemComentarios, SMOKE_FN);
 const blocoSuccess = blocoCompletoDaFuncao(sqlSemComentarios, SUCCESS_FN);
 const blocoRecover = blocoCompletoDaFuncao(sqlSemComentarios, RECOVER_FN);
@@ -347,6 +415,53 @@ describe("migration 157 — precheck estrutural de colunas (tipos canônicos da 
   });
 });
 
+describe("migration 157 — precheck de catálogo app_release_runs (tipos reais observados)", () => {
+  it("migration138 declara id uuid, status text e target_sha text (fonte, não adivinhados)", () => {
+    expect(migration138).toMatch(/id\s+uuid\s+primary key/i);
+    expect(migration138).toMatch(/status\s+text\s+not null/i);
+    expect(migration138).toMatch(/target_sha\s+text\s+not null/i);
+  });
+
+  it("precheck 157 exige id/status/target_sha em app_release_runs via pg_attribute/format_type antes do CREATE FUNCTION", () => {
+    const idxPrecheck = sqlSemComentarios.search(/precheck 157/i);
+    const idxCreate = sqlSemComentarios.search(new RegExp(`create function public\\.${SMOKE_FN}`, "i"));
+    const idxReleaseReloid = indiceDoFragmento(
+      sqlSemComentarios,
+      /v_release_reloid\s*:=\s*to_regclass\('public\.app_release_runs'\)/i,
+      "to_regclass app_release_runs",
+    );
+    const idxAttrelid = indiceDoFragmento(
+      sqlSemComentarios,
+      /attrelid = v_release_reloid and a\.attname = v_col/i,
+      "pg_attribute attrelid = v_release_reloid",
+    );
+    expect(idxReleaseReloid).toBeGreaterThan(idxPrecheck);
+    expect(idxAttrelid).toBeGreaterThan(idxReleaseReloid);
+    expect(idxAttrelid).toBeLessThan(idxCreate);
+
+    const esperados = [
+      ["id", "uuid"],
+      ["status", "text"],
+      ["target_sha", "text"],
+    ];
+    for (const [coluna, tipo] of esperados) {
+      const idxTuple = indiceDoFragmento(
+        sqlSemComentarios,
+        new RegExp(`\\('${coluna}'\\s*,\\s*'${tipo}'\\)`, "i"),
+        `tuple ${coluna}/${tipo}`,
+      );
+      expect(idxTuple).toBeGreaterThan(idxReleaseReloid);
+      expect(idxTuple).toBeLessThan(idxCreate);
+    }
+    expect(sqlSemComentarios).toMatch(
+      /coluna % ausente em app_release_runs \(migration 138 ausente\/drift\)/i,
+    );
+    expect(sqlSemComentarios).toMatch(
+      /coluna app_release_runs\.% deveria ser %, encontrado %/i,
+    );
+  });
+});
+
 describe("migration 157 — topologia (3 CREATE FUNCTION + 1 CREATE OR REPLACE fail)", () => {
   it("cria exatamente 3 funções novas: smoke, success, recover", () => {
     expect(nomesCreateFunction(sqlSemComentarios)).toEqual(NEW_RPCS);
@@ -479,9 +594,46 @@ describe("migration 157 — smoke RELEASING -> SMOKE", () => {
     expect(idxReleaseLock).toBeGreaterThan(idxRelease);
   });
 
-  it("CAS fail-closed: phase=RELEASING e version=p_expected_version", () => {
-    expect(corpoSmoke).toMatch(/v_phase is distinct from 'RELEASING'/i);
-    expect(corpoSmoke).toMatch(/v_version is distinct from p_expected_version/i);
+  it("lock order cross-file: smoke segue release_start (barrier exclusiva → singleton FOR UPDATE → app_release_runs FOR UPDATE)", () => {
+    const ordemReleaseStart154 = lockOrderBarrierStateRelease(
+      corpoReleaseStart154,
+      "release_start 154",
+    );
+    const ordemReleaseStart155 = lockOrderBarrierStateRelease(
+      corpoReleaseStart155,
+      "release_start 155",
+    );
+    const ordemSmoke = lockOrderBarrierStateRelease(corpoSmoke, "smoke 157");
+    expect(ordemReleaseStart154.idxBarrier).toBeLessThan(ordemReleaseStart154.idxStateLock);
+    expect(ordemReleaseStart155.idxBarrier).toBeLessThan(ordemReleaseStart155.idxStateLock);
+    expect(ordemSmoke.idxBarrier).toBeLessThan(ordemSmoke.idxStateLock);
+    expect(ordemSmoke.idxStateLock).toBeLessThan(ordemSmoke.idxReleaseLock);
+
+    for (const [nome, corpo] of [
+      ["smoke", corpoSmoke],
+      ["success", corpoSuccess],
+      ["recover", corpoRecover],
+      ["fail", corpoFail],
+    ]) {
+      const idxState = corpo.search(/from\s+public\.app_maintenance_state/i);
+      const idxRelease = corpo.search(/from\s+public\.app_release_runs/i);
+      if (idxRelease >= 0) {
+        expect(idxState, `${nome}: singleton deve existir se houver lock de release`).toBeGreaterThan(
+          -1,
+        );
+        expect(
+          idxRelease,
+          `${nome}: caminho inverso release→state introduzido em 157`,
+        ).toBeGreaterThan(idxState);
+      }
+    }
+    expect(corpoFail).not.toMatch(/from\s+public\.app_release_runs/i);
+    expect(corpoSuccess).not.toMatch(/from\s+public\.app_release_runs/i);
+    expect(corpoRecover).not.toMatch(/from\s+public\.app_release_runs/i);
+  });
+
+  it("CAS fail-closed: phase=RELEASING ocorre antes de version=p_expected_version", () => {
+    provarPhaseAntesDeVersion(corpoSmoke, "RELEASING");
     expect(corpoSmoke).toMatch(/detail = 'STATE_CONFLICT'/i);
     expect(corpoSmoke).toMatch(/detail = 'VERSION_CONFLICT'/i);
   });
@@ -545,8 +697,7 @@ describe("migration 157 — success SMOKE -> NORMAL", () => {
   it("adquire barrier exclusiva, lock/CAS SMOKE+version e binding completo", () => {
     expect(corpoSuccess).toMatch(new RegExp(`${BARRIER_FN}\\(\\s*true\\s*\\)`, "i"));
     expect(corpoSuccess).toMatch(/from public\.app_maintenance_state[\s\S]*for update;/i);
-    expect(corpoSuccess).toMatch(/v_phase is distinct from 'SMOKE'/i);
-    expect(corpoSuccess).toMatch(/v_version is distinct from p_expected_version/i);
+    provarPhaseAntesDeVersion(corpoSuccess, "SMOKE");
     expect(corpoSuccess).toMatch(/v_release_id is null or v_target_sha is null/i);
     expect(corpoSuccess).toMatch(/v_smoke_started_at is null/i);
   });
@@ -560,6 +711,33 @@ describe("migration 157 — success SMOKE -> NORMAL", () => {
     expect(argsSuccess[4]).toBe("null");
     expect(argsSuccess[8]).toBe("'MAINTENANCE_COMPLETED'");
     expect(argsSuccess[9]).toBe("'api'");
+  });
+
+  it("MAINTENANCE_COMPLETED.release_id = NULL é contrato conhecido SUCCESS_CLEAR (v_new_release_id no INSERT do core)", () => {
+    const insertEvento = corpoTransition153.match(
+      /insert\s+into\s+public\.app_maintenance_events\s*\(([\s\S]*?)\)\s*values\s*\(([\s\S]*?)\)\s*;/i,
+    );
+    expect(insertEvento, "INSERT de evento em transition_internal não encontrado").toBeTruthy();
+    const colunas = insertEvento[1].split(",").map((s) => s.replace(/\s+/g, " ").trim());
+    const valores = insertEvento[2].split(",").map((s) => s.replace(/\s+/g, " ").trim());
+    const idxReleaseCol = colunas.indexOf("release_id");
+    expect(idxReleaseCol, "coluna release_id no INSERT de evento").toBeGreaterThan(-1);
+    expect(valores[idxReleaseCol]).toBe("v_new_release_id");
+
+    const clearBlock = corpoTransition153.match(
+      /if p_expected_phase = 'SMOKE' and p_to_phase = 'NORMAL' then([\s\S]*?)else([\s\S]*?)end if;/i,
+    );
+    expect(clearBlock, "SUCCESS_CLEAR SMOKE->NORMAL não encontrado em transition_internal").toBeTruthy();
+    expect(clearBlock[1]).toMatch(/v_new_release_id\s*:=\s*null/i);
+    expect(clearBlock[2]).toMatch(/v_new_release_id\s*:=\s*v_release_id/i);
+
+    const isSuccessClear =
+      argsSuccess[0] === "'SMOKE'" &&
+      argsSuccess[2] === "'NORMAL'" &&
+      argsSuccess[8] === "'MAINTENANCE_COMPLETED'";
+    expect(isSuccessClear, "157 success deve disparar o SUCCESS_CLEAR do core").toBe(true);
+    expect(argsSuccess[3]).toBe("null");
+    expect(argsSuccess[4]).toBe("null");
   });
 
   it("clear de binding ocorre somente via core (SMOKE->NORMAL), sem UPDATE manual de release_id/target_sha", () => {
@@ -592,8 +770,7 @@ describe("migration 157 — recover SMOKE -> RECOVERING", () => {
   it("adquire barrier exclusiva, lock/CAS SMOKE+version, binding e smoke_started_at", () => {
     expect(corpoRecover).toMatch(new RegExp(`${BARRIER_FN}\\(\\s*true\\s*\\)`, "i"));
     expect(corpoRecover).toMatch(/from public\.app_maintenance_state[\s\S]*for update;/i);
-    expect(corpoRecover).toMatch(/v_phase is distinct from 'SMOKE'/i);
-    expect(corpoRecover).toMatch(/v_version is distinct from p_expected_version/i);
+    provarPhaseAntesDeVersion(corpoRecover, "SMOKE");
     expect(corpoRecover).toMatch(/v_release_id is null or v_target_sha is null/i);
     expect(corpoRecover).toMatch(/v_smoke_started_at is null/i);
   });
@@ -667,8 +844,15 @@ describe("migration 157 — version/epoch e app_release_runs", () => {
     }
   });
 
-  it("zero UPDATE app_release_runs em todo o arquivo 157", () => {
-    expect(sqlSemComentarios).not.toMatch(/update\s+public\.app_release_runs/i);
+  it("zero UPDATE/INSERT/DELETE em app_release_runs em todo o arquivo 157", () => {
+    expect(contarDmlAppReleaseRuns(sqlSemComentarios, "update")).toBe(0);
+    expect(contarDmlAppReleaseRuns(sqlSemComentarios, "insert")).toBe(0);
+    expect(contarDmlAppReleaseRuns(sqlSemComentarios, "delete")).toBe(0);
+    for (const corpo of [corpoSmoke, corpoSuccess, corpoRecover, corpoFail]) {
+      expect(contarDmlAppReleaseRuns(corpo, "update")).toBe(0);
+      expect(contarDmlAppReleaseRuns(corpo, "insert")).toBe(0);
+      expect(contarDmlAppReleaseRuns(corpo, "delete")).toBe(0);
+    }
   });
 
   it("success é o único B16 cuja edge limpa binding; smoke/recover/fail preservam via core", () => {

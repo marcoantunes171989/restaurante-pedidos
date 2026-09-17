@@ -78,6 +78,28 @@ begin
     raise exception 'precheck 157: public.app_release_runs não existe (migration 138 ausente).';
   end if;
 
+  -- Colunas de app_release_runs realmente usadas por smoke (id, status,
+  -- target_sha). Somente leitura via pg_attribute/format_type — fail-closed
+  -- antes do CREATE FUNCTION. Tipos canônicos observados no schema atual
+  -- (format_type): uuid / text / text. Não adivinhar; drift aborta.
+  for v_col, v_expected in
+    select * from (values
+      ('id',         'uuid'),
+      ('status',     'text'),
+      ('target_sha', 'text')
+    ) as cols(col, typ)
+  loop
+    select format_type(a.atttypid, a.atttypmod) into v_col_type
+    from pg_attribute a
+    where a.attrelid = v_release_reloid and a.attname = v_col and not a.attisdropped;
+    if v_col_type is null then
+      raise exception 'precheck 157: coluna % ausente em app_release_runs (migration 138 ausente/drift).', v_col;
+    end if;
+    if v_col_type <> v_expected then
+      raise exception 'precheck 157: coluna app_release_runs.% deveria ser %, encontrado %.', v_col, v_expected, v_col_type;
+    end if;
+  end loop;
+
   -- Colunas estruturais já existentes (migration 140). Somente leitura
   -- via pg_attribute/format_type — fail-closed, sem ALTER/ADD COLUMN.
   for v_col, v_expected in
@@ -721,6 +743,12 @@ begin
     if v_src ~* 'update[[:space:]]+public\.app_release_runs' then
       raise exception 'postcheck 157: % não deveria alterar app_release_runs.', v_name;
     end if;
+    if v_src ~* 'insert[[:space:]]+into[[:space:]]+public\.app_release_runs' then
+      raise exception 'postcheck 157: % não deveria inserir em app_release_runs.', v_name;
+    end if;
+    if v_src ~* 'delete[[:space:]]+from[[:space:]]+public\.app_release_runs' then
+      raise exception 'postcheck 157: % não deveria deletar de app_release_runs.', v_name;
+    end if;
     if v_src ~* 'timeout_at[[:space:]]*=' then
       raise exception 'postcheck 157: % não deveria escrever timeout_at.', v_name;
     end if;
@@ -791,6 +819,12 @@ begin
   end if;
   if v_src ~* 'update[[:space:]]+public\.app_release_runs' then
     raise exception 'postcheck 157: fail não deveria alterar app_release_runs.';
+  end if;
+  if v_src ~* 'insert[[:space:]]+into[[:space:]]+public\.app_release_runs' then
+    raise exception 'postcheck 157: fail não deveria inserir em app_release_runs.';
+  end if;
+  if v_src ~* 'delete[[:space:]]+from[[:space:]]+public\.app_release_runs' then
+    raise exception 'postcheck 157: fail não deveria deletar de app_release_runs.';
   end if;
 
   if has_function_privilege('anon', v_fail_oid, 'execute')
