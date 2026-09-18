@@ -244,6 +244,7 @@ async function safeAdapter(label, fn, fallback) {
 export async function collectReadinessEvidence({
   releaseSha = null,
   planId = null,
+  backupBinding = null,
   nowMs = Date.now(),
   adapters = {},
 } = {}) {
@@ -283,20 +284,30 @@ export async function collectReadinessEvidence({
       { ok: false, errorCode: "SCHEMA_SAFETY_EVIDENCE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
     );
   }
-  return { git, maintenance, sessionZero, inFlight, plan, schemaSafety };
+  // PDB-I2B — evidência de backup: adapter injetável e READ-ONLY. Sem adapter → ausente (UNKNOWN).
+  let backup = { absent: true };
+  if (typeof adapters.backup === "function") {
+    backup = await safeAdapter(
+      "BACKUP",
+      () => adapters.backup({ plan, backupBinding, nowMs }),
+      { ok: false, errorCode: "BACKUP_STORE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
+    );
+  }
+  return { git, maintenance, sessionZero, inFlight, plan, schemaSafety, backup, backupBinding };
 }
 
 export async function evaluateDbReleaseReadiness({
   releaseSha = null,
   baseSha = null,
   planId = null,
+  backupBinding = null,
   scheduled = false,
   nowMs = Date.now(),
   adapters = {},
   stale = false,
 } = {}) {
   try {
-    const evidence = await collectReadinessEvidence({ releaseSha, planId, nowMs, adapters });
+    const evidence = await collectReadinessEvidence({ releaseSha, planId, backupBinding, nowMs, adapters });
     const scheduledEffective = scheduled === true || evidence.plan?.status === "SCHEDULED";
     return buildReadinessSnapshot({
       evidence,

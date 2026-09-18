@@ -21,6 +21,8 @@ import {
 } from "./db-release-contract.js";
 import { frozenPlanIdentity } from "./db-release-plan-hash.js";
 import { isSafetyEvidenceBound } from "./db-migration-safety.js";
+import { expectedProjectRefFor } from "./db-backup-contract.js";
+import { evaluateBackupEvidenceForReadiness } from "./db-backup-verification.js";
 
 export const READINESS_EVIDENCE_VERSION = 1;
 
@@ -469,7 +471,6 @@ export function deriveUnimplementedGates({ omitKeys = [] } = {}) {
     unimplementedGate("SCHEMA_SAFETY_PASS", "SCHEMA_SAFETY_UNIMPLEMENTED", "Validador de schema ainda não implementado."),
     unimplementedGate("NO_DML", "SCHEMA_SAFETY_UNIMPLEMENTED", "Prova NO_DML exige evidência explícita de schema safety."),
     unimplementedGate("NO_DESTRUCTIVE_DDL", "SCHEMA_SAFETY_UNIMPLEMENTED", "Prova NO_DESTRUCTIVE_DDL exige evidência explícita de schema safety."),
-    unimplementedGate("BACKUP_VERIFIED", "BACKUP_EVIDENCE_UNIMPLEMENTED", "Provedor de backup ainda não implementado."),
     unimplementedGate("HUMAN_APPROVAL_VALID", "HUMAN_APPROVAL_PENDING", "Aprovação humana plan/generation-specific ainda não existe.", "PENDING"),
     unimplementedGate("EXECUTOR_HEALTHY", "EXECUTOR_UNIMPLEMENTED", "Executor DB ainda não implementado."),
     unimplementedGate("LOCK_ACQUIRED", "LOCK_UNIMPLEMENTED", "Lock de execução DB ainda não implementado."),
@@ -643,11 +644,56 @@ export function deriveSchemaSafetyGates(safety, { nowMs = Date.now(), plan = nul
   ];
 }
 
+/**
+ * PDB-I2B — BACKUP_VERIFIED a partir de evidência explícita e READ-ONLY.
+ * Só snapshot lógico VERIFIED em L2, vinculado a plano/execução/correlação/
+ * quiescência, satisfaz. PITR L1 e managed daily nunca. Sem adapter → UNKNOWN.
+ */
+export function deriveBackupGates(backup, {
+  nowMs = Date.now(),
+  plan = null,
+  binding = null,
+  maintenance = null,
+} = {}) {
+  const evaluatedAt = parseTimeMs(backup?.evaluatedAt) ?? nowMs;
+  const planOk = plan?.ok === true && plan.id && plan.environment;
+  const expected = planOk && binding
+    ? {
+      planId: plan.id,
+      environment: plan.environment,
+      targetReleaseSha: plan.targetReleaseSha,
+      projectRef: binding.projectRef ?? expectedProjectRefFor(plan.environment),
+      executionId: binding.executionId ?? null,
+      correlationId: binding.correlationId ?? null,
+      quiescenceAt: binding.quiescenceAt ?? null,
+    }
+    : null;
+  let outcome = evaluateBackupEvidenceForReadiness(backup, expected);
+  if (outcome.status === "VERIFIED" && maintenance?.ok === true) {
+    const observedQuiescence = parseTimeMs(maintenance.quiescentAt);
+    const expectedQuiescence = parseTimeMs(expected?.quiescenceAt);
+    if (observedQuiescence != null && expectedQuiescence != null && observedQuiescence !== expectedQuiescence) {
+      outcome = {
+        status: "STALE",
+        reasonCode: "BACKUP_EVIDENCE_STALE",
+        message: "Quiescência atual difere da quiescência do backup — evidência vencida.",
+      };
+    }
+  }
+  return [planGenerationGate("BACKUP_VERIFIED", outcome.status, outcome.reasonCode, outcome.message, evaluatedAt)];
+}
+
 export function deriveGatesFromEvidence(evidence = {}, context = {}) {
   const nowMs = Number.isFinite(context.nowMs) ? context.nowMs : Date.now();
   const scheduled = context.scheduled === true;
   const planGates = derivePlanGates(evidence.plan, { nowMs });
   const safetyGates = deriveSchemaSafetyGates(evidence.schemaSafety, { nowMs, plan: evidence.plan });
+  const backupGates = deriveBackupGates(evidence.backup, {
+    nowMs,
+    plan: evidence.plan,
+    binding: evidence.backupBinding,
+    maintenance: evidence.maintenance,
+  });
   const partial = [
     ...deriveGitGates(evidence.git, { releaseSha: context.releaseSha, nowMs }),
     ...deriveMaintenanceGates(evidence.maintenance, { nowMs }),
@@ -655,8 +701,9 @@ export function deriveGatesFromEvidence(evidence = {}, context = {}) {
     deriveInFlightGate(evidence.inFlight, { nowMs }),
     ...planGates,
     ...safetyGates,
+    ...backupGates,
     ...deriveUnimplementedGates({
-      omitKeys: [...planGates, ...safetyGates].map((gate) => gate.key),
+      omitKeys: [...planGates, ...safetyGates, ...backupGates].map((gate) => gate.key),
     }),
   ];
   if (Array.isArray(evidence.overrides)) {
