@@ -26,6 +26,7 @@ import {
   draftPlanHash,
   frozenPlanIdentity,
 } from "./db-release-plan-hash.js";
+import { applyServerMigrationClassifications } from "./db-migration-safety.js";
 
 function nowIso(nowMs = Date.now()) {
   return new Date(nowMs).toISOString();
@@ -216,11 +217,13 @@ export async function validateDbReleasePlan(input, deps = {}) {
   if (!inventory || inventory.ok !== true) {
     return fail(inventory?.errorCode || "MIGRATION_INVENTORY_UNAVAILABLE", 503);
   }
+  const classified = applyServerMigrationClassifications(inventory.migrations);
+  if (!classified.ok) return fail(classified.error, 400);
   const frozen = frozenPlanIdentity({
     environment: row.environment,
     targetReleaseSha: row.target_release_sha,
     baseSha: row.base_sha,
-    migrations: inventory.migrations,
+    migrations: classified.migrations,
   });
   if (!frozen.ok) return fail(frozen.error, 400);
 

@@ -313,6 +313,13 @@ describe("POST /api/maintenance db-plan-* — validação de request", () => {
     });
     expect(res2.statusCode).toBe(400);
     expect(res2.json().error).toBe("CLIENT_MIGRATION_PAYLOAD_FORBIDDEN");
+    const res3 = await postPlan({
+      action: "db-plan-validate",
+      id: "33333333-3333-4333-8333-333333333333",
+      classification: "SAFE_AUTO",
+    });
+    expect(res3.statusCode).toBe(400);
+    expect(res3.json().error).toBe("CLIENT_MIGRATION_PAYLOAD_FORBIDDEN");
   });
 
   it("action execute-now é inválida", async () => {

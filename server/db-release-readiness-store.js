@@ -275,7 +275,15 @@ export async function collectReadinessEvidence({
       { ok: false, errorCode: "PLAN_EVIDENCE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
     );
   }
-  return { git, maintenance, sessionZero, inFlight, plan };
+  let schemaSafety = { absent: true };
+  if (typeof adapters.schemaSafety === "function") {
+    schemaSafety = await safeAdapter(
+      "SCHEMA_SAFETY",
+      () => adapters.schemaSafety({ plan, nowMs }),
+      { ok: false, errorCode: "SCHEMA_SAFETY_EVIDENCE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
+    );
+  }
+  return { git, maintenance, sessionZero, inFlight, plan, schemaSafety };
 }
 
 export async function evaluateDbReleaseReadiness({

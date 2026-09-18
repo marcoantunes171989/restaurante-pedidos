@@ -20,6 +20,7 @@ import {
   isReadinessGateStatus,
 } from "./db-release-contract.js";
 import { frozenPlanIdentity } from "./db-release-plan-hash.js";
+import { isSafetyEvidenceBound } from "./db-migration-safety.js";
 
 export const READINESS_EVIDENCE_VERSION = 1;
 
@@ -562,17 +563,101 @@ export function derivePlanGates(plan, { nowMs = Date.now() } = {}) {
   return gates;
 }
 
+export function deriveSchemaSafetyGates(safety, { nowMs = Date.now(), plan = null } = {}) {
+  if (!safety || safety.absent === true) return [];
+  const evaluatedAt = parseTimeMs(safety.evaluatedAt) ?? nowMs;
+  if (safety.ok !== true) {
+    const code = safety.errorCode || "SCHEMA_SAFETY_EVIDENCE_UNAVAILABLE";
+    return [
+      planStaticGate("SCHEMA_SAFETY_PASS", "UNKNOWN", code, "Evidência de schema safety indisponível.", evaluatedAt),
+      planStaticGate("NO_DML", "UNKNOWN", code, "Evidência de schema safety indisponível.", evaluatedAt),
+      planStaticGate("NO_DESTRUCTIVE_DDL", "UNKNOWN", code, "Evidência de schema safety indisponível.", evaluatedAt),
+    ];
+  }
+  const bound = isSafetyEvidenceBound(safety, {
+    planHash: plan?.planHash || safety.planHash || null,
+    identities: plan?.migrations || null,
+  });
+  if (!bound.bound) {
+    const stale = bound.reasonCode === "SCHEMA_SAFETY_EVIDENCE_MISSING" ? "UNKNOWN" : "STALE";
+    return [
+      planStaticGate("SCHEMA_SAFETY_PASS", stale, bound.reasonCode, "Evidência de schema safety ausente ou stale.", evaluatedAt),
+      planStaticGate("NO_DML", stale, bound.reasonCode, "Evidência de schema safety ausente ou stale.", evaluatedAt),
+      planStaticGate("NO_DESTRUCTIVE_DDL", stale, bound.reasonCode, "Evidência de schema safety ausente ou stale.", evaluatedAt),
+    ];
+  }
+
+  const dmlOk = Number(safety.dmlCount || 0) === 0;
+  const destructiveOk = Number(safety.destructiveDdlCount || 0) === 0;
+  const dmlGate = planStaticGate(
+    "NO_DML",
+    dmlOk ? "VERIFIED" : "FAILED",
+    dmlOk ? "NO_DML" : "DML_PRESENT",
+    dmlOk ? "Analisador não encontrou DML top-level/executado." : "DML top-level ou executado na migration.",
+    evaluatedAt,
+  );
+  const destructiveGate = planStaticGate(
+    "NO_DESTRUCTIVE_DDL",
+    destructiveOk ? "VERIFIED" : "FAILED",
+    destructiveOk ? "NO_DESTRUCTIVE_DDL" : "DESTRUCTIVE_DDL_PRESENT",
+    destructiveOk ? "Analisador não encontrou DDL destrutivo." : "DDL destrutivo presente.",
+    evaluatedAt,
+  );
+
+  if (safety.hasProhibited === true || safety.overallClassification === "PROHIBITED") {
+    return [
+      planStaticGate(
+        "SCHEMA_SAFETY_PASS",
+        "FAILED",
+        "SCHEMA_SAFETY_PROHIBITED",
+        "Analisador classificou a migration set como PROHIBITED.",
+        evaluatedAt,
+      ),
+      dmlGate,
+      destructiveGate,
+    ];
+  }
+  if (safety.requiresReview === true || safety.overallClassification === "REVIEW_REQUIRED" || safety.allSafe !== true) {
+    return [
+      planStaticGate(
+        "SCHEMA_SAFETY_PASS",
+        "PENDING",
+        "SCHEMA_REVIEW_REQUIRED",
+        "REVIEW_REQUIRED não verifica SCHEMA_SAFETY_PASS para execução automática.",
+        evaluatedAt,
+      ),
+      dmlGate,
+      destructiveGate,
+    ];
+  }
+  return [
+    planStaticGate(
+      "SCHEMA_SAFETY_PASS",
+      "VERIFIED",
+      "SCHEMA_SAFETY_PASS",
+      "Set classificado SAFE_AUTO com identidade e validator version válidos.",
+      evaluatedAt,
+    ),
+    dmlGate,
+    destructiveGate,
+  ];
+}
+
 export function deriveGatesFromEvidence(evidence = {}, context = {}) {
   const nowMs = Number.isFinite(context.nowMs) ? context.nowMs : Date.now();
   const scheduled = context.scheduled === true;
   const planGates = derivePlanGates(evidence.plan, { nowMs });
+  const safetyGates = deriveSchemaSafetyGates(evidence.schemaSafety, { nowMs, plan: evidence.plan });
   const partial = [
     ...deriveGitGates(evidence.git, { releaseSha: context.releaseSha, nowMs }),
     ...deriveMaintenanceGates(evidence.maintenance, { nowMs }),
     deriveSessionZeroGate(evidence.sessionZero, { nowMs }),
     deriveInFlightGate(evidence.inFlight, { nowMs }),
     ...planGates,
-    ...deriveUnimplementedGates({ omitKeys: planGates.map((gate) => gate.key) }),
+    ...safetyGates,
+    ...deriveUnimplementedGates({
+      omitKeys: [...planGates, ...safetyGates].map((gate) => gate.key),
+    }),
   ];
   if (Array.isArray(evidence.overrides)) {
     partial.push(...evidence.overrides);
