@@ -234,6 +234,32 @@ VALUES (false, NULL, NULL, NULL);
 -- bt16a5a_success_flag.
 CREATE TEMP SEQUENCE bt16a5a_part2_fail_flag START 1;
 
+-- B16-A5A-R5: canais SOMENTE DIAGNOSTICOS (nao alteram contrato
+-- funcional/topologia) que transportam, atraves do ROLLBACK TO
+-- SAVEPOINT sp_smoke, qual operacao do part2 estava em curso e qual
+-- SQLSTATE ocorreu quando part2 falha. Criadas ANTES do savepoint,
+-- mesmo mecanismo de bt16a5a_success_flag/bt16a5a_part2_fail_flag.
+--
+-- STAGE MAP (bt16a5a_part2_stage) — setval imediatamente antes da
+-- operacao/assertion que cada codigo representa:
+--   10 = CTX_SCALARS_READ
+--   20 = RELEASE_SNAPSHOT_READ
+--   30 = SUCCESS_RPC_CALL
+--   40 = SUCCESS_STATE_ASSERT
+--   50 = COMPLETED_EVENT_COUNT_ASSERT
+--   60 = COMPLETED_EVENT_RELEASE_ID_ASSERT
+--   70 = RELEASE_UNCHANGED_ASSERT
+--   80 = SUCCESS_FLAG_SET (imediatamente antes do nextval do
+--        bt16a5a_success_flag — continua sendo a ultima operacao
+--        semanticamente necessaria do caminho de sucesso)
+--
+-- bt16a5a_part2_sqlstate guarda o SQLSTATE (5 chars) do handler de
+-- part2 codificado deterministicamente em bigint (base-36 por
+-- caractere, offset +1 para nunca colidir com o minvalue=1 da
+-- sequence); o SELECT final decodifica de volta ao texto de 5 chars.
+CREATE TEMP SEQUENCE bt16a5a_part2_stage START 1;
+CREATE TEMP SEQUENCE bt16a5a_part2_sqlstate START 1;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- PART 1 — guard + fixture + ciclo pre-B16 ate CHECKPOINT_SMOKE
 -- ═══════════════════════════════════════════════════════════════════
@@ -653,6 +679,13 @@ DECLARE
   v_rel_after         public.app_release_runs%rowtype;
 
   v_control_failed    boolean;
+
+  -- B16-A5A-R5: encoding diagnostico do SQLSTATE (somente usado no
+  -- handler EXCEPTION), nao participa de nenhuma assertion funcional.
+  v_sqlstate_value    bigint;
+  v_sqlstate_digit    integer;
+  v_sqlstate_char     text;
+  v_sqlstate_idx      integer;
 BEGIN
   -- B16-A5A-R2: part2 so roda se part1 nao marcou falha em
   -- bt16a5a_control. Se part1 falhou, pula todo o cenario A sem
@@ -671,6 +704,8 @@ BEGIN
   -- usa bt16a5a_part2_fail_flag (TEMP SEQUENCE, imune a
   -- ROLLBACK TO SAVEPOINT). Nenhuma exception escapa deste DO.
   BEGIN
+  -- B16-A5A-R5: stage=10 CTX_SCALARS_READ
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 10, true);
   SELECT release_id, target_sha, actor_email, reason, metadata,
          smoke_version, smoke_epoch
     INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
@@ -681,14 +716,20 @@ BEGIN
     RAISE EXCEPTION 'BLOCKED_FIXTURE_NOT_SAFE: bt16a5a_ctx vazio ao entrar no cenario A (SUCCESS)';
   END IF;
 
+  -- B16-A5A-R5: stage=20 RELEASE_SNAPSHOT_READ
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 20, true);
   SELECT release_snapshot
     INTO v_release_snapshot
   FROM bt16a5a_ctx;
 
+  -- B16-A5A-R5: stage=30 SUCCESS_RPC_CALL
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 30, true);
   PERFORM public.app_maintenance_orchestration_success(
     v_smoke_version, NULL, v_actor_email, v_reason, v_metadata
   );
 
+  -- B16-A5A-R5: stage=40 SUCCESS_STATE_ASSERT
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 40, true);
   SELECT phase, epoch, version, release_id, target_sha, completed_at
     INTO v_phase, v_epoch, v_version, v_rel_id_state, v_sha_state, v_completed_at
   FROM public.app_maintenance_state WHERE scope = 'global';
@@ -700,6 +741,8 @@ BEGIN
       v_phase, v_version, v_smoke_version + 1, v_epoch, v_smoke_epoch, v_rel_id_state, v_sha_state, v_completed_at;
   END IF;
 
+  -- B16-A5A-R5: stage=50 COMPLETED_EVENT_COUNT_ASSERT
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 50, true);
   SELECT count(*) INTO v_evt_count
   FROM public.app_maintenance_events
   WHERE event_type = 'MAINTENANCE_COMPLETED' AND maintenance_epoch = v_epoch;
@@ -707,6 +750,8 @@ BEGIN
     RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: esperado exatamente 1 MAINTENANCE_COMPLETED no epoch % (=%)', v_epoch, v_evt_count;
   END IF;
 
+  -- B16-A5A-R5: stage=60 COMPLETED_EVENT_RELEASE_ID_ASSERT
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 60, true);
   SELECT release_id::text INTO v_evt_release_id
   FROM public.app_maintenance_events
   WHERE event_type = 'MAINTENANCE_COMPLETED' AND maintenance_epoch = v_epoch
@@ -716,6 +761,8 @@ BEGIN
     RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: evento MAINTENANCE_COMPLETED.release_id deveria ser NULL (SUCCESS_CLEAR), obtido %', v_evt_release_id;
   END IF;
 
+  -- B16-A5A-R5: stage=70 RELEASE_UNCHANGED_ASSERT
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 70, true);
   SELECT * INTO v_rel_after FROM public.app_release_runs WHERE id = v_release_id;
   IF v_release_snapshot IS DISTINCT FROM v_rel_after THEN
     RAISE EXCEPTION 'CHECKPOINT_SUCCESS_FAIL: app_release_runs.% foi alterada durante o cenario A (SUCCESS)', v_release_id;
@@ -726,11 +773,32 @@ BEGIN
   -- seguir. Nenhuma linha e inserida em bt16a5a_results aqui — seria
   -- revertida pelo rollback do savepoint e nao pode ser evidencia
   -- final do cenario SUCCESS.
+  -- B16-A5A-R5: stage=80 SUCCESS_FLAG_SET, imediatamente antes do
+  -- nextval do success_flag — este continua sendo a ULTIMA operacao
+  -- semanticamente necessaria do caminho de sucesso.
+  PERFORM setval('pg_temp.bt16a5a_part2_stage', 80, true);
   PERFORM nextval('pg_temp.bt16a5a_success_flag');
 
   RAISE NOTICE 'CHECKPOINT_SUCCESS=PASS (part2; evidencia via TEMP sequence, nao persistida em bt16a5a_results)';
   EXCEPTION WHEN OTHERS THEN
     PERFORM nextval('pg_temp.bt16a5a_part2_fail_flag');
+
+    -- B16-A5A-R5: codifica o SQLSTATE (5 chars, alfabeto 0-9/A-Z) em
+    -- bigint determinístico/reversível (base-36 por caractere, offset
+    -- +1 para nunca colidir com o minvalue=1 da sequence) e o
+    -- transporta pelo ROLLBACK TO SAVEPOINT via TEMP sequence — sem
+    -- tabela persistente, extension, dblink ou autonomous transaction.
+    v_sqlstate_value := 0;
+    FOR v_sqlstate_idx IN 1..5 LOOP
+      v_sqlstate_char := substr(SQLSTATE, v_sqlstate_idx, 1);
+      v_sqlstate_digit := CASE
+        WHEN v_sqlstate_char BETWEEN '0' AND '9' THEN ascii(v_sqlstate_char) - ascii('0')
+        ELSE ascii(v_sqlstate_char) - ascii('A') + 10
+      END;
+      v_sqlstate_value := v_sqlstate_value * 36 + v_sqlstate_digit;
+    END LOOP;
+    PERFORM setval('pg_temp.bt16a5a_part2_sqlstate', v_sqlstate_value + 1, true);
+
     RAISE NOTICE 'part2 FAIL capturado (fail-closed): sqlstate=% message=%', SQLSTATE, SQLERRM;
   END;
 END;
@@ -989,6 +1057,55 @@ succ AS (
 p2 AS (
   SELECT is_called AS part2_failed FROM bt16a5a_part2_fail_flag
 ),
+-- B16-A5A-R5: diagnostico do part2 (stage + SQLSTATE), transportado
+-- pelo ROLLBACK TO SAVEPOINT via TEMP sequence. Somente informativo —
+-- nao participa de overall_status/is_pass (D12 — PASS nao fica mais
+-- permissivo).
+p2_stage_raw AS (
+  SELECT last_value, is_called FROM bt16a5a_part2_stage
+),
+p2_stage AS (
+  SELECT
+    CASE WHEN is_called THEN last_value ELSE NULL END AS part2_stage_code,
+    CASE
+      WHEN NOT is_called THEN NULL
+      WHEN last_value = 10 THEN 'CTX_SCALARS_READ'
+      WHEN last_value = 20 THEN 'RELEASE_SNAPSHOT_READ'
+      WHEN last_value = 30 THEN 'SUCCESS_RPC_CALL'
+      WHEN last_value = 40 THEN 'SUCCESS_STATE_ASSERT'
+      WHEN last_value = 50 THEN 'COMPLETED_EVENT_COUNT_ASSERT'
+      WHEN last_value = 60 THEN 'COMPLETED_EVENT_RELEASE_ID_ASSERT'
+      WHEN last_value = 70 THEN 'RELEASE_UNCHANGED_ASSERT'
+      WHEN last_value = 80 THEN 'SUCCESS_FLAG_SET'
+      ELSE 'UNKNOWN_STAGE_' || last_value::text
+    END AS part2_stage_name
+  FROM p2_stage_raw
+),
+p2_sqlstate_raw AS (
+  SELECT (last_value - 1) AS raw, is_called
+  FROM bt16a5a_part2_sqlstate
+),
+p2_sqlstate_digits AS (
+  SELECT
+    is_called,
+    (raw / 1679616) % 36 AS d0,
+    (raw / 46656) % 36   AS d1,
+    (raw / 1296) % 36    AS d2,
+    (raw / 36) % 36      AS d3,
+    raw % 36             AS d4
+  FROM p2_sqlstate_raw
+),
+p2_sqlstate AS (
+  SELECT
+    CASE WHEN NOT is_called THEN NULL ELSE
+      (CASE WHEN d0 < 10 THEN chr(48 + d0::int) ELSE chr(55 + d0::int) END) ||
+      (CASE WHEN d1 < 10 THEN chr(48 + d1::int) ELSE chr(55 + d1::int) END) ||
+      (CASE WHEN d2 < 10 THEN chr(48 + d2::int) ELSE chr(55 + d2::int) END) ||
+      (CASE WHEN d3 < 10 THEN chr(48 + d3::int) ELSE chr(55 + d3::int) END) ||
+      (CASE WHEN d4 < 10 THEN chr(48 + d4::int) ELSE chr(55 + d4::int) END)
+    END AS part2_sqlstate
+  FROM p2_sqlstate_digits
+),
 chk AS (
   SELECT
     coalesce(
@@ -1022,16 +1139,27 @@ SELECT
   END AS failed_stage,
   CASE
     WHEN ctrl.failed THEN coalesce(ctrl.message, 'part1/part3 runtime failure')
-    WHEN p2.part2_failed THEN 'part2 assertion/runtime failure'
+    WHEN p2.part2_failed THEN coalesce(
+      'PART2 failure at ' || p2_stage.part2_stage_name || ' [' || p2_sqlstate.part2_sqlstate || ']',
+      'part2 assertion/runtime failure'
+    )
     WHEN NOT verdict.is_pass THEN 'summary invariant violated (checkpoint count/status mismatch)'
     ELSE NULL
   END AS failure_message,
   ctrl.sqlstate AS failed_sqlstate,
   succ.success_called AS success_flag,
   p2.part2_failed AS part2_fail_flag,
+  -- B16-A5A-R5: diagnostico do part2 — permite distinguir inequivocamente
+  -- qual operacao/assertion falhou e com qual SQLSTATE, mesmo apos o
+  -- ROLLBACK TO SAVEPOINT. NULL quando part2 nao rodou (falha previa em
+  -- part1) ou nao falhou (part2_stage reflete o ultimo stage normal
+  -- esperado = 80/SUCCESS_FLAG_SET e part2_sqlstate = NULL).
+  p2_stage.part2_stage_code,
+  p2_stage.part2_stage_name,
+  p2_sqlstate.part2_sqlstate,
   chk.checkpoint_count,
   chk.checkpoints
-FROM ctrl, succ, p2, chk, verdict;
+FROM ctrl, succ, p2, p2_stage, p2_sqlstate, chk, verdict;
 
 ROLLBACK;
 
