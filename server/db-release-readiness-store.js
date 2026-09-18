@@ -14,6 +14,7 @@ import {
   buildReadinessSnapshot,
   failClosedSnapshot,
 } from "./db-release-readiness.js";
+import { readPlanEvidence } from "./db-release-plan-store.js";
 
 const STATE_TABLE = "app_maintenance_state";
 const OPERATIONS_TABLE = "app_maintenance_operations";
@@ -242,6 +243,7 @@ async function safeAdapter(label, fn, fallback) {
 
 export async function collectReadinessEvidence({
   releaseSha = null,
+  planId = null,
   nowMs = Date.now(),
   adapters = {},
 } = {}) {
@@ -265,7 +267,15 @@ export async function collectReadinessEvidence({
     () => (adapters.inFlight || readInFlightOperationsEvidence)({ nowMs }),
     { ok: false, errorCode: "IN_FLIGHT_REGISTRY_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
   );
-  return { git, maintenance, sessionZero, inFlight };
+  let plan = { absent: true, ok: false, errorCode: "PLAN_EVIDENCE_ABSENT", evaluatedAt: nowIso(nowMs) };
+  if (planId) {
+    plan = await safeAdapter(
+      "PLAN",
+      () => (adapters.plan || readPlanEvidence)({ planId, nowMs }),
+      { ok: false, errorCode: "PLAN_EVIDENCE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
+    );
+  }
+  return { git, maintenance, sessionZero, inFlight, plan };
 }
 
 export async function evaluateDbReleaseReadiness({
@@ -278,14 +288,17 @@ export async function evaluateDbReleaseReadiness({
   stale = false,
 } = {}) {
   try {
-    const evidence = await collectReadinessEvidence({ releaseSha, nowMs, adapters });
+    const evidence = await collectReadinessEvidence({ releaseSha, planId, nowMs, adapters });
+    const scheduledEffective = scheduled === true || evidence.plan?.status === "SCHEDULED";
     return buildReadinessSnapshot({
       evidence,
-      releaseSha,
-      baseSha: baseSha || evidence.git?.baseSha || null,
-      planId,
-      scheduled,
-      generation: evidence.maintenance?.version ?? null,
+      releaseSha: releaseSha || evidence.plan?.targetReleaseSha || null,
+      baseSha: baseSha || evidence.git?.baseSha || evidence.plan?.baseSha || null,
+      planId: planId || evidence.plan?.id || null,
+      scheduled: scheduledEffective,
+      generation: evidence.plan?.readinessGeneration
+        ?? evidence.maintenance?.version
+        ?? null,
       nowMs,
       stale,
     });

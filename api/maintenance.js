@@ -16,6 +16,10 @@
 //  GET ?scope=db-readiness (PDB-I1C1): snapshot server-authoritative de
 //  readiness DB. Somente Super Admin, somente leitura, sem mutação.
 //
+//  GET ?scope=db-plans / db-plan (PDB-I1C2): leitura do lifecycle do
+//  plano DB. POST action db-plan-*: create/validate/approve/schedule/
+//  cancel. Super Admin. Não executa migration/backup/maintenance.
+//
 //  POST: mesmo endpoint, action "start" | "notice". Sempre exige Bearer +
 //  Super Admin. START chama public.app_maintenance_orchestration_start
 //  (migration 153) usando uma release já existente/ativa — target_sha é
@@ -38,6 +42,15 @@ import {
   readMaintenanceState,
   startMaintenanceOrchestration,
 } from "../server/maintenance-store.js";
+import {
+  approveDbReleasePlan,
+  cancelDbReleasePlan,
+  createDbReleasePlan,
+  getDbReleasePlan,
+  listDbReleasePlans,
+  scheduleDbReleasePlan,
+  validateDbReleasePlan,
+} from "../server/db-release-plan.js";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -70,6 +83,55 @@ function operatorFromUser(user) {
   const email = clean(user?.email, 160)?.toLowerCase() || null;
   const userId = isReleaseUuid(user?.id) ? user.id : null;
   return { userId, email };
+}
+
+const PLAN_FORBIDDEN_FIELDS = Object.freeze([
+  "sql",
+  "migrationSql",
+  "statement",
+  "statements",
+  "migrations",
+  "filename",
+  "gitBlob",
+  "sha256",
+  "bytes",
+  "classification",
+  "backupId",
+  "executor",
+  "serviceRole",
+  "supabaseUrl",
+  "environmentUrl",
+]);
+
+function hasForbiddenPlanPayload(body) {
+  if (!body || typeof body !== "object") return false;
+  return PLAN_FORBIDDEN_FIELDS.some((key) => Object.prototype.hasOwnProperty.call(body, key));
+}
+
+function planHttpStatus(result) {
+  if (result?.status) return result.status;
+  return 500;
+}
+
+function planJson(res, result, action) {
+  if (!result?.ok) {
+    return json(res, planHttpStatus(result), {
+      ok: false,
+      error: result?.error || "PLAN_STORE_UNAVAILABLE",
+      action,
+    });
+  }
+  const payload = {
+    ok: true,
+    action,
+    generatedAt: new Date().toISOString(),
+  };
+  if (result.plan) {
+    payload.plan = result.plan;
+    payload.alreadyApplied = result.alreadyApplied === true;
+  }
+  if (result.plans) payload.plans = result.plans;
+  return json(res, 200, payload);
 }
 
 // Reaplica a MESMA condição de autorização de api/releases.js /
@@ -182,7 +244,11 @@ async function handleDbReadinessGet(req, res) {
 
   const releaseShaRaw = clean(req.query?.releaseSha, 64);
   const releaseSha = SHA_RE.test(releaseShaRaw || "") ? releaseShaRaw : null;
-  const planId = clean(req.query?.planId, 80);
+  const planIdRaw = clean(req.query?.planId, 80);
+  if (planIdRaw && !isReleaseUuid(planIdRaw)) {
+    return json(res, 400, { ok: false, error: "PLAN_ID_INVALID", action: "db-readiness" });
+  }
+  const planId = planIdRaw || null;
   const scheduledRaw = clean(req.query?.scheduled, 8)?.toLowerCase();
   const scheduled = scheduledRaw === "1" || scheduledRaw === "true";
 
@@ -292,6 +358,62 @@ async function handleNotice(body, res, operator) {
   return json(res, 200, { ok: true, action: "notice", generatedAt: new Date().toISOString() });
 }
 
+async function handleDbPlansGet(req, res) {
+  const auth = await checkAuth(req);
+  if (auth.status !== 200) return json(res, auth.status, { error: auth.error });
+  const result = await listDbReleasePlans();
+  return planJson(res, result, "db-plans");
+}
+
+async function handleDbPlanGet(req, res) {
+  const auth = await checkAuth(req);
+  if (auth.status !== 200) return json(res, auth.status, { error: auth.error });
+  const id = clean(req.query?.id, 80);
+  if (!isReleaseUuid(id)) {
+    return json(res, 400, { ok: false, error: "PLAN_ID_INVALID", action: "db-plan" });
+  }
+  const result = await getDbReleasePlan(id);
+  return planJson(res, result, "db-plan");
+}
+
+async function handleDbPlanPost(body, res, operator) {
+  if (hasForbiddenPlanPayload(body)) {
+    return json(res, 400, { ok: false, error: "CLIENT_MIGRATION_PAYLOAD_FORBIDDEN", action: body?.action || null });
+  }
+  const actor = { userId: operator?.userId || null, email: operator?.email || null };
+  const action = clean(body.action, 40);
+  if (action === "db-plan-create") {
+    return planJson(res, await createDbReleasePlan({
+      targetReleaseSha: clean(body.targetReleaseSha, 64),
+      baseSha: clean(body.baseSha, 64),
+      environment: clean(body.environment, 8),
+    }, { actor }), action);
+  }
+  if (action === "db-plan-validate") {
+    return planJson(res, await validateDbReleasePlan({ id: clean(body.id, 80) }, { actor }), action);
+  }
+  if (action === "db-plan-approve") {
+    return planJson(res, await approveDbReleasePlan({
+      id: clean(body.id, 80),
+      confirmation: clean(body.confirmation, 40),
+    }, { actor }), action);
+  }
+  if (action === "db-plan-schedule") {
+    return planJson(res, await scheduleDbReleasePlan({
+      id: clean(body.id, 80),
+      confirmation: clean(body.confirmation, 40),
+      scheduledAt: typeof body.scheduledAt === "string" ? body.scheduledAt : null,
+    }, { actor }), action);
+  }
+  if (action === "db-plan-cancel") {
+    return planJson(res, await cancelDbReleasePlan({
+      id: clean(body.id, 80),
+      confirmation: clean(body.confirmation, 40),
+    }, { actor }), action);
+  }
+  return null;
+}
+
 async function handlePost(req, res) {
   const auth = await checkAuth(req);
   if (auth.status !== 200) return json(res, auth.status, { error: auth.error });
@@ -302,6 +424,8 @@ async function handlePost(req, res) {
   const action = clean(parsed.body.action, 40);
   if (action === "start") return handleStart(parsed.body, res, auth.operator);
   if (action === "notice") return handleNotice(parsed.body, res, auth.operator);
+  const planResult = await handleDbPlanPost(parsed.body, res, auth.operator);
+  if (planResult !== null) return planResult;
   return json(res, 400, { error: "action_invalida" });
 }
 
@@ -316,6 +440,8 @@ export default async function handler(req, res) {
     const scope = clean(req.query?.scope, 20);
     if (scope === "admin") return handleAdminGet(req, res);
     if (scope === "db-readiness") return handleDbReadinessGet(req, res);
+    if (scope === "db-plans") return handleDbPlansGet(req, res);
+    if (scope === "db-plan") return handleDbPlanGet(req, res);
     return handlePublicGet(res);
   }
 

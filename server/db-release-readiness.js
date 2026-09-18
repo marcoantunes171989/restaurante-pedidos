@@ -19,6 +19,7 @@ import {
   isMaintenancePhase,
   isReadinessGateStatus,
 } from "./db-release-contract.js";
+import { frozenPlanIdentity } from "./db-release-plan-hash.js";
 
 export const READINESS_EVIDENCE_VERSION = 1;
 
@@ -457,7 +458,8 @@ export function deriveInFlightGate(inFlight, { nowMs } = {}) {
   );
 }
 
-export function deriveUnimplementedGates() {
+export function deriveUnimplementedGates({ omitKeys = [] } = {}) {
+  const omit = new Set(omitKeys);
   return [
     unimplementedGate("HML_VALIDATED", "HML_VALIDATION_UNIMPLEMENTED", "Validação HML ainda não implementada."),
     unimplementedGate("PROD_BASELINE_VERIFIED", "PROD_BASELINE_UNIMPLEMENTED", "Baseline PROD ainda não implementada."),
@@ -471,18 +473,106 @@ export function deriveUnimplementedGates() {
     unimplementedGate("EXECUTOR_HEALTHY", "EXECUTOR_UNIMPLEMENTED", "Executor DB ainda não implementado."),
     unimplementedGate("LOCK_ACQUIRED", "LOCK_UNIMPLEMENTED", "Lock de execução DB ainda não implementado."),
     unimplementedGate("SCHEDULE_WINDOW_VALID", "SCHEDULE_WINDOW_UNIMPLEMENTED", "Janela de schedule ainda não implementada."),
+  ].filter((gate) => !omit.has(gate.key));
+}
+
+function planStaticGate(key, status, reasonCode, message, evidenceAtMs) {
+  return {
+    key,
+    status,
+    reasonCode,
+    message,
+    evidenceAt: isoFromMs(evidenceAtMs),
+    expiresAt: null,
+  };
+}
+
+function planGenerationGate(key, status, reasonCode, message, evidenceAtMs) {
+  return {
+    key,
+    status,
+    reasonCode,
+    message,
+    evidenceAt: isoFromMs(evidenceAtMs),
+    expiresAt: isoFromMs(evidenceAtMs + RUNTIME_EVIDENCE_FRESHNESS_MS),
+  };
+}
+
+function planIdentityMatches(plan) {
+  if (!plan || plan.ok !== true) return false;
+  if (!Array.isArray(plan.migrations) || plan.migrations.length === 0) return false;
+  const frozen = frozenPlanIdentity({
+    environment: plan.environment,
+    targetReleaseSha: plan.targetReleaseSha,
+    baseSha: plan.baseSha,
+    migrations: plan.migrations,
+  });
+  return frozen.ok === true && frozen.planHash === plan.planHash;
+}
+
+export function derivePlanGates(plan, { nowMs = Date.now() } = {}) {
+  if (!plan || plan.absent === true) return [];
+  const evaluatedAt = parseTimeMs(plan.evaluatedAt) ?? nowMs;
+  if (plan.ok !== true) {
+    const code = plan.errorCode || "PLAN_EVIDENCE_UNAVAILABLE";
+    return [
+      planStaticGate("MIGRATION_SET_FROZEN", "UNKNOWN", code, "Evidência de plano indisponível.", evaluatedAt),
+      planStaticGate("MIGRATION_IDENTITY_VERIFIED", "UNKNOWN", code, "Evidência de plano indisponível.", evaluatedAt),
+      planGenerationGate("HUMAN_APPROVAL_VALID", "UNKNOWN", code, "Evidência de plano indisponível.", evaluatedAt),
+    ];
+  }
+
+  const frozenOk = plan.status !== "DRAFT" && planIdentityMatches(plan);
+  const frozenStatus = plan.status === "DRAFT"
+    ? "PENDING"
+    : (frozenOk ? "VERIFIED" : "BLOCKED");
+  const frozenReason = plan.status === "DRAFT"
+    ? "MIGRATION_SET_NOT_FROZEN"
+    : (frozenOk ? "MIGRATION_IDENTITY_FROZEN" : "PLAN_HASH_MISMATCH");
+  const frozenMessage = plan.status === "DRAFT"
+    ? "Plano ainda em DRAFT — identidade não congelada."
+    : (frozenOk
+      ? "Identidade de migrations congelada no plano."
+      : "Identidade congelada ausente ou divergente do plan_hash.");
+
+  const approvalBound = frozenOk
+    && (plan.status === "APPROVED" || plan.status === "SCHEDULED")
+    && Boolean(plan.approvedAt)
+    && Boolean(plan.approvedBy);
+  const approvalStatus = approvalBound ? "VERIFIED" : "PENDING";
+  const approvalReason = approvalBound ? "HUMAN_APPROVAL_BOUND" : "HUMAN_APPROVAL_PENDING";
+  const approvalMessage = approvalBound
+    ? "Aprovação humana amarrada ao plan_hash congelado."
+    : "Aprovação humana plan/generation-specific pendente.";
+
+  const gates = [
+    planStaticGate("MIGRATION_SET_FROZEN", frozenStatus, frozenReason, frozenMessage, evaluatedAt),
+    planStaticGate("MIGRATION_IDENTITY_VERIFIED", frozenStatus, frozenReason, frozenMessage, evaluatedAt),
+    planGenerationGate("HUMAN_APPROVAL_VALID", approvalStatus, approvalReason, approvalMessage, evaluatedAt),
   ];
+  if (plan.status === "SCHEDULED") {
+    gates.push(planGenerationGate(
+      "SCHEDULE_WINDOW_VALID",
+      "PENDING",
+      "SCHEDULE_INTENT_RECORDED",
+      "Timestamp de agenda persistido. Executor de janela ainda não existe.",
+      evaluatedAt,
+    ));
+  }
+  return gates;
 }
 
 export function deriveGatesFromEvidence(evidence = {}, context = {}) {
   const nowMs = Number.isFinite(context.nowMs) ? context.nowMs : Date.now();
   const scheduled = context.scheduled === true;
+  const planGates = derivePlanGates(evidence.plan, { nowMs });
   const partial = [
     ...deriveGitGates(evidence.git, { releaseSha: context.releaseSha, nowMs }),
     ...deriveMaintenanceGates(evidence.maintenance, { nowMs }),
     deriveSessionZeroGate(evidence.sessionZero, { nowMs }),
     deriveInFlightGate(evidence.inFlight, { nowMs }),
-    ...deriveUnimplementedGates(),
+    ...planGates,
+    ...deriveUnimplementedGates({ omitKeys: planGates.map((gate) => gate.key) }),
   ];
   if (Array.isArray(evidence.overrides)) {
     partial.push(...evidence.overrides);

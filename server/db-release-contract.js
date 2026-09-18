@@ -52,6 +52,64 @@ export const DB_PLAN_STATUSES = Object.freeze([
   "CANCELED",
 ]);
 
+/** Transições de plano acionáveis por Super Admin via API (PDB-I1C2). */
+export const PLAN_USER_ACTIONS = Object.freeze([
+  "db-plan-create",
+  "db-plan-validate",
+  "db-plan-approve",
+  "db-plan-schedule",
+  "db-plan-cancel",
+]);
+
+export const PLAN_APPROVE_CONFIRMATION = "APROVAR";
+export const PLAN_SCHEDULE_CONFIRMATION = "AGENDAR";
+export const PLAN_CANCEL_CONFIRMATION = "CANCELAR";
+
+export const PLAN_EXECUTOR_OWNED_STATUSES = Object.freeze([
+  "RUNNING",
+  "BLOCKED",
+  "FAILED",
+  "RECOVERY_REQUIRED",
+  "SUCCEEDED",
+]);
+
+export const PLAN_CANCELABLE_STATUSES = Object.freeze([
+  "DRAFT",
+  "VALIDATED",
+  "APPROVED",
+  "SCHEDULED",
+]);
+
+export const PLAN_FROZEN_STATUSES = Object.freeze([
+  "VALIDATED",
+  "APPROVED",
+  "SCHEDULED",
+  "RUNNING",
+  "BLOCKED",
+  "FAILED",
+  "RECOVERY_REQUIRED",
+  "SUCCEEDED",
+]);
+
+export const PLAN_USER_TRANSITIONS = Object.freeze([
+  Object.freeze({ action: "VALIDATE", from: "DRAFT", to: "VALIDATED" }),
+  Object.freeze({ action: "APPROVE", from: "VALIDATED", to: "APPROVED" }),
+  Object.freeze({ action: "SCHEDULE", from: "APPROVED", to: "SCHEDULED" }),
+  Object.freeze({ action: "CANCEL", from: "DRAFT", to: "CANCELED" }),
+  Object.freeze({ action: "CANCEL", from: "VALIDATED", to: "CANCELED" }),
+  Object.freeze({ action: "CANCEL", from: "APPROVED", to: "CANCELED" }),
+  Object.freeze({ action: "CANCEL", from: "SCHEDULED", to: "CANCELED" }),
+]);
+
+export const PLAN_LIFECYCLE_EVENT_TYPES = Object.freeze([
+  "DB_PLAN_CREATED",
+  "DB_PLAN_VALIDATED",
+  "DB_PLAN_APPROVED",
+  "DB_PLAN_SCHEDULED",
+]);
+
+export const FUTURE_EXECUTE_NOW_BOUNDARY = "EXECUTE_NOW_APPROVAL";
+
 export const BACKUP_STATUSES = Object.freeze([
   "REQUESTED",
   "RUNNING",
@@ -298,6 +356,26 @@ export function isMaintenancePhase(value) {
 
 export function isDbPlanStatus(value) {
   return frozenHas(DB_PLAN_STATUSES, value);
+}
+
+export function isPlanExecutorOwnedStatus(value) {
+  return frozenHas(PLAN_EXECUTOR_OWNED_STATUSES, value);
+}
+
+export function isPlanCancelableStatus(value) {
+  return frozenHas(PLAN_CANCELABLE_STATUSES, value);
+}
+
+export function isLegalPlanUserTransition(fromStatus, toStatus, action) {
+  return PLAN_USER_TRANSITIONS.some((edge) => (
+    edge.from === fromStatus
+    && edge.to === toStatus
+    && (action == null || edge.action === action)
+  ));
+}
+
+export function canRequestPlanExecution(status) {
+  return status === "APPROVED";
 }
 
 export function isBackupStatus(value) {
