@@ -668,14 +668,18 @@ BEGIN
   -- ROLLBACK TO SAVEPOINT). Nenhuma exception escapa deste DO.
   BEGIN
   SELECT release_id, target_sha, actor_email, reason, metadata,
-         smoke_version, smoke_epoch, release_snapshot
+         smoke_version, smoke_epoch
     INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
-         v_smoke_version, v_smoke_epoch, v_release_snapshot
+         v_smoke_version, v_smoke_epoch
   FROM bt16a5a_ctx;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'BLOCKED_FIXTURE_NOT_SAFE: bt16a5a_ctx vazio ao entrar no cenario A (SUCCESS)';
   END IF;
+
+  SELECT release_snapshot
+    INTO v_release_snapshot
+  FROM bt16a5a_ctx;
 
   PERFORM public.app_maintenance_orchestration_success(
     v_smoke_version, NULL, v_actor_email, v_reason, v_metadata
@@ -789,14 +793,18 @@ BEGIN
   END IF;
 
   SELECT release_id, target_sha, actor_email, reason, metadata,
-         smoke_version, smoke_epoch, release_snapshot
+         smoke_version, smoke_epoch
     INTO v_release_id, v_target_sha, v_actor_email, v_reason, v_metadata,
-         v_smoke_version, v_smoke_epoch, v_release_snapshot
+         v_smoke_version, v_smoke_epoch
   FROM bt16a5a_ctx;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'BLOCKED_FIXTURE_NOT_SAFE: bt16a5a_ctx vazio apos ROLLBACK TO SAVEPOINT';
   END IF;
+
+  SELECT release_snapshot
+    INTO v_release_snapshot
+  FROM bt16a5a_ctx;
 
   -- ═══════════════════════════════════════════════════════════════
   -- CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE — prova retorno a SMOKE e que
