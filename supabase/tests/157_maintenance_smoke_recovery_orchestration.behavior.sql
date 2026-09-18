@@ -718,9 +718,10 @@ BEGIN
 
   -- B16-A5A-R5: stage=20 RELEASE_SNAPSHOT_READ
   PERFORM setval('pg_temp.bt16a5a_part2_stage', 20, true);
-  SELECT release_snapshot
-    INTO v_release_snapshot
-  FROM bt16a5a_ctx;
+  v_release_snapshot := (
+    SELECT release_snapshot
+    FROM bt16a5a_ctx
+  );
 
   -- B16-A5A-R5: stage=30 SUCCESS_RPC_CALL
   PERFORM setval('pg_temp.bt16a5a_part2_stage', 30, true);
@@ -874,9 +875,10 @@ BEGIN
     RAISE EXCEPTION 'BLOCKED_FIXTURE_NOT_SAFE: bt16a5a_ctx vazio apos ROLLBACK TO SAVEPOINT';
   END IF;
 
-  SELECT release_snapshot
-    INTO v_release_snapshot
-  FROM bt16a5a_ctx;
+  v_release_snapshot := (
+    SELECT release_snapshot
+    FROM bt16a5a_ctx
+  );
 
   -- ═══════════════════════════════════════════════════════════════
   -- CHECKPOINT_AFTER_ROLLBACK_TO_SMOKE — prova retorno a SMOKE e que
