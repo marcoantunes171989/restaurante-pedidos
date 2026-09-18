@@ -6,6 +6,8 @@ import {
   APP_HAPPY_PATH,
   APP_STRUCTURAL_EDGES,
   BACKUP_STATUSES,
+  ALWAYS_REQUIRED_READINESS_GATES,
+  CONDITIONAL_READINESS_GATES,
   CONTROL_PLANE_TABLES,
   DB_ENVIRONMENTS,
   DB_HAPPY_PATH,
@@ -20,6 +22,7 @@ import {
   MAINTENANCE_EVENT_TYPES,
   MAINTENANCE_PHASES,
   PLAN_KINDS,
+  READINESS_GATE_STATUSES,
   REQUIRED_READINESS_GATES,
   SCHEMA_CLASSIFICATIONS,
   SCHEMA_VALIDATION_RESULTS,
@@ -38,6 +41,8 @@ import {
   isMaintenanceEventType,
   isMaintenancePhase,
   isPlanKind,
+  isReadinessGateStatus,
+  isCanonicalReadinessGate,
   isReservedDbStructuralEdge,
   isSchemaClassification,
   isUnboundLegacyState,
@@ -115,8 +120,35 @@ describe("db-release-contract — frozen sets", () => {
     expect(isSchemaClassification("PROHIBITED")).toBe(true);
   });
 
-  it("congela 7 readiness gates e ambientes HML/PROD", () => {
-    expect(REQUIRED_READINESS_GATES).toHaveLength(7);
+  it("congela 16 gates sempre exigidos + 1 condicional PDB-A2 e ambientes HML/PROD", () => {
+    expect(REQUIRED_READINESS_GATES).toHaveLength(17);
+    expect(ALWAYS_REQUIRED_READINESS_GATES).toHaveLength(16);
+    expect(CONDITIONAL_READINESS_GATES).toEqual(["SCHEDULE_WINDOW_VALID"]);
+    expect(REQUIRED_READINESS_GATES).toEqual([
+      "GIT_SHA_MATCH",
+      "HML_VALIDATED",
+      "PROD_BASELINE_VERIFIED",
+      "MIGRATION_SET_FROZEN",
+      "MIGRATION_IDENTITY_VERIFIED",
+      "SCHEMA_SAFETY_PASS",
+      "NO_DML",
+      "NO_DESTRUCTIVE_DDL",
+      "BACKUP_VERIFIED",
+      "LOGIN_GATE_CLOSED",
+      "ACTIVE_SESSION_COUNT_ZERO",
+      "IN_FLIGHT_OPERATION_COUNT_ZERO",
+      "WRITE_FENCE_ACTIVE",
+      "EXECUTOR_HEALTHY",
+      "LOCK_ACQUIRED",
+      "HUMAN_APPROVAL_VALID",
+      "SCHEDULE_WINDOW_VALID",
+    ]);
+    expect(READINESS_GATE_STATUSES).toEqual([
+      "VERIFIED", "PENDING", "BLOCKED", "FAILED", "UNKNOWN", "STALE",
+    ]);
+    expect(isReadinessGateStatus("UNKNOWN")).toBe(true);
+    expect(isCanonicalReadinessGate("BACKUP_VERIFIED")).toBe(true);
+    expect(isCanonicalReadinessGate("BACKUP_READY")).toBe(false);
     expect(DB_ENVIRONMENTS).toEqual(["HML", "PROD"]);
     expect(CONTROL_PLANE_TABLES).toHaveLength(6);
   });

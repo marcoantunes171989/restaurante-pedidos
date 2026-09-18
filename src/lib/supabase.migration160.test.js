@@ -524,7 +524,7 @@ describe("migration 160 — helpers que precisam conhecer os novos valores", () 
 
 describe("migration 160 — contrato server-side casa com a migration", () => {
   it("constants do módulo batem com constraints SQL", () => {
-    expect(REQUIRED_READINESS_GATES).toHaveLength(7);
+    expect(REQUIRED_READINESS_GATES).toHaveLength(17);
     expect(PLAN_KINDS).toEqual(["APP_RELEASE", "DB_MIGRATION"]);
     expect(LOGIN_GATE_STATES).toEqual(["OPEN", "CLOSED"]);
     expect(MAINTENANCE_PHASES).toHaveLength(13);

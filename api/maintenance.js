@@ -13,6 +13,9 @@
 //  api/releases.js / api/ambientes.js). 401 sem sessão/token válido, 403
 //  usuário válido sem superAdmin.
 //
+//  GET ?scope=db-readiness (PDB-I1C1): snapshot server-authoritative de
+//  readiness DB. Somente Super Admin, somente leitura, sem mutação.
+//
 //  POST: mesmo endpoint, action "start" | "notice". Sempre exige Bearer +
 //  Super Admin. START chama public.app_maintenance_orchestration_start
 //  (migration 153) usando uma release já existente/ativa — target_sha é
@@ -25,8 +28,10 @@
 // ════════════════════════════════════════════════════════════
 
 /* global process */
-import { clean } from "../server/release-core.js";
+import { SHA_RE, clean } from "../server/release-core.js";
 import { findActiveRelease, getRelease, isReleaseUuid } from "../server/release-store.js";
+import { failClosedSnapshot } from "../server/db-release-readiness.js";
+import { evaluateDbReleaseReadiness } from "../server/db-release-readiness-store.js";
 import {
   noticeMaintenanceOrchestration,
   readMaintenanceAdminState,
@@ -171,6 +176,39 @@ async function handleAdminGet(req, res) {
   });
 }
 
+async function handleDbReadinessGet(req, res) {
+  const auth = await checkAuth(req);
+  if (auth.status !== 200) return json(res, auth.status, { error: auth.error });
+
+  const releaseShaRaw = clean(req.query?.releaseSha, 64);
+  const releaseSha = SHA_RE.test(releaseShaRaw || "") ? releaseShaRaw : null;
+  const planId = clean(req.query?.planId, 80);
+  const scheduledRaw = clean(req.query?.scheduled, 8)?.toLowerCase();
+  const scheduled = scheduledRaw === "1" || scheduledRaw === "true";
+
+  let readiness;
+  try {
+    readiness = await evaluateDbReleaseReadiness({
+      releaseSha,
+      planId,
+      scheduled,
+    });
+  } catch {
+    readiness = failClosedSnapshot({
+      releaseSha,
+      planId,
+      scheduled,
+    });
+  }
+
+  return json(res, 200, {
+    ok: true,
+    action: "db-readiness",
+    readiness,
+    generatedAt: readiness?.evaluatedAt || new Date().toISOString(),
+  });
+}
+
 // START — a UI nunca digita release_id/target_sha: releaseId vem da
 // release ativa já selecionada (descoberta via POST /api/releases
 // action:"status", mecanismo real já existente). target_sha é sempre
@@ -277,6 +315,7 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     const scope = clean(req.query?.scope, 20);
     if (scope === "admin") return handleAdminGet(req, res);
+    if (scope === "db-readiness") return handleDbReadinessGet(req, res);
     return handlePublicGet(res);
   }
 

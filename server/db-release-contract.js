@@ -108,15 +108,56 @@ export const SCHEMA_VALIDATION_RESULTS = Object.freeze(["PASS", "FAIL"]);
 
 export const DB_ENVIRONMENTS = Object.freeze(["HML", "PROD"]);
 
-export const REQUIRED_READINESS_GATES = Object.freeze([
-  "PLAN_IDENTITY",
-  "MIGRATION_IDENTITIES",
-  "SCHEMA_CLASSIFICATION",
-  "BACKUP_READY",
-  "LOGIN_GATE",
-  "SESSION_DRAIN",
-  "QUIESCENCE",
+export const READINESS_GATE_STATUSES = Object.freeze([
+  "VERIFIED",
+  "PENDING",
+  "BLOCKED",
+  "FAILED",
+  "UNKNOWN",
+  "STALE",
 ]);
+
+export const READINESS_APPLICABILITY = Object.freeze({
+  ALWAYS: "always",
+  SCHEDULED: "scheduled",
+});
+
+/** Lista canônica única PDB-A2. Sempre 16 + 1 condicional de janela. */
+export const CANONICAL_READINESS_GATES = Object.freeze([
+  Object.freeze({ key: "GIT_SHA_MATCH", required: true, applicability: "always" }),
+  Object.freeze({ key: "HML_VALIDATED", required: true, applicability: "always" }),
+  Object.freeze({ key: "PROD_BASELINE_VERIFIED", required: true, applicability: "always" }),
+  Object.freeze({ key: "MIGRATION_SET_FROZEN", required: true, applicability: "always" }),
+  Object.freeze({ key: "MIGRATION_IDENTITY_VERIFIED", required: true, applicability: "always" }),
+  Object.freeze({ key: "SCHEMA_SAFETY_PASS", required: true, applicability: "always" }),
+  Object.freeze({ key: "NO_DML", required: true, applicability: "always" }),
+  Object.freeze({ key: "NO_DESTRUCTIVE_DDL", required: true, applicability: "always" }),
+  Object.freeze({ key: "BACKUP_VERIFIED", required: true, applicability: "always" }),
+  Object.freeze({ key: "LOGIN_GATE_CLOSED", required: true, applicability: "always" }),
+  Object.freeze({ key: "ACTIVE_SESSION_COUNT_ZERO", required: true, applicability: "always" }),
+  Object.freeze({ key: "IN_FLIGHT_OPERATION_COUNT_ZERO", required: true, applicability: "always" }),
+  Object.freeze({ key: "WRITE_FENCE_ACTIVE", required: true, applicability: "always" }),
+  Object.freeze({ key: "EXECUTOR_HEALTHY", required: true, applicability: "always" }),
+  Object.freeze({ key: "LOCK_ACQUIRED", required: true, applicability: "always" }),
+  Object.freeze({ key: "HUMAN_APPROVAL_VALID", required: true, applicability: "always" }),
+  Object.freeze({ key: "SCHEDULE_WINDOW_VALID", required: true, applicability: "scheduled" }),
+]);
+
+export const REQUIRED_READINESS_GATES = Object.freeze(
+  CANONICAL_READINESS_GATES.map((gate) => gate.key),
+);
+
+export const ALWAYS_REQUIRED_READINESS_GATES = Object.freeze(
+  CANONICAL_READINESS_GATES
+    .filter((gate) => gate.applicability === READINESS_APPLICABILITY.ALWAYS)
+    .map((gate) => gate.key),
+);
+
+export const CONDITIONAL_READINESS_GATES = Object.freeze(
+  CANONICAL_READINESS_GATES
+    .filter((gate) => gate.applicability !== READINESS_APPLICABILITY.ALWAYS)
+    .map((gate) => gate.key),
+);
 
 export const DB_MAINTENANCE_EVENT_TYPES = Object.freeze([
   "DB_PLAN_CREATED",
@@ -233,6 +274,14 @@ export const CONTROL_PLANE_TABLES = Object.freeze([
 
 function frozenHas(list, value) {
   return list.includes(value);
+}
+
+export function isReadinessGateStatus(value) {
+  return frozenHas(READINESS_GATE_STATUSES, value);
+}
+
+export function isCanonicalReadinessGate(key) {
+  return frozenHas(REQUIRED_READINESS_GATES, key);
 }
 
 export function isPlanKind(value) {
