@@ -6,6 +6,7 @@ import {
   MSG_DISPOSITIVO_BLOQUEADO,
 } from "./constants.js";
 import { coletarInfoDispositivo, obterDeviceIdEstavel } from "./deviceInfo.js";
+import { surfaceFromAppTab, surfaceFromPathname } from "./sessionSurfaces.js";
 
 function novoToken() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -74,9 +75,108 @@ export async function verificarDispositivoBloqueado(deviceId = obterDeviceIdEsta
   };
 }
 
+function normalizarResultadoAdmissao(data, error) {
+  if (error) {
+    const raw = String(error.message || error.code || "");
+    if (/MAINTENANCE_LOGIN_LOCKED/i.test(raw)) {
+      return { ok: false, code: "MAINTENANCE_LOGIN_LOCKED" };
+    }
+    if (/device_blocked/i.test(raw)) {
+      return { ok: false, code: "DEVICE_BLOCKED" };
+    }
+    return { ok: false, code: "SESSION_FORBIDDEN", error: raw };
+  }
+  const row = data && typeof data === "object" ? data : {};
+  const code = String(row.code || (row.ok ? "SESSION_ADMISSION_ALLOWED" : "SESSION_FORBIDDEN"));
+  return {
+    ok: row.ok === true && code === "SESSION_ADMISSION_ALLOWED",
+    code,
+    sessionId: row.session_id || null,
+    status: row.status || null,
+    expiresAt: row.expires_at || null,
+    surface: row.surface || null,
+  };
+}
+
+export function surfaceDaSessaoAtual({ tab, pathname } = {}) {
+  if (tab) return surfaceFromAppTab(tab);
+  if (typeof pathname === "string") return surfaceFromPathname(pathname);
+  try {
+    return surfaceFromPathname(window.location.pathname);
+  } catch {
+    return "ADMIN";
+  }
+}
+
+/**
+ * Admissão canônica server-authoritative (PDB-I1B).
+ * Precisa suceder ANTES de materializar currentUser.
+ */
+export async function admitirSessaoCanonica({ surface, tab } = {}) {
+  if (!supabase) return { ok: false, code: "SESSION_FORBIDDEN" };
+  const token = obterSessionToken();
+  const surfaceEfetiva = surface || surfaceDaSessaoAtual({ tab });
+  const { data, error } = await supabase.rpc("app_canonical_session_start", {
+    p_client_instance_id: token,
+    p_device_id: obterDeviceIdEstavel(),
+    p_surface: surfaceEfetiva,
+  });
+  return normalizarResultadoAdmissao(data, error);
+}
+
+export async function heartbeatSessaoCanonica() {
+  if (!supabase) return { ok: false, code: "SESSION_NOT_FOUND" };
+  let token = null;
+  try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
+  if (!token) return { ok: false, code: "SESSION_NOT_FOUND" };
+  const { data, error } = await supabase.rpc("app_canonical_session_heartbeat", {
+    p_client_instance_id: token,
+  });
+  return normalizarResultadoAdmissao(data, error);
+}
+
+export async function encerrarSessaoCanonica() {
+  if (!supabase) return { ok: true, code: "SESSION_CLOSED", idempotent: true };
+  let token = null;
+  try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
+  if (!token) return { ok: true, code: "SESSION_CLOSED", idempotent: true };
+  const { data, error } = await supabase.rpc("app_canonical_session_close", {
+    p_client_instance_id: token,
+  });
+  if (error) return { ok: false, code: "SESSION_FORBIDDEN" };
+  const row = data && typeof data === "object" ? data : {};
+  return {
+    ok: row.ok !== false,
+    code: String(row.code || "SESSION_CLOSED"),
+    sessionId: row.session_id || null,
+    idempotent: !!row.idempotent,
+  };
+}
+
+export function ehBloqueioManutencao(resultOrCode) {
+  const code = typeof resultOrCode === "string"
+    ? resultOrCode
+    : (resultOrCode?.code || "");
+  return code === "MAINTENANCE_LOGIN_LOCKED";
+}
+
 /** Inicia (ou reativa) a sessão de acesso do usuário autenticado. */
-export async function iniciarSessaoAcesso({ loginMethod = "password" } = {}) {
+export async function iniciarSessaoAcesso({ loginMethod = "password", surface, tab } = {}) {
   if (!supabase) return null;
+  const admission = await admitirSessaoCanonica({ surface, tab });
+  if (!admission.ok) {
+    if (admission.code === "DEVICE_BLOCKED") {
+      const err = new Error(MSG_DISPOSITIVO_BLOQUEADO);
+      err.code = "DEVICE_BLOCKED";
+      throw err;
+    }
+    if (ehBloqueioManutencao(admission)) {
+      const err = new Error("Acesso temporariamente indisponível por manutenção.");
+      err.code = "MAINTENANCE_LOGIN_LOCKED";
+      throw err;
+    }
+    return null;
+  }
   const token = obterSessionToken();
   const device = coletarInfoDispositivo();
   const meta = await buscarMetaIp();
@@ -144,6 +244,19 @@ export async function heartbeatSessaoAcesso() {
   let token = null;
   try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
   if (!token) return { status: "missing", alive: false };
+  const canonical = await heartbeatSessaoCanonica();
+  if (ehBloqueioManutencao(canonical)) {
+    return { status: "maintenance", alive: false, code: canonical.code };
+  }
+  if (canonical.code === "SESSION_EXPIRED") {
+    return { status: "expired", alive: false, code: canonical.code };
+  }
+  if (canonical.code === "SESSION_CLOSED") {
+    return { status: "closed", alive: false, code: canonical.code };
+  }
+  if (canonical.code === "SESSION_NOT_FOUND") {
+    return { status: "missing", alive: false, code: canonical.code };
+  }
   const { data, error } = await supabase.rpc("app_sessao_heartbeat", {
     p_session_token: token,
   });
@@ -266,6 +379,7 @@ export async function encerrarSessaoAcesso({ eventType = ACCESS_EVENT.LOGOUT } =
   let token = null;
   try { token = sessionStorage.getItem(ACCESS_SESSION_KEY); } catch { /* ignore */ }
   if (!token) return false;
+  try { await encerrarSessaoCanonica(); } catch { /* best-effort — TTL é fallback */ }
   const { data, error } = await supabase.rpc("app_sessao_encerrar", {
     p_session_token: token,
     p_event_type: eventType,

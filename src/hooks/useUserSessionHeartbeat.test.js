@@ -177,3 +177,28 @@ describe("useUserSessionHeartbeat — shouldSuppressRevocation suprime a revoga�
     expect(onSessionRevoked).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("useUserSessionHeartbeat — admissão canônica (PDB-I1B)", () => {
+  it("revoga quando iniciarSessaoAcesso lança MAINTENANCE_LOGIN_LOCKED", async () => {
+    const err = new Error("manutenção");
+    err.code = "MAINTENANCE_LOGIN_LOCKED";
+    mocks.iniciarSessaoAcesso.mockRejectedValue(err);
+    const onSessionRevoked = vi.fn();
+    montar({ id: 1 }, { onSessionRevoked, shouldSuppressRevocation: () => false });
+    await flush();
+    expect(onSessionRevoked).toHaveBeenCalledWith("maintenance");
+  });
+
+  it("revoga no tick quando heartbeat devolve maintenance (mesmo timer de 45s)", async () => {
+    vi.useFakeTimers();
+    mocks.heartbeatSessaoAcesso.mockResolvedValue({ status: "maintenance", alive: false });
+    const onSessionRevoked = vi.fn();
+    montar({ id: 1 }, { onSessionRevoked, shouldSuppressRevocation: () => false });
+    await flush();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45_000);
+    });
+    expect(onSessionRevoked).toHaveBeenCalledWith("maintenance");
+    vi.useRealTimers();
+  });
+});

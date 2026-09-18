@@ -10,6 +10,12 @@ describe('mensagemPorCodigoAuth', () => {
   it('usuário inativo → mensagem de inativo', () => {
     expect(mensagemPorCodigoAuth('INACTIVE')).toMatch(/inativo/i)
   })
+  it('manutenção bloqueia login com mensagem distinta de senha', () => {
+    const msg = mensagemPorCodigoAuth('MAINTENANCE_LOGIN_LOCKED')
+    expect(msg).toMatch(/manutenção/i)
+    expect(msg).not.toMatch(/senha/i)
+    expect(msg).not.toMatch(/e-mail ou senha/i)
+  })
   it.each([
     'AUTH_SYNC_FAILED', 'AUTH_SESSION_FAILED',
     'SERVICE_ROLE_MISSING', 'SERVICE_ROLE_INVALID', 'SERVER_ERROR',

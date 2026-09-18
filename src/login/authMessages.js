@@ -13,6 +13,9 @@ export function mensagemErroAcesso(erroBruto) {
   if (raw.includes("email_not_confirmed") || raw.includes("email not confirmed")) {
     return "Conta ainda não confirmada. Entre em contato com o administrador do sistema.";
   }
+  if (raw.includes("maintenance_login_locked") || raw.includes("manutenção") || raw.includes("manutencao")) {
+    return "Acesso temporariamente indisponível por manutenção.";
+  }
   if (raw.includes("fetch") || raw.includes("network") || raw.includes("timeout") || raw.includes("conex") || raw.includes("offline")) {
     return "Sua conexão parece estar indisponível.";
   }
@@ -41,6 +44,8 @@ export function mensagemPorCodigoAuth(code) {
       return MSG_CREDENCIAL;
     case "INACTIVE":
       return MSG_INATIVO;
+    case "MAINTENANCE_LOGIN_LOCKED":
+      return "Acesso temporariamente indisponível por manutenção.";
     case "AUTH_SYNC_FAILED":
     case "AUTH_SESSION_FAILED":
     case "SERVICE_ROLE_MISSING":

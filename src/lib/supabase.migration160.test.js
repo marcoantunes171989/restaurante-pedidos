@@ -127,8 +127,6 @@ describe("migration 160 — existência e transação", () => {
     expect(sql.length).toBeGreaterThan(0);
     const arquivos = readdirSync("supabase/migrations").filter((f) => /^160[_.]/.test(f));
     expect(arquivos).toEqual(["160_db_release_orchestrator_foundation.sql"]);
-    const arquivos161 = readdirSync("supabase/migrations").filter((f) => /^161[_.]/.test(f));
-    expect(arquivos161).toEqual([]);
   });
 
   it("é transacional (BEGIN/COMMIT), sem ROLLBACK executável", () => {

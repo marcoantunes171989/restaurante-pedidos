@@ -101,7 +101,7 @@ import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
-import { mensagemErroAcesso } from "./login/authMessages";
+import { mensagemErroAcesso, mensagemPorCodigoAuth } from "./login/authMessages";
 import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
 import { acessosIniciaisDoPerfil } from "./lib/usuarioForm";
 import { numeroWhatsAppValido } from "./lib/whatsappPedido";
@@ -126,7 +126,14 @@ import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
 import { useMaintenanceState } from "./hooks/useMaintenanceState";
 import { MaintenanceStateProvider } from "./context/MaintenanceStateContext";
 import { MaintenanceNotice } from "./components/MaintenanceNotice";
-import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
+import {
+  admitirSessaoCanonica,
+  ehBloqueioManutencao,
+  encerrarSessaoAcesso,
+  registrarLoginNegado,
+  surfaceDaSessaoAtual,
+  verificarDispositivoBloqueado,
+} from "./lib/accessControl/api";
 import { MSG_DISPOSITIVO_BLOQUEADO } from "./lib/accessControl/constants";
 import { resolverTelaAcesso } from "./lib/accessControl/screens";
 import { obterDeviceIdEstavel } from "./lib/accessControl/deviceInfo";
@@ -650,6 +657,8 @@ export default function RestaurantePedidoApp() {
   const [accesses, setAccesses] = useState([]);
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  // PDB-I1B: resultado tipado da admissão canônica. I3C consome para UX de manutenção.
+  const [sessionAdmission, setSessionAdmission] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [activeTab, setActiveTab] = useState("tablet");
   const [cozinhaSetorInicial, setCozinhaSetorInicial] = useState(null); // "Filtrar cozinha" (tela de Setores → painel)
@@ -982,9 +991,22 @@ export default function RestaurantePedidoApp() {
           if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
         }
         if (u && u.active !== false) {
-          limparRedirectPosLogin();
-          if (pousoHomePosLogin) forcarUrlLogin();
-          aplicarLogin(u, { silencioso: true, forcarHome: pousoHomePosLogin });
+          const admission = await exigirAdmissaoCanonica(u);
+          if (!admission.ok) {
+            limparMarcadoresSessaoLocal();
+            if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+            forcarUrlLogin();
+            if (ehBloqueioManutencao(admission)) {
+              setMessage({
+                type: "error",
+                text: mensagemPorCodigoAuth("MAINTENANCE_LOGIN_LOCKED"),
+              });
+            }
+          } else {
+            limparRedirectPosLogin();
+            if (pousoHomePosLogin) forcarUrlLogin();
+            aplicarLogin(u, { silencioso: true, forcarHome: pousoHomePosLogin });
+          }
         } else {
           limparMarcadoresSessaoLocal();
           if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
@@ -1559,6 +1581,27 @@ export default function RestaurantePedidoApp() {
   function notify(type, text) { setMessage({ type, text }); }
   function clearMessage() { setMessage({ type: "", text: "" }); }
 
+  async function exigirAdmissaoCanonica(user) {
+    const tab = abaInicialDoUsuario(user);
+    const admission = await admitirSessaoCanonica({
+      surface: surfaceDaSessaoAtual({ tab }),
+      tab,
+    });
+    setSessionAdmission({ code: admission.code });
+    return admission;
+  }
+
+  function recusarLoginPorAdmissao(admission, { email, motivo } = {}) {
+    if (email) registrarLoginNegado({ email, motivo: motivo || "Admissão recusada" });
+    limparMarcadoresSessaoLocal();
+    setLoginForm((f) => ({ ...f, password: "" }));
+    if (ehBloqueioManutencao(admission)) {
+      notify("error", mensagemPorCodigoAuth("MAINTENANCE_LOGIN_LOCKED"));
+      return;
+    }
+    notify("error", mensagemErroAcesso(admission?.code));
+  }
+
   // Aplica o usuário autenticado: checa licença/atividade, define currentUser e
   // a aba inicial. Usado pelo login legacy e pela restauração de sessão (supabase).
   function aplicarLogin(credOk, { silencioso = false, forcarHome = false } = {}) {
@@ -1684,6 +1727,15 @@ export default function RestaurantePedidoApp() {
       return notify("error", "Usuário inativo, entre em contato com o administrador do sistema.");
     }
 
+    const admission = await exigirAdmissaoCanonica(credOk);
+    if (!admission.ok) {
+      recusarLoginPorAdmissao(admission, {
+        email,
+        motivo: ehBloqueioManutencao(admission) ? "Manutenção — login bloqueado" : "Admissão recusada",
+      });
+      return;
+    }
+
     // A lista global de usuários NUNCA guarda senha.
     const credLista = credOk;
     setUsers((cur) => (cur.some((u) => u.id === credLista.id) ? cur : [credLista, ...cur]));
@@ -1743,6 +1795,16 @@ export default function RestaurantePedidoApp() {
       return notify("error", credOk
         ? "Usuário inativo, entre em contato com o administrador do sistema."
         : "E-mail ou senha incorretos.");
+    }
+
+    const admission = await exigirAdmissaoCanonica(credOk);
+    if (!admission.ok) {
+      try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+      recusarLoginPorAdmissao(admission, {
+        email,
+        motivo: ehBloqueioManutencao(admission) ? "Manutenção — login bloqueado" : "Admissão recusada",
+      });
+      return;
     }
 
     // A lista global de usuários NUNCA guarda senha (fetchUsuarioPorEmail já
@@ -4133,13 +4195,23 @@ export default function RestaurantePedidoApp() {
     );
   }
 
+  // `dbReady` aqui significaria "dados administrativos já carregados", o que
+  // é falso sempre que ainda não há sessão (C1) — não é o mesmo que backend
+  // offline. O aviso de indisponibilidade na tela de login deve refletir só
+  // uma falha REAL de conectividade/backend (`erroBackend`), nunca a mera
+  // ausência de sessão antes do login.
   if (!currentUser) {
-    // `dbReady` aqui significaria "dados administrativos já carregados", o que
-    // é falso sempre que ainda não há sessão (C1) — não é o mesmo que backend
-    // offline. O aviso de indisponibilidade na tela de login deve refletir só
-    // uma falha REAL de conectividade/backend (`erroBackend`), nunca a mera
-    // ausência de sessão antes do login.
-    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} dbReady={!erroBackend} />;
+    // data-session-admission: estado tipado PDB-I1B para I3C (sem redesenho visual).
+    return (
+      <LoginPage
+        loginForm={loginForm}
+        setLoginForm={setLoginForm}
+        login={login}
+        message={message}
+        dbReady={!erroBackend}
+        sessionAdmissionCode={sessionAdmission?.code || null}
+      />
+    );
   }
 
   // Bloqueio total da empresa: trial vencido (ou status "blocked"). Super admin nunca bloqueia.

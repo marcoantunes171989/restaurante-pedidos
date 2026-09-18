@@ -95,6 +95,10 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
           revogar("blocked");
           return;
         }
+        if (e?.code === "MAINTENANCE_LOGIN_LOCKED") {
+          revogar("maintenance");
+          return;
+        }
       }
     }
 
@@ -102,8 +106,10 @@ export function useUserSessionHeartbeat(currentUser, options = {}) {
       if (cancelled || revokedRef.current || document.visibilityState === "hidden") return;
       const result = await heartbeatSessaoAcesso();
       if (cancelled || revokedRef.current) return;
-      if (result?.status === "closed") {
+      if (result?.status === "closed" || result?.status === "expired") {
         revogar("heartbeat");
+      } else if (result?.status === "maintenance") {
+        revogar("maintenance");
       }
     }
 
