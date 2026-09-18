@@ -22,7 +22,11 @@
 --   app_maintenance_drain_in_flight_count_internal() (154, via quiesce/
 --     probe/release_start — nao chamado diretamente por este harness)
 --
--- Alvo: HML (rwnzggjxhxnfrhstbxkm). Nunca producao/main.
+-- Alvo: HML. NUNCA producao/main.
+--   HML project_ref  (unico ambiente permitido para este behavioral):
+--     zzixvyspwszewhxzusot — confirmar este ref antes de qualquer execucao.
+--   PROD project_ref: rwnzggjxhxnfrhstbxkm — PROIBIDO para este behavioral;
+--     este ref NUNCA deve ser usado para executar este teste.
 --
 -- SOMENTE PREPARACAO / CONGELAMENTO (gate B16-A5A). NAO EXECUTAR.
 -- Quando executado no futuro: EXATAMENTE UMA chamada mutable

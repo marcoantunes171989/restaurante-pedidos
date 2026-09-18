@@ -18,7 +18,10 @@ mão, correto e idempotente, para ele colar e rodar em segundos.
 ## Contexto do projeto
 
 - Migrations: `supabase/migrations/NNN_nome.sql` (numeradas; aplicar em ordem crescente).
-- Projeto Supabase de produção: ref **`rwnzggjxhxnfrhstbxkm`** (Pedido Prime).
+- Projeto Supabase de produção: ref **`rwnzggjxhxnfrhstbxkm`** (Pedido Prime). É para
+  este projeto que as migrations desta skill são aplicadas/entregues.
+- Projeto Supabase de homologação (HML): ref **`zzixvyspwszewhxzusot`** — não é o
+  alvo desta skill; citado aqui apenas para não ser confundido com o de produção.
 - Padrão das migrations: **idempotentes** (`if not exists`, `create or replace`,
   blocos `do $$ ... exception ... $$`), então rodar de novo é seguro.
 - As migrations públicas expõem RPCs `pub_*` (security definer) para o cardápio

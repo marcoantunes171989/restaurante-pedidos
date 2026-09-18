@@ -6,7 +6,11 @@ automático na Vercel (`pedidoprime.com.br`).
 ## Migrations do Supabase — SEMPRE disponibilizar o arquivo
 
 O Vercel **não aplica migrations**. Elas ficam em `supabase/migrations/NNN_*.sql`
-e precisam ser rodadas no banco (projeto `rwnzggjxhxnfrhstbxkm`).
+e precisam ser rodadas no banco de **produção** (projeto `rwnzggjxhxnfrhstbxkm`).
+
+Mapeamento de ambientes Supabase (não trocar):
+- **HML/homologação**: `zzixvyspwszewhxzusot`
+- **PRODUÇÃO**: `rwnzggjxhxnfrhstbxkm`
 
 Regra permanente: **sempre que uma migration for criada/alterada ou precisar ser
 executada**, disponibilize o script automaticamente para execução manual —
