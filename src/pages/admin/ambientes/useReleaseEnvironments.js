@@ -13,14 +13,19 @@ function safeSource(dataSource) {
 }
 
 /**
- * Lê o snapshot do data source (fixture hoje, live amanhã) e devolve o
- * view-model da página. Sem efeitos, sem rede, sem loading artificial: o
- * adapter de fixture é síncrono e já nasce em "ready".
+ * Lê o snapshot de um data source (fixture hoje, live amanhã) e devolve o
+ * view-model da tela. Genérico: Ambientes & Releases e Manutenção compartilham
+ * o MESMO contrato de data source (getSnapshot/subscribe/retry?) — só muda o
+ * `build` (snapshot → view-model). Sem efeitos, sem rede, sem loading artificial.
  */
-export function useReleaseEnvironments(dataSource) {
+export function useDataSourceViewModel(dataSource, build) {
   const source = safeSource(dataSource);
   const snapshot = useSyncExternalStore(source.subscribe, source.getSnapshot, source.getSnapshot);
-  const viewModel = useMemo(() => buildReleaseEnvironmentsPageViewModel(snapshot), [snapshot]);
+  const viewModel = useMemo(() => build(snapshot), [build, snapshot]);
   const retry = typeof dataSource?.retry === "function" ? () => dataSource.retry() : null;
   return { viewModel, retry };
+}
+
+export function useReleaseEnvironments(dataSource) {
+  return useDataSourceViewModel(dataSource, buildReleaseEnvironmentsPageViewModel);
 }

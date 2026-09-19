@@ -147,6 +147,11 @@ async function renderTela() {
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => { root.render(<MaintenanceAdmin />); });
+  // PDB-I3-FE2: a aba padrão é a Visão operacional (prévia, sem rede). O painel
+  // ao vivo que estes testes cobrem vive na aba "Controle atual" e só consulta
+  // a rede ao abrir.
+  const abaAoVivo = Array.from(container.querySelectorAll('[role="tab"]')).find((t) => t.textContent.includes("Controle atual"));
+  await act(async () => { abaAoVivo.click(); });
   return container;
 }
 

@@ -53,7 +53,7 @@ export function formatReferenceDate(iso) {
   return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
 }
 
-function formatDateTime(iso) {
+export function formatDateTime(iso) {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;

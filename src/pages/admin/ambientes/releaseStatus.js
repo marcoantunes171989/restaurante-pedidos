@@ -17,6 +17,9 @@ export const TONES = {
   attention: "border-[#F9D8AE] bg-[#FFF7ED] text-[#9A5B12]",
   danger: "border-[#F3C1CE] bg-[#FDF0F3] text-[#9F1239]",
   brand: "border-[#AFC2CC] bg-[#F0F6F8] text-[#012E46]",
+  // Estado ambíguo/que exige análise humana (PDB-I3-FE2): borda dupla e fundo
+  // mais forte que `danger`, para nunca se confundir com uma falha conhecida.
+  critical: "border-2 border-[#9F1239] bg-[#FFE4E9] text-[#7F1D1D]",
 };
 
 // ── Gates de readiness ───────────────────────────────────────

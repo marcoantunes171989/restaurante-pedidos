@@ -1,4 +1,4 @@
-import { Info } from "lucide-react";
+import PreviewNotice from "../PreviewNotice.jsx";
 import EnvironmentCard from "./EnvironmentCard.jsx";
 import MigrationTable from "./MigrationTable.jsx";
 import ReadinessPanel from "./ReadinessPanel.jsx";
@@ -17,17 +17,9 @@ export default function EnvironmentsOverview({ viewModel, onRetry = null }) {
   return (
     <div className="space-y-5" data-state="ready" data-source={viewModel.source.kind}>
       {viewModel.source.isPreview && (
-        <div
-          role="note"
-          className="flex items-start gap-2.5 rounded-xl border border-[#AFC2CC] bg-[#F0F6F8] px-3.5 py-2.5 text-[13px] leading-5 text-[#012E46]"
-          data-testid="preview-notice"
-        >
-          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p className="min-w-0">
-            <b className="font-semibold">{viewModel.source.label}</b>
-            {" · Interface em integração. Os dados são de exemplo e nenhuma ação é executada por esta tela."}
-          </p>
-        </div>
+        <PreviewNotice label={viewModel.source.label}>
+          {" · Interface em integração. Os dados são de exemplo e nenhuma ação é executada por esta tela."}
+        </PreviewNotice>
       )}
 
       {viewModel.environments.length === 0 ? (
