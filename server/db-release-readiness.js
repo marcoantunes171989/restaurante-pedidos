@@ -23,6 +23,7 @@ import { frozenPlanIdentity } from "./db-release-plan-hash.js";
 import { isSafetyEvidenceBound } from "./db-migration-safety.js";
 import { expectedProjectRefFor } from "./db-backup-contract.js";
 import { evaluateBackupEvidenceForReadiness } from "./db-backup-verification.js";
+import { deriveExecutionGates } from "./db-release-executor-lease.js";
 
 export const READINESS_EVIDENCE_VERSION = 1;
 
@@ -694,6 +695,9 @@ export function deriveGatesFromEvidence(evidence = {}, context = {}) {
     binding: evidence.backupBinding,
     maintenance: evidence.maintenance,
   });
+  // PDB-I2C1: LOCK_ACQUIRED / EXECUTOR_HEALTHY só saem de evidência de posse
+  // real (lock + lease). Sem evidence.execution o placeholder UNKNOWN permanece.
+  const executionGates = deriveExecutionGates(evidence.execution, { nowMs });
   const partial = [
     ...deriveGitGates(evidence.git, { releaseSha: context.releaseSha, nowMs }),
     ...deriveMaintenanceGates(evidence.maintenance, { nowMs }),
@@ -702,8 +706,9 @@ export function deriveGatesFromEvidence(evidence = {}, context = {}) {
     ...planGates,
     ...safetyGates,
     ...backupGates,
+    ...executionGates,
     ...deriveUnimplementedGates({
-      omitKeys: [...planGates, ...safetyGates, ...backupGates].map((gate) => gate.key),
+      omitKeys: [...planGates, ...safetyGates, ...backupGates, ...executionGates].map((gate) => gate.key),
     }),
   ];
   if (Array.isArray(evidence.overrides)) {
