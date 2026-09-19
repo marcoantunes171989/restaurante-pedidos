@@ -167,7 +167,7 @@ export function PageHeader({ icone = null, titulo, descricao, indicadores = [], 
 // Botão de ação principal do PageHeader (coral ou dourado — paleta oficial
 // 2026). "blue" mantido como nome da variante por compatibilidade com os
 // 18 call-sites existentes; a cor em si já é coral (--pp-primary-hover).
-export function PrimeButton({ children, onClick, variante = "blue", className = "", disabled = false, type = "button" }) {
+export function PrimeButton({ children, onClick, variante = "blue", className = "", disabled = false, type = "button", ...rest }) {
   // Botão de ação padrão (skill botao-acao-padrao): laranja liso, SEM sombra/glow,
   // fonte no padrão do sistema (13px, semibold). A ênfase vem da cor, não da sombra.
   const estilos = {
@@ -177,8 +177,8 @@ export function PrimeButton({ children, onClick, variante = "blue", className = 
     danger: "border border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] hover:bg-[rgba(200,30,74,0.08)]",
   };
   return (
-    <button type={type} onClick={onClick} disabled={disabled}
-      className={`font-display inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${estilos[variante]} ${className}`}>
+    <button type={type} onClick={onClick} disabled={disabled} {...rest}
+      className={`font-display inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46] ${estilos[variante]} ${className}`}>
       {children}
     </button>
   );

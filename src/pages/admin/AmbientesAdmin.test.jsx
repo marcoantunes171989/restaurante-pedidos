@@ -157,6 +157,10 @@ async function renderTela() {
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => { root.render(<AmbientesAdmin />); });
+  // PDB-I3-FE1: a aba padrão é a prévia (sem rede). O painel ao vivo que estes
+  // testes cobrem vive na aba "Versões e deploys" e só consulta a rede ao abrir.
+  const abaAoVivo = Array.from(container.querySelectorAll('[role="tab"]')).find((t) => t.textContent.includes("Versões e deploys"));
+  await act(async () => { abaAoVivo.click(); });
   return container;
 }
 
