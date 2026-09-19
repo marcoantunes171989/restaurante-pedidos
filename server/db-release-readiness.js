@@ -24,6 +24,7 @@ import { isSafetyEvidenceBound } from "./db-migration-safety.js";
 import { expectedProjectRefFor } from "./db-backup-contract.js";
 import { evaluateBackupEvidenceForReadiness } from "./db-backup-verification.js";
 import { deriveExecutionGates } from "./db-release-executor-lease.js";
+import { evaluateWriteFenceCoverage } from "./db-release-write-fence-coverage.js";
 
 export const READINESS_EVIDENCE_VERSION = 1;
 
@@ -384,12 +385,25 @@ export function deriveMaintenanceGates(maintenance, { nowMs } = {}) {
   } else if (!isWriteFencePhase(phase) || !maintenance.fenceEffectiveAt) {
     fenceGate = runtimeGate("WRITE_FENCE_ACTIVE", "BLOCKED", "WRITE_FENCE_INACTIVE", "Write fence não está ativo.", evaluatedAt);
   } else {
-    fenceGate = runtimeVerified("WRITE_FENCE_ACTIVE", "WRITE_FENCE_ACTIVE", "Write fence ativo.", evaluatedAt, nowMs);
+    // PDB-I2C2 — fence ativo por phase NÃO basta: todo caminho de escrita
+    // requerido precisa estar coberto (evidência de cobertura completa).
+    const coverage = evaluateWriteFenceCoverage(maintenance.writeFenceCoverage);
+    if (coverage.complete) {
+      fenceGate = runtimeVerified("WRITE_FENCE_ACTIVE", "WRITE_FENCE_ACTIVE", "Write fence ativo com cobertura completa de escrita.", evaluatedAt, nowMs);
+    } else {
+      fenceGate = runtimeGate(
+        "WRITE_FENCE_ACTIVE",
+        coverage.uncovered.length === 0 ? "UNKNOWN" : "BLOCKED",
+        coverage.reasonCode,
+        "Write fence ativo, mas a cobertura dos caminhos de escrita não está completa.",
+        evaluatedAt,
+      );
+    }
   }
   return [loginGateGate, fenceGate];
 }
 
-export function deriveSessionZeroGate(session, { nowMs } = {}) {
+export function deriveSessionZeroGate(session, { nowMs, maintenance = null, requireGeneration = false } = {}) {
   const evaluatedAt = parseTimeMs(session?.evaluatedAt) ?? nowMs;
   if (!session || session.ok !== true || session.unavailable === true) {
     return runtimeGate(
@@ -408,6 +422,30 @@ export function deriveSessionZeroGate(session, { nowMs } = {}) {
       "UNKNOWN",
       "SESSION_ZERO_PROOF_INVALID",
       "Prova canônica de session-zero incompleta.",
+      evaluatedAt,
+    );
+  }
+  // PDB-I2C2 — a prova precisa pertencer à geração ATUAL da manutenção.
+  const hasMaintenance = maintenance?.ok === true;
+  const proofEpoch = session.maintenanceEpoch;
+  const proofGeneration = session.maintenanceGeneration;
+  const proofHasGeneration = Number.isInteger(proofEpoch) && Number.isInteger(proofGeneration);
+  if (hasMaintenance && requireGeneration && !proofHasGeneration) {
+    return runtimeGate(
+      "ACTIVE_SESSION_COUNT_ZERO",
+      "UNKNOWN",
+      "SESSION_PROOF_GENERATION_MISSING",
+      "Prova de session-zero sem epoch/generation da manutenção.",
+      evaluatedAt,
+    );
+  }
+  if (hasMaintenance && proofHasGeneration
+    && (proofEpoch !== maintenance.epoch || proofGeneration !== maintenance.version)) {
+    return runtimeGate(
+      "ACTIVE_SESSION_COUNT_ZERO",
+      "STALE",
+      "SESSION_PROOF_GENERATION_MISMATCH",
+      "Prova de session-zero pertence a outra geração da manutenção.",
       evaluatedAt,
     );
   }
@@ -451,6 +489,17 @@ export function deriveInFlightGate(inFlight, { nowMs } = {}) {
       "IN_FLIGHT_OPERATIONS_PRESENT",
       "Há operações em voo no registry de manutenção.",
       evaluatedAt,
+    );
+  }
+  // PDB-I2C2 — zero só é AUTORITATIVO com contagem inteira e cobertura
+  // completa do registry. "Nenhuma linha" de um registry parcial não prova nada.
+  if (count === 0 && inFlight.coverageComplete === true) {
+    return runtimeVerified(
+      "IN_FLIGHT_OPERATION_COUNT_ZERO",
+      "IN_FLIGHT_ZERO_AUTHORITATIVE",
+      "Registry de operações com cobertura completa e zero operações em voo.",
+      evaluatedAt,
+      nowMs,
     );
   }
   return runtimeGate(
@@ -539,7 +588,9 @@ export function derivePlanGates(plan, { nowMs = Date.now() } = {}) {
       : "Identidade congelada ausente ou divergente do plan_hash.");
 
   const approvalBound = frozenOk
-    && (plan.status === "APPROVED" || plan.status === "SCHEDULED")
+    // RUNNING: a aprovação já foi consumida pelo claim/executor (só o
+    // executor grava RUNNING) e continua vinculada ao mesmo plan_hash.
+    && (plan.status === "APPROVED" || plan.status === "SCHEDULED" || plan.status === "RUNNING")
     && Boolean(plan.approvedAt)
     && Boolean(plan.approvedBy);
   const approvalStatus = approvalBound ? "VERIFIED" : "PENDING";
@@ -701,7 +752,11 @@ export function deriveGatesFromEvidence(evidence = {}, context = {}) {
   const partial = [
     ...deriveGitGates(evidence.git, { releaseSha: context.releaseSha, nowMs }),
     ...deriveMaintenanceGates(evidence.maintenance, { nowMs }),
-    deriveSessionZeroGate(evidence.sessionZero, { nowMs }),
+    deriveSessionZeroGate(evidence.sessionZero, {
+      nowMs,
+      maintenance: evidence.maintenance,
+      requireGeneration: context.requireSessionGeneration === true,
+    }),
     deriveInFlightGate(evidence.inFlight, { nowMs }),
     ...planGates,
     ...safetyGates,

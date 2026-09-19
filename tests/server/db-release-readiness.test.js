@@ -259,7 +259,11 @@ describe("db-release-readiness — estado atual de desenvolvimento", () => {
     expect(gateByKey(snapshot.gates, "GIT_SHA_MATCH").status).toBe("VERIFIED");
     expect(gateByKey(snapshot.gates, "LOGIN_GATE_CLOSED").status).toBe("VERIFIED");
     expect(gateByKey(snapshot.gates, "ACTIVE_SESSION_COUNT_ZERO").status).toBe("VERIFIED");
-    expect(gateByKey(snapshot.gates, "WRITE_FENCE_ACTIVE").status).toBe("VERIFIED");
+    // PDB-I2C2: phase fenced sozinha NÃO basta — sem evidência de cobertura fica UNKNOWN.
+    expect(gateByKey(snapshot.gates, "WRITE_FENCE_ACTIVE")).toMatchObject({
+      status: "UNKNOWN",
+      reasonCode: "WRITE_FENCE_COVERAGE_EVIDENCE_MISSING",
+    });
     expect(gateByKey(snapshot.gates, "IN_FLIGHT_OPERATION_COUNT_ZERO").status).toBe("UNKNOWN");
     expect(gateByKey(snapshot.gates, "BACKUP_VERIFIED").status).toBe("UNKNOWN");
     expect(gateByKey(snapshot.gates, "PROD_BASELINE_VERIFIED").status).toBe("UNKNOWN");

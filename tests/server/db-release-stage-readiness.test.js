@@ -63,12 +63,22 @@ function claimable(overrides = {}, { scheduled = false } = {}) {
 }
 
 describe("stage readiness — perfis", () => {
-  it("expõe os 4 perfis; só CLAIMABLE está implementado em I2C1", () => {
+  it("expõe os 4 perfis; todos implementados (CLAIMABLE em I2C1, o resto em I2C2)", () => {
     expect(READINESS_STAGES).toEqual(["CLAIMABLE", "READY_TO_QUIESCE", "READY_TO_BACKUP", "READY_TO_MIGRATE"]);
-    expect(STAGE_PROFILES.CLAIMABLE.implemented).toBe(true);
-    expect(STAGE_PROFILES.READY_TO_QUIESCE.implemented).toBe(false);
-    expect(STAGE_PROFILES.READY_TO_BACKUP.implemented).toBe(false);
-    expect(STAGE_PROFILES.READY_TO_MIGRATE.implemented).toBe(false);
+    for (const stage of READINESS_STAGES) expect(STAGE_PROFILES[stage].implemented).toBe(true);
+  });
+
+  it("perfis são superconjuntos crescentes; READY_TO_MIGRATE == todas as gates canônicas", () => {
+    const sets = READINESS_STAGES.map((stage) => new Set(STAGE_PROFILES[stage].gates));
+    for (let index = 1; index < sets.length; index += 1) {
+      for (const key of sets[index - 1]) expect(sets[index].has(key)).toBe(true);
+      expect(sets[index].size).toBeGreaterThan(sets[index - 1].size);
+    }
+    expect([...sets[3]].sort()).toEqual([...REQUIRED_READINESS_GATES].sort());
+    expect(stageGateKeys("READY_TO_QUIESCE")).toHaveLength(11);
+    expect(stageGateKeys("READY_TO_BACKUP")).toHaveLength(15);
+    expect(stageGateKeys("READY_TO_MIGRATE")).toHaveLength(16);
+    expect(stageGateKeys("READY_TO_MIGRATE", { scheduled: true })).toHaveLength(17);
   });
 
   it("CLAIMABLE contém só evidência pré-posse e NÃO exige gates pós-claim", () => {
@@ -208,14 +218,52 @@ describe("stage readiness — global continua fail-closed", () => {
     expect(computeOverallReadiness(immediate).ready).toBe(true);
   });
 
-  it("CLAIMABLE nunca autoriza MIGRATING: perfis pós-claim reservados nunca satisfazem", () => {
+  it("CLAIMABLE nunca autoriza MIGRATING; perfis pós-claim nunca são 'claimable'", () => {
     const everything = gatesWith(
       Object.fromEntries(REQUIRED_READINESS_GATES.map((key) => [key, "VERIFIED"])),
       { scheduled: true },
     );
     for (const stage of ["READY_TO_QUIESCE", "READY_TO_BACKUP", "READY_TO_MIGRATE"]) {
       const result = evaluateStageReadiness({ stage, gates: everything, scheduled: true });
-      expect(result).toMatchObject({ implemented: false, satisfied: false, claimable: false, reasonCode: "STAGE_PROFILE_RESERVED" });
+      expect(result).toMatchObject({ implemented: true, satisfied: true, claimable: false, reasonCode: "STAGE_SATISFIED" });
+    }
+    expect(claimable().claimable).toBe(true);
+  });
+
+  it("cada perfil pós-claim bloqueia por QUALQUER gate próprio ausente/UNKNOWN/STALE/PENDING/BLOCKED/FAILED", () => {
+    const all = Object.fromEntries(REQUIRED_READINESS_GATES.map((key) => [key, "VERIFIED"]));
+    for (const stage of ["READY_TO_QUIESCE", "READY_TO_BACKUP", "READY_TO_MIGRATE"]) {
+      for (const key of stageGateKeys(stage)) {
+        for (const status of ["UNKNOWN", "STALE", "PENDING", "BLOCKED", "FAILED"]) {
+          const result = evaluateStageReadiness({ stage, gates: gatesWith({ ...all, [key]: status }), scheduled: false });
+          expect(result.satisfied, stage + "/" + key + "/" + status).toBe(false);
+          expect(result.blockers.map((item) => item.key)).toContain(key);
+        }
+        const missing = { ...all };
+        delete missing[key];
+        expect(evaluateStageReadiness({ stage, gates: gatesWith(missing), scheduled: false }).satisfied).toBe(false);
+      }
+    }
+  });
+
+  it("gates de estágio posterior NÃO bloqueiam estágio anterior (evita o ciclo)", () => {
+    const upToQuiesce = Object.fromEntries(stageGateKeys("READY_TO_QUIESCE").map((key) => [key, "VERIFIED"]));
+    expect(evaluateStageReadiness({ stage: "READY_TO_QUIESCE", gates: gatesWith(upToQuiesce) }).satisfied).toBe(true);
+    expect(evaluateStageReadiness({ stage: "READY_TO_BACKUP", gates: gatesWith(upToQuiesce) }).satisfied).toBe(false);
+    const upToBackup = Object.fromEntries(stageGateKeys("READY_TO_BACKUP").map((key) => [key, "VERIFIED"]));
+    expect(evaluateStageReadiness({ stage: "READY_TO_BACKUP", gates: gatesWith(upToBackup) }).satisfied).toBe(true);
+    expect(evaluateStageReadiness({ stage: "READY_TO_MIGRATE", gates: gatesWith(upToBackup) }).satisfied).toBe(false);
+  });
+
+  it("READY_TO_MIGRATE satisfeito ⇔ readiness GLOBAL true (mesma decisão)", () => {
+    const all = Object.fromEntries(REQUIRED_READINESS_GATES.map((key) => [key, "VERIFIED"]));
+    for (const scheduled of [false, true]) {
+      const ok = gatesWith(all, { scheduled });
+      expect(evaluateStageReadiness({ stage: "READY_TO_MIGRATE", gates: ok, scheduled }).satisfied).toBe(true);
+      expect(computeOverallReadiness(ok).ready).toBe(true);
+      const bad = gatesWith({ ...all, BACKUP_VERIFIED: "STALE" }, { scheduled });
+      expect(evaluateStageReadiness({ stage: "READY_TO_MIGRATE", gates: bad, scheduled }).satisfied).toBe(false);
+      expect(computeOverallReadiness(bad).ready).toBe(false);
     }
   });
 
@@ -226,6 +274,27 @@ describe("stage readiness — global continua fail-closed", () => {
     expect(byKey.LOCK_ACQUIRED.reasonCode).toBe("LOCK_UNIMPLEMENTED");
     expect(byKey.EXECUTOR_HEALTHY.status).toBe("UNKNOWN");
     expect(snapshot.ready).toBe(false);
+  });
+});
+
+describe("stage readiness — janela de agenda para plano já RUNNING (I2C2)", () => {
+  const running = (scheduledMs) => ({ status: "RUNNING", scheduledAt: iso(scheduledMs) });
+
+  it("o claim dentro da janela mantém a gate VERIFIED mesmo horas depois", () => {
+    const scheduledMs = NOW - 60 * 60_000;
+    const claimedAtMs = scheduledMs + 5 * 60_000;
+    expect(deriveScheduleWindowGate(running(scheduledMs), { nowMs: NOW, claimedAtMs })).toMatchObject({
+      status: "VERIFIED",
+      reasonCode: "SCHEDULE_CLAIMED_IN_WINDOW",
+    });
+  });
+
+  it("claim fora da janela, ou sem hora de claim, NÃO verifica", () => {
+    const scheduledMs = NOW - 60 * 60_000;
+    expect(deriveScheduleWindowGate(running(scheduledMs), { nowMs: NOW, claimedAtMs: scheduledMs - 1 }).status).toBe("BLOCKED");
+    expect(deriveScheduleWindowGate(running(scheduledMs), { nowMs: NOW, claimedAtMs: scheduledMs + SCHEDULE_CLAIM_WINDOW_MS }).status).toBe("BLOCKED");
+    expect(deriveScheduleWindowGate(running(scheduledMs), { nowMs: NOW }).status).toBe("BLOCKED");
+    expect(deriveScheduleWindowGate({ status: "RUNNING", scheduledAt: null }, { nowMs: NOW, claimedAtMs: NOW }).status).toBe("FAILED");
   });
 });
 

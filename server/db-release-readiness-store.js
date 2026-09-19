@@ -15,6 +15,7 @@ import {
   failClosedSnapshot,
 } from "./db-release-readiness.js";
 import { readPlanEvidence } from "./db-release-plan-store.js";
+import { buildCurrentCodeCoverageEvidence } from "./db-release-write-fence-coverage.js";
 
 const STATE_TABLE = "app_maintenance_state";
 const OPERATIONS_TABLE = "app_maintenance_operations";
@@ -118,6 +119,9 @@ function normalizeMaintenanceEvidence(row, evaluatedAt) {
     quiescentAt: row.quiescent_at ?? null,
     updatedAt: row.updated_at,
     evaluatedAt,
+    // PDB-I2C2 — cobertura de escrita do REPOSITÓRIO atual (incompleta: gaps
+    // conhecidos em db-release-write-fence-coverage). Nunca declarada completa aqui.
+    writeFenceCoverage: buildCurrentCodeCoverageEvidence({ nowMs: Date.parse(evaluatedAt) }),
   };
 }
 

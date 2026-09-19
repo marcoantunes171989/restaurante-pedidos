@@ -17,7 +17,7 @@
 // ════════════════════════════════════════════════════════════
 
 import crypto from "node:crypto";
-import { getDbReleasePlan } from "./db-release-plan.js";
+import { readDbReleasePlan } from "./db-release-plan-reader.js";
 import {
   SHA1_RE,
   SHA256_RE,
@@ -436,7 +436,7 @@ export async function claimDbReleaseExecution(request, deps = {}) {
   if (found.execution) return resolveExistingExecution({ existing: found.execution, claim, ctx });
 
   // 2) Plano lido do store no instante T (nunca do request).
-  const loaded = await getDbReleasePlan(claim.planId, { store: deps.planStore });
+  const loaded = await readDbReleasePlan(claim.planId, { store: deps.planStore });
   if (!loaded.ok) {
     return deny(loaded.error === "PLAN_NOT_FOUND" ? "PLAN_NOT_FOUND" : "PLAN_STORE_UNAVAILABLE");
   }

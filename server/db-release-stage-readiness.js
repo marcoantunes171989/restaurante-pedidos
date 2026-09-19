@@ -8,12 +8,24 @@
 //  podem ficar VERIFIED DEPOIS que a execução começa. Exigir `ready` para
 //  fazer o claim seria circular. Por isso a orquestração usa perfis:
 //
-//    CLAIMABLE         (implementado em I2C1) evidência válida ANTES da posse
-//    READY_TO_QUIESCE  (reservado → I2C2)     + posse/lease do executor
-//    READY_TO_BACKUP   (reservado → I2C2)     + login fechado, fence, sessões
-//    READY_TO_MIGRATE  (reservado → I2C2)     + BACKUP_VERIFIED == global
+//  (contagens: imediato / agendado — o agendado soma SCHEDULE_WINDOW_VALID)
+//    CLAIMABLE         (I2C1) evidência válida ANTES da posse         (9 / 10)
+//    READY_TO_QUIESCE  (I2C2) + LOCK_ACQUIRED, EXECUTOR_HEALTHY       (11 / 12)
+//                     = posse/lease do executor; pode iniciar NOTICE/FENCING.
+//    READY_TO_BACKUP   (I2C2) + LOGIN_GATE_CLOSED, WRITE_FENCE_ACTIVE
+//                       (com COBERTURA completa), ACTIVE_SESSION_COUNT_ZERO
+//                       (prova canônica da geração atual), IN_FLIGHT_OPERATION
+//                       _COUNT_ZERO (coverage autoritativa)           (15 / 16)
+//                     NÃO exige BACKUP_VERIFIED.
+//    READY_TO_MIGRATE  (I2C2) + BACKUP_VERIFIED = readiness GLOBAL   (16 / 17).
+//                     É o primeiro
+//                     ponto onde `ready=true` pode legitimamente existir.
 //
+//  Cada perfil é estritamente superconjunto do anterior: nenhum gate é
+//  enfraquecido, nenhum gate desconhecido/stale é tratado como especial.
 //  CLAIMABLE ≠ DB_RELEASE_READY. CLAIMABLE nunca autoriza MIGRATING.
+//  Além dos gates, o executor exige (fora deste módulo) binding de manutenção
+//  (db_plan_id/target/plan_kind) e geração de prova de sessão == geração atual.
 //  Puro: sem fetch, sem processo, sem DB, sem timer.
 // ════════════════════════════════════════════════════════════
 
@@ -78,15 +90,15 @@ export const STAGE_PROFILES = Object.freeze({
     gates: CLAIMABLE_GATES,
   }),
   READY_TO_QUIESCE: Object.freeze({
-    implemented: false,
+    implemented: true,
     gates: Object.freeze([...CLAIMABLE_GATES, ...QUIESCE_ADDS]),
   }),
   READY_TO_BACKUP: Object.freeze({
-    implemented: false,
+    implemented: true,
     gates: Object.freeze([...CLAIMABLE_GATES, ...QUIESCE_ADDS, ...BACKUP_ADDS]),
   }),
   READY_TO_MIGRATE: Object.freeze({
-    implemented: false,
+    implemented: true,
     gates: Object.freeze([...CLAIMABLE_GATES, ...QUIESCE_ADDS, ...BACKUP_ADDS, ...MIGRATE_ADDS]),
   }),
 });
@@ -110,7 +122,8 @@ export function stageGateKeys(stage, { scheduled = false } = {}) {
  * Avalia um perfil de estágio contra gates canônicos. Só VERIFIED satisfaz;
  * ausente/UNKNOWN/PENDING/STALE/FAILED/BLOCKED → bloqueia (fail-closed).
  * Gates fora do perfil são IGNORADOS — é exatamente o que evita o ciclo.
- * Perfis reservados (I2C2) nunca são satisfeitos, mesmo com todos VERIFIED.
+ * Perfis são superconjuntos crescentes; só `STAGE_PROFILE_RESERVED` (perfil
+ * não implementado) é sempre insatisfeito — hoje nenhum perfil é reservado.
  */
 export function evaluateStageReadiness({ stage, gates, scheduled = false } = {}) {
   const profile = STAGE_PROFILES[stage];
@@ -173,7 +186,7 @@ export function evaluateStageReadiness({ stage, gates, scheduled = false } = {})
 }
 
 /** Janela [scheduledAt, scheduledAt + janela): fora dela não é claimable. */
-export function deriveScheduleWindowGate(plan, { nowMs } = {}) {
+export function deriveScheduleWindowGate(plan, { nowMs, claimedAtMs = null } = {}) {
   const key = "SCHEDULE_WINDOW_VALID";
   const base = (status, reasonCode, message, expiresAtMs = nowMs + EXECUTION_EVIDENCE_FRESHNESS_MS) => ({
     key,
@@ -183,6 +196,18 @@ export function deriveScheduleWindowGate(plan, { nowMs } = {}) {
     evidenceAt: toIso(nowMs),
     expiresAt: toIso(expiresAtMs),
   });
+  // PDB-I2C2 — plano já RUNNING: a janela governa o INÍCIO (claim), não a
+  // duração do pipeline. Vale se o claim ocorreu dentro de [agenda, agenda+janela).
+  if (plan?.status === "RUNNING" && Number.isFinite(claimedAtMs)) {
+    const runScheduledMs = parseIsoMs(plan.scheduledAt);
+    if (runScheduledMs == null) {
+      return base("FAILED", "SCHEDULE_INVALID", "Timestamp de agenda ausente ou inválido.");
+    }
+    if (claimedAtMs < runScheduledMs || claimedAtMs >= runScheduledMs + SCHEDULE_CLAIM_WINDOW_MS) {
+      return base("BLOCKED", "SCHEDULE_CLAIM_OUTSIDE_WINDOW", "Claim ocorreu fora da janela de agenda.");
+    }
+    return base("VERIFIED", "SCHEDULE_CLAIMED_IN_WINDOW", "Execução foi reivindicada dentro da janela de agenda.");
+  }
   if (!plan || plan.status !== "SCHEDULED") {
     return base("BLOCKED", "SCHEDULE_INTENT_MISSING", "Plano não está SCHEDULED.");
   }
@@ -214,16 +239,53 @@ export function deriveClaimableGates({
   intent,
   nowMs,
 } = {}) {
-  const scheduled = intent === "SCHEDULED";
-  const planEvidence = plan
-    ? { ok: true, ...plan, evaluatedAt: toIso(nowMs) }
-    : { ok: false, errorCode: "PLAN_EVIDENCE_UNAVAILABLE" };
   // Ownership (evidence.execution) não existe antes do claim: nunca é usada aqui.
   const claimEvidence = { ...(evidence || {}) };
   delete claimEvidence.execution;
+  return deriveGatesCore({ plan, evidence: claimEvidence, gateOverrides, scheduled: intent === "SCHEDULED", nowMs });
+}
+
+/**
+ * PDB-I2C2 — gates canônicos para estágios PÓS-claim. Mesma derivação de
+ * evidência, mas com o plano RUNNING, evidência de posse (lock/lease) e
+ * evidência runtime (manutenção, sessões, in-flight, backup) do servidor.
+ * `scheduled` vem do PLANO (agenda persistida), nunca do request.
+ */
+export function deriveExecutionStageGates({
+  plan,
+  execution = null,
+  evidence = {},
+  gateOverrides = [],
+  nowMs,
+} = {}) {
+  const scheduled = Boolean(plan?.scheduledAt);
+  const claimedAtMs = execution ? parseIsoMs(execution.claimedAt) : null;
+  return deriveGatesCore({
+    plan,
+    evidence: evidence || {},
+    gateOverrides,
+    scheduled,
+    nowMs,
+    claimedAtMs,
+    requireSessionGeneration: true,
+  });
+}
+
+function deriveGatesCore({
+  plan,
+  evidence,
+  gateOverrides,
+  scheduled,
+  nowMs,
+  claimedAtMs = null,
+  requireSessionGeneration = false,
+}) {
+  const planEvidence = plan
+    ? { ok: true, ...plan, evaluatedAt: toIso(nowMs) }
+    : { ok: false, errorCode: "PLAN_EVIDENCE_UNAVAILABLE" };
   const derived = deriveGatesFromEvidence(
-    { ...claimEvidence, plan: planEvidence },
-    { releaseSha: plan?.targetReleaseSha, scheduled, nowMs },
+    { ...evidence, plan: planEvidence },
+    { releaseSha: plan?.targetReleaseSha, scheduled, nowMs, requireSessionGeneration },
   );
   const injected = new Map();
   for (const override of Array.isArray(gateOverrides) ? gateOverrides : []) {
@@ -234,7 +296,7 @@ export function deriveClaimableGates({
   return derived.map((gate) => {
     if (gate.key === "SCHEDULE_WINDOW_VALID" && scheduled) {
       return applyGateFreshness({
-        ...deriveScheduleWindowGate(plan, { nowMs }),
+        ...deriveScheduleWindowGate(plan, { nowMs, claimedAtMs }),
         required: true,
         applicable: true,
       }, nowMs);
