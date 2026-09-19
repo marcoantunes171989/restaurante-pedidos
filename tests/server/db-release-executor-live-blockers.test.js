@@ -354,9 +354,10 @@ describe("I2C2 — superfície do repositório inalterada", () => {
     }
   });
 
-  it("migration 162 continua ausente; 160/161 seguem com o blob Git canônico", () => {
+  it("existe exatamente uma migration 162 (I2D1) e nenhuma 163; 160/161 seguem com o blob Git canônico", () => {
     const migrations = readdirSync(resolve(root, "supabase/migrations"));
-    expect(migrations.filter((name) => /^162_/.test(name))).toEqual([]);
+    expect(migrations.filter((name) => /^162_/.test(name))).toEqual(["162_db_release_runtime_hardening.sql"]);
+    expect(migrations.filter((name) => /^163_/.test(name))).toEqual([]);
     const listed = execFileSync("git", [
       "ls-files", "-s",
       "supabase/migrations/160_db_release_orchestrator_foundation.sql",

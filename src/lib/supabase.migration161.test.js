@@ -80,8 +80,11 @@ describe("migration 161 — existência e transação", () => {
     expect(sql.length).toBeGreaterThan(0);
     const arquivos = readdirSync("supabase/migrations").filter((f) => /^161[_.]/.test(f));
     expect(arquivos).toEqual(["161_canonical_session_admission.sql"]);
+    // PDB-I2D1: a 162 (runtime hardening) é a única migration posterior; nenhuma 163.
     const arquivos162 = readdirSync("supabase/migrations").filter((f) => /^162[_.]/.test(f));
-    expect(arquivos162).toEqual([]);
+    expect(arquivos162).toEqual(["162_db_release_runtime_hardening.sql"]);
+    const arquivos163 = readdirSync("supabase/migrations").filter((f) => /^163[_.]/.test(f));
+    expect(arquivos163).toEqual([]);
   });
 
   it("é transacional (BEGIN/COMMIT), sem ROLLBACK executável", () => {

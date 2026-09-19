@@ -311,13 +311,14 @@ export function evaluateLivePipelineEligibility({
   coverageEvidence = null,
   trustedDerivers = {},
   persistenceGaps = PERSISTENCE_GAPS,
+  nowMs,
 } = {}) {
   const blockers = [];
   for (const [name, code] of Object.entries(PORT_BLOCKERS)) {
     const port = ports[name];
     if (!port || port.enabled !== true || port.transport !== "LIVE") blockers.push(code);
   }
-  if (!isLiveAuthoritativeCoverage(coverageEvidence)) blockers.push("WRITE_FENCE_COVERAGE_INCOMPLETE");
+  if (!isLiveAuthoritativeCoverage(coverageEvidence, { nowMs })) blockers.push("WRITE_FENCE_COVERAGE_INCOMPLETE");
   if (trustedDerivers?.HML_VALIDATED !== true) blockers.push("HML_VALIDATED_DERIVER_MISSING");
   if (trustedDerivers?.PROD_BASELINE_VERIFIED !== true) blockers.push("PROD_BASELINE_DERIVER_MISSING");
   if (Object.values(persistenceGaps || {}).some(Boolean)) blockers.push("PERSISTENCE_GAPS_OPEN");

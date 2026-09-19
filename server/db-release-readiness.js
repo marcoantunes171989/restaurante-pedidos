@@ -387,7 +387,7 @@ export function deriveMaintenanceGates(maintenance, { nowMs } = {}) {
   } else {
     // PDB-I2C2 — fence ativo por phase NÃO basta: todo caminho de escrita
     // requerido precisa estar coberto (evidência de cobertura completa).
-    const coverage = evaluateWriteFenceCoverage(maintenance.writeFenceCoverage);
+    const coverage = evaluateWriteFenceCoverage(maintenance.writeFenceCoverage, { nowMs });
     if (coverage.complete) {
       fenceGate = runtimeVerified("WRITE_FENCE_ACTIVE", "WRITE_FENCE_ACTIVE", "Write fence ativo com cobertura completa de escrita.", evaluatedAt, nowMs);
     } else {

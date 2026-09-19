@@ -270,6 +270,32 @@ export const MAINTENANCE_EVENT_TYPES = Object.freeze([
   ...DB_MAINTENANCE_EVENT_TYPES,
 ]);
 
+/**
+ * PDB-I2D1 (migration 162) — 11 eventos de runtime do executor DB. O contrato
+ * de 42 valores da migration 160 (MAINTENANCE_EVENT_TYPES) permanece congelado;
+ * o superset de 53 valores é RUNTIME_MAINTENANCE_EVENT_TYPES. Não adicionados
+ * por já existir equivalente: aborto usa MAINTENANCE_ABORTED; preflight usa
+ * DB_PREFLIGHT_PASSED.
+ */
+export const DB_RUNTIME_EVENT_TYPES = Object.freeze([
+  "DB_EXECUTION_CLAIMED",
+  "DB_LOCK_ACQUIRED",
+  "DB_LOCK_RELEASED",
+  "DB_WRITE_FENCE_VERIFIED",
+  "DB_MIGRATION_FAILED",
+  "DB_MIGRATION_AMBIGUOUS",
+  "DB_SMOKE_PASSED",
+  "DB_SMOKE_FAILED",
+  "DB_EXECUTOR_HEARTBEAT_STALE",
+  "DB_EXECUTION_RECONCILED",
+  "DB_MAINTENANCE_PHASE_CHANGED",
+]);
+
+export const RUNTIME_MAINTENANCE_EVENT_TYPES = Object.freeze([
+  ...MAINTENANCE_EVENT_TYPES,
+  ...DB_RUNTIME_EVENT_TYPES,
+]);
+
 export const APP_STRUCTURAL_EDGES = Object.freeze([
   ["NORMAL", "NOTICE"],
   ["NOTICE", "FENCING"],
@@ -400,6 +426,10 @@ export function isDbEnvironment(value) {
 
 export function isMaintenanceEventType(value) {
   return frozenHas(MAINTENANCE_EVENT_TYPES, value);
+}
+
+export function isRuntimeMaintenanceEventType(value) {
+  return frozenHas(RUNTIME_MAINTENANCE_EVENT_TYPES, value);
 }
 
 export function isAppHappyPathEdge(fromPhase, toPhase) {

@@ -168,6 +168,7 @@ async function guardLive(deps, ports) {
     ports,
     coverageEvidence,
     trustedDerivers: deps.trustedDerivers ?? {},
+    nowMs: typeof deps.clock?.nowMs === "function" ? deps.clock.nowMs() : undefined,
   });
   return eligibility.eligible
     ? null
@@ -521,7 +522,7 @@ async function collectRuntime(ctx, { includeBackup = false, backupBinding = null
   const staticOk = base && base.ok !== false && typeof base === "object";
   const stateRaw = await safe(() => ctx.ports.maintenance.readState(), { ok: false, errorCode: "MAINTENANCE_STATE_UNAVAILABLE" });
   const coverageEvidence = await safe(() => ctx.ports.probes.readWriteFenceCoverage(), { ok: false, errorCode: "WRITE_FENCE_COVERAGE_UNAVAILABLE" });
-  const coverage = evaluateWriteFenceCoverage(coverageEvidence);
+  const coverage = evaluateWriteFenceCoverage(coverageEvidence, { nowMs: at });
   const sessionZero = await safe(() => ctx.ports.probes.readSessionZeroProof(), { ok: false, unavailable: true, errorCode: "SESSION_ZERO_PROOF_UNAVAILABLE" });
   const inFlightRaw = await safe(() => ctx.ports.probes.readInFlight(), { ok: false, errorCode: "IN_FLIGHT_REGISTRY_UNAVAILABLE" });
   // Zero "autoritativo" exige registry completo E cobertura de escrita completa.
@@ -1135,7 +1136,7 @@ async function stageMigrate(ctx) {
     const guard = await checkpoint(ctx);
     if (guard.halt) return guard.halt;
     const state = await readFreshState(ctx);
-    const coverage = evaluateWriteFenceCoverage(await safe(() => ctx.ports.probes.readWriteFenceCoverage(), null));
+    const coverage = evaluateWriteFenceCoverage(await safe(() => ctx.ports.probes.readWriteFenceCoverage(), null), { nowMs: nowMs(ctx) });
     if (!state || state.phase !== "MIGRATING" || !bindingMatches(state, ctx.plan)
       || state.loginGate !== "CLOSED" || !coverage.complete) {
       return committed === 0

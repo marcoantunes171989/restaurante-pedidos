@@ -14,6 +14,8 @@
 //  Puro: sem rede, sem DB, sem ambiente, sem timer.
 // ════════════════════════════════════════════════════════════
 
+import { evaluateCatalogCoverage } from "./db-release-write-coverage-probe.js";
+
 export const WRITE_FENCE_COVERAGE_VERSION = 1;
 
 export const COVERAGE_STATUSES = Object.freeze(["COVERED", "UNCOVERED", "UNKNOWN"]);
@@ -150,7 +152,11 @@ function result(fields) {
  *   inventoryComplete === true, e TODO caminho requerido COVERED (sem
  *   duplicatas, sem caminho requerido ausente). Qualquer dúvida → incompleta.
  */
-export function evaluateWriteFenceCoverage(evidence) {
+export function evaluateWriteFenceCoverage(evidence, options = {}) {
+  // PDB-I2D1 — evidência do CATALOG_PROBE (manifestVersion textual, WFC-2): manifesto
+  // + hash + frescor + bypass direto + inventário derivado do catálogo.
+  // O formato v1 (manifestVersion numérico) segue inalterado abaixo.
+  if (typeof evidence?.manifestVersion === "string") return evaluateCatalogCoverage(evidence, options);
   if (!evidence || typeof evidence !== "object" || evidence.ok !== true) {
     return result({ reasonCode: evidence?.errorCode || "WRITE_FENCE_COVERAGE_EVIDENCE_MISSING" });
   }
@@ -209,7 +215,7 @@ export function evaluateWriteFenceCoverage(evidence) {
 }
 
 /** Só uma fonte autoritativa live (CATALOG_PROBE) libera pipeline LIVE. */
-export function isLiveAuthoritativeCoverage(evidence) {
+export function isLiveAuthoritativeCoverage(evidence, options = {}) {
   return LIVE_AUTHORITATIVE_COVERAGE_SOURCES.includes(evidence?.source)
-    && evaluateWriteFenceCoverage(evidence).complete === true;
+    && evaluateWriteFenceCoverage(evidence, options).complete === true;
 }

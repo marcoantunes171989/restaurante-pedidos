@@ -26,7 +26,11 @@ import { buildPlan, publicPlanFrom } from "./helpers/db-release-executor-fixture
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationsDir = resolve(root, "supabase/migrations");
-const migrationFiles = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort();
+// Auditoria I2C2 = estado do repositório ANTES do I2D1 (migrations <= 161). A 162 fecha estas
+// lacunas e é auditada pelos testes do I2D1 (manifesto WFC-2, migration162, probe de catálogo).
+const migrationFiles = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith(".sql") && !/^16[2-9]_/.test(name))
+  .sort();
 const sql = (file) => readFileSync(resolve(migrationsDir, file), "utf8");
 
 const NOW = Date.UTC(2026, 8, 18, 19, 0, 0);

@@ -15,7 +15,7 @@ import {
   failClosedSnapshot,
 } from "./db-release-readiness.js";
 import { readPlanEvidence } from "./db-release-plan-store.js";
-import { buildCurrentCodeCoverageEvidence } from "./db-release-write-fence-coverage.js";
+import { buildCurrentCodeCoverageEvidence, evaluateWriteFenceCoverage } from "./db-release-write-fence-coverage.js";
 
 const STATE_TABLE = "app_maintenance_state";
 const OPERATIONS_TABLE = "app_maintenance_operations";
@@ -257,7 +257,7 @@ export async function collectReadinessEvidence({
     () => (adapters.git || readGitReadinessEvidence)({ releaseSha, nowMs }),
     { ok: false, errorCode: "GITHUB_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
   );
-  const maintenance = await safeAdapter(
+  let maintenance = await safeAdapter(
     "MAINTENANCE",
     () => (adapters.maintenance || readMaintenanceReadinessEvidence)({ nowMs }),
     { ok: false, errorCode: "MAINTENANCE_STATE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
@@ -267,11 +267,30 @@ export async function collectReadinessEvidence({
     () => (adapters.sessionZero || readSessionZeroProof)({ nowMs }),
     { ok: false, unavailable: true, errorCode: "SESSION_ZERO_PROOF_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
   );
-  const inFlight = await safeAdapter(
+  let inFlight = await safeAdapter(
     "IN_FLIGHT",
     () => (adapters.inFlight || readInFlightOperationsEvidence)({ nowMs }),
     { ok: false, errorCode: "IN_FLIGHT_REGISTRY_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
   );
+  // PDB-I2D1 — CATALOG_PROBE (read-only, injetável). Sem adapter, permanece a
+  // cobertura estática do repositório (INCOMPLETA por construção). Com adapter,
+  // a evidência do CATÁLOGO substitui a estática; falha do probe => incompleta.
+  // O gate de in-flight só ganha cobertura autoritativa se o registry estiver
+  // completo E o inventário do catálogo estiver completo.
+  if (typeof adapters.coverageProbe === "function") {
+    const probe = await safeAdapter(
+      "COVERAGE_PROBE",
+      () => adapters.coverageProbe({ nowMs }),
+      { ok: false, errorCode: "CATALOG_PROBE_UNAVAILABLE", evaluatedAt: nowIso(nowMs) },
+    );
+    if (maintenance?.ok === true) maintenance = { ...maintenance, writeFenceCoverage: probe };
+    if (inFlight?.ok === true) {
+      inFlight = {
+        ...inFlight,
+        coverageComplete: evaluateWriteFenceCoverage(probe, { nowMs }).registryComplete === true,
+      };
+    }
+  }
   let plan = { absent: true, ok: false, errorCode: "PLAN_EVIDENCE_ABSENT", evaluatedAt: nowIso(nowMs) };
   if (planId) {
     plan = await safeAdapter(
