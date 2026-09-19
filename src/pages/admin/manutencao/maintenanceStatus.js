@@ -99,14 +99,30 @@ export const PHASE_STEPS = [
   },
 ];
 
-// Fases legadas do banco (B15) que mapeiam para uma etapa do pipeline novo.
-export const PHASE_ALIASES = { RELEASING: "MIGRATING" };
+// Fases que existem no banco mas NÃO pertencem à sequência DB_MIGRATION acima.
+// RELEASING é a fase do fluxo legado APP_RELEASE (liberação da aplicação) — a
+// migration 160 a preserva com esse significado e "não é reutilizada como
+// MIGRATING". Por isso NÃO é etapa do stepper (não é alias de "Atualização"):
+// a UI a apresenta com rótulo próprio e mantém o nome técnico original.
+export const LEGACY_PHASES = {
+  RELEASING: {
+    technicalName: "RELEASING",
+    label: "Liberação",
+    scope: "APP_RELEASE",
+    description: "Fase do fluxo legado de liberação da aplicação (APP_RELEASE).",
+    helpText: "Não faz parte da sequência de atualização do banco de dados e não corresponde à etapa de Atualização (MIGRATING).",
+  },
+};
+
+/** Fase legada fora da sequência DB_MIGRATION (ou null). */
+export function resolveLegacyPhase(phase) {
+  return has(LEGACY_PHASES, phase) ? LEGACY_PHASES[phase] : null;
+}
 
 /** Nome técnico da fase → id da etapa (a 1ª NORMAL é resolvida no view-model). */
 export function resolvePhaseStepId(phase) {
-  const technical = has(PHASE_ALIASES, phase) ? PHASE_ALIASES[phase] : phase;
-  if (technical === "NORMAL") return "NORMAL_START";
-  return PHASE_STEPS.some((s) => s.id === technical) ? technical : null;
+  if (phase === "NORMAL") return "NORMAL_START";
+  return PHASE_STEPS.some((s) => s.id === phase) ? phase : null;
 }
 
 export const PHASE_STEP_STATE = {
@@ -293,6 +309,7 @@ export const IDLE_PROGRESS_TEXT = "Nenhuma atualização em andamento.";
 export const MAINTENANCE_USER_MESSAGE = "Sistema em processo de atualização. Aguarde até a finalização.";
 export const AUTO_REOPEN_TEXT = "Após a conclusão segura da atualização, o acesso será liberado automaticamente.";
 export const RECOVERY_REQUIRED_TEXT = "A atualização foi interrompida e requer reconciliação técnica antes de liberar o sistema.";
+export const RECOVERY_DERIVED_NOTE = "Conclusão derivada de segurança: uma migration com resultado incerto exige reconciliação. O status registrado pelo executor não foi alterado.";
 export const FAILED_TEXT = "A atualização falhou em uma etapa conhecida. Consulte a linha do tempo para ver onde ocorreu.";
 
 export const SAFETY_FLOW = [

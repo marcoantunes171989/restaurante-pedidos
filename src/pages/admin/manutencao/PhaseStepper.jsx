@@ -29,7 +29,9 @@ export default function PhaseStepper({ stepper }) {
         <p className="text-[13px] text-[#6B7280]" data-testid="phase-progress">
           {stepper.hasUnknownPhase
             ? "Fase atual não reconhecida"
-            : <>Etapa atual: <b className="font-semibold text-[#111111]">{stepper.currentLabel}</b> · {stepper.currentIndex + 1} de {stepper.total}</>}
+            : stepper.legacyPhase
+              ? <>Fase atual: <b className="font-semibold text-[#111111]">{stepper.legacyPhase.label}</b> · fluxo legado da aplicação</>
+              : <>Etapa atual: <b className="font-semibold text-[#111111]">{stepper.currentLabel}</b> · {stepper.currentIndex + 1} de {stepper.total}</>}
         </p>
       </div>
 
@@ -84,6 +86,17 @@ export default function PhaseStepper({ stepper }) {
           );
         })}
       </ol>
+
+      {stepper.legacyPhase && (
+        <p className="mt-3 flex items-start gap-1.5 text-[13px] leading-5 text-[#4B5563]" role="note" data-testid="legacy-phase-note">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">
+            <b className="font-semibold text-[#111111]">{stepper.legacyPhase.label}</b>{" "}
+            (<code className="font-mono text-[12px] font-semibold">{stepper.legacyPhase.technicalName}</code>): {stepper.legacyPhase.description}{" "}
+            {stepper.legacyPhase.helpText} Nenhuma etapa abaixo foi marcada como atual.
+          </span>
+        </p>
+      )}
 
       {stepper.hasUnknownPhase && (
         <p className="mt-3 flex items-start gap-1.5 text-[13px] leading-5 text-[#4B5563]" role="note">

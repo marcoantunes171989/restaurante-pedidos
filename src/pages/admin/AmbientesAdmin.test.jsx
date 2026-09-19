@@ -158,8 +158,8 @@ async function renderTela() {
   root = createRoot(container);
   await act(async () => { root.render(<AmbientesAdmin />); });
   // PDB-I3-FE1: a aba padrão é a prévia (sem rede). O painel ao vivo que estes
-  // testes cobrem vive na aba "Versões e deploys" e só consulta a rede ao abrir.
-  const abaAoVivo = Array.from(container.querySelectorAll('[role="tab"]')).find((t) => t.textContent.includes("Versões e deploys"));
+  // testes cobrem vive na aba "Deploys" e só consulta a rede ao abrir.
+  const abaAoVivo = Array.from(container.querySelectorAll('[role="tab"]')).find((t) => t.textContent === "Deploys");
   await act(async () => { abaAoVivo.click(); });
   return container;
 }
@@ -342,7 +342,7 @@ describe("AmbientesAdmin — sucesso, isolamento de falhas e estados", () => {
     await flush();
 
     expect(el.textContent.trim().length).toBeGreaterThan(0);
-    expect(el.textContent).toContain("Ambientes & Releases");
+    expect(el.textContent).toContain("Versões & Atualizações");
     expect(el.textContent).toContain("Não foi possível carregar os dados de ambientes agora.");
   });
 
@@ -559,7 +559,7 @@ describe("AmbientesAdmin — loading estável", () => {
     const el = await renderTela();
     await act(async () => { await Promise.resolve(); });
 
-    expect(el.textContent).toContain("Ambientes & Releases");
+    expect(el.textContent).toContain("Versões & Atualizações");
     expect(el.textContent.length).toBeGreaterThan(0);
 
     // evita promise pendurada

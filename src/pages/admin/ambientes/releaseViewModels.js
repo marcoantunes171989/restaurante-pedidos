@@ -199,6 +199,9 @@ export function buildReleasePlanViewModel(snapshot) {
     kind: text(plan.kind),
     sourceEnvironment: envLabel(plan.sourceEnvironment),
     targetEnvironment: envLabel(plan.targetEnvironment),
+    // Ids técnicos (para o modelo de formulário de execução — PDB-I3-FE3).
+    sourceEnvironmentId: plan.sourceEnvironment ?? null,
+    targetEnvironmentId: plan.targetEnvironment ?? null,
     baseSha: text(plan.baseSha),
     targetSha: text(plan.targetSha),
     migrationCount,

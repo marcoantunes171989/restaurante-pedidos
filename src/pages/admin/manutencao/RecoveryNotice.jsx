@@ -21,6 +21,15 @@ export default function RecoveryNotice({ failure }) {
       <div className="min-w-0">
         <h2 className="text-[15px] font-bold">{failure.title}</h2>
         <p className="mt-1 text-[13px] leading-5">{failure.message}</p>
+        {failure.derivedNote && (
+          <p className="mt-1.5 text-[13px] leading-5" data-testid="recovery-derived-note">{failure.derivedNote}</p>
+        )}
+        {failure.isDerived && (
+          <p className="mt-1.5 text-[12px] leading-4" data-testid="recovery-raw-status">
+            Status registrado pelo executor: <b className="font-semibold">{failure.rawExecutionStatusLabel}</b>{" "}
+            (<code className="font-mono font-semibold">{failure.rawExecutionStatus}</code>)
+          </p>
+        )}
       </div>
     </section>
   );

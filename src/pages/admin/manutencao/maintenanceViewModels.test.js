@@ -9,7 +9,7 @@ import {
   createPatchableDataSource,
   defaultMaintenanceDataSource,
 } from "./maintenanceDataSource.js";
-import { PHASE_STEPS } from "./maintenanceStatus.js";
+import { PHASE_STEPS, resolveLegacyPhase, resolvePhaseStepId } from "./maintenanceStatus.js";
 import {
   buildCapabilitiesViewModel,
   buildMaintenancePageViewModel,
@@ -121,9 +121,53 @@ describe("stepper — 9 etapas", () => {
     expect(vm.hero.isIdle).toBe(false);
   });
 
-  it("fase legada RELEASING vira a etapa 'Atualização'", () => {
+  // PDB-I3-FE3 — RELEASING (APP_RELEASE legado) NÃO é MIGRATING.
+  it("RELEASING não é MIGRATING: nenhuma etapa do stepper é marcada como atual", () => {
     const vm = page({ maintenance: { phase: "RELEASING" }, execution: { status: "RUNNING" } });
+    expect(vm.stepper.currentId).toBeNull();
+    expect(vm.stepper.currentId).not.toBe("MIGRATING");
+    expect(vm.stepper.currentIndex).toBe(-1);
+    expect(vm.stepper.steps.map((s) => s.state.key)).not.toContain("current");
+    expect(stateOf(vm, "MIGRATING")).toBe("pending");
+  });
+
+  it("RELEASING: rótulo próprio 'Liberação', nome técnico preservado e escopo APP_RELEASE explícito", () => {
+    const vm = page({ maintenance: { phase: "RELEASING" }, execution: { status: "RUNNING" } });
+    expect(vm.stepper.currentLabel).toBe("Liberação");
+    expect(vm.stepper.currentLabel).not.toBe("Atualização");
+    expect(vm.stepper.technicalPhase).toBe("RELEASING");
+    expect(vm.hero.phaseTechnicalName).toBe("RELEASING");
+    expect(vm.hero.state.label).toBe("Liberação");
+    expect(vm.stepper.legacyPhase).toMatchObject({ technicalName: "RELEASING", scope: "APP_RELEASE", label: "Liberação" });
+    expect(vm.stepper.legacyPhase.helpText).toMatch(/não faz parte da sequência de atualização do banco/i);
+    // reconhecida (fluxo legado) — não é "fase não reconhecida"
+    expect(vm.stepper.hasUnknownPhase).toBe(false);
+  });
+
+  it("RELEASING não entra na sequência DB_MIGRATION nem no rótulo da etapa MIGRATING", () => {
+    expect(PHASE_STEPS.map((s) => s.technicalName)).not.toContain("RELEASING");
+    expect(PHASE_STEPS.find((s) => s.id === "MIGRATING").label).toBe("Atualização");
+    expect(resolvePhaseStepId("RELEASING")).toBeNull();
+    expect(resolveLegacyPhase("RELEASING").technicalName).toBe("RELEASING");
+    expect(resolveLegacyPhase("MIGRATING")).toBeNull();
+  });
+
+  it("MIGRATING continua sendo 'Atualização'", () => {
+    const vm = page({ maintenance: { phase: "MIGRATING" }, execution: { status: "RUNNING" } });
     expect(vm.stepper.currentId).toBe("MIGRATING");
+    expect(vm.stepper.currentLabel).toBe("Atualização");
+    expect(vm.stepper.legacyPhase).toBeNull();
+  });
+
+  it("linha do tempo: evento em RELEASING mostra 'Liberação', não 'Atualização'", () => {
+    const vm = buildTimelineViewModel({ timeline: [{ id: "1", timestamp: "2026-10-01T12:00:00.000Z", phase: "RELEASING", type: "PHASE", title: "Liberação", status: "RUNNING" }] });
+    expect(vm.items[0].phaseLabel).toBe("Liberação");
+  });
+
+  it("fase realmente desconhecida continua 'não reconhecida'", () => {
+    const vm = page({ maintenance: { phase: "XYZ" } });
+    expect(vm.stepper.hasUnknownPhase).toBe(true);
+    expect(vm.stepper.legacyPhase).toBeNull();
   });
 
   it("NORMAL + execução concluída = normalização final (a 9ª), todas as anteriores done", () => {
@@ -184,6 +228,56 @@ describe("FAILED × RECOVERY_REQUIRED", () => {
     });
     expect(vm.failure.kind).toBe("RECOVERY_REQUIRED");
     expect(vm.migrations.hasAmbiguous).toBe(true);
+  });
+
+  // PDB-I3-FE3 — indicador DERIVADO; o status bruto do backend não é fabricado.
+  it("AMBIGUOUS: requiresRecovery derivado = true, status bruto do executor e da migration preservados", () => {
+    const vm = page({
+      maintenance: { phase: "MIGRATING" },
+      execution: { status: "RUNNING" },
+      migrations: [
+        { order: 1, id: "160", filename: "160.sql", state: "SUCCESS" },
+        { order: 2, id: "161", filename: "161.sql", state: "AMBIGUOUS" },
+      ],
+    });
+    expect(vm.recovery.requiresRecovery).toBe(true);
+    expect(vm.recovery.isDerived).toBe(true);
+    expect(vm.recovery.reasons).toEqual(["MIGRATION_AMBIGUOUS"]);
+    // bruto preservado
+    expect(vm.recovery.rawExecutionStatus).toBe("RUNNING");
+    expect(vm.hero.rawExecutionStatus).toBe("RUNNING");
+    expect(vm.hero.execution.key).toBe("RUNNING");
+    expect(vm.hero.execution.label).toBe("Em andamento");
+    expect(vm.migrations.items[1].state.key).toBe("AMBIGUOUS");
+    expect(vm.migrations.items[0].state.key).toBe("SUCCESS");
+    // aviso visual derivado, deixando claro que o executor não foi alterado
+    expect(vm.failure.isDerived).toBe(true);
+    expect(vm.failure.title).toBe("Requer reconciliação técnica");
+    expect(vm.failure.rawExecutionStatus).toBe("RUNNING");
+    expect(vm.failure.derivedNote).toMatch(/status registrado pelo executor não foi alterado/i);
+    // o stepper NÃO é reescrito para "recovery" por causa da migration (isso é do executor)
+    expect(vm.stepper.steps.map((s) => s.state.key)).not.toContain("recovery");
+  });
+
+  it("execução RECOVERY_REQUIRED reportada pelo executor: requiresRecovery, sem 'derivada'", () => {
+    const vm = page({ maintenance: { phase: "MIGRATING" }, execution: { status: "RECOVERY_REQUIRED" } });
+    expect(vm.recovery.requiresRecovery).toBe(true);
+    expect(vm.recovery.isDerived).toBe(false);
+    expect(vm.recovery.rawExecutionStatus).toBe("RECOVERY_REQUIRED");
+    expect(vm.failure.derivedNote).toBeNull();
+  });
+
+  it("sem AMBIGUOUS nem RECOVERY_REQUIRED: requiresRecovery = false; FAILED não vira recuperação", () => {
+    const ok = page({ maintenance: { phase: "MIGRATING" }, execution: { status: "RUNNING" } });
+    expect(ok.recovery.requiresRecovery).toBe(false);
+    const falha = page({ maintenance: { phase: "MIGRATING" }, execution: { status: "FAILED" } });
+    expect(falha.recovery.requiresRecovery).toBe(false);
+    expect(falha.failure.kind).toBe("FAILED");
+    expect(falha.failure.rawExecutionStatus).toBe("FAILED");
+  });
+
+  it("fixture principal: sem recuperação", () => {
+    expect(buildMaintenancePageViewModel(MAINTENANCE_FIXTURE).recovery.requiresRecovery).toBe(false);
   });
 
   it("estados de migration: AMBIGUOUS é crítico e distinto de FAILED", () => {

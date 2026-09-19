@@ -61,8 +61,8 @@ afterEach(() => {
 describe("página — render e cabeçalho", () => {
   it("renderiza título, subtítulo, fonte e referência visual", async () => {
     await renderTela();
-    expect(q("h1").textContent).toContain("Ambientes & Releases");
-    expect(container.textContent).toContain("Acompanhe versões, validações e o processo de atualização entre Homologação e Produção.");
+    expect(q("h1").textContent).toContain("Versões & Atualizações");
+    expect(container.textContent).toContain("Gerencie ambientes, versões, releases e atualizações do Pedido Prime.");
     expect(container.textContent).toContain("Fonte: Prévia (dados de exemplo)");
     expect(container.textContent).toMatch(/Referência visual:\s*19\/09\/2026/);
   });
@@ -291,25 +291,29 @@ describe("plano, segurança e fluxo", () => {
 });
 
 describe("ações e capabilities", () => {
-  it("Executar e Agendar visíveis porém indisponíveis, com o motivo", async () => {
+  // PDB-I3-FE3: "Agendar atualização" abre um formulário de PRÉVIA (não é mutação);
+  // "Executar atualização" continua indisponível. Cobertura detalhada em
+  // src/pages/admin/versoes/VersionsUx.preview.test.jsx.
+  it("Executar visível porém indisponível, com o motivo; Agendar abre apenas a prévia", async () => {
     await renderTela();
     const exec = botao("Executar atualização");
     const agenda = botao("Agendar atualização");
     expect(exec).toBeTruthy();
     expect(agenda).toBeTruthy();
     expect(exec.disabled).toBe(true);
-    expect(agenda.disabled).toBe(true);
+    expect(agenda.disabled).toBe(false);
     expect(container.textContent).toContain("Disponível após concluir as validações obrigatórias.");
     const ajuda = q("#acoes-ajuda");
     expect(exec.getAttribute("aria-describedby")).toBe(ajuda.id);
-    expect(agenda.getAttribute("aria-describedby")).toBe(ajuda.id);
+    expect(agenda.getAttribute("aria-describedby")).toBeNull();
   });
 
-  it("clicar nos botões indisponíveis não faz nada (sem rede, sem drawer)", async () => {
+  it("clicar em Executar (indisponível) não faz nada; abrir a prévia de Agendar não usa rede", async () => {
     await renderTela();
     await click(botao("Executar atualização"));
-    await click(botao("Agendar atualização"));
     expect(dialogo()).toBeNull();
+    await click(botao("Agendar atualização"));
+    expect(dialogo()).toBeTruthy();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -487,10 +491,11 @@ describe("abas — painel ao vivo é opt-in", () => {
   it("aba padrão é a Visão geral e expõe roles/aria de tabs", async () => {
     await renderTela();
     const abas = qa('[role="tab"]');
-    expect(abas.map((a) => a.textContent)).toEqual(["Visão geral", "Versões e deploys"]);
+    expect(abas.map((a) => a.textContent)).toEqual(["Visão geral", "Versões & Releases", "Deploys", "Histórico"]);
     expect(abas[0].getAttribute("aria-selected")).toBe("true");
     expect(abas[0].tabIndex).toBe(0);
     expect(abas[1].tabIndex).toBe(-1);
+    expect(abas[2].tabIndex).toBe(-1);
     const painel = q('[role="tabpanel"]');
     expect(painel.getAttribute("aria-labelledby")).toBe(abas[0].id);
   });
@@ -503,17 +508,22 @@ describe("abas — painel ao vivo é opt-in", () => {
     expect(qa('[role="tab"]')[1].getAttribute("aria-selected")).toBe("true");
     await act(async () => { lista.dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true })); });
     expect(qa('[role="tab"]')[0].getAttribute("aria-selected")).toBe("true");
+    await act(async () => { lista.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })); });
+    expect(qa('[role="tab"]')[3].getAttribute("aria-selected")).toBe("true");
   });
 
-  it("só abrir 'Versões e deploys' aciona a consulta (sessão) do painel legado", async () => {
+  it("só abrir 'Deploys' aciona a consulta (sessão) do painel legado", async () => {
     getSessionMock.mockResolvedValue({ data: { session: null } });
     await renderTela();
     expect(getSessionMock).not.toHaveBeenCalled();
-    await click(qa('[role="tab"]')[1]);
+    await click(qa('[role="tab"]')[1]); // Versões & Releases (fixture): sem rede
+    await click(qa('[role="tab"]')[3]); // Histórico (fixture): sem rede
+    expect(getSessionMock).not.toHaveBeenCalled();
+    await click(qa('[role="tab"]')[2]);
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(getSessionMock).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain("Sessão indisponível.");
     expect(fetchSpy).not.toHaveBeenCalled(); // sem token não há rede
-    expect(q("h1").textContent).toContain("Ambientes & Releases");
+    expect(q("h1").textContent).toContain("Versões & Atualizações");
   });
 });

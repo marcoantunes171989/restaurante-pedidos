@@ -1,5 +1,6 @@
-import { Activity, SlidersHorizontal, Wrench } from "lucide-react";
-import { PageHeader } from "../../components/Prime";
+import { Activity, ArrowLeft, SlidersHorizontal, Wrench } from "lucide-react";
+import { PageHeader, PrimeButton } from "../../components/Prime";
+import { ADMIN_VERSOES_NAV } from "../../lib/adminVersionsNav.js";
 import AdminTabs from "./AdminTabs.jsx";
 import { ToneBadge } from "./ambientes/StatusBadge.jsx";
 import LegacyMaintenancePanel from "./manutencao/LegacyMaintenancePanel.jsx";
@@ -39,18 +40,31 @@ function indicadoresDoCabecalho(viewModel) {
   ];
 }
 
-export default function MaintenanceAdmin({ dataSource = defaultMaintenanceDataSource }) {
+export default function MaintenanceAdmin({ dataSource = defaultMaintenanceDataSource, onVoltarParaVersoes = null }) {
   const { viewModel, retry } = useMaintenanceSnapshot(dataSource);
   const isPreview = viewModel.state === "ready" && viewModel.source.isPreview;
+  // Atalho de volta à central (somente navegação) + selo de prévia.
+  const voltar = typeof onVoltarParaVersoes === "function";
+  const acaoDoCabecalho = isPreview || voltar ? (
+    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      {isPreview && <ToneBadge tone="brand" data-testid="preview-badge">{PREVIEW_LABEL}</ToneBadge>}
+      {voltar && (
+        <PrimeButton variante="ghost" className="min-h-11 w-full sm:w-auto" onClick={onVoltarParaVersoes}>
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          {ADMIN_VERSOES_NAV.voltarParaCentral}
+        </PrimeButton>
+      )}
+    </div>
+  ) : null;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8">
+    <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8" data-module="versoes-atualizacoes">
       <PageHeader
         icone={<Wrench className="h-5 w-5" aria-hidden="true" />}
         titulo="Manutenção"
         descricao="Acompanhe as etapas, proteções e o progresso das atualizações do sistema."
         indicadores={indicadoresDoCabecalho(viewModel)}
-        acao={isPreview ? <ToneBadge tone="brand" data-testid="preview-badge">{PREVIEW_LABEL}</ToneBadge> : null}
+        acao={acaoDoCabecalho}
       />
 
       <AdminTabs

@@ -21,6 +21,7 @@ import {
   PHASE_STEP_STATE,
   PLAN_STATUS,
   PREVIEW_STATIC_LABEL,
+  RECOVERY_DERIVED_NOTE,
   RECOVERY_REQUIRED_TEXT,
   SAFETY_FLOW,
   TIMELINE_STATUS,
@@ -35,6 +36,7 @@ import {
   resolveExecutionLock,
   resolveExecutionStatus,
   resolveExecutor,
+  resolveLegacyPhase,
   resolveLoginGate,
   resolveMigrationRun,
   resolveObservation,
@@ -100,7 +102,11 @@ export function buildCapabilitiesViewModel(snapshot) {
 
 // ── Fases (stepper) ──────────────────────────────────────────
 export function buildPhaseStepperViewModel(snapshot) {
-  const phaseStepId = resolvePhaseStepId(snapshot?.maintenance?.phase);
+  const rawPhase = snapshot?.maintenance?.phase;
+  const phaseStepId = resolvePhaseStepId(rawPhase);
+  // Fase que existe no banco mas fora da sequência DB_MIGRATION (ex.: RELEASING,
+  // do fluxo legado APP_RELEASE): nenhuma etapa do stepper é marcada como atual.
+  const legacyPhase = phaseStepId === null ? resolveLegacyPhase(rawPhase) : null;
   const executionKey = resolveExecutionStatus(snapshot?.execution?.status);
 
   // NORMAL + execução concluída = normalização final (a 9ª etapa).
@@ -130,10 +136,13 @@ export function buildPhaseStepperViewModel(snapshot) {
   return {
     steps,
     total: steps.length,
+    // Nome técnico ORIGINAL informado pelo backend — nunca reescrito pela UI.
+    technicalPhase: text(rawPhase),
     currentId: currentIndex >= 0 ? currentId : null,
     currentIndex,
-    currentLabel: currentIndex >= 0 ? steps[currentIndex].label : "Não reconhecida",
-    hasUnknownPhase: currentIndex < 0,
+    currentLabel: currentIndex >= 0 ? steps[currentIndex].label : legacyPhase ? legacyPhase.label : "Não reconhecida",
+    legacyPhase,
+    hasUnknownPhase: currentIndex < 0 && !legacyPhase,
     completedCount: steps.filter((s) => s.state.key === "done").length,
   };
 }
@@ -142,6 +151,9 @@ export function buildPhaseStepperViewModel(snapshot) {
 function heroState(stepper, executionKey) {
   if (executionKey === "RECOVERY_REQUIRED" || executionKey === "FAILED") {
     return statusOf(EXECUTION_STATUS, executionKey);
+  }
+  if (stepper.legacyPhase) {
+    return { key: stepper.legacyPhase.technicalName, label: stepper.legacyPhase.label, ...HERO_INDICATOR.brand };
   }
   if (stepper.hasUnknownPhase) return { ...statusOf(EXECUTION_STATUS, "UNKNOWN"), label: "Fase não reconhecida" };
   const indicator = HERO_INDICATOR[executionKey === "RUNNING" || executionKey === "QUEUED" ? "brand" : "positive"];
@@ -157,6 +169,7 @@ export function buildHeroViewModel(snapshot, stepper) {
   return {
     state,
     phaseTechnicalName: text(snapshot?.maintenance?.phase),
+    rawExecutionStatus: executionKey,
     environmentLabel: ENVIRONMENT_LABEL[environment] || text(environment),
     execution: statusOf(EXECUTION_STATUS, executionKey),
     plan: statusOf(PLAN_STATUS, planKey),
@@ -426,7 +439,9 @@ export function buildTimelineViewModel(snapshot) {
       return {
         id: text(e.id, `event-${i}`),
         timestampLabel: dateLabel(e.timestamp, "Sem horário"),
-        phaseLabel: stepId ? PHASE_STEPS.find((s) => s.id === stepId).label : text(e.phase, "—"),
+        phaseLabel: stepId
+          ? PHASE_STEPS.find((s) => s.id === stepId).label
+          : (resolveLegacyPhase(e.phase)?.label || text(e.phase, "—")),
         typeLabel: TIMELINE_TYPE_LABEL[e.type] || text(e.type, "Evento"),
         title: text(e.title, "Evento"),
         description: text(e.description, ""),
@@ -447,17 +462,52 @@ export function buildTimelineViewModel(snapshot) {
 
 // ── Falha × recuperação ──────────────────────────────────────
 /**
+ * Indicador DERIVADO de recuperação (PDB-I3-FE3). Migration AMBIGUOUS ou
+ * execução RECOVERY_REQUIRED ⇒ `requiresRecovery = true` (fail-closed). É uma
+ * conclusão de segurança da interface: o status bruto do executor
+ * (`rawExecutionStatus`) e o estado bruto de cada migration (`state.key`) NÃO
+ * são sobrescritos nem fabricados — nada aqui finge uma mutação de backend.
+ */
+export function buildRecoveryViewModel(snapshot, migrations) {
+  const rawExecutionStatus = resolveExecutionStatus(snapshot?.execution?.status);
+  const fromExecution = rawExecutionStatus === "RECOVERY_REQUIRED";
+  const fromMigration = migrations.hasAmbiguous;
+  return {
+    requiresRecovery: fromExecution || fromMigration,
+    rawExecutionStatus,
+    // Derivada quando NÃO foi o próprio executor quem reportou a recuperação.
+    isDerived: fromMigration && !fromExecution,
+    reasons: [
+      ...(fromExecution ? ["EXECUTION_STATUS"] : []),
+      ...(fromMigration ? ["MIGRATION_AMBIGUOUS"] : []),
+    ],
+  };
+}
+
+/**
  * FAILED = falha conhecida. RECOVERY_REQUIRED = estado possivelmente mutado /
- * ambíguo que exige análise. Uma migration AMBIGUOUS força RECOVERY_REQUIRED
- * (fail-closed) mesmo que o executor ainda não tenha reportado.
+ * ambíguo que exige análise. Uma migration AMBIGUOUS deriva recuperação
+ * (fail-closed) mesmo que o executor ainda não tenha reportado — sem alterar o
+ * status bruto do executor (ver buildRecoveryViewModel).
  */
 export function buildFailureViewModel(snapshot, migrations) {
   const key = resolveExecutionStatus(snapshot?.execution?.status);
-  if (key === "RECOVERY_REQUIRED" || migrations.hasAmbiguous) {
-    return { kind: "RECOVERY_REQUIRED", isRecovery: true, isFailed: false, message: RECOVERY_REQUIRED_TEXT, ...FAILURE_VIEW.RECOVERY_REQUIRED };
+  const recovery = buildRecoveryViewModel(snapshot, migrations);
+  if (recovery.requiresRecovery) {
+    return {
+      kind: "RECOVERY_REQUIRED",
+      isRecovery: true,
+      isFailed: false,
+      isDerived: recovery.isDerived,
+      rawExecutionStatus: recovery.rawExecutionStatus,
+      rawExecutionStatusLabel: EXECUTION_STATUS[recovery.rawExecutionStatus].label,
+      derivedNote: recovery.isDerived ? RECOVERY_DERIVED_NOTE : null,
+      message: RECOVERY_REQUIRED_TEXT,
+      ...FAILURE_VIEW.RECOVERY_REQUIRED,
+    };
   }
   if (key === "FAILED") {
-    return { kind: "FAILED", isRecovery: false, isFailed: true, message: FAILED_TEXT, ...FAILURE_VIEW.FAILED };
+    return { kind: "FAILED", isRecovery: false, isFailed: true, isDerived: false, rawExecutionStatus: key, message: FAILED_TEXT, ...FAILURE_VIEW.FAILED };
   }
   return null;
 }
@@ -546,6 +596,7 @@ export function buildMaintenancePageViewModel(snapshot) {
     migrations,
     timeline: buildTimelineViewModel(data),
     failure: buildFailureViewModel(data, migrations),
+    recovery: buildRecoveryViewModel(data, migrations),
     capabilities: buildCapabilitiesViewModel(data),
     userExperience: USER_EXPERIENCE,
   };

@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { CalendarClock, Eye, ListChecks, Play } from "lucide-react";
+import { CalendarClock, ClipboardCheck, Eye, ListChecks, Play } from "lucide-react";
 import { PrimeButton } from "../../../components/Prime";
 import ReleaseDrawer from "./ReleaseDrawer.jsx";
 import { ReadinessItem } from "./ReadinessPanel.jsx";
 import { PlanFields } from "./ReleasePlanCard.jsx";
 import { StatusBadge, ToneBadge } from "./StatusBadge.jsx";
 import SafetySummary from "./SafetySummary.jsx";
+import ExecutionReviewModal from "../versoes/ExecutionReviewModal.jsx";
+import ScheduleModal from "../versoes/ScheduleModal.jsx";
 
 function PendingDrawer({ readiness, onFechar }) {
   const bloqueadores = readiness.blockers;
@@ -94,23 +96,35 @@ function PlanDrawer({ plan, migrations, flow, safety, onFechar }) {
 
 /**
  * Área de ações. A autoridade vem SEMPRE de `capabilities` (fail-closed):
- * Executar/Agendar só habilitam com capability `true` E um handler explícito
- * (`onExecute`/`onSchedule`). A tela desta etapa não passa handler algum, então
- * ambos permanecem indisponíveis mesmo que uma capability venha `true`.
+ * Executar só habilita com capability `true` E um handler explícito
+ * (`onExecute`). A tela desta etapa não passa handler algum, então permanece
+ * indisponível mesmo que a capability venha `true`.
+ *
+ * PDB-I3-FE3 — duas ações NÃO mutáveis abrem prévias locais (só leitura):
+ *  • "Revisar execução"    → ExecutionReviewModal (o que aconteceria ao executar);
+ *  • "Agendar atualização" → ScheduleModal (formulário de prévia; nada é enviado).
+ * Ambas dependem de `canViewPlan` e das props `executionReview`/`scheduleForm`
+ * (view-models). Sem `scheduleForm`, "Agendar" mantém o comportamento anterior:
+ * só habilita com capability + `onSchedule`.
  */
 export default function ReleaseActions({
   capabilities, readiness, plan, migrations, flow, safety, onExecute = null, onSchedule = null,
+  executionReview = null, scheduleForm = null,
 }) {
-  const [drawer, setDrawer] = useState(null); // null | "plan" | "pending"
+  const [drawer, setDrawer] = useState(null); // null | "plan" | "pending" | "review" | "schedule"
   const fechar = () => setDrawer(null);
 
   const podeExecutar = capabilities.canExecute && typeof onExecute === "function";
-  const podeAgendar = capabilities.canSchedule && typeof onSchedule === "function";
+  const previaDeAgenda = scheduleForm !== null;
+  const podeAgendar = previaDeAgenda
+    ? capabilities.canViewPlan
+    : capabilities.canSchedule && typeof onSchedule === "function";
+  const podeRevisar = executionReview !== null && capabilities.canViewPlan;
   const ajudaId = "acoes-ajuda";
 
   return (
     <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4 sm:p-5" aria-label="Ações da atualização">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-4">
         <div className="min-w-0">
           <h2 className="text-[15px] font-bold text-[#012E46]">Ações</h2>
           <p className="mt-0.5 text-[13px] leading-5 text-[#6B7280]">
@@ -119,7 +133,7 @@ export default function ReleaseActions({
               : "Todas as validações foram verificadas."}
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:justify-end">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex md:flex-wrap">
           <PrimeButton variante="ghost" className="min-h-11" disabled={!capabilities.canViewPlan} onClick={() => setDrawer("plan")}>
             <Eye className="h-4 w-4" aria-hidden="true" />
             Ver plano
@@ -127,6 +141,22 @@ export default function ReleaseActions({
           <PrimeButton variante="ghost" className="min-h-11" disabled={!capabilities.canViewReadiness} onClick={() => setDrawer("pending")}>
             <ListChecks className="h-4 w-4" aria-hidden="true" />
             Ver pendências
+          </PrimeButton>
+          {executionReview !== null && (
+            <PrimeButton variante="ghost" className="min-h-11" disabled={!podeRevisar} onClick={() => setDrawer("review")}>
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
+              Revisar execução
+            </PrimeButton>
+          )}
+          <PrimeButton
+            variante="ghost"
+            className="min-h-11"
+            disabled={!podeAgendar}
+            aria-describedby={podeAgendar ? undefined : ajudaId}
+            onClick={podeAgendar ? (previaDeAgenda ? () => setDrawer("schedule") : onSchedule) : undefined}
+          >
+            <CalendarClock className="h-4 w-4" aria-hidden="true" />
+            Agendar atualização
           </PrimeButton>
           <PrimeButton
             className="min-h-11"
@@ -137,16 +167,6 @@ export default function ReleaseActions({
             <Play className="h-4 w-4" aria-hidden="true" />
             Executar atualização
           </PrimeButton>
-          <PrimeButton
-            variante="ghost"
-            className="min-h-11"
-            disabled={!podeAgendar}
-            aria-describedby={podeAgendar ? undefined : ajudaId}
-            onClick={podeAgendar ? onSchedule : undefined}
-          >
-            <CalendarClock className="h-4 w-4" aria-hidden="true" />
-            Agendar atualização
-          </PrimeButton>
         </div>
       </div>
       {(!podeExecutar || !podeAgendar) && (
@@ -154,6 +174,8 @@ export default function ReleaseActions({
       )}
 
       {drawer === "pending" && <PendingDrawer readiness={readiness} onFechar={fechar} />}
+      {drawer === "review" && executionReview && <ExecutionReviewModal review={executionReview} onFechar={fechar} />}
+      {drawer === "schedule" && scheduleForm && <ScheduleModal form={scheduleForm} onFechar={fechar} />}
       {drawer === "plan" && <PlanDrawer plan={plan} migrations={migrations} flow={flow} safety={safety} onFechar={fechar} />}
     </section>
   );

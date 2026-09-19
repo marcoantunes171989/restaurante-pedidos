@@ -79,6 +79,7 @@ import {
   ACESSO_COZINHA, ADMIN_COZINHA_NAV, aoAcionarCozinhaAdmin, decidirAcessoCozinhaAdmin,
   filtrarBuscaTelas, montarContextoPlanoCozinha, montarSecoesBuscaAdmin, resolverRotaAdminCozinha,
 } from "./lib/adminCozinhaNav";
+import { ADMIN_VERSOES_NAV } from "./lib/adminVersionsNav";
 import {
   aplicarEscritaHistorico,
   classificarPathname,
@@ -7549,8 +7550,13 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "central-fiscal", icon: <Landmark className="h-4 w-4" />, label: "Central Fiscal" },
         { id: "licencas", icon: <IconLicencas />, label: "Licenças de Uso" },
         { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
-        { id: "ambientes", icon: <Rocket className="h-4 w-4" />, label: "Ambientes & Releases" },
-        { id: "manutencao", icon: <Wrench className="h-4 w-4" />, label: "Manutenção" },
+      ]},
+      // Versões & Atualizações (PDB-I3-FE3): um grupo com as duas telas do módulo
+      // — mesmos ids/rotas (/admin/ambientes, /admin/manutencao) e mesma regra de
+      // acesso (só superAdmin) de antes; só o agrupamento mudou.
+      { grupo: ADMIN_VERSOES_NAV.grupo, itens: [
+        { id: ADMIN_VERSOES_NAV.central.id, icon: <Rocket className="h-4 w-4" />, label: ADMIN_VERSOES_NAV.central.label },
+        { id: ADMIN_VERSOES_NAV.manutencao.id, icon: <Wrench className="h-4 w-4" />, label: ADMIN_VERSOES_NAV.manutencao.label },
       ]},
     ] : []),
   ];
@@ -7740,7 +7746,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "versoes"    && <VersoesAdmin lojas={lojas} lojaFiltro={isSuperAdmin ? null : (lojaInfo?.id ?? null)} />}
           {ativo === "ambientes"  && (
             isSuperAdmin
-              ? <AmbientesAdmin />
+              ? <AmbientesAdmin onAcompanharManutencao={() => setAdminSection(ADMIN_VERSOES_NAV.manutencao.id)} />
               : (
                 <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
                   <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>
@@ -7752,7 +7758,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           )}
           {ativo === "manutencao" && (
             isSuperAdmin
-              ? <MaintenanceAdmin />
+              ? <MaintenanceAdmin onVoltarParaVersoes={() => setAdminSection(ADMIN_VERSOES_NAV.central.id)} />
               : (
                 <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
                   <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>

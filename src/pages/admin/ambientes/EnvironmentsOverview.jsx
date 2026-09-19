@@ -10,7 +10,7 @@ import { EnvironmentsError, EnvironmentsSkeleton } from "./PageStates.jsx";
 
 // Visão geral (Homologação × Produção). Puramente apresentacional: recebe o
 // view-model pronto e nunca conhece a origem dos dados (fixture ou live).
-export default function EnvironmentsOverview({ viewModel, onRetry = null }) {
+export default function EnvironmentsOverview({ viewModel, onRetry = null, executionReview = null, scheduleForm = null }) {
   if (viewModel.state === "loading") return <EnvironmentsSkeleton />;
   if (viewModel.state === "error") return <EnvironmentsError message={viewModel.errorMessage} onRetry={onRetry} />;
 
@@ -39,6 +39,8 @@ export default function EnvironmentsOverview({ viewModel, onRetry = null }) {
         migrations={viewModel.migrations}
         flow={viewModel.flow}
         safety={viewModel.safety}
+        executionReview={executionReview}
+        scheduleForm={scheduleForm}
       />
 
       <ReleaseFlow flow={viewModel.flow} />
