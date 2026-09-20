@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { Activity, ArrowLeft, SlidersHorizontal, Wrench } from "lucide-react";
 import { PageHeader, PrimeButton } from "../../components/Prime";
 import { ADMIN_VERSOES_NAV } from "../../lib/adminVersionsNav.js";
 import AdminTabs from "./AdminTabs.jsx";
 import { ToneBadge } from "./ambientes/StatusBadge.jsx";
+import AdminHelp from "./documentacao/AdminHelp.jsx";
+import { HELP_CONTEXT_SECTIONS, HELP_DOCS } from "./documentacao/helpContent.js";
+import { resolveContextSection } from "./documentacao/helpUtils.js";
 import LegacyMaintenancePanel from "./manutencao/LegacyMaintenancePanel.jsx";
 import MaintenanceOverview from "./manutencao/MaintenanceOverview.jsx";
 import { LEGACY_MAINTENANCE_CAPABILITIES } from "./manutencao/legacyMaintenanceCapabilities.js";
@@ -49,20 +53,25 @@ export default function MaintenanceAdmin({
   legacyCapabilities = LEGACY_MAINTENANCE_CAPABILITIES,
 }) {
   const { viewModel, retry } = useMaintenanceSnapshot(dataSource);
+  // Aba ativa: só para a ajuda contextual abrir no tópico da aba (PDB-I3-DOC1).
+  const [abaAtiva, setAbaAtiva] = useState(ABAS[0].id);
   const isPreview = viewModel.state === "ready" && viewModel.source.isPreview;
-  // Atalho de volta à central (somente navegação) + selo de prévia.
+  // Ajuda contextual + selo de prévia + atalho de volta à central (só navegação).
   const voltar = typeof onVoltarParaVersoes === "function";
-  const acaoDoCabecalho = isPreview || voltar ? (
+  const acaoDoCabecalho = (
     <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
       {isPreview && <ToneBadge tone="brand" data-testid="preview-badge">{PREVIEW_LABEL}</ToneBadge>}
-      {voltar && (
-        <PrimeButton variante="ghost" className="min-h-11 w-full sm:w-auto" onClick={onVoltarParaVersoes}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {ADMIN_VERSOES_NAV.voltarParaCentral}
-        </PrimeButton>
-      )}
+      <div className="flex items-stretch gap-2">
+        <AdminHelp doc={HELP_DOCS.manutencao} secaoContextual={resolveContextSection(HELP_DOCS.manutencao, HELP_CONTEXT_SECTIONS.manutencao, abaAtiva)} />
+        {voltar && (
+          <PrimeButton variante="ghost" className="min-h-11 min-w-0 flex-1 sm:flex-none" onClick={onVoltarParaVersoes}>
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            {ADMIN_VERSOES_NAV.voltarParaCentral}
+          </PrimeButton>
+        )}
+      </div>
     </div>
-  ) : null;
+  );
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-1 pb-8" data-module="versoes-atualizacoes">
@@ -77,6 +86,7 @@ export default function MaintenanceAdmin({
       <AdminTabs
         tabs={ABAS}
         ariaLabel="Seções de Manutenção"
+        onTabChange={setAbaAtiva}
         renderPanel={(aba) => (aba === "visao-operacional"
           ? <MaintenanceOverview viewModel={viewModel} onRetry={retry} />
           : <LegacyMaintenancePanel capabilities={legacyCapabilities} />)}

@@ -7,10 +7,16 @@ import { useId, useRef, useState } from "react";
 // nada enquanto o usuário está na visão nova.
 //
 //   tabs: [{ id, label, Icone }]
-export default function AdminTabs({ tabs, ariaLabel, renderPanel }) {
-  const [ativa, setAtiva] = useState(tabs[0].id);
+//   onTabChange(id): opcional — avisa a página quando a aba muda (ajuda contextual).
+export default function AdminTabs({ tabs, ariaLabel, renderPanel, onTabChange = null }) {
+  const [ativa, setAtivaInterno] = useState(tabs[0].id);
   const baseId = useId();
   const abaRefs = useRef({});
+
+  const setAtiva = (id) => {
+    setAtivaInterno(id);
+    if (typeof onTabChange === "function") onTabChange(id);
+  };
 
   const idAba = (id) => `${baseId}-aba-${id}`;
   const idPainel = (id) => `${baseId}-painel-${id}`;

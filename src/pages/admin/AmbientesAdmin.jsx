@@ -1,10 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { History, Layers, Rocket, Tags, Wrench } from "lucide-react";
 import { PageHeader, PrimeButton } from "../../components/Prime";
 import { ADMIN_VERSOES_NAV } from "../../lib/adminVersionsNav.js";
 import AdminTabs from "./AdminTabs.jsx";
 import EnvironmentsOverview from "./ambientes/EnvironmentsOverview.jsx";
 import LiveVersionsPanel from "./ambientes/LiveVersionsPanel.jsx";
+import AdminHelp from "./documentacao/AdminHelp.jsx";
+import { HELP_CONTEXT_SECTIONS, HELP_DOCS } from "./documentacao/helpContent.js";
+import { resolveContextSection } from "./documentacao/helpUtils.js";
 import { defaultReleaseDataSource } from "./ambientes/releaseDataSource.js";
 import { useReleaseEnvironments } from "./ambientes/useReleaseEnvironments.js";
 import { defaultMaintenanceDataSource } from "./manutencao/maintenanceDataSource.js";
@@ -66,6 +69,8 @@ export default function AmbientesAdmin({
   onAcompanharManutencao = null,
 }) {
   const { viewModel, retry } = useReleaseEnvironments(dataSource);
+  // Aba ativa: só para a ajuda contextual abrir no tópico da aba (PDB-I3-DOC1).
+  const [abaAtiva, setAbaAtiva] = useState(ABAS[0].id);
   const { viewModel: versions, retry: retryVersions } = useVersionsPage(versionDataSource);
   const { viewModel: maintenance } = useMaintenanceSnapshot(maintenanceDataSource);
 
@@ -98,15 +103,20 @@ export default function AmbientesAdmin({
         titulo={ADMIN_VERSOES_NAV.modulo}
         descricao={ADMIN_VERSOES_NAV.descricao}
         indicadores={indicadoresDoCabecalho(viewModel)}
-        acao={typeof onAcompanharManutencao === "function" ? (
-          <PrimeButton variante="ghost" className="min-h-11 w-full sm:w-auto" onClick={onAcompanharManutencao}>
-            <Wrench className="h-4 w-4" aria-hidden="true" />
-            {ADMIN_VERSOES_NAV.acompanharManutencao}
-          </PrimeButton>
-        ) : null}
+        acao={(
+          <div className="flex items-stretch gap-2">
+            <AdminHelp doc={HELP_DOCS.versoes} secaoContextual={resolveContextSection(HELP_DOCS.versoes, HELP_CONTEXT_SECTIONS.versoes, abaAtiva)} />
+            {typeof onAcompanharManutencao === "function" && (
+              <PrimeButton variante="ghost" className="min-h-11 min-w-0 flex-1 sm:flex-none" onClick={onAcompanharManutencao}>
+                <Wrench className="h-4 w-4" aria-hidden="true" />
+                {ADMIN_VERSOES_NAV.acompanharManutencao}
+              </PrimeButton>
+            )}
+          </div>
+        )}
       />
 
-      <AdminTabs tabs={ABAS} ariaLabel={`Seções de ${ADMIN_VERSOES_NAV.modulo}`} renderPanel={renderPanel} />
+      <AdminTabs tabs={ABAS} ariaLabel={`Seções de ${ADMIN_VERSOES_NAV.modulo}`} renderPanel={renderPanel} onTabChange={setAbaAtiva} />
     </div>
   );
 }
