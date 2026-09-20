@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   RefreshCw, AlertTriangle, CheckCircle2, Circle, Clock, ShieldCheck,
-  GitCommit, Timer, Megaphone, PlayCircle,
+  GitCommit, Timer, Megaphone, PlayCircle, Lock,
 } from "lucide-react";
 import { PrimeButton } from "../../../components/Prime";
 import { supabase } from "../../../lib/supabase.js";
+import {
+  LEGACY_MAINTENANCE_CAPABILITIES,
+  LEGACY_MAINTENANCE_LOCK_NOTICE,
+  resolveLegacyMaintenanceCapabilities,
+} from "./legacyMaintenanceCapabilities.js";
 
 // ════════════════════════════════════════════════════════════
 //  Manutenção — controle atual (B15-A2)
@@ -19,6 +24,12 @@ import { supabase } from "../../../lib/supabase.js";
 //  AmbientesAdmin.jsx) — esta tela nunca deixa o operador digitar
 //  release_id/target_sha manualmente. Refresh é manual + pós-action
 //  (sem WebSocket/realtime, sem polling automático nesta tela).
+//
+//  PDB-I3-HML-PREVIEW-A2: as mutations (START e NOTICE) só executam com a
+//  capability `canMutateLegacyMaintenance === true` (legacyMaintenanceCapabilities.js,
+//  fonte única, padrão false durante a prévia). Com ela false os botões ficam
+//  desabilitados E os executores retornam antes de qualquer estado/rede — o código
+//  de mutation segue intacto. Leitura (Atualizar, estado, fases) não é afetada.
 // ════════════════════════════════════════════════════════════
 
 const PHASES = [
@@ -229,7 +240,10 @@ function PhaseChip({ phase, atual }) {
   );
 }
 
-export default function LegacyMaintenancePanel() {
+export default function LegacyMaintenancePanel({ capabilities = LEGACY_MAINTENANCE_CAPABILITIES }) {
+  // Fonte única do bloqueio de escrita (fail-closed): só `=== true` libera.
+  const { canMutateLegacyMaintenance: podeMutar } = resolveLegacyMaintenanceCapabilities(capabilities);
+  const avisoBloqueioId = useId();
   const [sessaoStatus, setSessaoStatus] = useState("checking"); // checking | ok | indisponivel
   const [adminState, setAdminState] = useState(() => estadoInicialResource());
   const [releaseState, setReleaseState] = useState(() => estadoInicialResource());
@@ -348,6 +362,7 @@ export default function LegacyMaintenancePanel() {
   const [startState, setStartState] = useState({ status: "idle", errorCode: null, httpStatus: null });
 
   async function executarStart(releaseId) {
+    if (!podeMutar) return; // guarda contra "handler escape": sem estado, sem token, sem rede
     setStartState({ status: "submitting", errorCode: null, httpStatus: null });
     const token = await obterToken();
     if (!token) {
@@ -389,6 +404,7 @@ export default function LegacyMaintenancePanel() {
   const [noticeState, setNoticeState] = useState({ status: "idle", errorCode: null, httpStatus: null });
 
   async function executarNotice(expectedVersion) {
+    if (!podeMutar) return; // guarda contra "handler escape": sem estado, sem token, sem rede
     setNoticeState({ status: "submitting", errorCode: null, httpStatus: null });
     const token = await obterToken();
     if (!token) {
@@ -471,7 +487,8 @@ export default function LegacyMaintenancePanel() {
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-[#012E46]">Controle ao vivo</p>
           <p className="text-[12px] leading-5 text-[#6B7280]">
-            Orquestração do Maintenance Write Fence — início de ciclo e aviso público. Esta aba consulta e pode alterar o estado real da manutenção.
+            Orquestração do Maintenance Write Fence — início de ciclo e aviso público.{" "}
+            {podeMutar ? "Esta aba consulta e pode alterar o estado real da manutenção." : "Nesta prévia a aba apenas consulta o estado real da manutenção."}
           </p>
           <p className="mt-1 text-xs font-semibold text-[#6B7280]"><b className="font-bold text-[#111111]">●</b> {textoAtualizacao}</p>
         </div>
@@ -480,6 +497,18 @@ export default function LegacyMaintenancePanel() {
           {refreshing ? "Atualizando…" : "Atualizar"}
         </PrimeButton>
       </div>
+
+      {!podeMutar && (
+        <p
+          id={avisoBloqueioId}
+          role="note"
+          data-testid="legacy-lock-notice"
+          className="flex items-start gap-2.5 rounded-xl border border-l-4 border-[#AFC2CC] border-l-[#F38525] bg-[#F0F6F8] px-3.5 py-2.5 text-[13px] leading-5 text-[#012E46]"
+        >
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">{LEGACY_MAINTENANCE_LOCK_NOTICE}</span>
+        </p>
+      )}
 
       {pageStatus === "AUTH_ERROR" && (
         <div className="rounded-2xl border border-[#F3C1CE] bg-[#FDF0F3] px-4 py-2.5 text-[12px] font-semibold text-[#9F1239]" role="alert">
@@ -561,7 +590,12 @@ export default function LegacyMaintenancePanel() {
               </dl>
 
               {!startAberto ? (
-                <PrimeButton className="min-h-11 w-full sm:w-auto" onClick={() => setStartAberto(true)}>
+                <PrimeButton
+                  className="min-h-11 w-full sm:w-auto"
+                  onClick={() => setStartAberto(true)}
+                  disabled={!podeMutar}
+                  aria-describedby={podeMutar ? undefined : avisoBloqueioId}
+                >
                   <PlayCircle className="h-4 w-4" aria-hidden="true" />
                   Iniciar orquestração
                 </PrimeButton>
@@ -588,7 +622,8 @@ export default function LegacyMaintenancePanel() {
                     <PrimeButton
                       className="min-h-11 w-full sm:w-auto"
                       onClick={() => executarStart(activeRelease.releaseId)}
-                      disabled={startState.status === "submitting"}
+                      disabled={!podeMutar || startState.status === "submitting"}
+                      aria-describedby={podeMutar ? undefined : avisoBloqueioId}
                       aria-busy={startState.status === "submitting"}
                     >
                       {startState.status === "submitting" ? "Iniciando…" : "Confirmar início"}
@@ -613,7 +648,12 @@ export default function LegacyMaintenancePanel() {
       {podeNotice && (
         <Secao icone={<Megaphone className="h-4 w-4" aria-hidden="true" />} titulo="Iniciar aviso de manutenção" descricao="Publica a mensagem no banner público e inicia a fase NOTICE.">
           {!noticeAberto ? (
-            <PrimeButton className="min-h-11 w-full sm:w-auto" onClick={() => setNoticeAberto(true)}>
+            <PrimeButton
+              className="min-h-11 w-full sm:w-auto"
+              onClick={() => setNoticeAberto(true)}
+              disabled={!podeMutar}
+              aria-describedby={podeMutar ? undefined : avisoBloqueioId}
+            >
               <Megaphone className="h-4 w-4" aria-hidden="true" />
               Iniciar aviso de manutenção
             </PrimeButton>
@@ -671,7 +711,8 @@ export default function LegacyMaintenancePanel() {
                 <PrimeButton
                   className="min-h-11 w-full sm:w-auto"
                   onClick={() => executarNotice(state?.version)}
-                  disabled={noticeState.status === "submitting" || noticeConfirmacao !== "NOTICE" || !noticeMensagem.trim()}
+                  disabled={!podeMutar || noticeState.status === "submitting" || noticeConfirmacao !== "NOTICE" || !noticeMensagem.trim()}
+                  aria-describedby={podeMutar ? undefined : avisoBloqueioId}
                   aria-busy={noticeState.status === "submitting"}
                 >
                   {noticeState.status === "submitting" ? "Enviando…" : "Confirmar aviso"}

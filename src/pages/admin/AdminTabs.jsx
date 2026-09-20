@@ -49,8 +49,13 @@ export default function AdminTabs({ tabs, ariaLabel, renderPanel }) {
               aria-controls={idPainel(id)}
               tabIndex={selecionada ? 0 : -1}
               onClick={() => setAtiva(id)}
-              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46] ${
-                selecionada ? "bg-[#012E46] text-white" : "text-[#012E46] hover:bg-[#F0F6F8]"
+              // Aba ativa: petróleo + marcador laranja da marca (pseudo-elemento decorativo;
+              // `after:bg-[…]` não casa com a regra global admin-acao-petroleo, que só remapeia
+              // preenchimentos de AÇÃO — o marcador não é um botão).
+              className={`relative inline-flex min-h-11 items-center gap-2 rounded-lg px-4 text-[13px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#012E46] ${
+                selecionada
+                  ? "bg-[#012E46] text-white after:absolute after:inset-x-3 after:bottom-1 after:h-[3px] after:rounded-full after:bg-[#F38525] after:content-['']"
+                  : "text-[#012E46] hover:bg-[#F0F6F8]"
               }`}
             >
               <Icone className="h-4 w-4" aria-hidden="true" />

@@ -146,7 +146,10 @@ async function renderTela() {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => { root.render(<MaintenanceAdmin />); });
+  // PDB-I3-HML-PREVIEW-A2: estes testes cobrem o CONTRATO LEGADO de START/NOTICE,
+  // então liberam a capability de escrita explicitamente (o padrão da prévia é
+  // bloqueado — ver MaintenanceLegacyGuard.test.jsx).
+  await act(async () => { root.render(<MaintenanceAdmin legacyCapabilities={{ canMutateLegacyMaintenance: true }} />); });
   // PDB-I3-FE2: a aba padrão é a Visão operacional (prévia, sem rede). O painel
   // ao vivo que estes testes cobrem vive na aba "Controle atual" e só consulta
   // a rede ao abrir.

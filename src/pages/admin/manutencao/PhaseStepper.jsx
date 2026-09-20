@@ -64,7 +64,7 @@ export default function PhaseStepper({ stepper }) {
                 }`}
               >
                 <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-white ${TONES[step.state.tone]} ${step.isCurrent ? "ring-4 ring-[#012E46]/10" : ""}`}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-white ${TONES[step.state.tone]} ${step.isCurrent ? "ring-4 ring-[#F38525]/30" : ""}`}
                   aria-hidden="true"
                 >
                   <Icon className="h-4 w-4" />

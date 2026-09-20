@@ -5,6 +5,7 @@ import AdminTabs from "./AdminTabs.jsx";
 import { ToneBadge } from "./ambientes/StatusBadge.jsx";
 import LegacyMaintenancePanel from "./manutencao/LegacyMaintenancePanel.jsx";
 import MaintenanceOverview from "./manutencao/MaintenanceOverview.jsx";
+import { LEGACY_MAINTENANCE_CAPABILITIES } from "./manutencao/legacyMaintenanceCapabilities.js";
 import { defaultMaintenanceDataSource } from "./manutencao/maintenanceDataSource.js";
 import { PREVIEW_LABEL } from "./manutencao/maintenanceStatus.js";
 import { useMaintenanceSnapshot } from "./manutencao/useMaintenanceSnapshot.js";
@@ -22,7 +23,9 @@ import { useMaintenanceSnapshot } from "./manutencao/useMaintenanceSnapshot.js";
 //   • "Controle atual"    — painel ao vivo já existente (B15-A2:
 //                           /api/maintenance e /api/releases), preservado. Só
 //                           monta — e só consulta a rede — quando a aba é aberta
-//                           (AdminTabs renderiza só o painel ativo).
+//                           (AdminTabs renderiza só o painel ativo). Suas mutations
+//                           (start/notice) ficam bloqueadas durante a prévia pela
+//                           capability manutencao/legacyMaintenanceCapabilities.js.
 // ════════════════════════════════════════════════════════════
 
 const ABAS = [
@@ -40,7 +43,11 @@ function indicadoresDoCabecalho(viewModel) {
   ];
 }
 
-export default function MaintenanceAdmin({ dataSource = defaultMaintenanceDataSource, onVoltarParaVersoes = null }) {
+export default function MaintenanceAdmin({
+  dataSource = defaultMaintenanceDataSource,
+  onVoltarParaVersoes = null,
+  legacyCapabilities = LEGACY_MAINTENANCE_CAPABILITIES,
+}) {
   const { viewModel, retry } = useMaintenanceSnapshot(dataSource);
   const isPreview = viewModel.state === "ready" && viewModel.source.isPreview;
   // Atalho de volta à central (somente navegação) + selo de prévia.
@@ -72,7 +79,7 @@ export default function MaintenanceAdmin({ dataSource = defaultMaintenanceDataSo
         ariaLabel="Seções de Manutenção"
         renderPanel={(aba) => (aba === "visao-operacional"
           ? <MaintenanceOverview viewModel={viewModel} onRetry={retry} />
-          : <LegacyMaintenancePanel />)}
+          : <LegacyMaintenancePanel capabilities={legacyCapabilities} />)}
       />
     </div>
   );
