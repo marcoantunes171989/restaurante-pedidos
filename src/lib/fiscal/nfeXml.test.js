@@ -62,7 +62,7 @@ describe("montarXmlNFe — NFC-e (65)", () => {
   const { xml, avisos } = montarXmlNFe(base());
 
   it("raiz, namespace, versão e Id com a chave", () => {
-    expect(xml.startsWith('<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe versao="4.00" Id="NFe' + CHAVE + '">')).toBe(true);
+    expect(xml.startsWith('<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe' + CHAVE + '" versao="4.00">')).toBe(true);
     expect(LEIAUTE.versao).toBe("4.00");
     expect(xml.endsWith("</infNFe></NFe>")).toBe(true);
   });
@@ -153,7 +153,8 @@ describe("montarXmlNFe — variações", () => {
     const b = base();
     b.itens[0] = { ...b.itens[0], xProd: 'Porção "Fritas" & <Molho>' };
     const { xml } = montarXmlNFe(b);
-    expect(xml).toContain("<xProd>Porção &quot;Fritas&quot; &amp; &lt;Molho&gt;</xProd>");
+    // Forma canônica C14N: aspas literais no texto; & < > escapados.
+    expect(xml).toContain('<xProd>Porção "Fritas" &amp; &lt;Molho&gt;</xProd>');
   });
   it("informações complementares e responsável técnico (opcionais)", () => {
     const { xml } = montarXmlNFe(base({ infAdic: { infCpl: "Mesa 7 - Comanda BUR-000001" }, respTec: { CNPJ: "11222333000181", xContato: "Suporte Pedido Prime", email: "suporte@exemplo.com.br", fone: "11999990000" } }));

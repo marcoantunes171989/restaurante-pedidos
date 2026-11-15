@@ -17,8 +17,11 @@ export const LEIAUTE = Object.freeze({
 });
 
 // ── Formatação ─────────────────────────────────────────────
-const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" };
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
+// Escape de TEXTO na forma canônica C14N (REC-xml-c14n-20010315): só & < >.
+// Aspas ficam literais — assim o XML gerado já é o canônico que a assinatura
+// (E4) resume, igual ao que a SEFAZ recalcula.
+const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ESC[c]);
 
 /**
  * Texto no formato TString do leiaute: só caracteres de espaço (0x20) a
@@ -255,6 +258,7 @@ export function montarXmlNFe(d = {}) {
   const respTec = rt ? g("infRespTec", t("CNPJ", rt.CNPJ) + t("xContato", rt.xContato, { texto: true }) + t("email", rt.email, { texto: true }) + t("fone", somenteDig(rt.fone))) : "";
 
   const infNFe = ideXml + emitXml + destXml + detXml + totalXml + "<transp><modFrete>9</modFrete></transp>" + pagCompleto + infAdic + respTec;
-  const xml = `<NFe xmlns="${LEIAUTE.namespace}"><infNFe versao="${LEIAUTE.versao}" Id="NFe${chave}">${infNFe}</infNFe></NFe>`;
+  // Atributos em ordem canônica (C14N ordena por nome: Id antes de versao).
+  const xml = `<NFe xmlns="${LEIAUTE.namespace}"><infNFe Id="NFe${chave}" versao="${LEIAUTE.versao}">${infNFe}</infNFe></NFe>`;
   return { xml, chave, totais: { vProd: tot.vProd, vDesc: tot.vDesc, vOutro: tot.vOutro, vNF, vPag: vPagTot, vTroco: troco }, avisos };
 }
