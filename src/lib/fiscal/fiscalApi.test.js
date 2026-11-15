@@ -2,8 +2,41 @@ import { describe, it, expect, vi } from "vitest";
 import {
   mensagemErroFiscal, buscarEmitenteFiscal, buscarConfigFiscalVenda, salvarConfigFiscalVenda,
   configVendaParaSelo, listarSeriesFiscais, salvarSerieFiscal, reservarDocumentoFiscal,
-  descartarDocumentoFiscal, resumoCredenciaisFiscais,
+  descartarDocumentoFiscal, resumoCredenciaisFiscais, enviarCredencialFiscal, arquivoParaBase64,
 } from "./fiscalApi.js";
+
+describe("enviarCredencialFiscal (API do servidor)", () => {
+  const supa = (token = "tok-usuario") => ({ auth: { getSession: vi.fn().mockResolvedValue({ data: { session: token ? { access_token: token } : null } }) } });
+  it("envia com o login do usuário e devolve a resposta do servidor", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, titular: "X", diasRestantes: 300 }) });
+    const r = await enviarCredencialFiscal(supa(), { acao: "certificado", lojaId: 7, pfxBase64: "QUJD", senha: "s" }, { fetchFn });
+    expect(r).toMatchObject({ ok: true, titular: "X" });
+    const [url, init] = fetchFn.mock.calls[0];
+    expect(url).toBe("/api/fiscal-credencial");
+    expect(init.headers.authorization).toBe("Bearer tok-usuario");
+    expect(JSON.parse(init.body)).toMatchObject({ acao: "certificado", lojaId: 7 });
+  });
+  it("sem login → erro sem chamar o servidor", async () => {
+    const fetchFn = vi.fn();
+    await expect(enviarCredencialFiscal(supa(null), { acao: "csc" }, { fetchFn })).rejects.toThrow(/login/i);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+  it("recusa do servidor vira erro com a mensagem dele", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ ok: false, code: "CNPJ_DIVERGENTE", erro: "O certificado é de outra empresa." }) });
+    await expect(enviarCredencialFiscal(supa(), { acao: "certificado" }, { fetchFn })).rejects.toMatchObject({ code: "CNPJ_DIVERGENTE", message: "O certificado é de outra empresa." });
+  });
+  it("falha de rede → mensagem simples", async () => {
+    const fetchFn = vi.fn().mockRejectedValue(new Error("offline"));
+    await expect(enviarCredencialFiscal(supa(), { acao: "csc" }, { fetchFn })).rejects.toThrow(/conexão/i);
+  });
+});
+
+describe("arquivoParaBase64", () => {
+  it("converte o conteúdo do arquivo para base64 sem o prefixo data:", async () => {
+    const arquivo = new Blob([new Uint8Array([65, 66, 67])]);
+    expect(await arquivoParaBase64(arquivo)).toBe("QUJD");
+  });
+});
 
 const ok = (data) => vi.fn().mockResolvedValue({ data, error: null });
 

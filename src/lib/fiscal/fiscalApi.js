@@ -120,6 +120,40 @@ export async function descartarDocumentoFiscal(supabase, documentoId, motivo) {
   return true;
 }
 
+/**
+ * Envia certificado A1 / CSC para a API do servidor (/api/fiscal-credencial).
+ * O segredo vai direto ao servidor pelo HTTPS; a resposta traz só metadados.
+ */
+export async function enviarCredencialFiscal(supabase, corpo, { fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
+  const { data } = (await supabase?.auth?.getSession?.()) || {};
+  const token = data?.session?.access_token;
+  if (!token) throw Object.assign(new Error("Faça login novamente para continuar."), { code: "SEM_LOGIN" });
+  let resp;
+  try {
+    resp = await fetchFn("/api/fiscal-credencial", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify(corpo || {}),
+    });
+  } catch {
+    throw Object.assign(new Error("Sem conexão com o servidor. Tente novamente."), { code: "REDE" });
+  }
+  let r;
+  try { r = await resp.json(); } catch { r = null; }
+  if (!resp.ok || !r?.ok) {
+    throw Object.assign(new Error(r?.erro || "Não foi possível concluir. Tente novamente."), { code: r?.code || `HTTP_${resp.status}` });
+  }
+  return r;
+}
+
+/** Conteúdo de um arquivo (File/Blob) em base64, sem o prefixo "data:". */
+export async function arquivoParaBase64(arquivo) {
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return globalThis.btoa(bin);
+}
+
 export async function resumoCredenciaisFiscais(supabase, lojaId) {
   const d = await chamar(supabase, "app_fiscal_credenciais_resumo", { p_loja_id: lojaId });
   return (d.credenciais || []).map((c) => ({

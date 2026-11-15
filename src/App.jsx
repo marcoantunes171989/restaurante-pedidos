@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
+import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
   excluirFiscalNcmLote, atualizarFiscalNcmLoteAtivo,
@@ -7720,7 +7721,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} />)}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -21392,7 +21393,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, formasPagamento = [] }) {
   const [aba, setAba] = useState("minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
@@ -21412,6 +21413,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     { id: "sugestoes", label: "📋 Sugestões por segmento", badge: templates.filter((t) => t.ativo !== false).length || null },
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
     ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (simulação)" }] : []),
+    ...(emitenteFiscalApi ? [{ id: "emissao", label: "🔐 Emissão (certificado e séries)" }] : []),
   ];
 
   return (
@@ -21448,6 +21450,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
       {aba === "nfce" && <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={produtos} importadas={importadas} emitenteApi={emitenteFiscalApi} />}
+      {aba === "emissao" && <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi?.fetch || null} />}
     </main>
   );
 }
