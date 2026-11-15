@@ -25,7 +25,7 @@ export const SECOES_ADMIN_RECONHECIDAS = Object.freeze([
   "config", "plano", "minhaempresa", "versoes",
   "users", "cargos", "access", "link", "controle-acessos",
   "audiencia-landing", "auditoria",
-  "lojas", "central-fiscal", "licencas", "ambientes", "controle-atualizacao",
+  "lojas", "central-fiscal", "licencas", "ambientes", "controle-atualizacao", "atualizar-producao",
 ]);
 
 const SECOES_ADMIN = new Set(SECOES_ADMIN_RECONHECIDAS);

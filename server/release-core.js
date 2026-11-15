@@ -4,7 +4,7 @@
 //  segredo sai daqui para o frontend.
 // ════════════════════════════════════════════════════════════
 
-/* global process */
+/* global process, Buffer */
 import crypto from "node:crypto";
 import { transitionRelease, updateRelease } from "./release-store.js";
 
@@ -114,6 +114,7 @@ function failClosedPayload({ requestedTargetSha, blockers }) {
     requestedTargetSha: requestedTargetSha || null,
     commits: [],
     filesChanged: 0,
+    migrations: [],
     blockers,
     database: DATABASE_STATUS,
     generatedAt: new Date().toISOString(),
@@ -123,6 +124,38 @@ function failClosedPayload({ requestedTargetSha, blockers }) {
 function extractBranchSha(result) {
   if (!result?.ok || result.parseError || !result.body?.commit?.sha) return null;
   return String(result.body.commit.sha);
+}
+
+export const MIGRATION_FILE_RE = /^\d{3,4}_[a-z0-9_-]{1,80}\.sql$/;
+const MIGRATION_PATH_PREFIX = "supabase/migrations/";
+
+// Migrations novas/alteradas entre main e homologacao (só nomes de arquivo).
+export function extrairMigrations(filesRaw) {
+  const lista = [];
+  for (const f of Array.isArray(filesRaw) ? filesRaw : []) {
+    const nome = typeof f?.filename === "string" ? f.filename : "";
+    if (!nome.startsWith(MIGRATION_PATH_PREFIX) || f.status === "removed") continue;
+    const arquivo = nome.slice(MIGRATION_PATH_PREFIX.length);
+    if (!MIGRATION_FILE_RE.test(arquivo)) continue;
+    lista.push({ file: arquivo, status: f.status === "added" ? "added" : "modified" });
+  }
+  return lista.sort((a, b) => a.file.localeCompare(b.file));
+}
+
+// Conteúdo de uma migration exatamente no SHA informado (só leitura).
+export async function lerMigrationNoSha(file, sha) {
+  if (!MIGRATION_FILE_RE.test(file || "") || !SHA_RE.test(sha || "")) return { ok: false, error: "MIGRATION_INVALIDA" };
+  const token = githubReadToken();
+  if (!token) return { ok: false, error: "GITHUB_UNAVAILABLE" };
+  const result = await githubFetch(
+    `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${MIGRATION_PATH_PREFIX}${encodeURIComponent(file)}?ref=${sha}`,
+    token,
+  );
+  if (!result.ok || result.parseError || typeof result.body?.content !== "string") {
+    return { ok: false, error: result.status === 404 ? "MIGRATION_NAO_ENCONTRADA" : "GITHUB_UNAVAILABLE" };
+  }
+  const sql = Buffer.from(result.body.content.replace(/\s+/g, ""), "base64").toString("utf8");
+  return { ok: true, file, sha, sql };
 }
 
 export async function runPreflight(requestedTargetSha) {
@@ -199,6 +232,7 @@ export async function runPreflight(requestedTargetSha) {
     requestedTargetSha: requestedTargetSha || null,
     commits,
     filesChanged: filesRaw.length,
+    migrations: extrairMigrations(filesRaw),
     blockers,
     database: DATABASE_STATUS,
     generatedAt: new Date().toISOString(),

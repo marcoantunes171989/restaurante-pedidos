@@ -122,6 +122,7 @@ import LandingAnalyticsAdmin from "./pages/admin/LandingAnalyticsAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
 import AmbientesAdmin from "./pages/admin/AmbientesAdmin";
 import ControleAtualizacaoAdmin from "./pages/admin/ControleAtualizacaoAdmin";
+import AtualizarProducaoAdmin from "./pages/admin/AtualizarProducaoAdmin";
 import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
@@ -1108,7 +1109,7 @@ export default function RestaurantePedidoApp() {
       }
       const seg = classe.tipo === "admin_raiz" ? "dashboard" : classe.secao;
       // Controle de Acessos / Ambientes & Releases: só administrador geral (superAdmin) — demais vão ao dashboard
-      if (["controle-acessos", "audiencia-landing", "ambientes", "controle-atualizacao"].includes(seg) && !user?.superAdmin) {
+      if (["controle-acessos", "audiencia-landing", "ambientes", "controle-atualizacao", "atualizar-producao"].includes(seg) && !user?.superAdmin) {
         setAdminSection("dashboard");
         setActiveTab("admin");
         return { aceita: false, path: rotaDoEstado("admin", "dashboard") };
@@ -7566,6 +7567,7 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
         { id: "versoes", icon: <IconVersoes />, label: "Controle de Versões" },
         { id: "ambientes", icon: <Rocket className="h-4 w-4" />, label: "Ambientes & Releases" },
         { id: "controle-atualizacao", icon: <LockKeyhole className="h-4 w-4" />, label: "Controle de Atualização" },
+        { id: "atualizar-producao", icon: <Rocket className="h-4 w-4" />, label: "Atualizar Produção" },
       ]},
     ] : []),
   ];
@@ -7773,6 +7775,18 @@ function AdminView({ currentUser = null, products, categories, adminForm, setAdm
                   <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>
                   <p className="mt-2 text-sm text-[#6B7280]">
                     Controle de Atualização é exclusivo do administrador geral do projeto.
+                  </p>
+                </main>
+              )
+          )}
+          {ativo === "atualizar-producao" && (
+            isSuperAdmin
+              ? <AtualizarProducaoAdmin />
+              : (
+                <main className="mx-auto max-w-lg rounded-2xl border border-[#D1D5DB] bg-white p-6 text-center">
+                  <h3 className="text-lg font-bold text-[#012E46]">Acesso negado</h3>
+                  <p className="mt-2 text-sm text-[#6B7280]">
+                    Atualizar Produção é exclusivo do administrador geral do projeto.
                   </p>
                 </main>
               )

@@ -1,4 +1,4 @@
-/* global process */
+/* global process, Buffer */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,6 +51,7 @@ const ANON_JWT =
   ".assinatura-fake-de-teste-nao-real";
 const SECRET_KEY = "sb_secret_teste_nao_real_1234567890";
 const BEARER = "jwt-operador-secreto-teste";
+const PROD_CHECK_KEY = "chave-release-prod-secreta-teste-0123456789abcdef";
 
 function githubOk(body) {
   return {
@@ -223,6 +224,8 @@ function mockFetch({
   operatorRows = [],
   github,
   registry = createRegistryMock(),
+  prodOnline = 0,
+  prodOk = true,
 } = {}) {
   const fn = vi.fn(async (url, options) => {
     const target = String(url);
@@ -236,6 +239,10 @@ function mockFetch({
     }
     if (target.includes("/rest/v1/app_release_runs")) {
       return registry.handle(target, options);
+    }
+    if (target.includes("/rest/v1/rpc/app_release_prod_status")) {
+      if (!prodOk) return { ok: false, status: 403, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ ok: true, online: prodOnline, em_manutencao: false }) };
     }
     if (target.includes("api.github.com")) {
       if (typeof github !== "function") throw new Error(`github fetch inesperado no teste: ${target}`);
@@ -381,6 +388,7 @@ function assertNoSecrets(raw) {
   expect(raw).not.toContain(VERCEL_TOKEN);
   expect(raw).not.toContain(SERVICE_ROLE);
   expect(raw).not.toContain(BEARER);
+  expect(raw).not.toContain(PROD_CHECK_KEY);
   expect(raw).not.toMatch(/Bearer /i);
   expect(raw).not.toContain("authorization");
 }
@@ -391,6 +399,8 @@ beforeEach(() => {
   process.env.GITHUB_READ_TOKEN = GITHUB_READ_TOKEN;
   process.env.GITHUB_RELEASE_TOKEN = GITHUB_RELEASE_TOKEN;
   process.env.VERCEL_TOKEN = VERCEL_TOKEN;
+  process.env.SUPABASE_PROD_ANON_KEY = ANON_JWT;
+  process.env.RELEASE_PROD_CHECK_KEY = PROD_CHECK_KEY;
   delete process.env.VITE_SUPABASE_URL;
 });
 
@@ -400,6 +410,8 @@ afterEach(() => {
   delete process.env.GITHUB_READ_TOKEN;
   delete process.env.GITHUB_RELEASE_TOKEN;
   delete process.env.VERCEL_TOKEN;
+  delete process.env.SUPABASE_PROD_ANON_KEY;
+  delete process.env.RELEASE_PROD_CHECK_KEY;
 });
 
 describe("releases — endpoint", () => {
@@ -1737,3 +1749,73 @@ describe("release-store — autenticação da service key contra o Data API", ()
   });
 });
 
+
+describe("releases — atualizar produção pela tela (usuários online e migrations)", () => {
+  const migFiles = [
+    { filename: "supabase/migrations/174_release_prod_status.sql", status: "added" },
+    { filename: "src/x.js", status: "modified" },
+  ];
+  const githubComMigration = () => readyGithub({ compare: () => githubOk(compareBody({ files: migFiles })) });
+
+  it("preflight lista migrations e devolve o status do PROD", async () => {
+    mockFetch({ operatorRows: [superAdminRow], github: githubComMigration(), prodOnline: 3 });
+    const res = await preflight();
+    const body = res.json();
+    expect(body.migrations).toEqual([{ file: "174_release_prod_status.sql", status: "added" }]);
+    expect(body.prodCheck).toMatchObject({ ok: true, online: 3, emManutencao: false });
+    assertNoSecrets(String(res.body));
+  });
+
+  it("promote com usuário online no PROD → USERS_ONLINE e nenhum dispatch", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), prodOnline: 2 });
+    const res = await promote();
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ error: "USERS_ONLINE", online: 2 });
+    expect(dispatchCalls(fn)).toHaveLength(0);
+    expect(registryPosts(fn)).toHaveLength(0);
+  });
+
+  it("promote sem confirmar migrations → MIGRATIONS_NOT_CONFIRMED e nenhum dispatch", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: githubComMigration() });
+    const res = await promote();
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe("MIGRATIONS_NOT_CONFIRMED");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("promote com migrations confirmadas e ninguém online → dispara", async () => {
+    const fn = mockFetch({ operatorRows: [superAdminRow], github: githubComMigration() });
+    const res = await promote({ migrationsConfirmed: ["174_release_prod_status.sql"] });
+    expect(res.statusCode).toBe(202);
+    expect(dispatchCalls(fn)).toHaveLength(1);
+  });
+
+  it("checagem do PROD indisponível ou sem chave → fail-closed", async () => {
+    let fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub(), prodOk: false });
+    let res = await promote();
+    expect(res.statusCode).toBe(503);
+    expect(dispatchCalls(fn)).toHaveLength(0);
+    delete process.env.RELEASE_PROD_CHECK_KEY;
+    fn = mockFetch({ operatorRows: [superAdminRow], github: readyGithub() });
+    res = await promote();
+    expect(res.json().error).toBe("PROD_CHECK_NOT_CONFIGURED");
+    expect(dispatchCalls(fn)).toHaveLength(0);
+  });
+
+  it("migration_sql devolve o script no SHA e recusa nome inválido", async () => {
+    const conteudo = Buffer.from("select 1;", "utf8").toString("base64");
+    mockFetch({
+      operatorRows: [superAdminRow],
+      github: (url) => {
+        if (url.includes("/contents/supabase/migrations/174_release_prod_status.sql?ref=" + SHA_HML)) return githubOk({ content: conteudo });
+        throw new Error("url inesperada " + url);
+      },
+    });
+    let res = makeRes();
+    await handler(makeReq({ headers: authHeaders(), body: { action: "migration_sql", file: "174_release_prod_status.sql", targetSha: SHA_HML } }), res);
+    expect(res.json()).toMatchObject({ ok: true, sql: "select 1;" });
+    res = makeRes();
+    await handler(makeReq({ headers: authHeaders(), body: { action: "migration_sql", file: "../../.env", targetSha: SHA_HML } }), res);
+    expect(res.statusCode).toBe(400);
+  });
+});

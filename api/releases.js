@@ -25,6 +25,7 @@ import {
   clean,
   executeReleaseCandidate,
   isReleaseReady,
+  lerMigrationNoSha,
   parseScheduledAt,
   reconcileReleaseGithub,
   runPreflight,
@@ -40,6 +41,7 @@ import {
   toPublicRelease,
   transitionRelease,
 } from "../server/release-store.js";
+import { checarProducao } from "../server/release-prod-check.js";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -219,6 +221,30 @@ async function handlePromote(reqBody, res, operator) {
   const preflight = await runPreflight(requestedTargetSha);
   if (!isReleaseReady(preflight, requestedTargetSha)) {
     return json(res, 409, notReadyPayload(preflight, "promote"));
+  }
+
+  // Migrations: o operador roda os scripts manualmente no PROD e confirma
+  // cada uma na tela. Sem a confirmação de TODAS, nada é disparado.
+  const confirmadas = new Set(
+    Array.isArray(reqBody.migrationsConfirmed) ? reqBody.migrationsConfirmed.map((m) => String(m)) : [],
+  );
+  const pendentes = (preflight.migrations || []).filter((m) => !confirmadas.has(m.file));
+  if (pendentes.length > 0) {
+    return json(res, 409, {
+      ok: false,
+      error: "MIGRATIONS_NOT_CONFIRMED",
+      action: "promote",
+      migrations: pendentes,
+    });
+  }
+
+  // Ninguém pode estar usando a produção no momento da atualização.
+  const prod = await checarProducao();
+  if (!prod.ok) {
+    return json(res, 503, { ok: false, error: prod.error || "PROD_CHECK_UNAVAILABLE", action: "promote" });
+  }
+  if (prod.online > 0) {
+    return json(res, 409, { ok: false, error: "USERS_ONLINE", action: "promote", online: prod.online });
   }
 
   const releaseId = crypto.randomUUID();
@@ -523,6 +549,18 @@ async function handleStatus(reqBody, res) {
   });
 }
 
+// Script de uma migration no SHA de homologacao (para rodar manualmente no PROD).
+async function handleMigrationSql(reqBody, res) {
+  const file = clean(reqBody.file, 120);
+  const sha = clean(reqBody.targetSha, 64);
+  const lido = await lerMigrationNoSha(file, sha);
+  if (!lido.ok) {
+    const status = lido.error === "MIGRATION_INVALIDA" ? 400 : lido.error === "MIGRATION_NAO_ENCONTRADA" ? 404 : 503;
+    return json(res, status, { ok: false, error: lido.error, action: "migration_sql" });
+  }
+  return json(res, 200, { ok: true, action: "migration_sql", file: lido.file, targetSha: lido.sha, sql: lido.sql });
+}
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
@@ -567,10 +605,18 @@ export default async function handler(req, res) {
     return handlePromote(parsed.body, res, auth.operator);
   }
 
+  if (action === "migration_sql") {
+    return handleMigrationSql(parsed.body, res);
+  }
+
   if (action !== "preflight") {
     return json(res, 400, { error: "action_invalida" });
   }
 
   const payload = await runPreflight(requestedTargetSha);
-  return json(res, 200, payload);
+  const prod = await checarProducao();
+  const prodCheck = prod.ok
+    ? { ok: true, online: prod.online, emManutencao: prod.emManutencao, checkedAt: prod.checkedAt }
+    : { ok: false, error: prod.error || "PROD_CHECK_UNAVAILABLE" };
+  return json(res, 200, { ...payload, prodCheck });
 }
