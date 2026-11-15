@@ -4,11 +4,13 @@ import { montarContextoPlanoCozinha } from "./adminCozinhaNav";
 import {
   CHAVE_LOJA_CONTEXTO,
   hidratarLojaContextoPersistido,
+  LOJA_PRINCIPAL_SUPER_ADMIN_ID,
   lerLojaContextoPersistido,
   limparLojaContextoPersistido,
   persistirLojaContextoSePronto,
   podeMontarPainelCozinha,
   resolverLojaContextoPersistido,
+  resolverLojaPrincipalSuperAdmin,
   salvarLojaContextoPersistido,
 } from "./lojaContextoStorage";
 
@@ -147,6 +149,37 @@ describe("hidratarLojaContextoPersistido — caminho real do App", () => {
     salvarLojaContextoPersistido(1, 4);
     expect(hidratarLojaContextoPersistido(null, lojas)).toBeNull();
     expect(lerLojaContextoPersistido()).toEqual({ userId: 1, lojaId: 4 });
+  });
+});
+
+describe("empresa principal do super admin no login", () => {
+  it("a constante aponta para a Burger Station de PROD (loja 9)", () => {
+    expect(LOJA_PRINCIPAL_SUPER_ADMIN_ID).toBe(9);
+  });
+
+  it("sem empresa escolhida, o login abre a empresa principal", () => {
+    expect(hidratarLojaContextoPersistido(superAdmin, lojas, { lojaPrincipalId: 4 })).toBe(4);
+  });
+
+  it("empresa escolhida depois do login (F5) tem prioridade sobre a principal", () => {
+    salvarLojaContextoPersistido(1, 7);
+    expect(hidratarLojaContextoPersistido(superAdmin, lojas, { lojaPrincipalId: 4 })).toBe(7);
+  });
+
+  it("seleção salva inválida cai na empresa principal", () => {
+    salvarLojaContextoPersistido(1, 99);
+    expect(hidratarLojaContextoPersistido(superAdmin, lojas, { lojaPrincipalId: 4 })).toBe(4);
+    expect(localStorage.getItem(CHAVE_LOJA_CONTEXTO)).toBeNull();
+  });
+
+  it("principal inexistente ou inativa não força nada (visão geral)", () => {
+    expect(hidratarLojaContextoPersistido(superAdmin, lojas, { lojaPrincipalId: 99 })).toBeNull();
+    expect(hidratarLojaContextoPersistido(superAdmin, lojas, { lojaPrincipalId: 8 })).toBeNull();
+  });
+
+  it("gestor comum e super admin inativo não recebem a empresa principal", () => {
+    expect(hidratarLojaContextoPersistido(gestor, lojas, { lojaPrincipalId: 4 })).toBeNull();
+    expect(resolverLojaPrincipalSuperAdmin(superInativo, lojas, 4)).toBeNull();
   });
 });
 

@@ -70,6 +70,7 @@ import { fidelidadeHabilitada, numeroFidelidade } from "./lib/fidelidade";
 import { filtrarPorLojaEstrita } from "./lib/lojaScope";
 import {
   hidratarLojaContextoPersistido,
+  LOJA_PRINCIPAL_SUPER_ADMIN_ID,
   limparLojaContextoPersistido,
   persistirLojaContextoSePronto,
   podeMontarPainelCozinha,
@@ -105,6 +106,9 @@ import UsuarioFormModal from "./components/admin/usuarios/UsuarioFormModal";
 import { acessosIniciaisDoPerfil } from "./lib/usuarioForm";
 import { numeroWhatsAppValido } from "./lib/whatsappPedido";
 import LoginPage from "./login/LoginPage";
+import TelaManutencao from "./components/TelaManutencao";
+import { useStatusSistema } from "./hooks/useStatusSistema";
+import { deveBloquearPorManutencao } from "./lib/sistemaStatus";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconCozinha, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
@@ -705,6 +709,8 @@ export default function RestaurantePedidoApp() {
   // não autoriza — só entra em lojaContexto depois de hidratarLojaContextoPersistido.
   const [lojaContexto, setLojaContexto] = useState(null);
   const [lojaContextoHydrated, setLojaContextoHydrated] = useState(false);
+  // Aviso "Sistema em atualização" (migration 172): consultado a cada 30 s.
+  const { status: statusSistema } = useStatusSistema();
   useEffect(() => {
     persistirLojaContextoSePronto({
       hydrated: lojaContextoHydrated,
@@ -1449,6 +1455,11 @@ export default function RestaurantePedidoApp() {
     // é authenticated-only). setCurrentUser(null) ou
     // setSessaoDispositivoPronta(false) desmontam este efeito (deps abaixo).
     if (!dbReady || !currentUser?.id || !sessaoDispositivoPronta) return;
+    // Super admin sem empresa selecionada: o banco recusa o registro
+    // (app_dispositivo_registrar → 'loja_obrigatoria') e cada tentativa vira
+    // um ERROR nos logs do Postgres. Só reporta depois que uma loja for
+    // escolhida (lojaAtual nas deps reativa o efeito).
+    if (isSuperAdmin && lojaAtual == null) return;
     const id = obterDeviceId();
     if (!id) return;
     const reportar = () => {
@@ -1473,7 +1484,7 @@ export default function RestaurantePedidoApp() {
     document.addEventListener("visibilitychange", onVis);
     window.addEventListener("focus", reportar);
     return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", reportar); };
-  }, [dbReady, currentUser?.id, lojaAtual, tableNumber, sessaoDispositivoPronta]);
+  }, [dbReady, currentUser?.id, isSuperAdmin, lojaAtual, tableNumber, sessaoDispositivoPronta]);
 
   // Identificação do aparelho (CNPJ + referência) NÃO é mais obrigatória ao
   // entrar — não deve bloquear o login/uso (em nenhum dispositivo). A
@@ -1559,7 +1570,9 @@ export default function RestaurantePedidoApp() {
     }
     // Primeiro ponto em que coexistem usuário autenticado e lojas do bootstrap.
     // Restaura a empresa em foco só depois dessa validação — nunca do initializer.
-    const lojaContextoSessao = hidratarLojaContextoPersistido(credOk, lojas);
+    // Sem empresa válida já escolhida, o super admin entra na empresa principal
+    // (Burger Station); pode trocar depois pelo seletor de empresa.
+    const lojaContextoSessao = hidratarLojaContextoPersistido(credOk, lojas, { lojaPrincipalId: LOJA_PRINCIPAL_SUPER_ADMIN_ID });
     setLojaContexto(lojaContextoSessao);
     setLojaContextoHydrated(true);
     setCurrentUser(credOk);
@@ -4143,7 +4156,13 @@ export default function RestaurantePedidoApp() {
     // offline. O aviso de indisponibilidade na tela de login deve refletir só
     // uma falha REAL de conectividade/backend (`erroBackend`), nunca a mera
     // ausência de sessão antes do login.
-    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} dbReady={!erroBackend} />;
+    return <LoginPage loginForm={loginForm} setLoginForm={setLoginForm} login={login} message={message} dbReady={!erroBackend} statusSistema={statusSistema} />;
+  }
+
+  // Sistema em atualização: bloqueia todos, menos o super admin (confere a
+  // publicação). Estado do app fica preservado; libera sozinho ao terminar.
+  if (deveBloquearPorManutencao(statusSistema, currentUser)) {
+    return <TelaManutencao status={statusSistema} onSair={logout} />;
   }
 
   // Bloqueio total da empresa: trial vencido (ou status "blocked"). Super admin nunca bloqueia.

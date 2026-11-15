@@ -6,6 +6,7 @@ import { usandoSupabaseAuth } from "../lib/authMode";
 import LoginBrandPanel from "./LoginBrandPanel";
 import LoginForm from "./LoginForm";
 import LoginFooter from "./LoginFooter";
+import { AvisoManutencaoLogin } from "../components/TelaManutencao";
 
 // ════════════════════════════════════════════════════════════
 //  Tela de login — composição nova (marca + autenticação), lógica de
@@ -14,7 +15,7 @@ import LoginFooter from "./LoginFooter";
 //  Desktop/tablet: duas colunas (institucional + formulário). Mobile:
 //  coluna única, formulário em primeiro lugar.
 // ════════════════════════════════════════════════════════════
-export default function LoginPage({ loginForm, setLoginForm, login, message, dbReady = true }) {
+export default function LoginPage({ loginForm, setLoginForm, login, message, dbReady = true, statusSistema = null }) {
   const [scanLogin, setScanLogin] = useState(false);
 
   async function voltarAoSite() {
@@ -46,6 +47,7 @@ export default function LoginPage({ loginForm, setLoginForm, login, message, dbR
           className="relative z-10 flex min-h-dvh w-full flex-1 flex-col items-center justify-center overflow-y-auto bg-[#FBFCFC] px-[clamp(1.25rem,5vw,4rem)]"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + clamp(0.75rem, 2vh, 1.5rem))", paddingBottom: "calc(env(safe-area-inset-bottom) + clamp(1rem, 2.5vh, 2rem))" }}
         >
+          <AvisoManutencaoLogin status={statusSistema} />
           <LoginForm
             loginForm={loginForm}
             setLoginForm={setLoginForm}

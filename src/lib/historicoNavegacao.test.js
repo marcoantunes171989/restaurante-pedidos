@@ -604,7 +604,7 @@ describe("REL-02D-AUTH-HISTORY-C — URL, tela e sessão coerentes", () => {
 
   it("22. empresa Burger Station permanece no contrato de remount (título Cozinha)", () => {
     expect(appSource).toContain("· {lojaInfo.nome}");
-    expect(appSource).toContain("hidratarLojaContextoPersistido(credOk, lojas)");
+    expect(appSource).toContain("hidratarLojaContextoPersistido(credOk, lojas, { lojaPrincipalId: LOJA_PRINCIPAL_SUPER_ADMIN_ID })");
     expect(appSource).toContain("if (!currentUser || !lojaContextoHydrated || rotaInicialRef.current) return");
   });
 

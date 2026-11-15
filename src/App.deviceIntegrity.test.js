@@ -153,8 +153,16 @@ describe("logout() — ordem segura e trava do heartbeat (estrutural, Gate 8.29)
   it("o efeito de heartbeat de tab_dispositivos também exige sessaoDispositivoPronta no guard externo e nas deps", () => {
     const idxEfeito = appSource.indexOf("if (!dbReady || !currentUser?.id || !sessaoDispositivoPronta) return;");
     expect(idxEfeito).toBeGreaterThan(-1);
-    const idxDeps = appSource.indexOf("}, [dbReady, currentUser?.id, lojaAtual, tableNumber, sessaoDispositivoPronta]);");
+    const idxDeps = appSource.indexOf("}, [dbReady, currentUser?.id, isSuperAdmin, lojaAtual, tableNumber, sessaoDispositivoPronta]);");
     expect(idxDeps).toBeGreaterThan(idxEfeito);
+  });
+
+  it("heartbeat não chama app_dispositivo_registrar para super admin sem loja selecionada (evita ERROR 'loja_obrigatoria' no Postgres)", () => {
+    const idxEfeito = appSource.indexOf("if (!dbReady || !currentUser?.id || !sessaoDispositivoPronta) return;");
+    const idxGuard = appSource.indexOf("if (isSuperAdmin && lojaAtual == null) return;", idxEfeito);
+    const idxReportar = appSource.indexOf("const reportar = () => {", idxEfeito);
+    expect(idxGuard).toBeGreaterThan(idxEfeito);
+    expect(idxGuard).toBeLessThan(idxReportar);
   });
 });
 

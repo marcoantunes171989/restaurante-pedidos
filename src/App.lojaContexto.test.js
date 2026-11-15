@@ -7,7 +7,7 @@ describe("empresa em foco — wiring estrutural do App (não prova isolamento ru
   it("App inicia lojaContexto neutro e hidrata só em aplicarLogin", () => {
     expect(app).toContain("const [lojaContexto, setLojaContexto] = useState(null)");
     expect(app).toContain("const [lojaContextoHydrated, setLojaContextoHydrated] = useState(false)");
-    expect(app).toContain("hidratarLojaContextoPersistido(credOk, lojas)");
+    expect(app).toContain("hidratarLojaContextoPersistido(credOk, lojas, { lojaPrincipalId: LOJA_PRINCIPAL_SUPER_ADMIN_ID })");
     expect(app).not.toContain("useState(() => lerLojaContextoPersistido()?.lojaId ?? null)");
   });
 

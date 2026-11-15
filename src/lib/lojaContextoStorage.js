@@ -75,16 +75,33 @@ export function resolverLojaContextoPersistido(user, persistido, lojas = []) {
 }
 
 /**
+ * Empresa principal do super admin: aberta automaticamente no login quando não
+ * há empresa válida já escolhida na sessão (F5 mantém a escolha feita depois).
+ * PROD: loja 9 = "Burger Station". Se a loja não existir/estiver inativa no
+ * ambiente, nada é forçado (cai na visão geral, como antes).
+ */
+export const LOJA_PRINCIPAL_SUPER_ADMIN_ID = 9;
+
+/** Devolve a empresa principal se ela estiver na lista atual e ativa. */
+export function resolverLojaPrincipalSuperAdmin(user, lojas = [], lojaPrincipalId = null) {
+  if (!user || user.active === false || !user.superAdmin) return null;
+  const loja = lojaAutorizadaDaLista(lojas, lojaPrincipalId);
+  return loja ? numeroOuNulo(loja.id) : null;
+}
+
+/**
  * Ponto único de hidratação: lê o storage, valida contra o usuário autenticado
  * e a lista atual de lojas autorizadas, e remove a entrada se for inválida.
  * Chamado pelo App só depois de existir currentUser + lojas do bootstrap.
+ * Sem seleção válida, o super admin cai na empresa principal (se informada).
  */
-export function hidratarLojaContextoPersistido(user, lojas = []) {
+export function hidratarLojaContextoPersistido(user, lojas = [], { lojaPrincipalId = null } = {}) {
   if (!user) return null;
   const persistido = lerLojaContextoPersistido();
   const lojaId = resolverLojaContextoPersistido(user, persistido, lojas);
-  if (lojaId == null) limparLojaContextoPersistido();
-  return lojaId;
+  if (lojaId != null) return lojaId;
+  limparLojaContextoPersistido();
+  return resolverLojaPrincipalSuperAdmin(user, lojas, lojaPrincipalId);
 }
 
 /**
