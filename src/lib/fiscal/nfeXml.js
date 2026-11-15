@@ -28,7 +28,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ESC[c]);
 export function textoFiscal(v) {
   return String(v ?? "")
     .replace(/[\t\r\n]+/g, " ")
-    .replace(/[^ -~ -ÿ]/g, "")
+    .replace(/[^\u0020-\u007E\u00A0-\u00FF]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
