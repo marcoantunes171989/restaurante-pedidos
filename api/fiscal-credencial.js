@@ -10,6 +10,7 @@
 //  - Nunca devolve nem registra em log o arquivo, a senha ou o CSC.
 // ════════════════════════════════════════════════════════════
 
+import process from "node:process";
 import { processarCredencial } from "../server/fiscal/credencialService.js";
 
 function json(res, status, body) {
@@ -28,7 +29,7 @@ async function rpc(nome, params, bearer) {
     body: JSON.stringify(params),
   });
   const txt = await r.text();
-  let data = null;
+  let data;
   try { data = txt ? JSON.parse(txt) : null; } catch { data = null; }
   if (!r.ok) {
     const err = new Error(`RPC ${nome} HTTP ${r.status}`);

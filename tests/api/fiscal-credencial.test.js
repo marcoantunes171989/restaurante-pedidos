@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import process from "node:process";
 import handler from "../../api/fiscal-credencial.js";
 
 const URL_SB = "https://test.supabase.co";
