@@ -4,6 +4,7 @@ import {
   SplitSquareHorizontal, UserPlus, BadgeCheck, Gift, TicketPercent, MinusCircle, PlusCircle,
 } from "lucide-react";
 import { estiloFormaPagamento, formatCurrency, numeroParaMoeda, rotuloFormaCurto } from "./pdvHelpers";
+import PdvSeloFiscal from "./PdvSeloFiscal";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
@@ -63,6 +64,7 @@ export default function PdvPaymentPanel({
   confirmarDesabilitado,
   bufferEntrada = "",
   className = "",
+  seloFiscal = null,
 }) {
   const [codigoCupom, setCodigoCupom] = useState("");
   const [acrescimoTxt, setAcrescimoTxt] = useState("");
@@ -141,6 +143,8 @@ export default function PdvPaymentPanel({
           </span>
         )}
       </button>
+
+      <PdvSeloFiscal selo={seloFiscal} />
 
       <div className="shrink-0 border-b border-[var(--pp-border)] px-2.5 py-1.5">
         <div className="mb-1 flex items-center justify-between gap-1.5">

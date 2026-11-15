@@ -43,6 +43,7 @@ import {
 import { legendaCupom } from "./pdvCupomValidacao";
 import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
+import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -73,6 +74,10 @@ function salvarObsInterna(lojaId, mesa, texto) {
     else localStorage.removeItem(k);
   } catch { /* ignore */ }
 }
+
+// Defaults estáveis (evitam recalcular o selo fiscal a cada render).
+const SEM_CTX_FISCAL = Object.freeze({});
+const SEM_CONFIG_FISCAL = Object.freeze({});
 
 function itemDeProduto(produto) {
   const preco = produto.precoPromocional != null ? Number(produto.precoPromocional) : Number(produto.price) || 0;
@@ -118,6 +123,10 @@ export default function CashierPdv({
   validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
   consumirCupom = async () => ({ ok: true }),
   onSair,
+  // Etapa 1c (fiscal): emitente da loja, contexto de regras e configuração de venda.
+  emitenteFiscal = null,
+  ctxFiscal = SEM_CTX_FISCAL,
+  configFiscalVenda = SEM_CONFIG_FISCAL,
 }) {
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
@@ -351,6 +360,22 @@ export default function CashierPdv({
   const trocoSel = Math.max(0, recebidoEfetivo - totalCobrar);
   const trocoLiberado = formaPermiteTroco(formaAtual);
   const pontosDisponiveisReais = Math.max(0, pontosEmReais - pontosJaUsados);
+
+  // Etapa 1c — selo "Nota fiscal" (só prévia; null quando a loja não emite nota).
+  const seloFiscal = useMemo(() => seloFiscalDaConta({
+    ativo: PREVIA_FISCAL_PDV_ATIVA,
+    emitente: emitenteFiscal,
+    pedidos: pedidosSel,
+    produtos: products,
+    composicao: composicaoDaConta({
+      subtotal: subtotalSel, taxaServico: taxaValorSel, acrescimo: acrescimoSel,
+      descontoManual: descontoManualSel, descontoCupom,
+    }),
+    pagamentos: (contaSel && pagamentosPorConta[contaSel.key]) || [],
+    formas: formasPagamento,
+    config: configFiscalVenda,
+    ctxFiscal,
+  }), [emitenteFiscal, pedidosSel, products, subtotalSel, taxaValorSel, acrescimoSel, descontoManualSel, descontoCupom, contaSel, pagamentosPorConta, formasPagamento, configFiscalVenda, ctxFiscal]);
 
   // Forma virtual "Pontos" — aparece só com cliente identificado e saldo.
   const formasComPontos = useMemo(() => {
@@ -1689,6 +1714,7 @@ export default function CashierPdv({
           onConfirmar={registrarPagamentoParcial}
           confirmarDesabilitado={!contaSel || totalCobrar <= 0 || restanteSel <= 0.001}
           bufferEntrada={bufferEntrada}
+          seloFiscal={seloFiscal}
           className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-t lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
         />
       </div>

@@ -138,8 +138,11 @@ const TRATAMENTOS_TAXA = new Set(["outras_despesas", "fora_da_nota"]);
  */
 export function montarVendaFiscal({
   pedidos = [], produtos = [], pagamento = {}, ajustes = {}, regras = {},
-  formas = [], mapaMeios = {}, ctxFiscal = {},
+  formas = [], mapaMeios = {}, ctxFiscal = {}, parcial = false,
 } = {}) {
+  // parcial=true: prévia no caixa ANTES de fechar — não confere total cobrado,
+  // troco nem cobertura do pagamento (ainda em digitação). A emissão real usa
+  // sempre a conferência completa.
   const pendencias = [];
   const validos = (pedidos || []).filter((o) => !STATUS_FORA.has(String(o?.status ?? "").toLowerCase()));
   const lojas = [...new Set(validos.map((o) => o?.lojaId).filter((x) => x != null).map(String))];
@@ -210,7 +213,7 @@ export function montarVendaFiscal({
   pendencias.push(...pendPag);
   const cobradoC = paraCentavos(pagamento?.total);
   const esperadoC = vNFC + taxaForaC + (taxaC > 0 && !TRATAMENTOS_TAXA.has(tratTaxa) ? taxaC : 0);
-  if (itens.length && cobradoC !== esperadoC) {
+  if (!parcial && itens.length && cobradoC !== esperadoC) {
     pendencias.push(`Total cobrado (R$ ${brl(cobradoC)}) difere da composição da venda (R$ ${brl(esperadoC)}): diferença de R$ ${brl(cobradoC - esperadoC)}.`);
   }
   // Parte não fiscal (taxa fora da nota) sai dos pagamentos, rateada.
@@ -219,10 +222,10 @@ export function montarVendaFiscal({
   pagamentos.forEach((p, i) => { p.valorCentavos -= foraPorPag[i]; p.valor = deCentavos(p.valorCentavos); });
   const vPagC = pagamentos.reduce((s, p) => s + p.valorCentavos, 0);
   const trocoCalcC = Math.max(0, vPagC - vNFC);
-  if (pagamento?.troco != null && pagamento.troco !== "" && paraCentavos(pagamento.troco) !== trocoCalcC) {
+  if (!parcial && pagamento?.troco != null && pagamento.troco !== "" && paraCentavos(pagamento.troco) !== trocoCalcC) {
     pendencias.push(`Troco informado (R$ ${brl(paraCentavos(pagamento.troco))}) difere de pago − valor da nota (R$ ${brl(trocoCalcC)}).`);
   }
-  if (itens.length && vPagC < vNFC) pendencias.push("Pagamentos não cobrem o valor da nota.");
+  if (!parcial && itens.length && vPagC < vNFC) pendencias.push("Pagamentos não cobrem o valor da nota.");
 
   const itensPend = itens.filter((it) => it.pendencias.length);
   const apto = itens.length > 0 && pendencias.length === 0 && itensPend.length === 0;
