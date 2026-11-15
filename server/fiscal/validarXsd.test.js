@@ -1,0 +1,106 @@
+// @vitest-environment node
+import { describe, it, expect } from "vitest";
+import { Buffer } from "node:buffer";
+import { validarNFeXsd, lerManifesto } from "./validarXsd.js";
+import { montarXmlNFe } from "../../src/lib/fiscal/nfeXml.js";
+import { dadosNFeDaVenda, montarChaveAcesso } from "../../src/lib/fiscal/nfeDaVenda.js";
+import { montarVendaFiscal } from "../../src/lib/fiscal/vendaFiscal.js";
+
+// Assinatura SÓ DE ESTRUTURA (valores zerados): o XSD exige ds:Signature com
+// os algoritmos fixos do leiaute. NÃO é assinatura válida — a real vem na E4.
+function comAssinaturaDeTeste(xml, chave) {
+  const zeros = (n) => Buffer.alloc(n).toString("base64");
+  const sig = '<Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo>' +
+    '<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>' +
+    '<SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>' +
+    `<Reference URI="#NFe${chave}"><Transforms>` +
+    '<Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/>' +
+    '<Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></Transforms>' +
+    '<DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>' +
+    `<DigestValue>${zeros(20)}</DigestValue></Reference></SignedInfo>` +
+    `<SignatureValue>${zeros(256)}</SignatureValue>` +
+    `<KeyInfo><X509Data><X509Certificate>${zeros(48)}</X509Certificate></X509Data></KeyInfo></Signature>`;
+  return xml.replace("</infNFe></NFe>", `</infNFe>${sig}</NFe>`);
+}
+
+const EMIT = {
+  razaoSocial: "Hamburgueria Teste Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "123456789012",
+  logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", cep: "01001000",
+};
+const PRODUTOS = [
+  { id: 10, name: "X-Burger Duplo", lojaId: 7, lojaFiscalRegraId: 50 },
+  { id: 11, name: "Refrigerante Lata 350ml", lojaId: 7, lojaFiscalRegraId: 51 },
+  { id: 12, name: "Batata Rústica", lojaId: 7, lojaFiscalRegraId: 50 },
+];
+// Regras de TESTE (formatos do XSD), não recomendação tributária.
+const REGRAS_SN = [
+  { id: 50, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" },
+  { id: 51, ncmCodigo: "22021000", cestCodigo: "0300700", cfopCodigo: "5405", csosn: "102", cstPis: "04", cstCofins: "04" },
+];
+const FORMAS = [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }, { id: 2, nome: "PIX", tipo: "pix" }, { id: 3, nome: "Crédito", tipo: "cartao_credito" }];
+const MAPA = { dinheiro: "01", pix: "17", cartao_credito: "03" };
+
+async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "1", modelo = 65, cpf = "", itens } = {}) {
+  const venda = montarVendaFiscal({
+    pedidos: [{ id: "P1", lojaId: 7, status: "delivered", items: itens || [
+      { productId: 10, name: "X-Burger Duplo", price: 32.9, quantity: 2 },
+      { productId: 11, name: "Refrigerante Lata 350ml", price: 7, quantity: 3 },
+      { productId: 12, name: "Batata Rústica", price: 18.5, quantity: 1 },
+    ] }],
+    produtos: PRODUTOS, ctxFiscal: { lojaFiscalRegras: regras }, formas: FORMAS, mapaMeios: MAPA, ajustes,
+    regras: { taxaServico: "outras_despesas" }, pagamento,
+  });
+  expect(venda.pendencias).toEqual([]);
+  const r = dadosNFeDaVenda({ venda, emitente: { ...EMIT, crt }, documento: "12345678000195", modelo, serie: 1, numero: 123, ambiente: "homologacao", dhEmi: "2026-11-15T15:30:00Z", cpfConsumidor: cpf });
+  expect(r.ok, r.erro).toBe(true);
+  if (modelo === 55) r.dados.dest = { CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", indIEDest: "9" };
+  const { xml } = montarXmlNFe(r.dados);
+  return validarNFeXsd(comAssinaturaDeTeste(xml, r.chave));
+}
+
+describe("schemas oficiais (manifesto)", () => {
+  it("pacote PL 010h v1.03 com hash conferido", () => {
+    const m = lerManifesto();
+    expect(m.pacote).toBe("PL_010h_v1.03");
+    expect(m.zip_sha256).toBe("bcbf6b277f79a6983d69016dfe0430f09b8a191997a4706a24938acddc18dc81");
+    expect(Object.keys(m.arquivos)).toContain("NFe/leiauteNFe_v4.00.xsd");
+  });
+});
+
+describe("XML gerado × XSD oficial", () => {
+  it("NFC-e Simples, dinheiro com troco", async () => {
+    const r = await notaValida({ pagamento: { total: 105.3, troco: 14.7, detalhes: [{ forma: "Dinheiro", valor: 120 }] } });
+    expect(r.erros).toEqual([]);
+    expect(r.valido).toBe(true);
+  });
+  it("NFC-e com CPF, cupom, acréscimo, taxa de serviço e pagamento dividido", async () => {
+    const r = await notaValida({
+      cpf: "123.456.789-09",
+      ajustes: { descontoCupom: 10, acrescimo: 2, taxaServico: 9.73 },
+      pagamento: { total: 107.03, troco: 0, detalhes: [{ forma: "PIX", valor: 50 }, { forma: "Dinheiro", valor: 57.03 }] },
+    });
+    expect(r.erros).toEqual([]);
+  });
+  it("NFC-e Regime Normal com ICMS 00", async () => {
+    const regras = REGRAS_SN.map((x) => ({ ...x, csosn: "", cstIcms: "00", icmsAliquota: 18, cstPis: "01", pisAliquota: 0.65, cstCofins: "01", cofinsAliquota: 3 }));
+    const r = await notaValida({ regras, crt: "3", pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
+    expect(r.erros).toEqual([]);
+  });
+  it("NF-e (55) para empresa", async () => {
+    const r = await notaValida({ modelo: 55, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
+    expect(r.erros).toEqual([]);
+  });
+  it("item com quantidade fracionada (vProd = qCom × vUnCom arredondado)", async () => {
+    const r = await notaValida({
+      itens: [{ productId: 12, name: "Batata Rústica", price: 12.35, quantity: 1.5 }],
+      pagamento: { total: 18.53, troco: 0, detalhes: [{ forma: "PIX", valor: 18.53 }] },
+    });
+    expect(r.erros).toEqual([]);
+  });
+  it("controle: XML quebrado é REPROVADO pelo validador", async () => {
+    const chave = montarChaveAcesso({ cUF: "35", aamm: "2611", cnpj: "12345678000195", mod: 65, serie: 1, nNF: 1, cNF: "12345670" });
+    const r = await validarNFeXsd(`<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe versao="4.00" Id="NFe${chave}"><ide><cUF>XX</cUF></ide></infNFe></NFe>`);
+    expect(r.valido).toBe(false);
+    expect(r.erros.length).toBeGreaterThan(0);
+  });
+});

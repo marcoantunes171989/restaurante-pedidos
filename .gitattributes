@@ -5,3 +5,6 @@ supabase/migrations/*.sql text eol=lf
 # GitHub Actions workflows must be deterministic across platforms.
 .github/workflows/*.yml text eol=lf
 .github/workflows/*.yaml text eol=lf
+
+# Schemas oficiais da NF-e: bytes exatos do pacote (o manifesto confere SHA-256).
+server/fiscal/schemas/**/*.xsd -text
