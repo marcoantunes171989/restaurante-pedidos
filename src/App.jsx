@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
   excluirFiscalNcmLote, atualizarFiscalNcmLoteAtivo,
@@ -1967,7 +1968,8 @@ export default function RestaurantePedidoApp() {
       table: currentTable, command: codigo, customer: customerName.trim() || "Cliente",
       status: "received", paymentStatus: "open",
       createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-      items: cart.map((i) => ({ name: i.name, quantity: i.quantity, price: i.price, selectedIngredients: i.selectedIngredients, removedIngredients: i.removedIngredients, extraIngredients: i.extraIngredients, selectedOptions: i.selectedOptions || [], observation: i.observation })),
+      // productId (aditivo) liga o item ao cadastro — base da nota fiscal (src/lib/pedidoItem.js).
+      items: cart.map(itemPersistidoDoCarrinho),
       lojaId: lojaAtual,
     };
 
@@ -2357,14 +2359,8 @@ export default function RestaurantePedidoApp() {
       porOrigem[it.orderId].push(it);
     });
 
-    const movidos = lista.map(({ name, quantity, price, selectedIngredients, removedIngredients, extraIngredients, observation, selectedOptions }) => ({
-      name, quantity, price,
-      selectedIngredients: selectedIngredients || [],
-      removedIngredients: removedIngredients || [],
-      extraIngredients: extraIngredients || [],
-      observation: observation || "",
-      selectedOptions: selectedOptions || [],
-    }));
+    // Preserva productId do item original (vínculo fiscal) — src/lib/pedidoItem.js.
+    const movidos = lista.map(copiarItemPedido);
 
     const pedidoDestino = ordersAll.find((o) =>
       o.table === destino && o.paymentStatus !== "paid" && o.status !== "cancelled",

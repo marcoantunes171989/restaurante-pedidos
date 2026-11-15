@@ -41,6 +41,8 @@ import {
   textoBuscaConta,
 } from "./pdvHelpers";
 import { legendaCupom } from "./pdvCupomValidacao";
+import { produtoIdDoItem } from "../../lib/pedidoItem";
+import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -74,7 +76,10 @@ function salvarObsInterna(lojaId, mesa, texto) {
 
 function itemDeProduto(produto) {
   const preco = produto.precoPromocional != null ? Number(produto.precoPromocional) : Number(produto.price) || 0;
+  // productId (aditivo): vínculo com o cadastro, base da nota fiscal.
+  const productId = produtoIdDoItem({ productId: produto.id });
   return {
+    ...(productId != null ? { productId } : {}),
     name: produto.name,
     quantity: 1,
     price: preco,
@@ -966,6 +971,12 @@ export default function CashierPdv({
         detalhes,
         comandas: [...contaSel.comandas],
         ...(descontoCupom > 0 ? { desconto: descontoCupom, cupom: cupomSel?.codigo } : {}),
+        // Composição completa da conta (aditivo) — base do rascunho da nota
+        // fiscal (src/lib/fiscal/vendaFiscal.js). Não muda o que é cobrado.
+        composicao: composicaoDaConta({
+          subtotal: subtotalSel, taxaServico: taxaValorSel, acrescimo: acrescimoSel,
+          descontoManual: descontoManualSel, descontoCupom,
+        }),
       };
       const baixa = await baixarComandas(contaSel.comandas, info);
       auditar("finalizar_pagamento", "comanda", null, {
@@ -1421,6 +1432,7 @@ export default function CashierPdv({
         key: `${o.id}-${idx}`,
         orderId: o.id,
         index: idx,
+        productId: it.productId,
         name: it.name,
         quantity: it.quantity,
         price: it.price,
