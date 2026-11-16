@@ -3,7 +3,10 @@ import {
   buscarEmitenteFiscal, resumoCredenciaisFiscais, listarSeriesFiscais, salvarSerieFiscal,
   buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
 } from "../../../lib/fiscal/fiscalApi";
-import { situacaoCertificado, conferirMapaMeios, validarSerieForm, prontidaoEmissao } from "../../../lib/fiscal/emissaoConfig";
+import { situacaoCertificado, conferirMapaMeios, validarSerieForm } from "../../../lib/fiscal/emissaoConfig";
+import { passosAtivacao } from "../../../lib/fiscal/ativacaoFiscal";
+import { validarEmitenteFiscal } from "../../../lib/emitenteFiscalService";
+import AssistenteAtivacaoFiscal from "./AssistenteAtivacaoFiscal";
 
 // ════════════════════════════════════════════════════════════
 //  Aba "Emissão" da Configuração Fiscal (Etapa E4 parte 3).
@@ -24,7 +27,7 @@ function Aviso({ msg }) {
   return <p role="status" className={`mt-2 text-[12px] font-semibold ${msg.tipo === "erro" ? "text-[#C81E4A]" : "text-[#1F7A3D]"}`}>{msg.texto}</p>;
 }
 
-export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagamento = [], emitenteLegado = null }) {
+export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagamento = [], emitenteLegado = null, produtos = [], regrasLoja = [], salvarEmitente = null, onIrPara = null }) {
   const lojaId = lojaInfo?.id ?? null;
   const [carregando, setCarregando] = useState(true);
   const [erroCarga, setErroCarga] = useState("");
@@ -41,6 +44,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   const [serieForm, setSerieForm] = useState({ modelo: 65, ambiente: "homologacao", serie: "1", proximoNumero: "1" });
   const [mapa, setMapa] = useState({});
   const [taxa, setTaxa] = useState("");
+  const [teste, setTeste] = useState(null); // último teste de conexão (E9)
 
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
 
@@ -106,8 +110,10 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     try {
       const r = await testarConexaoSefaz(supabase, { lojaId, modelo, ambiente: "homologacao" });
       aviso("teste", "ok", `SEFAZ ${modelo === 65 ? "NFC-e" : "NF-e"} (homologação): ${r.xMotivo || "em operação"}${r.cStat ? ` (código ${r.cStat})` : ""}.`);
+      setTeste({ ok: true, modelo });
     } catch (err) {
       aviso("teste", "erro", err.message);
+      setTeste({ ok: false, modelo, texto: err.message });
     } finally {
       setEnviando("");
     }
@@ -161,34 +167,36 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     }
   }
 
+  // E9: "Fazer agora" leva à seção do passo (ou à aba certa da Configuração Fiscal).
+  function irPara(alvo) {
+    if (alvo === "produtos" && onIrPara) return onIrPara("produtos");
+    if (alvo === "empresa") return aviso("assist", "erro", "Complete os dados fiscais em Minha Empresa › editar empresa › Fiscal (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
+    document.getElementById(alvo)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  async function ligarHomologacao() {
+    if (!salvarEmitente || !emitente) return { ok: false, erro: "Cadastro fiscal da empresa não encontrado." };
+    const novo = { ...emitente, nfceAmbiente: "homologacao" };
+    const v = validarEmitenteFiscal(novo, lojaInfo?.documento || "");
+    if (!v.ok) return { ok: false, erro: v.erros.join(" ") };
+    const r = await salvarEmitente(lojaId, novo);
+    if (!r) return { ok: false, erro: "Não foi possível salvar o cadastro fiscal." };
+    await carregar();
+    return { ok: true };
+  }
+
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
   if (carregando) return <p className="text-[13px] text-[var(--pp-text-muted)]">Carregando…</p>;
   if (erroCarga) return <div className={cartao}><p className="text-[13px] font-semibold text-[#C81E4A]">{erroCarga}</p></div>;
 
   const cert = credenciais.find((c) => c.tipo === "certificado_a1") || null;
   const sc = situacaoCertificado(cert);
-  const prontidao = prontidaoEmissao({ emitente, credenciais, series, formas, config });
+  const ativacao = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, teste });
   const cscDe = (amb) => credenciais.find((c) => c.tipo === "csc" && c.ambiente === amb);
 
   return (
     <div className="space-y-4" data-testid="emissao-fiscal-config">
-      <section className={cartao} aria-labelledby="emissao-prontidao">
-        <h3 id="emissao-prontidao" className="text-[15px] font-bold text-[var(--pp-text)]">
-          {prontidao.pronto ? "Pronto para emitir em homologação" : "O que falta para emitir em homologação"}
-        </h3>
-        <ul className="mt-3 space-y-1.5">
-          {prontidao.itens.map((i) => (
-            <li key={i.id} className="flex items-start gap-2 text-[13px]">
-              <span aria-hidden="true" className={i.ok ? "text-[#1F7A3D]" : "text-[#B45309]"}>{i.ok ? "✓" : "•"}</span>
-              <span className="min-w-0">
-                <span className={i.ok ? "text-[var(--pp-text-body)]" : "font-semibold text-[var(--pp-text)]"}>{i.rotulo}</span>
-                {!i.ok && i.dica && <span className="block text-[12px] text-[var(--pp-text-muted)]">{i.dica}</span>}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 text-[12px] text-[var(--pp-text-muted)]">Produção só é liberada depois dos testes em homologação.</p>
-      </section>
+      <AssistenteAtivacaoFiscal resultado={ativacao} onIr={irPara} onLigar={ligarHomologacao} />
+      <Aviso msg={msg.assist} />
 
       <section className={cartao} aria-labelledby="emissao-cert">
         <h3 id="emissao-cert" className="text-[15px] font-bold text-[var(--pp-text)]">Certificado digital A1</h3>
