@@ -160,13 +160,24 @@ export function montarXmlNFe(d = {}) {
   const itens = Array.isArray(d.itens) ? d.itens : [];
   exigir(itens.length > 0 && itens.length <= 990, "A nota precisa de 1 a 990 itens.");
 
+  // Contingência (tpEmis ≠ 1): dhCont + xJust obrigatórios (MOC 7.0 Anexo IV; XSD: xJust 15–256).
+  const tpEmis = Number(ide.tpEmis ?? 1);
+  exigir([1, 2, 3, 4, 5, 6, 7, 9].includes(tpEmis), "Forma de emissão (tpEmis) inválida.");
+  exigir(chave[34] === String(tpEmis), "A forma de emissão (tpEmis) não bate com a chave de acesso.");
+  let contingenciaIde = "";
+  if (tpEmis !== 1) {
+    const just = String(ide.xJust ?? "").trim();
+    exigir(just.length >= 15 && just.length <= 256, "Justificativa da contingência deve ter de 15 a 256 caracteres.");
+    contingenciaIde = t("dhCont", dataHoraFiscal(ide.dhCont, ide.fuso)) + t("xJust", just, { texto: true });
+  }
   const ideXml = g("ide",
     t("cUF", ide.cUF) + t("cNF", ide.cNF) + t("natOp", ide.natOp, { texto: true }) + t("mod", mod) +
     t("serie", ide.serie) + t("nNF", ide.nNF) + t("dhEmi", dataHoraFiscal(ide.dhEmi, ide.fuso)) +
     t("tpNF", "1") + t("idDest", ide.idDest ?? "1") + t("cMunFG", ide.cMunFG) +
     t("tpImp", mod === 65 ? "4" : "1") + t("tpEmis", ide.tpEmis ?? "1") + t("cDV", ide.cDV ?? chave.slice(-1)) +
     t("tpAmb", ide.tpAmb) + t("finNFe", ide.finNFe ?? "1") + t("indFinal", ide.indFinal ?? "1") +
-    t("indPres", ide.indPres ?? "1") + t("procEmi", "0") + t("verProc", ide.verProc ?? "PedidoPrime 1.0", { texto: true }));
+    t("indPres", ide.indPres ?? "1") + t("procEmi", "0") + t("verProc", ide.verProc ?? "PedidoPrime 1.0", { texto: true }) +
+    contingenciaIde);
 
   // Emitente
   const e = d.emit || {};

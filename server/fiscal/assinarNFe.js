@@ -48,7 +48,17 @@ export function assinarNFe(xml, { chavePrivadaPem, certificadoBase64, infNFeSupl
   const id = (/^<infNFe Id="(NFe[0-9A-Z]{44})"/.exec(infNFe) || [])[1];
   if (!id) throw new Error("infNFe sem Id válido.");
   const signature = assinaturaDoElemento({ elemento: infNFe, nome: "infNFe", id, chavePrivadaPem, certificadoBase64 });
-  return s.slice(0, fim + "</infNFe>".length) + infNFeSupl + signature + "</NFe>";
+  // Contingência off-line (E7): o QR Code usa o DigestValue desta assinatura,
+  // então infNFeSupl pode ser uma função que o recebe (o grupo fica fora do
+  // trecho assinado e não altera o resumo).
+  const supl = typeof infNFeSupl === "function" ? infNFeSupl(digestCanonico(infNFe, "infNFe")) : infNFeSupl;
+  return s.slice(0, fim + "</infNFe>".length) + supl + signature + "</NFe>";
+}
+
+/** DigestValue (SHA-1 base64) da forma canônica de um elemento filho de <NFe>/<evento>. */
+export function digestCanonico(elemento, nome) {
+  const canon = elemento.replace(`<${nome} `, `<${nome} xmlns="${NS_NFE}" `);
+  return createHash("sha1").update(canon, "utf8").digest("base64");
 }
 
 /**
@@ -58,8 +68,7 @@ export function assinarNFe(xml, { chavePrivadaPem, certificadoBase64, infNFeSupl
 export function assinaturaDoElemento({ elemento, nome, id, chavePrivadaPem, certificadoBase64 }) {
   if (!chavePrivadaPem || !certificadoBase64) throw new Error("Credencial de assinatura ausente.");
   // C14N do subconjunto = herda a declaração de namespace do pai.
-  const canon = elemento.replace(`<${nome} `, `<${nome} xmlns="${NS_NFE}" `);
-  const digest = createHash("sha1").update(canon, "utf8").digest("base64");
+  const digest = digestCanonico(elemento, nome);
   const assinador = createSign("RSA-SHA1");
   assinador.update(signedInfoCanonico(id, digest, true), "utf8");
   const valor = assinador.sign(chavePrivadaPem, "base64");

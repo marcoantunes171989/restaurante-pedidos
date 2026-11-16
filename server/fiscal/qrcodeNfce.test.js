@@ -22,9 +22,9 @@ describe("QR Code NFC-e", () => {
     const esperado = createHash("sha1").update(`${CHAVE}|2|2|1` + "CSC-DE-TESTE-123").digest("hex").toUpperCase();
     expect(u).toBe(`${URL}?p=${CHAVE}|2|2|1|${esperado}`);
   });
-  it("recusa contingência (tpEmis 9) nesta etapa e chave inválida", () => {
+  it("recusa chave de contingência (tpEmis 9) no QR normal e chave inválida", () => {
     const contingencia = CHAVE.slice(0, 34) + "9" + CHAVE.slice(35);
-    expect(() => urlQrCodeV3({ urlBase: URL, chave: contingencia, tpAmb: 2 })).toThrow(/contingência/i);
+    expect(() => urlQrCodeV3({ urlBase: URL, chave: contingencia, tpAmb: 2 })).toThrow(/off-line/i);
     expect(() => urlQrCodeV3({ urlBase: URL, chave: "123", tpAmb: 2 })).toThrow(/chave/i);
     expect(() => urlQrCodeV2({ urlBase: URL, chave: CHAVE, tpAmb: 2, idCsc: "1", csc: "" })).toThrow(/CSC/);
   });

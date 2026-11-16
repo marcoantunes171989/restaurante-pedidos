@@ -167,6 +167,15 @@ describe("montarXmlNFe — variações", () => {
 describe("montarXmlNFe — recusas (nunca gera XML inválido em silêncio)", () => {
   const erro = (b) => { try { montarXmlNFe(b); return null; } catch (e) { return e.message; } };
   it("chave fora do padrão", () => expect(erro(base({ chave: "123" }))).toMatch(/chave/i));
+  it("contingência: tpEmis precisa bater com a chave e exige justificativa de 15 a 256", () => {
+    const ch9 = CHAVE.slice(0, 34) + "9" + CHAVE.slice(35);
+    const ide = (x) => ({ ...base().ide, ...x });
+    expect(erro(base({ ide: ide({ tpEmis: 9 }) }))).toMatch(/não bate com a chave/);
+    expect(erro(base({ chave: ch9 }))).toMatch(/não bate com a chave/);
+    expect(erro(base({ chave: ch9, ide: ide({ tpEmis: 9, dhCont: "2026-11-15T15:31:00Z", xJust: "curta" }) }))).toMatch(/15 a 256/);
+    const ok = montarXmlNFe(base({ chave: ch9, ide: ide({ tpEmis: 9, dhCont: "2026-11-15T15:31:00Z", xJust: "SEFAZ fora do ar no momento" }) })).xml;
+    expect(ok).toContain("<verProc>PedidoPrime 1.0</verProc><dhCont>2026-11-15T12:31:00-03:00</dhCont><xJust>SEFAZ fora do ar no momento</xJust></ide>");
+  });
   it("sem itens", () => expect(erro(base({ itens: [] }))).toMatch(/itens/i));
   it("grupo de ICMS não suportado", () => {
     const b = base(); b.itens[0] = { ...b.itens[0], icms: { grupo: "ICMSSN900", CSOSN: "900" } };
