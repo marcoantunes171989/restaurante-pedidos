@@ -138,7 +138,7 @@ function grupoIbsCbs(x, nItem) {
  * @param {string} d.chave   44 posições (o Id é "NFe"+chave)
  * @param {object} d.ide     { cUF, cNF, natOp, mod, serie, nNF, dhEmi, tpAmb, cMunFG, cDV, tpEmis?, fuso?, indPres?, idDest?, indFinal?, finNFe?, verProc? }
  * @param {object} d.emit    { CNPJ|CPF, xNome, xFant?, IE, CRT, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
- * @param {object} [d.dest]  { CPF|CNPJ, xNome?, indIEDest? }
+ * @param {object} [d.dest]  { CPF|CNPJ, xNome?, ender?{xLgr,nro,xCpl,xBairro,cMun,xMun,UF,CEP,fone}, indIEDest?, IE? }
  * @param {object[]} d.itens [{ cProd, cEAN?, xProd, NCM, CEST?, CFOP, uCom, qCom, vUnCom, vProd, vDesc?, vOutro?, icms, pis, cofins, ibscbs? }]
  * @param {object} d.pag     { detPag:[{ tPag, vPag, indPag?, xPag?, card?:{ tpIntegra, CNPJ?, tBand?, cAut? } }], vTroco? }
  * @param {object} [d.infAdic]  { infCpl? }
@@ -196,7 +196,14 @@ export function montarXmlNFe(d = {}) {
   let destXml = "";
   if (d.dest && (d.dest.CPF || d.dest.CNPJ)) {
     const ds = d.dest;
-    destXml = g("dest", (ds.CNPJ ? t("CNPJ", ds.CNPJ) : t("CPF", somenteDig(ds.CPF))) + t("xNome", ds.xNome, { texto: true }) + t("indIEDest", ds.indIEDest ?? "9"));
+    // NF-e (55): nome e endereço obrigatórios (MOC 7.0 Anexo I, rejeição 726).
+    if (mod === 55) exigir(ds.xNome && ds.ender, "NF-e (55) exige nome e endereço do destinatário.");
+    const de = ds.ender;
+    const enderDest = de ? g("enderDest", t("xLgr", de.xLgr, { texto: true }) + t("nro", de.nro, { texto: true }) + t("xCpl", de.xCpl, { texto: true }) +
+      t("xBairro", de.xBairro, { texto: true }) + t("cMun", de.cMun) + t("xMun", de.xMun, { texto: true }) + t("UF", de.UF) +
+      t("CEP", de.CEP ? somenteDig(de.CEP) : "") + t("cPais", "1058") + t("xPais", "Brasil") + t("fone", de.fone ? somenteDig(de.fone) : "")) : "";
+    destXml = g("dest", (ds.CNPJ ? t("CNPJ", ds.CNPJ) : t("CPF", somenteDig(ds.CPF))) + t("xNome", ds.xNome, { texto: true }) + enderDest +
+      t("indIEDest", ds.indIEDest ?? "9") + t("IE", ds.IE ? somenteDig(ds.IE) : ""));
   } else if (mod === 55) {
     throw new Error("NF-e (55) exige destinatário.");
   }

@@ -40,6 +40,8 @@ const REGRAS_SN = [
 const FORMAS = [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }, { id: 2, nome: "PIX", tipo: "pix" }, { id: 3, nome: "Crédito", tipo: "cartao_credito" }];
 const MAPA = { dinheiro: "01", pix: "17", cartao_credito: "03" };
 
+const DEST_NFE = { documento: "11.222.333/0001-81", nome: "Empresa Cliente Ltda", ie: "111.222.333.444",
+  ender: { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310-100", fone: "(11) 3333-4444" } };
 async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "1", modelo = 65, cpf = "", itens } = {}) {
   const venda = montarVendaFiscal({
     pedidos: [{ id: "P1", lojaId: 7, status: "delivered", items: itens || [
@@ -51,9 +53,9 @@ async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "
     regras: { taxaServico: "outras_despesas" }, pagamento,
   });
   expect(venda.pendencias).toEqual([]);
-  const r = dadosNFeDaVenda({ venda, emitente: { ...EMIT, crt }, documento: "12345678000195", modelo, serie: 1, numero: 123, ambiente: "homologacao", dhEmi: "2026-11-15T15:30:00Z", cpfConsumidor: cpf });
+  const r = dadosNFeDaVenda({ venda, emitente: { ...EMIT, crt }, documento: "12345678000195", modelo, serie: 1, numero: 123, ambiente: "homologacao", dhEmi: "2026-11-15T15:30:00Z", cpfConsumidor: cpf,
+    destinatario: modelo === 55 ? DEST_NFE : null });
   expect(r.ok, r.erro).toBe(true);
-  if (modelo === 55) r.dados.dest = { CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", indIEDest: "9" };
   const { xml } = montarXmlNFe(r.dados);
   return validarNFeXsd(comAssinaturaDeTeste(xml, r.chave));
 }

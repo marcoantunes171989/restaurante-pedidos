@@ -116,12 +116,18 @@ describe("montarXmlNFe — variações", () => {
     expect(xml).toContain("<dest><CPF>12345678909</CPF><indIEDest>9</indIEDest></dest>");
   });
   it("NF-e (55): DANFE retrato e destinatário com nome", () => {
-    const b = base({ dest: { CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", indIEDest: "9" } });
+    const ender = { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310-100" };
+    const b = base({ dest: { CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", ender, indIEDest: "1", IE: "111.222.333.444" } });
     b.ide.mod = 55;
     const { xml } = montarXmlNFe(b);
     expect(tag(xml, "mod")).toBe("55");
     expect(tag(xml, "tpImp")).toBe("1");
-    expect(xml).toContain("<dest><CNPJ>11222333000181</CNPJ><xNome>Empresa Cliente Ltda</xNome><indIEDest>9</indIEDest></dest>");
+    expect(xml).toContain("<dest><CNPJ>11222333000181</CNPJ><xNome>Empresa Cliente Ltda</xNome><enderDest><xLgr>Av Paulista</xLgr><nro>1000</nro><xBairro>Bela Vista</xBairro><cMun>3550308</cMun><xMun>São Paulo</xMun><UF>SP</UF><CEP>01310100</CEP><cPais>1058</cPais><xPais>Brasil</xPais></enderDest><indIEDest>1</indIEDest><IE>111222333444</IE></dest>");
+  });
+  it("NF-e (55) sem endereço do destinatário → erro (rejeição 726)", () => {
+    const b = base({ dest: { CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", indIEDest: "9" } });
+    b.ide.mod = 55;
+    expect(() => montarXmlNFe(b)).toThrow(/endereço do destinatário/);
   });
   it("Regime Normal: ICMS00 com base, alíquota e valor", () => {
     const b = base();

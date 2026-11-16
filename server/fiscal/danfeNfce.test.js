@@ -101,7 +101,7 @@ describe("ação danfe", () => {
     expect(await processarEmissao({ acao: "danfe", documentoId: "d1" }, base({ podeEmitir: vi.fn().mockResolvedValue(false),
       paraDanfe: vi.fn().mockResolvedValue({ ok: true, xml: PROC, documento: { loja_id: 7, modelo: 65 } }) }))).toMatchObject({ code: "FORBIDDEN" });
     expect(await processarEmissao({ acao: "danfe", documentoId: "d1" }, base({ paraDanfe: vi.fn().mockResolvedValue({ ok: false, code: "SEM_XML", loja_id: 7 }) }))).toMatchObject({ code: "SEM_XML" });
-    expect(await processarEmissao({ acao: "danfe", documentoId: "d1" }, base({ paraDanfe: vi.fn().mockResolvedValue({ ok: true, xml: PROC, documento: { loja_id: 7, modelo: 55 } }) }))).toMatchObject({ code: "SO_NFCE_DANFE" });
+    expect(await processarEmissao({ acao: "danfe", documentoId: "d1" }, base({ paraDanfe: vi.fn().mockResolvedValue({ ok: true, xml: PROC, documento: { loja_id: 7, modelo: 55 } }) }))).toMatchObject({ code: "SEM_AUTORIZACAO" });
     expect(await processarEmissao({ acao: "danfe", documentoId: "x" }, base({ paraDanfe: vi.fn().mockResolvedValue(null) }))).toMatchObject({ code: "NAO_ENCONTRADO" });
   });
 });

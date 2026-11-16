@@ -124,3 +124,26 @@ describe("emitir uma venda do caixa (rascunho com venda)", () => {
     expect(d.registrar).not.toHaveBeenCalled();
   });
 });
+
+describe("NF-e (55) da venda com destinatário", () => {
+  it("monta no servidor com o destinatário do caixa e a NF-e assinada passa no XSD", async () => {
+    const dest = { documento: "11222333000181", nome: "Empresa Cliente Ltda", ie: "111222333444",
+      ender: { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310100" } };
+    const DOC55 = { ...DOC, modelo: 55, rascunho: { versao: 1, venda: VENDA, cpf: "", dest } };
+    const enviados = [];
+    const d = {
+      ...deps(), podeEmitir: vi.fn().mockResolvedValue(true), ufDaLoja: vi.fn().mockResolvedValue("SP"),
+      segredoCertificado: vi.fn().mockResolvedValue({ pfx: PFX_B64, senha: "teste-pedido-prime" }),
+      documento: vi.fn().mockResolvedValue(DOC55), registrar: vi.fn().mockResolvedValue({ ok: true }), agora: () => AGORA,
+      enviar: vi.fn(async ({ dados }) => { enviados.push(String(dados)); return { ok: false, erro: "SEFAZ fora do ar" }; }),
+    };
+    const r = await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(r).toMatchObject({ podeContingencia: true, formaContingencia: "svc" });
+    const salvo = d.salvarDados.mock.calls[0][0].dados;
+    expect(salvo.dest).toMatchObject({ CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", indIEDest: "1", IE: "111222333444" });
+    const nfe = enviados.map((x) => x.match(/<NFe[\s\S]*<\/NFe>/)?.[0]).find(Boolean);
+    expect(nfe).toContain("<mod>55</mod>");
+    const v = await validarNFeXsd(nfe);
+    expect(v.valido, JSON.stringify(v)).toBe(true);
+  });
+});

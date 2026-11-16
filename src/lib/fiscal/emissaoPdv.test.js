@@ -100,3 +100,79 @@ describe("emitirNotaDaVenda", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
+
+import { dadosDaNotaNoCaixa, NOTA_VAZIA, ambienteNfeDaLoja } from "./emissaoPdv.js";
+import { buscarEnderecoPorCep } from "./cep.js";
+
+const NFE_OK = { ...NOTA_VAZIA, documento: "11.222.333/0001-81", nfe: true, nome: "Empresa Cliente Ltda", ie: "", CEP: "01310-100",
+  xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", xMun: "São Paulo", UF: "SP", cMun: "3550308" };
+
+describe("CPF/CNPJ na nota e NF-e (E8 parte 3)", () => {
+  it("vazio → NFC-e sem destinatário; CPF/CNPJ válido → NFC-e com consumidor", () => {
+    expect(dadosDaNotaNoCaixa(NOTA_VAZIA)).toEqual({ ok: true, modelo: 65, cpf: "", destinatario: null });
+    expect(dadosDaNotaNoCaixa({ ...NOTA_VAZIA, documento: "123.456.789-09" })).toMatchObject({ ok: true, modelo: 65, cpf: "12345678909" });
+    expect(dadosDaNotaNoCaixa({ ...NOTA_VAZIA, documento: "11.222.333/0001-81" })).toMatchObject({ ok: true, modelo: 65, cpf: "11222333000181" });
+  });
+  it("CPF/CNPJ inválido → avisa antes de fechar", () => {
+    expect(dadosDaNotaNoCaixa({ ...NOTA_VAZIA, documento: "123.456.789-00" })).toMatchObject({ ok: false, erro: "CPF/CNPJ do consumidor inválido." });
+  });
+  it("NF-e: só com a loja habilitada e com endereço completo e IBGE da UF", () => {
+    expect(dadosDaNotaNoCaixa(NFE_OK, { nfeDisponivel: false }).ok).toBe(false);
+    expect(dadosDaNotaNoCaixa(NFE_OK, { nfeDisponivel: true })).toMatchObject({ ok: true, modelo: 55, destinatario: { nome: "Empresa Cliente Ltda" } });
+    expect(dadosDaNotaNoCaixa({ ...NFE_OK, nro: "" }, { nfeDisponivel: true }).erro).toMatch(/endereço/);
+    expect(dadosDaNotaNoCaixa({ ...NFE_OK, cMun: "3304557" }, { nfeDisponivel: true }).erro).toMatch(/IBGE/);
+    expect(dadosDaNotaNoCaixa({ ...NFE_OK, nome: "" }, { nfeDisponivel: true }).erro).toMatch(/razão social/);
+  });
+  it("ambiente da NF-e segue o da loja e exige NF-e habilitada", () => {
+    expect(ambienteNfeDaLoja({ nfeHabilitada: true, nfceAmbiente: "homologacao" })).toBe("homologacao");
+    expect(ambienteNfeDaLoja({ nfeHabilitada: false, nfceAmbiente: "homologacao" })).toBeNull();
+    expect(ambienteNfeDaLoja({ nfeHabilitada: true, nfceAmbiente: "simulacao" })).toBeNull();
+  });
+});
+
+describe("emitirNotaDaVenda — NF-e", () => {
+  const EMIT55 = { nfceHabilitada: true, nfeHabilitada: true, nfceAmbiente: "homologacao" };
+  const dest = dadosDaNotaNoCaixa(NFE_OK, { nfeDisponivel: true }).destinatario;
+  it("reserva modelo 55 com o destinatário no rascunho", async () => {
+    const s = supa({ documento_id: "d1", modelo: 55, serie: 1, numero: 9, ambiente: "homologacao", status: "reservado" });
+    const r = await emitirNotaDaVenda({ ...BASE, emitente: EMIT55, supabase: s, modelo: 55, destinatario: dest, fetchFn: resposta({ ok: true, situacao: "autorizada", numero: 9 }) });
+    expect(r).toMatchObject({ estado: "autorizada", titulo: "NF-e nº 9 autorizada" });
+    const p = s.rpc.mock.calls[0][1];
+    expect(p).toMatchObject({ p_modelo: 55 });
+    expect(p.p_rascunho.dest).toEqual(dest);
+    expect(p.p_rascunho.cpf).toBe("");
+  });
+  it("SEFAZ fora → SVC; SVC fora → EPEC", async () => {
+    const fetchFn = resposta(
+      { ok: false, situacao: "indisponivel", podeContingencia: true },
+      { ok: false, code: "SVC_INATIVA", podeEpec: true },
+      { ok: true, situacao: "epec", forma: "epec", numero: 10, documentoId: "d2", protocoloEpec: "891260000000001" },
+    );
+    const r = await emitirNotaDaVenda({ ...BASE, emitente: EMIT55, supabase: supa(), modelo: 55, destinatario: dest, fetchFn });
+    expect(r).toMatchObject({ estado: "contingencia", numero: 10, documentoId: "d2" });
+    expect(r.detalhe).toContain("891260000000001");
+    expect(JSON.parse(fetchFn.mock.calls[2][1].body)).toMatchObject({ acao: "contingencia", forma: "epec" });
+  });
+  it("SVC aceitou e autorizou → autorizada; SVC sem resposta → pendente na SVC", async () => {
+    const a = await emitirNotaDaVenda({ ...BASE, emitente: EMIT55, supabase: supa(), modelo: 55, destinatario: dest,
+      fetchFn: resposta({ ok: false, situacao: "indisponivel", podeContingencia: true }, { ok: true, situacao: "autorizada", forma: "svc", numero: 11, documentoId: "d3" }) });
+    expect(a).toMatchObject({ estado: "autorizada", numero: 11 });
+    const b = await emitirNotaDaVenda({ ...BASE, emitente: EMIT55, supabase: supa(), modelo: 55, destinatario: dest,
+      fetchFn: resposta({ ok: false, situacao: "indisponivel", podeContingencia: true }, { ok: false, situacao: "indisponivel", forma: "svc", numero: 12, documentoId: "d4" }) });
+    expect(b).toMatchObject({ estado: "contingencia", numero: 12 });
+  });
+});
+
+describe("buscarEnderecoPorCep (ViaCEP)", () => {
+  it("devolve rua, bairro, cidade, UF e IBGE; só manda o CEP", async () => {
+    const fetchFn = vi.fn(async () => ({ ok: true, json: async () => ({ cep: "01310-100", logradouro: "Avenida Paulista", bairro: "Bela Vista", localidade: "São Paulo", uf: "SP", ibge: "3550308" }) }));
+    const r = await buscarEnderecoPorCep("01310-100", { fetchFn });
+    expect(fetchFn.mock.calls[0][0]).toBe("https://viacep.com.br/ws/01310100/json/");
+    expect(r).toEqual({ ok: true, ender: { CEP: "01310100", xLgr: "Avenida Paulista", xBairro: "Bela Vista", xMun: "São Paulo", UF: "SP", cMun: "3550308" } });
+  });
+  it("CEP curto, não encontrado ou sem rede", async () => {
+    expect((await buscarEnderecoPorCep("123")).ok).toBe(false);
+    expect((await buscarEnderecoPorCep("99999999", { fetchFn: async () => ({ ok: true, json: async () => ({ erro: true }) }) })).erro).toBe("CEP não encontrado.");
+    expect((await buscarEnderecoPorCep("01310100", { fetchFn: async () => { throw new Error("x"); } })).ok).toBe(false);
+  });
+});

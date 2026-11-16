@@ -44,8 +44,9 @@ import { legendaCupom } from "./pdvCupomValidacao";
 import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
-import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, postarApiFiscal } from "../../lib/fiscal/emissaoPdv";
-import { imprimirDanfeNfce } from "../../lib/fiscal/danfeNfceHtml";
+import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
+import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
+import { imprimirNotaFiscal as imprimirDanfe } from "../../lib/fiscal/imprimirNota";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -113,7 +114,7 @@ function AvisoNotaFiscal({ nota, onImprimir }) {
       {nota.detalhe && <p className="mt-0.5 font-semibold">{nota.detalhe}</p>}
       {podeImprimir && (
         <button type="button" onClick={() => onImprimir(nota)} className="btn-laranja mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-[#012E46]">
-          <IconImpressora width={16} height={16} /> Imprimir NFC-e{nota.estado === "contingencia" ? " (2 vias)" : ""}
+          <IconImpressora width={16} height={16} /> Imprimir nota fiscal{nota.estado === "contingencia" ? " (2 vias)" : ""}
         </button>
       )}
     </div>
@@ -402,6 +403,11 @@ export default function CashierPdv({
     config: configFiscalVenda,
     ctxFiscal,
   }), [emitenteFiscal, pedidosSel, products, subtotalSel, taxaValorSel, acrescimoSel, descontoManualSel, descontoCupom, contaSel, pagamentosPorConta, formasPagamento, configFiscalVenda, ctxFiscal]);
+
+  // E8: nota fiscal da venda (CPF/CNPJ na nota e NF-e para empresa).
+  const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
+  const nfceNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
+  const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
 
   // Forma virtual "Pontos" — aparece só com cliente identificado e saldo.
   const formasComPontos = useMemo(() => {
@@ -990,6 +996,12 @@ export default function CashierPdv({
       notify("error", "Valor inválido para fechamento. Registre recebimentos que cubram o total.");
       return;
     }
+    // E8: confere o CPF/CNPJ (e a NF-e) antes de fechar; corrigir ou apagar o campo libera.
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    if (!notaCx.ok) {
+      notify("error", notaCx.erro);
+      return;
+    }
     processandoRef.current = true;
     setProcessando(true);
     const contaKey = contaSel.key;
@@ -1042,7 +1054,7 @@ export default function CashierPdv({
       });
       const codigoPagamento = `PAG-${Date.now().toString().slice(-8)}`;
       // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz a venda.
-      const emiteNota = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
+      const emiteNota = notaCx.modelo === 55 ? nfeNaLoja : nfceNaLoja;
       setSucesso({
         ...info,
         notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : null,
@@ -1065,12 +1077,13 @@ export default function CashierPdv({
         emitirNotaDaVenda({
           supabase, emitente: emitenteFiscal, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
           pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
-          config: configFiscalVenda, ctxFiscal,
+          config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
         }).then((n) => {
           atualizarNota(n);
           auditar("nota_fiscal_venda", "comanda", null, { mesa: mesaFechada, estado: n.estado, numero: n.numero ?? null });
         }).catch(() => atualizarNota({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }));
       }
+      setNotaCaixa(NOTA_VAZIA);
       setConfirmarFinalizacao(false);
       setBufferEntrada("");
       setFormaSelecionada(null);
@@ -1234,9 +1247,9 @@ export default function CashierPdv({
 
   /** E8: DANFE NFC-e da venda (a janela abre no clique; os dados vêm do XML no servidor). */
   async function imprimirNotaFiscal(nota) {
-    const r = await imprimirDanfeNfce({ documentoId: nota.documentoId, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
+    const r = await imprimirDanfe({ documentoId: nota.documentoId, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
     if (!r.ok) notify("error", r.erro);
-    else auditar("imprimir_nfce", "comanda", null, { numero: nota.numero ?? null });
+    else auditar("imprimir_nota_fiscal", "comanda", null, { numero: nota.numero ?? null });
   }
 
   /** Após pagamento: comprovante completo (2), simplificado (1) ou retirada/entrega (6). */
@@ -1915,7 +1928,7 @@ export default function CashierPdv({
 
       {confirmarFinalizacao && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
+          <div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <h2 className="text-lg font-black text-[var(--pp-text)]">Confirmar fechamento</h2>
             <p className="mt-1 text-sm text-[var(--pp-text-body)]">
               {contaSel?.mesa} · {contaSel?.comandas?.join(", ")}
@@ -1951,6 +1964,7 @@ export default function CashierPdv({
                 <div className="flex justify-between text-[#1F7A3D]"><span>Pontos ao cliente</span><strong>{pontosGanhar}</strong></div>
               )}
             </div>
+            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={setNotaCaixa} nfeDisponivel={nfeNaLoja} />}
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setConfirmarFinalizacao(false)} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
                 Cancelar

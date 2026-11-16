@@ -17,6 +17,8 @@
 
 import { montarVendaFiscal } from "./vendaFiscal.js";
 import { reservarDocumentoFiscal } from "./fiscalApi.js";
+import { montarDestinatario } from "./nfeDaVenda.js";
+import { normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
 
 export function emissaoPdvAtivaPorEnv(env) {
   return String(env?.VITE_FISCAL_EMISSAO_PDV ?? "").trim().toLowerCase() === "true";
@@ -31,6 +33,34 @@ export const JUSTIFICATIVA_CONTINGENCIA = "SEFAZ indisponivel no momento da vend
 export function ambienteNfceDaLoja(emitente) {
   if (!emitente || emitente.nfceHabilitada !== true) return null;
   return ["homologacao", "producao"].includes(emitente.nfceAmbiente) ? emitente.nfceAmbiente : null;
+}
+
+/** Ambiente da NF-e (55): mesma configuração de ambiente da loja, com NF-e habilitada. */
+export function ambienteNfeDaLoja(emitente) {
+  if (!emitente || emitente.nfeHabilitada !== true) return null;
+  return ["homologacao", "producao"].includes(emitente.nfceAmbiente) ? emitente.nfceAmbiente : null;
+}
+
+export const NOTA_VAZIA = Object.freeze({ documento: "", nfe: false, nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
+
+/**
+ * Confere o que o caixa digitou para a nota (E8 parte 3).
+ * @returns {{ ok:boolean, erro?:string, modelo:55|65, cpf:string, destinatario:object|null }}
+ */
+export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false } = {}) {
+  const doc = normalizarDocumentoFiscal(v.documento);
+  if (v.nfe) {
+    if (!nfeDisponivel) return { ok: false, erro: "Esta loja ainda não emite NF-e." };
+    const destinatario = { documento: doc, nome: v.nome, ie: v.ie,
+      ender: { xLgr: v.xLgr, nro: v.nro, xCpl: v.xCpl, xBairro: v.xBairro, cMun: v.cMun, xMun: v.xMun, UF: v.UF, CEP: v.CEP, fone: v.fone } };
+    const r = montarDestinatario({ modelo: 55, destinatario });
+    if (r.erro) return { ok: false, erro: r.erro };
+    return { ok: true, modelo: 55, cpf: "", destinatario };
+  }
+  if (!doc) return { ok: true, modelo: 65, cpf: "", destinatario: null };
+  const r = montarDestinatario({ modelo: 65, cpfConsumidor: doc });
+  if (r.erro) return { ok: false, erro: r.erro };
+  return { ok: true, modelo: 65, cpf: doc, destinatario: null };
 }
 
 /** UUID estável da venda: SHA-256 de loja + pedidos (ordenados). */
@@ -68,9 +98,11 @@ export async function postarApiFiscal(supabase, corpo, { fetchFn = (...a) => glo
  */
 export async function emitirNotaDaVenda({
   supabase, emitente, pedidos = [], produtos = [], composicao = {}, pagamento = {}, formas = [],
-  config = {}, ctxFiscal = {}, cpf = "", ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle,
+  config = {}, ctxFiscal = {}, cpf = "", modelo = 65, destinatario = null, ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle,
 } = {}) {
-  const ambiente = ativo ? ambienteNfceDaLoja(emitente) : null;
+  const nfe = Number(modelo) === 55;
+  const sigla = nfe ? "NF-e" : "NFC-e";
+  const ambiente = ativo ? (nfe ? ambienteNfeDaLoja(emitente) : ambienteNfceDaLoja(emitente)) : null;
   if (!ambiente) return { estado: "fora" };
 
   let venda;
@@ -92,8 +124,8 @@ export async function emitirNotaDaVenda({
   try {
     const idempotencyKey = await chaveIdempotenciaVenda(venda.lojaId, venda.pedidosIds, subtle);
     reserva = await reservarDocumentoFiscal(supabase, {
-      lojaId: venda.lojaId, modelo: 65, ambiente, idempotencyKey,
-      rascunho: { versao: 1, origem: "pdv", venda, cpf: String(cpf || "").replace(/\D/g, "") },
+      lojaId: venda.lojaId, modelo: nfe ? 55 : 65, ambiente, idempotencyKey,
+      rascunho: { versao: 1, origem: "pdv", venda, cpf: nfe ? "" : normalizarDocumentoFiscal(cpf), ...(nfe ? { dest: destinatario } : {}) },
       pedidosIds: venda.pedidosIds, valorTotal: venda.totais.vNF, qtdItens: venda.itens.length,
     });
   } catch (e) {
@@ -102,13 +134,22 @@ export async function emitirNotaDaVenda({
 
   const opts = fetchFn ? { fetchFn } : {};
   const r = await postarApiFiscal(supabase, { acao: "emitir", documentoId: reserva.documentoId }, opts);
-  if (r.ok && r.situacao === "autorizada") return { estado: "autorizada", titulo: `NFC-e nº ${r.numero ?? reserva.numero} autorizada`, numero: r.numero ?? reserva.numero, documentoId: reserva.documentoId };
-  if (r.situacao === "rejeitada") return { estado: "erro", titulo: `NFC-e nº ${reserva.numero} rejeitada`, detalhe: [r.cStat, r.xMotivo].filter(Boolean).join(" — "), documentoId: reserva.documentoId };
+  if (r.ok && r.situacao === "autorizada") return { estado: "autorizada", titulo: `${sigla} nº ${r.numero ?? reserva.numero} autorizada`, numero: r.numero ?? reserva.numero, documentoId: reserva.documentoId };
+  if (r.situacao === "rejeitada") return { estado: "erro", titulo: `${sigla} nº ${reserva.numero} rejeitada`, detalhe: [r.cStat, r.xMotivo].filter(Boolean).join(" — "), documentoId: reserva.documentoId };
   // Resposta de "já foi para a contingência" (repetição): a nota que vale é a de contingência.
   if (r.code === "EM_CONTINGENCIA") return { estado: "contingencia", titulo: "Nota emitida em contingência", detalhe: "Será enviada à SEFAZ automaticamente.", documentoId: r.contingenciaDocumentoId };
 
   if (r.podeContingencia) {
-    const c = await postarApiFiscal(supabase, { acao: "contingencia", documentoId: reserva.documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA }, opts);
+    let c = await postarApiFiscal(supabase, { acao: "contingencia", documentoId: reserva.documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA }, opts);
+    // NF-e: SVC fora também → EPEC (aviso à Receita; MOC 7.0 Anexo III e NT 2014.001).
+    if (nfe && !c.ok && c.podeEpec) c = await postarApiFiscal(supabase, { acao: "contingencia", documentoId: reserva.documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA, forma: "epec" }, opts);
+    if (nfe && c.forma === "svc" && c.documentoId) {
+      if (c.situacao === "rejeitada") return { estado: "erro", titulo: `NF-e nº ${c.numero} rejeitada na SVC`, detalhe: [c.cStat, c.xMotivo].filter(Boolean).join(" — "), documentoId: c.documentoId };
+      return c.situacao === "autorizada"
+        ? { estado: "autorizada", titulo: `NF-e nº ${c.numero} autorizada (SVC)`, numero: c.numero, documentoId: c.documentoId }
+        : { estado: "contingencia", titulo: `NF-e nº ${c.numero} pela SVC`, numero: c.numero, detalhe: "Servidor reserva da SEFAZ: será reenviada automaticamente.", documentoId: c.documentoId };
+    }
+    if (nfe && c.ok && c.forma === "epec") return { estado: "contingencia", titulo: `NF-e nº ${c.numero} em contingência EPEC`, numero: c.numero, detalhe: `Aviso registrado na Receita (protocolo ${c.protocoloEpec}). Envie à SEFAZ em até 7 dias.`, documentoId: c.documentoId };
     if (c.ok) return { estado: "contingencia", titulo: `NFC-e nº ${c.numero} em contingência`, numero: c.numero, detalhe: "SEFAZ fora do ar: a nota vale e será enviada depois.", documentoId: c.documentoId };
     return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: c.erro || "SEFAZ fora do ar e a contingência falhou. Veja em Notas emitidas.", documentoId: reserva.documentoId };
   }

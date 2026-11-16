@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { mascaraCnpj, mascaraCpf, chaveEmBlocos, dataHoraLocal, imprimirDanfeNfce, qrCodeDataUrl } from "./danfeNfceHtml.js";
+import { mascaraCnpj, mascaraCpf, chaveEmBlocos, dataHoraLocal, qrCodeDataUrl } from "./danfeNfceHtml.js";
+import { imprimirNotaFiscal as imprimirDanfeNfce } from "./imprimirNota.js";
 import { nomeMeioPagamento } from "./meiosPagamento.js";
 
 describe("formatação", () => {

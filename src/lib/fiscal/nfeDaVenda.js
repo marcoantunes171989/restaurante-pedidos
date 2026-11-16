@@ -8,7 +8,7 @@
 //  devolve um aviso para a loja/contador conferir.
 // ════════════════════════════════════════════════════════════
 
-import { codigoUf, normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
+import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, UFS } from "../emitenteFiscalService.js";
 
 // ── Chave de acesso (44) — NF-e e NFC-e ───────────────────
 // DV módulo 11 com pesos 2..9; cada posição vale (código ASCII − 48), o que
@@ -62,6 +62,45 @@ export function grupoPisCofinsPorCst(cst) {
 }
 const CSOSN_GRUPO_SN102 = ["102", "103", "300", "400"];
 
+// ── Destinatário ───────────────────────────────────────────
+// NFC-e: CPF ou CNPJ na nota (opcional), sempre não contribuinte (indIEDest 9;
+// MOC 7.0 Anexo I, nota 1 do campo E16a). NF-e: documento, nome e endereço
+// obrigatórios (rejeição 726); com IE informada → contribuinte (indIEDest 1).
+const so = (v) => String(v ?? "").replace(/\D/g, "");
+export function montarDestinatario({ modelo, cpfConsumidor = "", destinatario = null } = {}) {
+  const docDe = (v) => normalizarDocumentoFiscal(v);
+  const grupoDoc = (d) => (d.length === 11 ? { CPF: d } : { CNPJ: d });
+  if (modelo !== 55) {
+    const d = docDe(destinatario?.documento || cpfConsumidor);
+    if (!d) return { dest: undefined };
+    if (!validarDocumentoFiscal(d).valido) return { erro: "CPF/CNPJ do consumidor inválido." };
+    return { dest: { ...grupoDoc(d), indIEDest: "9" } };
+  }
+  const x = destinatario || {};
+  const d = docDe(x.documento);
+  if (!d || !validarDocumentoFiscal(d).valido) return { erro: "NF-e: informe um CPF ou CNPJ válido do destinatário." };
+  const nome = String(x.nome || "").trim();
+  if (nome.length < 2) return { erro: "NF-e: informe o nome ou a razão social do destinatário." };
+  const en = x.ender || {};
+  const uf = String(en.UF || "").toUpperCase();
+  if (!String(en.xLgr || "").trim() || !String(en.nro || "").trim() || !String(en.xBairro || "").trim() || !String(en.xMun || "").trim()) {
+    return { erro: "NF-e: endereço do destinatário incompleto (rua, número, bairro e município)." };
+  }
+  if (!UFS.includes(uf)) return { erro: "NF-e: UF do destinatário inválida." };
+  if (!/^[0-9]{7}$/.test(so(en.cMun)) || so(en.cMun).slice(0, 2) !== codigoUf(uf)) return { erro: "NF-e: código IBGE do município do destinatário inválido." };
+  if (!/^[0-9]{8}$/.test(so(en.CEP))) return { erro: "NF-e: CEP do destinatário inválido." };
+  const ie = so(x.ie);
+  if (ie && !/^[0-9]{2,14}$/.test(ie)) return { erro: "NF-e: inscrição estadual do destinatário inválida." };
+  return {
+    dest: {
+      ...grupoDoc(d), xNome: nome,
+      ender: { xLgr: String(en.xLgr).trim(), nro: String(en.nro).trim(), xCpl: String(en.xCpl || "").trim(), xBairro: String(en.xBairro).trim(),
+        cMun: so(en.cMun), xMun: String(en.xMun).trim(), UF: uf, CEP: so(en.CEP), fone: so(en.fone) },
+      indIEDest: ie ? "1" : "9", IE: ie || undefined,
+    },
+  };
+}
+
 const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const AMB = { producao: 1, homologacao: 2 };
 
@@ -73,10 +112,11 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {number} p.modelo     55 | 65
  * @param {number} p.serie / p.numero   vindos da reserva atômica (migration 175)
  * @param {string} p.ambiente   'homologacao' | 'producao'
- * @param {string} [p.cpfConsumidor]  CPF na nota (NFC-e)
+ * @param {string} [p.cpfConsumidor]  CPF ou CNPJ na nota (NFC-e)
+ * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, natOp = "Venda de mercadoria", respTec = null, infCpl = "" } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "" } = {}) {
   const avisos = [];
   const falha = (erro) => ({ ok: false, erro, avisos });
   if (!venda?.apto) return falha(`A venda tem pendência(s) e não pode virar nota: ${(venda?.pendencias || []).join(" ") || venda?.resumo || "dados incompletos"}`);
@@ -133,7 +173,8 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   } catch (err) {
     return falha(err.message);
   }
-  const cpf = String(cpfConsumidor || "").replace(/\D/g, "");
+  const dest = montarDestinatario({ modelo: Number(modelo), cpfConsumidor, destinatario });
+  if (dest.erro) return falha(dest.erro);
   const dados = {
     chave,
     ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], cMunFG: e.codigoMunicipioIbge, cDV: chave.slice(-1), indPres: "1", indFinal: "1" },
@@ -141,7 +182,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
       CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: e.inscricaoEstadual, CRT: crt,
       ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: e.codigoMunicipioIbge, xMun: e.municipio, UF: e.uf, CEP: e.cep, fone: e.telefoneFiscal },
     },
-    dest: cpf.length === 11 ? { CPF: cpf, indIEDest: "9" } : undefined,
+    dest: dest.dest,
     itens,
     pag: { detPag, vTroco: venda.totais.vTroco },
     infAdic: infCpl ? { infCpl } : undefined,

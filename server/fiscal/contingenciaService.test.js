@@ -208,7 +208,8 @@ describe("consultar — nota que ficou sem resposta", () => {
 
 // ── NF-e (55) pela SVC-AN (MOC 7.0 Anexo III §2.1.3) ──
 const chave55 = (nNF, tpEmis) => { const b = "35261112345678000195550010000000" + String(nNF).padStart(2, "0") + tpEmis + "48213579"; return b + dvChave(b); };
-const DADOS55 = { ...DADOS, chave: chave55(20, 1), ide: { ...DADOS.ide, mod: 55 }, dest: { CPF: "12345678909", xNome: "Cliente Teste", indIEDest: "9" } };
+const DADOS55 = { ...DADOS, chave: chave55(20, 1), ide: { ...DADOS.ide, mod: 55 }, dest: { CPF: "12345678909", xNome: "Cliente Teste", indIEDest: "9",
+  ender: { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310100" } } };
 const STATUS_SVC = (cStat) => `<retConsStatServ versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><verAplic>SVC</verAplic><cStat>${cStat}</cStat><xMotivo>m${cStat}</xMotivo><cUF>35</cUF><dhRecbto>2026-11-17T12:31:00-03:00</dhRecbto></retConsStatServ>`;
 function depsSvc({ status = 107, autoriza = true, ...extra } = {}) {
   const d = deps({

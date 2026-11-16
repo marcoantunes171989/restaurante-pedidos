@@ -13,7 +13,7 @@ describe("situacaoNota", () => {
 
 describe("acoesDaNota", () => {
   it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
-  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true, enviar: false, consultar: false, imprimir: false }));
+  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true, enviar: false, consultar: false, imprimir: true }));
   it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
 });
 

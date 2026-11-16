@@ -116,27 +116,3 @@ export function escreverDanfeNfce(janela, d, qrDataUrl) {
   janela.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>NFC-e ${esc(d.numero)}</title><style>${CSS_DANFE_NFCE}</style></head><body>${htmlDanfeNfce(d, { qrDataUrl })}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},400);}</scr` + `ipt></body></html>`);
   janela.document.close();
 }
-
-/**
- * Imprime o DANFE de uma nota: abre a janela NA HORA (no clique), busca no
- * servidor os dados do XML, gera o QR Code e manda imprimir.
- * @returns {Promise<{ok:boolean, erro?:string}>}
- */
-export async function imprimirDanfeNfce({ documentoId, buscar, abrir = (...a) => window.open(...a), gerarQr } = {}) {
-  const j = abrir("", "_blank", "width=420,height=720");
-  if (!j) return { ok: false, erro: "Permita pop-ups para imprimir a nota na impressora de cupom." };
-  try { j.document.write('<p style="font-family:Arial;padding:16px">Preparando a nota fiscal…</p>'); } catch { /* janela fechada */ }
-  const r = await buscar({ acao: "danfe", documentoId });
-  if (!r?.ok || !r.danfe) {
-    try { j.close(); } catch { /* já fechada */ }
-    return { ok: false, erro: r?.erro || "Não foi possível montar a nota para impressão." };
-  }
-  let qr;
-  try { qr = await qrCodeDataUrl(r.danfe.qrCode, gerarQr); } catch { qr = ""; }
-  if (!qr) {
-    try { j.close(); } catch { /* já fechada */ }
-    return { ok: false, erro: "Não foi possível gerar o QR Code da nota." };
-  }
-  escreverDanfeNfce(j, r.danfe, qr);
-  return { ok: true };
-}

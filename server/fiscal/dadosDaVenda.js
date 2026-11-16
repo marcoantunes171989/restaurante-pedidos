@@ -69,6 +69,8 @@ export async function dadosDaNota(doc, deps, agora = new Date()) {
     venda, emitente: emitente.dados, documento: emitente.cnpj, modelo: Number(doc.modelo), serie: Number(doc.serie),
     numero: Number(doc.numero), ambiente: doc.ambiente, dhEmi: agora.toISOString(),
     cpfConsumidor: doc.rascunho?.cpf || "",
+    // NF-e (55): destinatário completo digitado no caixa (E8 parte 3).
+    destinatario: doc.rascunho?.dest || null,
   });
   if (!r.ok) return { code: "XML_INVALIDO", detalhe: String(r.erro || "").slice(0, 200) };
   const g = await deps.salvarDados({ documentoId: doc.id, chave: r.chave, dados: r.dados });
