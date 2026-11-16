@@ -47,6 +47,8 @@ import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/sel
 import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
 import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
+import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
+import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe } from "../../lib/fiscal/imprimirNota";
 import {
   abrirCupomTermico,
@@ -409,6 +411,8 @@ export default function CashierPdv({
   const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
   const nfceNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
   const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
+  // E9 parte 2: alertas fiscais (prazos, rejeitadas, certificado) no topo do PDV.
+  const alertasFiscaisPdv = useAlertasFiscais({ supabase, lojaId: lojaInfo?.id ?? emitenteFiscal?.lojaId ?? null, ativo: nfceNaLoja || nfeNaLoja });
   // E8 parte 4: com o caixa aberto, envia sozinho as notas de contingência.
   useEnvioFiscalAutomatico({
     ativo: (nfceNaLoja || nfeNaLoja) && !!caixaAberto,
@@ -1632,6 +1636,8 @@ export default function CashierPdv({
         onAbrirAjuda={() => setAjudaAberta(true)}
         onSair={onSair}
       />
+
+      <AvisoFiscalPdv alertas={alertasFiscaisPdv} />
 
       <PdvStatsBar
         agora={agora}

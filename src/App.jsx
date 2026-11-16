@@ -121,6 +121,8 @@ import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CashierPdv from "./pages/pdv/CashierPdv";
 import ResumoFiscalCaixa from "./components/fiscal/ResumoFiscalCaixa";
+import AlertasFiscais from "./components/fiscal/AlertasFiscais";
+import { useAlertasFiscais } from "./hooks/useAlertasFiscais";
 import { EMISSAO_FISCAL_PDV_ATIVA } from "./lib/fiscal/emissaoPdv";
 import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
@@ -21421,6 +21423,9 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     ...(emitenteFiscalApi ? [{ id: "notas", label: "📄 Notas emitidas" }] : []),
   ];
 
+  // E9 parte 2: alertas fiscais da loja no topo da Configuração Fiscal.
+  const alertasFiscaisLoja = useAlertasFiscais({ supabase, lojaId: lojaInfo?.id ?? null, ativo: !!emitenteFiscalApi });
+
   return (
     <main className="space-y-5">
       <PageHeader
@@ -21433,6 +21438,8 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
           { valor: pendentes, rotulo: "atualizações disponíveis", tom: pendentes ? "alerta" : "ok" },
         ]}
       />
+
+      <AlertasFiscais alertas={alertasFiscaisLoja} onIr={setAba} />
 
       {pendentes > 0 && aba !== "minha" && (
         <button onClick={() => setAba("minha")} className="w-full rounded-2xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.08)] px-4 py-3 text-left text-[13px] font-bold text-[#F38525]">
