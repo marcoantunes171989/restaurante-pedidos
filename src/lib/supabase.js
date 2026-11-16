@@ -979,7 +979,13 @@ export async function novaVersaoFiscalRegra({ regraId, base, usuarioId = null })
   if (usuarioId != null) v.criado_por = usuarioId
   const { data: vr, error } = await supabase.from('fiscal_regra_versao').insert([v]).select().single()
   if (error) throw error
-  await supabase.from('fiscal_regra').update({ status: 'rascunho', atualizado_em: new Date().toISOString() }).eq('id', regraId)
+  // Só volta a regra para "rascunho" se ela nunca teve versão publicada: com uma
+  // publicada, as lojas continuam vendo (e importando) essa versão na Biblioteca
+  // enquanto o novo rascunho é preparado.
+  const temPublicada = await supabase.from('fiscal_regra_versao').select('id').eq('regra_id', regraId).eq('status', 'publicada').limit(1)
+  const patch = { atualizado_em: new Date().toISOString() }
+  if (!(temPublicada.data || []).length) patch.status = 'rascunho'
+  await supabase.from('fiscal_regra').update(patch).eq('id', regraId)
   return dbParaRegraVersao(vr)
 }
 export async function inativarFiscalRegra(regraId, inativa = true) {
