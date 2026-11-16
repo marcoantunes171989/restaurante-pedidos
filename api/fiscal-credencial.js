@@ -53,8 +53,9 @@ export function criarDeps(tokenUsuario) {
       try { return (await rpc("app_fiscal_pode_configurar", { p_loja_id: lojaId }, tokenUsuario)) === true; } catch { return false; }
     },
     documentoDaLoja: async (lojaId) => {
-      const rows = await restServico(`/tab_lojas?id=eq.${Number(lojaId)}&select=documento`);
-      return rows?.[0]?.documento || "";
+      // 185: por função do servidor (no HML o service_role não lê tab_lojas direto).
+      const r = await rpc("app_fiscal_loja_servidor", { p_loja_id: Number(lojaId) }, serviceKey());
+      return r?.ok ? r.documento || "" : "";
     },
     registrar: async (p) => rpc("app_fiscal_credencial_registrar", {
       p_loja_id: p.lojaId, p_tipo: p.tipo, p_ambiente: p.ambiente ?? null, p_titular: p.titular ?? null,

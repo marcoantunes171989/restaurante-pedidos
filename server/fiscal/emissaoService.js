@@ -12,6 +12,7 @@ import { statusServico, emitirNaSefaz } from "./sefaz/emissor.js";
 import { processarEvento } from "./eventoService.js";
 import { processarContingencia, transmitirContingencia } from "./contingenciaService.js";
 import { dadosDaNota } from "./dadosDaVenda.js";
+import { dadosDanfeNfce } from "./danfeNfce.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -29,6 +30,8 @@ const MENSAGENS = {
   VENDA_DIVERGENTE: "A venda não bate com os pedidos pagos (itens, valores ou loja). A nota não foi enviada.",
   VENDA_NAO_PAGA: "Há pedido desta venda ainda não pago. A nota não foi enviada.",
   SEM_EMITENTE: "Complete o cadastro fiscal da loja (CNPJ e endereço) antes de emitir.",
+  SEM_XML: "Esta nota ainda não tem XML para imprimir (não foi autorizada nem emitida em contingência).",
+  SO_NFCE_DANFE: "A impressão desta tela é só da NFC-e.",
   EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota de contingência é a que vale. Esta numeração só será consultada.",
 };
 const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
@@ -58,6 +61,20 @@ export async function processarEmissao(body = {}, deps) {
       return { ok: !!r.operando, operando: !!r.operando, cStat: r.cStat ?? null, xMotivo: r.xMotivo || r.erro || null };
     } catch {
       return falha("UF_NAO_SUPORTADA");
+    }
+  }
+
+  // DANFE (E8 parte 2): dados para imprimir, tirados do XML guardado.
+  if (acao === "danfe") {
+    const r = await deps.paraDanfe(String(body.documentoId || ""));
+    if (!r) return falha("NAO_ENCONTRADO");
+    if (!(await deps.podeEmitir(r.documento?.loja_id ?? r.loja_id))) return falha("FORBIDDEN");
+    if (!r.ok || !r.xml) return falha("SEM_XML");
+    if (Number(r.documento.modelo) !== 65) return falha("SO_NFCE_DANFE");
+    try {
+      return { ok: true, danfe: dadosDanfeNfce({ xml: r.xml, documento: r.documento, fonte: r.fonte }) };
+    } catch (e) {
+      return falha("XML_INVALIDO", { detalhe: String(e?.message || "").slice(0, 200) });
     }
   }
 

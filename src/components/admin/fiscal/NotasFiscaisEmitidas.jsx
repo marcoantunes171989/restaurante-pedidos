@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo } from "../../../lib/fiscal/notasFiscais";
+import { imprimirDanfeNfce } from "../../../lib/fiscal/danfeNfceHtml";
+import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
 
 // ════════════════════════════════════════════════════════════
 //  Aba "Notas emitidas" (Etapa E6): lista as notas da loja e permite
@@ -151,6 +153,10 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
       recarregar();
     }
   }
+  async function imprimir(nota) {
+    const r = await imprimirDanfeNfce({ documentoId: nota.id, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
+    if (!r.ok) setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: r.erro } }));
+  }
   const resumo = resumoContingencia(notas);
 
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
@@ -200,8 +206,9 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                   <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">A venda saiu na {n.modelo === 65 ? "NFC-e" : "NF-e"} nº {n.contingenciaNumero} (contingência). Esta nota não será reenviada: só consultada.</p>
                 )}
                 {avisos[n.id] && <p role="status" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
-                {(a.cancelar || a.cce || a.enviar || a.consultar) && aberto?.id !== n.id && (
+                {(a.cancelar || a.cce || a.enviar || a.consultar || a.imprimir) && aberto?.id !== n.id && (
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}>Imprimir NFC-e</button>}
                     {a.enviar && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "enviar")}>{ocupado === n.id ? "Enviando…" : "Enviar agora"}</button>}
                     {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}>{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
                     {a.cancelar && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}>Cancelar nota</button>}

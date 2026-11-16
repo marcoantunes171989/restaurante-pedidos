@@ -31,7 +31,7 @@ beforeEach(() => {
     const u = String(url);
     const ok = (data) => ({ ok: true, status: 200, text: async () => JSON.stringify(data), json: async () => data });
     if (u.endsWith("/rpc/app_fiscal_pode_configurar")) return ok(init.headers.authorization === "Bearer token-do-usuario");
-    if (u.includes("/tab_lojas?")) return ok([{ documento: "12.345.678/0001-95" }]);
+    if (u.endsWith("/rpc/app_fiscal_loja_servidor")) return ok({ ok: true, documento: "12.345.678/0001-95", emitente: null });
     if (u.endsWith("/rpc/app_fiscal_credencial_registrar")) return ok({ ok: true, id: "c1" });
     return { ok: false, status: 404, text: async () => "", json: async () => ({}) };
   });

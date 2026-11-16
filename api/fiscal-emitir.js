@@ -40,18 +40,19 @@ async function rpc(nome, params, bearer) {
   if (!r.ok) throw new Error(`RPC ${nome} HTTP ${r.status}`);
   return txt ? JSON.parse(txt) : null;
 }
-async function restServico(path) {
-  const r = await fetch(`${supabaseUrl()}/rest/v1${path}`, { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, accept: "application/json" } });
-  if (!r.ok) throw new Error(`REST HTTP ${r.status}`);
-  return r.json();
-}
-
 export function criarDeps(token) {
   const doServidor = (nome, params) => rpc(nome, params, serviceKey());
+  // 185: emitente/CNPJ por função do servidor (no HML o service_role não lê as tabelas direto).
+  const lojas = new Map();
+  const lojaServidor = (lojaId) => {
+    const id = Number(lojaId);
+    if (!lojas.has(id)) lojas.set(id, doServidor("app_fiscal_loja_servidor", { p_loja_id: id }).catch((e) => { lojas.delete(id); throw e; }));
+    return lojas.get(id);
+  };
   return {
     podeConfigurar: async (lojaId) => { try { return (await rpc("app_fiscal_pode_configurar", { p_loja_id: lojaId }, token)) === true; } catch { return false; } },
     podeEmitir: async (lojaId) => { try { return (await rpc("app_pode_receber_pagamento", { p_loja_id: lojaId }, token)) === true; } catch { return false; } },
-    ufDaLoja: async (lojaId) => (await restServico(`/loja_fiscal_emitente?loja_id=eq.${Number(lojaId)}&select=uf`))?.[0]?.uf || "",
+    ufDaLoja: async (lojaId) => (await lojaServidor(lojaId))?.emitente?.uf || "",
     segredoCertificado: async (lojaId) => {
       const r = await doServidor("app_fiscal_credencial_segredo", { p_loja_id: lojaId, p_tipo: "certificado_a1", p_ambiente: null });
       if (!r?.ok) return null;
@@ -95,17 +96,19 @@ export function criarDeps(token) {
     }),
     // Nota em cada venda (E8 parte 1, migration 184): o servidor confere a
     // venda com os pedidos do banco e monta a nota com o emitente do banco.
-    pedidosDaNota: async (ids) => {
-      const lista = (ids || []).map(String).filter((x) => /^[0-9A-Za-z-]{1,64}$/.test(x));
-      if (!lista.length || lista.length !== (ids || []).length) return [];
-      return restServico(`/tab_pedidos?id=in.(${lista.map(encodeURIComponent).join(",")})&select=id,loja_id,status,status_pagamento,itens`);
+    pedidosDaNota: async (documentoId) => {
+      const r = await doServidor("app_fiscal_pedidos_do_documento", { p_documento_id: documentoId });
+      return r?.ok ? r.pedidos : [];
     },
     emitente: async (lojaId) => {
-      const id = Number(lojaId);
-      const [e] = await restServico(`/loja_fiscal_emitente?loja_id=eq.${id}&select=*`);
-      const [l] = await restServico(`/tab_lojas?id=eq.${id}&select=documento`);
-      if (!e) return null;
-      return { dados: dbParaEmitente(e), cnpj: String(l?.documento || "").replace(/[^0-9A-Za-z]/g, "").toUpperCase() };
+      const r = await lojaServidor(lojaId);
+      if (!r?.ok || !r.emitente) return null;
+      return { dados: dbParaEmitente(r.emitente), cnpj: String(r.documento || "").replace(/[^0-9A-Za-z]/g, "").toUpperCase() };
+    },
+    // DANFE (E8 parte 2): XML guardado da nota (autorizada ou contingência).
+    paraDanfe: async (id) => {
+      const r = await doServidor("app_fiscal_documento_para_danfe", { p_documento_id: id });
+      return r?.ok || r?.code === "SEM_XML" ? r : null;
     },
     salvarDados: (p) => doServidor("app_fiscal_documento_salvar_dados", { p_documento_id: p.documentoId, p_chave: p.chave, p_dados: p.dados }),
     pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),

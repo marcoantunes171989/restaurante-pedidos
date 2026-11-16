@@ -44,7 +44,8 @@ import { legendaCupom } from "./pdvCupomValidacao";
 import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
-import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja } from "../../lib/fiscal/emissaoPdv";
+import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, postarApiFiscal } from "../../lib/fiscal/emissaoPdv";
+import { imprimirDanfeNfce } from "../../lib/fiscal/danfeNfceHtml";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -104,11 +105,17 @@ const TOM_NOTA = {
   pendente: "border-[#B26A00]/30 bg-[#FFF5E5] text-[#8A5200]",
   erro: "border-[#B42318]/30 bg-[#FDECEA] text-[#B42318]",
 };
-function AvisoNotaFiscal({ nota }) {
+function AvisoNotaFiscal({ nota, onImprimir }) {
+  const podeImprimir = onImprimir && nota.documentoId && ["autorizada", "contingencia"].includes(nota.estado);
   return (
     <div role="status" aria-live="polite" className={`mt-3 rounded-2xl border px-3 py-2 text-left text-xs ${TOM_NOTA[nota.estado] || TOM_NOTA.erro}`}>
       <p className="flex items-center gap-2 font-black">{nota.estado === "emitindo" && <IconSpinner />}{nota.titulo}</p>
       {nota.detalhe && <p className="mt-0.5 font-semibold">{nota.detalhe}</p>}
+      {podeImprimir && (
+        <button type="button" onClick={() => onImprimir(nota)} className="btn-laranja mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-[#012E46]">
+          <IconImpressora width={16} height={16} /> Imprimir NFC-e{nota.estado === "contingencia" ? " (2 vias)" : ""}
+        </button>
+      )}
     </div>
   );
 }
@@ -1225,6 +1232,13 @@ export default function CashierPdv({
       : `${n} cupons de produção enviados (um por setor).`);
   }
 
+  /** E8: DANFE NFC-e da venda (a janela abre no clique; os dados vêm do XML no servidor). */
+  async function imprimirNotaFiscal(nota) {
+    const r = await imprimirDanfeNfce({ documentoId: nota.documentoId, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
+    if (!r.ok) notify("error", r.erro);
+    else auditar("imprimir_nfce", "comanda", null, { numero: nota.numero ?? null });
+  }
+
   /** Após pagamento: comprovante completo (2), simplificado (1) ou retirada/entrega (6). */
   function imprimirComprovante(dados, variante = "completo") {
     if (!dados) return;
@@ -1965,7 +1979,7 @@ export default function CashierPdv({
             {sucesso.pontosGanhos > 0 && (
               <p className="text-xs font-bold text-[#1F7A3D]">Cliente ganhou {sucesso.pontosGanhos} pontos</p>
             )}
-            {sucesso.notaFiscal && sucesso.notaFiscal.estado !== "fora" && <AvisoNotaFiscal nota={sucesso.notaFiscal} />}
+            {sucesso.notaFiscal && sucesso.notaFiscal.estado !== "fora" && <AvisoNotaFiscal nota={sucesso.notaFiscal} onImprimir={imprimirNotaFiscal} />}
             <div className="mt-5 space-y-2">
               <button
                 type="button"

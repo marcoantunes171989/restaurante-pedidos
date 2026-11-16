@@ -50,6 +50,8 @@ export function acoesDaNota(doc) {
     enviar: ehContPendente(doc) && doc.contingencia?.assinada !== false,
     // Já foi enviada e não teve resposta certa: perguntar à SEFAZ.
     consultar: !!doc?.chave && !naoUsada(doc) && (doc.status === "enviado" || (doc.status === "erro" && !off)),
+    // DANFE NFC-e (E8): autorizada, ou off-line (tpEmis 9) já assinada.
+    imprimir: Number(doc?.modelo) === 65 && (autorizada || (Number(doc?.tpEmis) === 9 && ehContPendente(doc) && doc.contingencia?.assinada !== false)),
   };
 }
 

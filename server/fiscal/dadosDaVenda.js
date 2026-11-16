@@ -59,7 +59,7 @@ export async function dadosDaNota(doc, deps, agora = new Date()) {
   if (!venda) return { code: "SEM_DADOS_NOTA" };
   if (doc.status !== "reservado") return { code: "STATUS_NAO_PERMITE" };
 
-  const pedidos = await deps.pedidosDaNota(doc.pedidos_ids || []);
+  const pedidos = await deps.pedidosDaNota(doc.id);
   const divergencia = conferirVenda(doc, venda, pedidos);
   if (divergencia) return { code: divergencia };
 

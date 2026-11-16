@@ -12,9 +12,9 @@ describe("situacaoNota", () => {
 });
 
 describe("acoesDaNota", () => {
-  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ cancelar: true, cce: false, enviar: false, consultar: false }));
-  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true, enviar: false, consultar: false }));
-  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ cancelar: false, cce: false, enviar: false, consultar: false }));
+  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
+  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true, enviar: false, consultar: false, imprimir: false }));
+  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
 });
 
 describe("validarTextoEvento", () => {
@@ -60,6 +60,8 @@ describe("contingência na lista", () => {
   });
   it("ações: enviar a off-line, consultar a que ficou sem resposta", () => {
     expect(acoesDaNota(OFF)).toMatchObject({ enviar: true, consultar: false, cancelar: false });
+    // NFC-e off-line assinada pode ser impressa (DANFE de contingência).
+    expect(acoesDaNota({ ...OFF, modelo: 65 }).imprimir).toBe(Number(OFF.tpEmis) === 9);
     expect(acoesDaNota({ ...OFF, contingencia: { ...OFF.contingencia, assinada: false } })).toMatchObject({ enviar: false });
     expect(acoesDaNota({ ...OFF, status: "enviado" })).toMatchObject({ enviar: true, consultar: true });
     expect(acoesDaNota(ORIGEM)).toMatchObject({ enviar: false, consultar: true });
