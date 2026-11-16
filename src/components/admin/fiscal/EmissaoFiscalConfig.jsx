@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   buscarEmitenteFiscal, resumoCredenciaisFiscais, listarSeriesFiscais, salvarSerieFiscal,
   buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
+  consultarLiberacaoProducao,
 } from "../../../lib/fiscal/fiscalApi";
 import { situacaoCertificado, conferirMapaMeios, validarSerieForm } from "../../../lib/fiscal/emissaoConfig";
 import { passosAtivacao } from "../../../lib/fiscal/ativacaoFiscal";
@@ -45,6 +46,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   const [mapa, setMapa] = useState({});
   const [taxa, setTaxa] = useState("");
   const [teste, setTeste] = useState(null); // último teste de conexão (E9)
+  const [producao, setProducao] = useState(null); // E10: liberação da produção (186)
 
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
 
@@ -52,13 +54,14 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   // depois que os dados chegam, e só se a tela ainda estiver aberta.
   const buscarTudo = useCallback(async () => {
     try {
-      const [e, cr, se, cf] = await Promise.all([
+      const [e, cr, se, cf, pr] = await Promise.all([
         buscarEmitenteFiscal(supabase, lojaId, { legado: emitenteLegado }),
         resumoCredenciaisFiscais(supabase, lojaId).catch(() => []),
         listarSeriesFiscais(supabase, lojaId),
         buscarConfigFiscalVenda(supabase, lojaId),
+        consultarLiberacaoProducao(supabase, lojaId).catch(() => null),
       ]);
-      return { dados: { e, cr, se, cf } };
+      return { dados: { e, cr, se, cf, pr } };
     } catch (err) {
       return {
         erro: err?.code === "MIGRACAO_PENDENTE"
@@ -71,8 +74,8 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   const aplicar = useCallback((r) => {
     if (r.erro) setErroCarga(r.erro);
     else {
-      const { e, cr, se, cf } = r.dados;
-      setErroCarga(""); setEmitente(e); setCredenciais(cr); setSeries(se); setConfig(cf);
+      const { e, cr, se, cf, pr } = r.dados;
+      setErroCarga(""); setEmitente(e); setCredenciais(cr); setSeries(se); setConfig(cf); setProducao(pr);
       setMapa(cf.mapaMeios || {}); setTaxa(cf.taxaServicoTratamento || "");
     }
     setCarregando(false);
@@ -184,6 +187,18 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     return { ok: true };
   }
 
+  // E10: produção. A tela pede a palavra de confirmação; o banco confere a homologação (186).
+  async function ligarProducao() {
+    if (!salvarEmitente || !emitente) return { ok: false, erro: "Cadastro fiscal da empresa não encontrado." };
+    const novo = { ...emitente, nfceAmbiente: "producao" };
+    const v = validarEmitenteFiscal(novo, lojaInfo?.documento || "", { permitirProducao: true });
+    if (!v.ok) return { ok: false, erro: v.erros.join(" ") };
+    const r = await salvarEmitente(lojaId, novo);
+    await carregar();
+    if (!r) return { ok: false, erro: "O banco não liberou a produção. Veja o que falta no passo 9." };
+    return { ok: true };
+  }
+
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
   if (carregando) return <p className="text-[13px] text-[var(--pp-text-muted)]">Carregando…</p>;
   if (erroCarga) return <div className={cartao}><p className="text-[13px] font-semibold text-[#C81E4A]">{erroCarga}</p></div>;
@@ -195,7 +210,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
 
   return (
     <div className="space-y-4" data-testid="emissao-fiscal-config">
-      <AssistenteAtivacaoFiscal resultado={ativacao} onIr={irPara} onLigar={ligarHomologacao} />
+      <AssistenteAtivacaoFiscal resultado={ativacao} onIr={irPara} onLigar={ligarHomologacao} producao={producao} onLigarProducao={ligarProducao} />
       <Aviso msg={msg.assist} />
 
       <section className={cartao} aria-labelledby="emissao-cert">

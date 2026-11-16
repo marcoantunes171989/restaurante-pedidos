@@ -10,10 +10,15 @@ const botaoLeve = "inline-flex min-h-10 items-center justify-center rounded-xl b
  * @param {(alvo:string)=>void} p.onIr  leva ao lugar do passo
  * @param {()=>Promise<{ok:boolean, erro?:string}>} p.onLigar  liga a homologação
  */
-export default function AssistenteAtivacaoFiscal({ resultado, onIr, onLigar }) {
+export const PALAVRA_PRODUCAO = "PRODUÇÃO";
+const confere = (t) => String(t || "").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === "PRODUCAO";
+
+export default function AssistenteAtivacaoFiscal({ resultado, onIr, onLigar, producao = null, onLigarProducao = null }) {
   const [confirmando, setConfirmando] = useState(false);
   const [ligando, setLigando] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [palavra, setPalavra] = useState("");
+  const [confirmandoProd, setConfirmandoProd] = useState(false);
   const { passos, prontos, ligada, feitos, total } = resultado;
   const proximo = passos.find((p) => !p.ok);
 
@@ -23,6 +28,15 @@ export default function AssistenteAtivacaoFiscal({ resultado, onIr, onLigar }) {
     setLigando(false);
     setConfirmando(false);
     setMsg(r?.ok ? { ok: true, texto: "Emissão ligada em homologação. As vendas do caixa passam a gerar nota de teste (sem valor fiscal)." } : { ok: false, texto: r?.erro || "Não foi possível ligar." });
+  }
+
+  async function ligarProducao() {
+    setLigando(true);
+    const r = await onLigarProducao();
+    setLigando(false);
+    setConfirmandoProd(false);
+    setPalavra("");
+    setMsg(r?.ok ? { ok: true, texto: "Produção ligada: as próximas notas terão valor fiscal." } : { ok: false, texto: r?.erro || "Não foi possível ligar a produção." });
   }
 
   return (
@@ -73,8 +87,38 @@ export default function AssistenteAtivacaoFiscal({ resultado, onIr, onLigar }) {
           );
         })}
       </ol>
+      {ligada && producao && onLigarProducao && (
+        <div className={`mt-3 rounded-xl border px-3 py-2 ${producao.emProducao ? "border-[#1F7A3D]/30 bg-[#EAF6EE]" : "border-[var(--pp-border)]"}`} data-testid="passo-producao">
+          <p className="text-[13px] font-semibold text-[var(--pp-text)]">9. Ligar em produção (nota com valor fiscal)</p>
+          {producao.emProducao ? (
+            <p className="text-[12px] font-semibold text-[#1F7A3D]">Ligada em produção.</p>
+          ) : producao.liberada ? (
+            <p className="text-[12px] text-[var(--pp-text-muted)]">Homologação validada: pode ligar.</p>
+          ) : (
+            <>
+              <p className="text-[12px] text-[var(--pp-text-muted)]">Antes de ligar, falta:</p>
+              <ul className="mt-0.5 list-disc pl-4 text-[12px] text-[var(--pp-text-body)]">{producao.faltas.map((f) => <li key={f}>{f}</li>)}</ul>
+            </>
+          )}
+          {!producao.emProducao && (
+            !confirmandoProd ? (
+              <button type="button" className={`${botao} mt-2`} disabled={!producao.liberada} onClick={() => setConfirmandoProd(true)}>Ligar em produção</button>
+            ) : (
+              <div role="alertdialog" aria-label="Confirmar ligar produção" className="mt-2 rounded-xl border border-[#F5C2CD] bg-[#FDECEF] p-3">
+                <p className="text-[13px] font-semibold text-[#C81E4A]">Atenção: a partir daqui as notas têm VALOR FISCAL.</p>
+                <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">Cada venda vai gerar uma nota de verdade na SEFAZ, com impostos. Confirme com o contador antes. Para confirmar, digite {PALAVRA_PRODUCAO}.</p>
+                <input aria-label="Digite PRODUÇÃO para confirmar" value={palavra} onChange={(e) => setPalavra(e.target.value)} className="mt-2 min-h-10 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px]" />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" className={botao} disabled={ligando || !confere(palavra)} onClick={ligarProducao}>{ligando ? "Ligando…" : "Ligar produção"}</button>
+                  <button type="button" className={botaoLeve} disabled={ligando} onClick={() => { setConfirmandoProd(false); setPalavra(""); }}>Voltar</button>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      )}
       {msg && <p role="status" className={`mt-2 text-[12px] font-semibold ${msg.ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{msg.texto}</p>}
-      <p className="mt-3 text-[12px] text-[var(--pp-text-muted)]">Produção (nota com valor fiscal) só é liberada no piloto, depois dos testes em homologação.</p>
+      {!ligada && <p className="mt-3 text-[12px] text-[var(--pp-text-muted)]">Produção (nota com valor fiscal) só é liberada depois dos testes em homologação.</p>}
     </section>
   );
 }

@@ -163,6 +163,12 @@ export async function arquivoParaBase64(arquivo) {
   return globalThis.btoa(bin);
 }
 
+/** E10: o que falta para ligar a produção (migration 186). */
+export async function consultarLiberacaoProducao(supabase, lojaId) {
+  const d = await chamar(supabase, "app_fiscal_producao_liberada", { p_loja_id: lojaId });
+  return { liberada: !!d.liberada, faltas: Array.isArray(d.faltas) ? d.faltas : [], emProducao: !!d.em_producao };
+}
+
 export async function resumoCredenciaisFiscais(supabase, lojaId) {
   const d = await chamar(supabase, "app_fiscal_credenciais_resumo", { p_loja_id: lojaId });
   return (d.credenciais || []).map((c) => ({

@@ -337,7 +337,7 @@ export function podeUsarProducao() {
 
 // Validação geral do cadastro para persistência (simulação sempre pode salvar;
 // homologação exige campos mínimos). Retorna { ok, erros[] }.
-export function validarEmitenteFiscal(emitente, documento = "") {
+export function validarEmitenteFiscal(emitente, documento = "", { permitirProducao = false } = {}) {
   const erros = [];
   const amb = String(emitente?.nfceAmbiente ?? "simulacao");
   if (emitente?.crt && !crtValido(emitente.crt)) erros.push("CRT inválido.");
@@ -347,7 +347,8 @@ export function validarEmitenteFiscal(emitente, documento = "") {
   if (emitente?.nfceSerie != null && String(emitente.nfceSerie) !== "" && !serieNfceValida(emitente.nfceSerie)) {
     erros.push(`Série NFC-e deve estar entre ${SERIE_NFCE_MIN} e ${SERIE_NFCE_MAX}.`);
   }
-  if (amb === "producao") erros.push("Produção indisponível nesta fase.");
+  // Produção só pelo assistente "Ativar nota fiscal"; o banco confere a homologação (migration 186).
+  if (amb === "producao" && !permitirProducao) erros.push("Produção indisponível nesta fase.");
   if (amb === "homologacao" && !podeUsarHomologacao(emitente, documento)) {
     erros.push("Homologação exige o cadastro fiscal mínimo completo.");
   }

@@ -67,3 +67,19 @@ describe("produtosSemFiscal", () => {
     expect(l[0].pendencias.length).toBeGreaterThan(0);
   });
 });
+
+import { validarEmitenteFiscal } from "../emitenteFiscalService.js";
+import { consultarLiberacaoProducao } from "./fiscalApi.js";
+
+describe("produção (E10 parte 2)", () => {
+  it("cadastro comum continua sem poder escolher produção; o assistente pode (o banco confere)", () => {
+    const e = { ...EMIT, nfceAmbiente: "producao" };
+    expect(validarEmitenteFiscal(e, "11222333000181").erros).toContain("Produção indisponível nesta fase.");
+    expect(validarEmitenteFiscal(e, "11222333000181", { permitirProducao: true }).ok).toBe(true);
+  });
+  it("lê o que falta pela RPC da 186", async () => {
+    const supabase = { rpc: async (nome, p) => ({ data: nome === "app_fiscal_producao_liberada" && p.p_loja_id === 7
+      ? { ok: true, liberada: false, faltas: ["Série da NFC-e em produção."], em_producao: false } : null, error: null }) };
+    expect(await consultarLiberacaoProducao(supabase, 7)).toEqual({ liberada: false, faltas: ["Série da NFC-e em produção."], emProducao: false });
+  });
+});
