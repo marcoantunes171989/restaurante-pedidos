@@ -47,17 +47,22 @@ export function assinarNFe(xml, { chavePrivadaPem, certificadoBase64, infNFeSupl
   const infNFe = s.slice(ini, fim + "</infNFe>".length);
   const id = (/^<infNFe Id="(NFe[0-9A-Z]{44})"/.exec(infNFe) || [])[1];
   if (!id) throw new Error("infNFe sem Id válido.");
+  const signature = assinaturaDoElemento({ elemento: infNFe, nome: "infNFe", id, chavePrivadaPem, certificadoBase64 });
+  return s.slice(0, fim + "</infNFe>".length) + infNFeSupl + signature + "</NFe>";
+}
+
+/**
+ * Bloco <Signature> para um elemento já canônico (infNFe, infEvento…) filho
+ * de um pai com xmlns da NF-e. Usado pela NF-e e pelos eventos (E6).
+ */
+export function assinaturaDoElemento({ elemento, nome, id, chavePrivadaPem, certificadoBase64 }) {
   if (!chavePrivadaPem || !certificadoBase64) throw new Error("Credencial de assinatura ausente.");
-
-  // C14N do subconjunto infNFe = herda a declaração de namespace do pai.
-  const infNFeCanon = infNFe.replace("<infNFe ", `<infNFe xmlns="${NS_NFE}" `);
-  const digest = createHash("sha1").update(infNFeCanon, "utf8").digest("base64");
-
+  // C14N do subconjunto = herda a declaração de namespace do pai.
+  const canon = elemento.replace(`<${nome} `, `<${nome} xmlns="${NS_NFE}" `);
+  const digest = createHash("sha1").update(canon, "utf8").digest("base64");
   const assinador = createSign("RSA-SHA1");
   assinador.update(signedInfoCanonico(id, digest, true), "utf8");
   const valor = assinador.sign(chavePrivadaPem, "base64");
-
-  const signature = `<Signature xmlns="${NS_DS}">${signedInfoCanonico(id, digest, false)}` +
+  return `<Signature xmlns="${NS_DS}">${signedInfoCanonico(id, digest, false)}` +
     `<SignatureValue>${valor}</SignatureValue><KeyInfo><X509Data><X509Certificate>${certificadoBase64}</X509Certificate></X509Data></KeyInfo></Signature>`;
-  return s.slice(0, fim + "</infNFe>".length) + infNFeSupl + signature + "</NFe>";
 }

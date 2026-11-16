@@ -1,0 +1,54 @@
+{
+  "pacote": "PL_eventos_e_consulta",
+  "baixado_em": "2026-11-15",
+  "fonte": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w=",
+  "uso": "Envelope genérico de evento e consulta (PL 010d v1.03, CNPJ alfanumérico) + conteúdo de cada evento (pacotes específicos). Tipos básicos e assinatura vêm do PL_010h_v1.03.",
+  "origens": {
+    "PL_010d_v1.03 (10/07/2026, conteudo=%20pBOYTXBtbk=)": {
+      "zip_sha256": "45ceefe4dfbbfec93958283b650a2f1e1734784f4770d070b9907754de081d9b",
+      "zip_bytes": 67813,
+      "arquivos": [
+        "envEvento_v1.00.xsd",
+        "leiauteEvento_v1.00.xsd",
+        "retEnvEvento_v1.00.xsd",
+        "procEventoNFe_v1.00.xsd",
+        "consSitNFe_v4.00.xsd",
+        "leiauteConsSitNFe_v4.00.xsd",
+        "retConsSitNFe_v4.00.xsd"
+      ]
+    },
+    "Evento Cancelamento (21/12/2018, conteudo=0Yynu2Ck%20bM=)": {
+      "zip_sha256": "71ccd5fcc48f9604a2a8965146df45e3b73e96e87942ab3391be0d55cc0df718",
+      "zip_bytes": 10695,
+      "arquivos": [
+        "e110111_v1.00.xsd"
+      ]
+    },
+    "Evento Cancelamento por Substituição NFC-e (21/12/2018, conteudo=6UBZKIOo6qU=)": {
+      "zip_sha256": "49a32c2c4dc64413f6ef47ed4756b54121ec56514d5352d6931b9bf43a0706a1",
+      "zip_bytes": 11212,
+      "arquivos": [
+        "e110112_v1.00.xsd"
+      ]
+    },
+    "Evento CCe v1.01 (30/05/2014, conteudo=%200MSTVshMl8=)": {
+      "zip_sha256": "c300695ae3344dcb0c000ec806559e7392c54f7be99599274965050112771f77",
+      "zip_bytes": 11180,
+      "arquivos": [
+        "e110110_v1.00.xsd"
+      ]
+    }
+  },
+  "arquivos": {
+    "consSitNFe_v4.00.xsd": "44d816a725553a0c53508be919629c9235b42c5d41c358a05be8fdf61945f5c1",
+    "e110110_v1.00.xsd": "0a56d7efa780579eb82f28c2069748bad1bf0fdbae57f3c59b0a198cecf3b718",
+    "e110111_v1.00.xsd": "56fcdad336b281a9de5e7aae27850bc2c5bd7714e267c891e1b4d0dc227c65da",
+    "e110112_v1.00.xsd": "73c555577c21a10d9f572efaafe56ad52314b86e98d9ba3a8d679a2750ee944e",
+    "envEvento_v1.00.xsd": "e4d61ba81582b5f1f9a2a4b135d33f4c1ec1c8f9138a2343a9abfffa02bb2777",
+    "leiauteConsSitNFe_v4.00.xsd": "646e3a6bd26720b12a1322d5d25181504d82175c3650e14a1120dfb65895b618",
+    "leiauteEvento_v1.00.xsd": "9a48df8603f685653dfde27dbda72e0f47b5d3c13be0090952f1e82f8d2bc476",
+    "procEventoNFe_v1.00.xsd": "4263ee5d12e7a731efab126310aba4edb25612e5986a1c5dde0c87e6c6173798",
+    "retConsSitNFe_v4.00.xsd": "8b7188d6fe9e879ca057bfb68600746c7491d2e092e3dc5121a6cd5aa79272d5",
+    "retEnvEvento_v1.00.xsd": "5eb93a244c5b26c983c08f725f8eafaa1923664a992181b9d78f60cc8523fa72"
+  }
+}
