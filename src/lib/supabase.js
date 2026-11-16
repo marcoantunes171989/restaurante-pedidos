@@ -2576,8 +2576,18 @@ export function escutarLojas(onMudanca) {
 //  NFC-e. Extensão 1:1 de tab_lojas, protegida por RLS (só super/loja).
 //  fetchLojas() NÃO retorna esses dados; use as funções abaixo.
 // ════════════════════════════════════════════════════════════
+// RPC ausente (migration ainda não aplicada) → usa o caminho antigo (tabela).
+const rpcEmitenteAusente = (e) =>
+  /^(42883|PGRST202)$/.test(String(e?.code || '')) || /could not find the function|function .* does not exist/i.test(String(e?.message || ''))
+
 export async function fetchLojaFiscalEmitente(lojaId) {
   if (lojaId == null) return null
+  // 1º pela RPC (175): funciona com a ACL endurecida do HML, onde o usuário
+  // logado não lê a tabela direto.
+  const rpc = await supabase.rpc('app_fiscal_emitente_da_loja', { p_loja_id: lojaId })
+  if (!rpc.error && rpc.data?.ok) return dbParaEmitente(rpc.data.emitente)
+  if (rpc.error && !rpcEmitenteAusente(rpc.error)) console.warn('fetchLojaFiscalEmitente:', rpc.error.message)
+  if (!rpc.error && rpc.data?.ok === false) return null
   const { data, error } = await supabase
     .from('loja_fiscal_emitente').select('*').eq('loja_id', lojaId).maybeSingle()
   if (error) {
@@ -2596,6 +2606,16 @@ export async function fetchLojaFiscalEmitente(lojaId) {
 // além do que o próprio formulário controla.
 export async function salvarLojaFiscalEmitente(lojaId, dados) {
   if (lojaId == null) throw new Error('loja_id obrigatório para salvar o emitente.')
+  // 1º pela RPC (189): a tela não precisa de escrita direta na tabela
+  // (no HML a ACL endurecida não dá). Sem a 189, segue o caminho antigo.
+  const rpc = await supabase.rpc('app_fiscal_emitente_salvar', { p_loja_id: lojaId, p_dados: emitenteParaDb(dados) })
+  if (!rpc.error) {
+    if (rpc.data?.ok) return dbParaEmitente(rpc.data.emitente)
+    throw new Error(rpc.data?.code === 'FORBIDDEN'
+      ? 'Você não tem permissão para alterar o cadastro fiscal desta empresa.'
+      : `Não foi possível salvar o cadastro fiscal (${rpc.data?.code || 'erro'}).`)
+  }
+  if (!rpcEmitenteAusente(rpc.error)) throw rpc.error
   const payload = { ...emitenteParaDb(dados), loja_id: lojaId, atualizado_em: new Date().toISOString() }
   let { data, error } = await supabase
     .from('loja_fiscal_emitente')

@@ -283,3 +283,21 @@ describe("loja legada sem cadastro fiscal", () => {
     expect(podeUsarHomologacao(null, "")).toBe(false);
   });
 });
+
+describe("Inscrição Estadual (TIe: [0-9]{2,14}|ISENTO)", async () => {
+  const { inscricaoEstadualValida, limparInscricaoEstadual, validarEmitenteFiscal: validar } = await import("./emitenteFiscalService.js");
+  it("aceita 2 a 14 números ou ISENTO", () => {
+    expect(inscricaoEstadualValida("123456789012")).toBe(true);
+    expect(inscricaoEstadualValida("isento")).toBe(true);
+    expect(inscricaoEstadualValida("1")).toBe(false);
+    expect(inscricaoEstadualValida("123456789012345")).toBe(false);
+    expect(inscricaoEstadualValida("12.345")).toBe(false);
+  });
+  it("enquanto digita: só números até 14, ou a palavra ISENTO", () => {
+    expect(limparInscricaoEstadual("123.456.789.012-34567")).toBe("12345678901234");
+    expect(limparInscricaoEstadual("isento")).toBe("ISENTO");
+  });
+  it("validação do cadastro aponta IE inválida", () => {
+    expect(validar({ inscricaoEstadual: "12345678901234567890" }).erros).toContain("Inscrição Estadual: de 2 a 14 números (ou ISENTO).");
+  });
+});

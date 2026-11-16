@@ -17,6 +17,7 @@ import {
   SEGMENTOS_LOJA, normalizarDocumentoFiscal, documentoEhAlfanumerico,
   validarDocumentoFiscal, cepValido, codigoMunicipioIbgeValido, serieNfceValida,
   pendenciasEmitenteNfce, percentualCadastroFiscal, podeUsarHomologacao, PRODUCAO_BLOQUEADA,
+  limparInscricaoEstadual, inscricaoEstadualValida,
 } from "../../../lib/emitenteFiscalService";
 import { mascaraDocumentoFiscal, mascaraCep, mascaraTelefone, mascaraCnae } from "../../../lib/masks";
 import { validarImagemProduto, uploadImagemProduto } from "../../../lib/supabase";
@@ -33,7 +34,7 @@ const soDig = (v) => String(v ?? "").replace(/\D/g, "");
 
 // Campo → aba (para navegar ao primeiro erro).
 const CAMPO_ABA = {
-  nome: "empresa", razaoSocial: "empresa", documento: "empresa", cnaePrincipal: "empresa",
+  nome: "empresa", razaoSocial: "empresa", documento: "empresa", cnaePrincipal: "empresa", inscricaoEstadual: "empresa",
   crt: "fiscal",
   cep: "endereco", logradouro: "endereco", numero: "endereco", bairro: "endereco",
   municipio: "endereco", codigoMunicipioIbge: "endereco", uf: "endereco",
@@ -136,6 +137,7 @@ function LojaCadastroModal({
     // Documento: obrigatório na criação; se preenchido, deve ser válido.
     if (!docNorm) { if (!ehEdicao) e.documento = "Informe o CNPJ ou CPF."; }
     else if (!validarDocumentoFiscal(docNorm).valido) e.documento = validarDocumentoFiscal(docNorm).motivo;
+    if (form.inscricaoEstadual && !inscricaoEstadualValida(form.inscricaoEstadual)) e.inscricaoEstadual = "Use de 2 a 14 números, ou ISENTO.";
     if (form.cep && !cepValido(form.cep)) e.cep = "CEP deve ter 8 dígitos.";
     if (form.codigoMunicipioIbge && !codigoMunicipioIbgeValido(form.codigoMunicipioIbge)) e.codigoMunicipioIbge = "Código IBGE deve possuir 7 dígitos.";
     if (form.emailFiscal && !EMAIL_RE.test(form.emailFiscal.trim())) e.emailFiscal = "E-mail inválido.";
@@ -272,7 +274,7 @@ function LojaCadastroModal({
                       : docValidacao ? <p className={`mt-1 text-[11px] font-semibold ${docValidacao.valido ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>{docValidacao.valido ? "✓ " : "✕ "}{docValidacao.motivo}</p> : null}
                     {docAlfanumerico && <p className="mt-1 text-[11px] text-[#6B7280]">Documento alfanumérico — letras preservadas.</p>}
                   </div>
-                  <div><label htmlFor="lc-ie" className={LBL}>Inscrição Estadual</label><input id="lc-ie" value={form.inscricaoEstadual} onChange={(e) => setField("inscricaoEstadual", e.target.value.toUpperCase().slice(0, 20))} className={INP} placeholder="Conforme a UF" /></div>
+                  <div><label htmlFor="lc-ie" className={LBL}>Inscrição Estadual</label><input id="lc-ie" value={form.inscricaoEstadual} onChange={(e) => setField("inscricaoEstadual", limparInscricaoEstadual(e.target.value))} aria-invalid={!!erros.inscricaoEstadual} className={inpCls("inscricaoEstadual")} placeholder="Só números, ou ISENTO" />{erros.inscricaoEstadual ? <p className="mt-1 text-[11px] font-semibold text-[#C81E4A]">{erros.inscricaoEstadual}</p> : <p className="mt-1 text-[11px] text-[#6B7280]">De 2 a 14 números.</p>}</div>
                   <div><label htmlFor="lc-im" className={LBL}>Inscrição Municipal</label><input id="lc-im" value={form.inscricaoMunicipal} onChange={(e) => setField("inscricaoMunicipal", e.target.value.slice(0, 20))} className={INP} /></div>
                   <div><label htmlFor="lc-cnae" className={LBL}>CNAE Principal</label><input id="lc-cnae" value={mascaraCnae(form.cnaePrincipal)} onChange={(e) => setField("cnaePrincipal", soDig(e.target.value).slice(0, 7))} className={`${INP} font-mono`} placeholder="0000-0/00" /></div>
                   <div><label htmlFor="lc-seg" className={LBL}>Segmento do estabelecimento</label>
@@ -370,10 +372,9 @@ function LojaCadastroModal({
                   <section className="rounded-2xl border border-[#D1D5DB] bg-white p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="flex items-center gap-2 text-[13px] font-bold uppercase tracking-wide text-[#012E46]"><span>📄</span>NF-e — Modelo 55</h4>
-                      <span className="rounded-full bg-[rgba(243,133,37,0.12)] px-2.5 py-0.5 text-[11px] font-bold text-[#F38525]">Em preparação</span>
+                      <label className="flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-[#111111]"><input type="checkbox" checked={form.nfeHabilitada === true} onChange={(e) => setField("nfeHabilitada", e.target.checked)} className="h-4 w-4 accent-[#012E46]" />Habilitar NF-e nesta loja</label>
                     </div>
-                    <label className="mt-2 flex w-fit cursor-not-allowed items-center gap-2 text-[12px] font-semibold text-[#6B7280]"><input type="checkbox" checked={form.nfeHabilitada === true} disabled className="h-4 w-4 accent-[#012E46]" />Habilitar NF-e (indisponível nesta fase)</label>
-                    <p className="mt-1 text-[12px] text-[#6B7280]">Estrutura preparada para uma fase futura — sem emissão nesta versão.</p>
+                    <p className="mt-2 text-[12px] text-[#6B7280]">Nota para cliente empresa (CNPJ), emitida no caixa quando o cliente pede. Usa o mesmo ambiente da NFC-e e uma série própria, cadastrada em Emissão fiscal.</p>
                   </section>
                 </div>
               )}

@@ -335,6 +335,18 @@ export function podeUsarProducao() {
   return !PRODUCAO_BLOQUEADA;
 }
 
+// IE do emitente: leiaute NF-e/NFC-e, tipo TIe = [0-9]{2,14}|ISENTO
+// (tiposBasico_v4.00.xsd, PL_010h).
+export function inscricaoEstadualValida(ie) {
+  return /^([0-9]{2,14}|ISENTO)$/.test(String(ie ?? "").trim().toUpperCase());
+}
+// Formata enquanto digita: só números (até 14) ou a palavra ISENTO.
+export function limparInscricaoEstadual(v) {
+  const s = String(v ?? "").toUpperCase();
+  if (/^[A-Z]/.test(s.trim())) return s.replace(/[^A-Z]/g, "").slice(0, 6);
+  return s.replace(/\D/g, "").slice(0, 14);
+}
+
 // Validação geral do cadastro para persistência (simulação sempre pode salvar;
 // homologação exige campos mínimos). Retorna { ok, erros[] }.
 export function validarEmitenteFiscal(emitente, documento = "", { permitirProducao = false } = {}) {
@@ -342,6 +354,7 @@ export function validarEmitenteFiscal(emitente, documento = "", { permitirProduc
   const amb = String(emitente?.nfceAmbiente ?? "simulacao");
   if (emitente?.crt && !crtValido(emitente.crt)) erros.push("CRT inválido.");
   if (emitente?.uf && !ufValida(emitente.uf)) erros.push("UF inválida.");
+  if (emitente?.inscricaoEstadual && !inscricaoEstadualValida(emitente.inscricaoEstadual)) erros.push("Inscrição Estadual: de 2 a 14 números (ou ISENTO).");
   if (emitente?.cep && !cepValido(emitente.cep)) erros.push("CEP deve ter 8 dígitos.");
   if (emitente?.codigoMunicipioIbge && !codigoMunicipioIbgeValido(emitente.codigoMunicipioIbge)) erros.push("Código IBGE do município deve ter 7 dígitos.");
   if (emitente?.nfceSerie != null && String(emitente.nfceSerie) !== "" && !serieNfceValida(emitente.nfceSerie)) {
