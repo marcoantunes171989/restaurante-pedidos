@@ -44,6 +44,7 @@ import { legendaCupom } from "./pdvCupomValidacao";
 import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
+import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja } from "../../lib/fiscal/emissaoPdv";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -95,6 +96,23 @@ function itemDeProduto(produto) {
   };
 }
 
+// E8: situação da nota fiscal da venda na tela de pagamento concluído.
+const TOM_NOTA = {
+  emitindo: "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]",
+  autorizada: "border-[#1F7A3D]/30 bg-[#EAF6EE] text-[#1F7A3D]",
+  contingencia: "border-[#B26A00]/30 bg-[#FFF5E5] text-[#8A5200]",
+  pendente: "border-[#B26A00]/30 bg-[#FFF5E5] text-[#8A5200]",
+  erro: "border-[#B42318]/30 bg-[#FDECEA] text-[#B42318]",
+};
+function AvisoNotaFiscal({ nota }) {
+  return (
+    <div role="status" aria-live="polite" className={`mt-3 rounded-2xl border px-3 py-2 text-left text-xs ${TOM_NOTA[nota.estado] || TOM_NOTA.erro}`}>
+      <p className="flex items-center gap-2 font-black">{nota.estado === "emitindo" && <IconSpinner />}{nota.titulo}</p>
+      {nota.detalhe && <p className="mt-0.5 font-semibold">{nota.detalhe}</p>}
+    </div>
+  );
+}
+
 /**
  * PDV Pedido Prime — layout do mockup alimentado pelos dados atuais do sistema
  * (pedidos, mesas, formas de pagamento e clientes da loja). Finaliza via baixarComandas.
@@ -127,6 +145,7 @@ export default function CashierPdv({
   emitenteFiscal = null,
   ctxFiscal = SEM_CTX_FISCAL,
   configFiscalVenda = SEM_CONFIG_FISCAL,
+  supabase = null,
 }) {
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
@@ -1014,14 +1033,18 @@ export default function CashierPdv({
         ...(acrescimoSel > 0 ? { acrescimo: acrescimoSel } : {}),
         ...(taxaRemovida ? { taxaRemovida: true } : {}),
       });
+      const codigoPagamento = `PAG-${Date.now().toString().slice(-8)}`;
+      // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz a venda.
+      const emiteNota = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
       setSucesso({
         ...info,
+        notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : null,
         subtotal: subtotalSel,
         taxa: taxaValorSel,
         acrescimo: acrescimoSel,
         descontoManual: descontoManualSel,
         pontosGanhos: pontosGanhar,
-        codigo: `PAG-${Date.now().toString().slice(-8)}`,
+        codigo: codigoPagamento,
         alertasEstoque: baixa?.alertas || [],
         cliente: contaSel.cliente || "",
         telefone: contaSel.telefone || "",
@@ -1030,6 +1053,17 @@ export default function CashierPdv({
         itens: pedidosSel.flatMap((o) => o.items || []),
         tipoEntrega: /entreg/i.test(contaSel.mesa || "") ? "entrega" : "retirada",
       });
+      if (emiteNota) {
+        const atualizarNota = (n) => setSucesso((cur) => (cur && cur.codigo === codigoPagamento ? { ...cur, notaFiscal: n } : cur));
+        emitirNotaDaVenda({
+          supabase, emitente: emitenteFiscal, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
+          pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
+          config: configFiscalVenda, ctxFiscal,
+        }).then((n) => {
+          atualizarNota(n);
+          auditar("nota_fiscal_venda", "comanda", null, { mesa: mesaFechada, estado: n.estado, numero: n.numero ?? null });
+        }).catch(() => atualizarNota({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }));
+      }
       setConfirmarFinalizacao(false);
       setBufferEntrada("");
       setFormaSelecionada(null);
@@ -1931,6 +1965,7 @@ export default function CashierPdv({
             {sucesso.pontosGanhos > 0 && (
               <p className="text-xs font-bold text-[#1F7A3D]">Cliente ganhou {sucesso.pontosGanhos} pontos</p>
             )}
+            {sucesso.notaFiscal && sucesso.notaFiscal.estado !== "fora" && <AvisoNotaFiscal nota={sucesso.notaFiscal} />}
             <div className="mt-5 space-y-2">
               <button
                 type="button"

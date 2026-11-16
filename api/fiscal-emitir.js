@@ -19,6 +19,7 @@
 
 import process from "node:process";
 import { processarEmissao } from "../server/fiscal/emissaoService.js";
+import { dbParaEmitente } from "../src/lib/emitenteFiscalService.js";
 
 function json(res, status, body) {
   res.statusCode = status;
@@ -92,6 +93,21 @@ export function criarDeps(token) {
       p_documento_id: p.documentoId, p_protocolo: p.protocolo, p_dh_registro: p.dhRegistro ?? null, p_xml: p.xml,
       p_cstat: p.cStat ?? null, p_xmotivo: p.xMotivo ?? null,
     }),
+    // Nota em cada venda (E8 parte 1, migration 184): o servidor confere a
+    // venda com os pedidos do banco e monta a nota com o emitente do banco.
+    pedidosDaNota: async (ids) => {
+      const lista = (ids || []).map(String).filter((x) => /^[0-9A-Za-z-]{1,64}$/.test(x));
+      if (!lista.length || lista.length !== (ids || []).length) return [];
+      return restServico(`/tab_pedidos?id=in.(${lista.map(encodeURIComponent).join(",")})&select=id,loja_id,status,status_pagamento,itens`);
+    },
+    emitente: async (lojaId) => {
+      const id = Number(lojaId);
+      const [e] = await restServico(`/loja_fiscal_emitente?loja_id=eq.${id}&select=*`);
+      const [l] = await restServico(`/tab_lojas?id=eq.${id}&select=documento`);
+      if (!e) return null;
+      return { dados: dbParaEmitente(e), cnpj: String(l?.documento || "").replace(/[^0-9A-Za-z]/g, "").toUpperCase() };
+    },
+    salvarDados: (p) => doServidor("app_fiscal_documento_salvar_dados", { p_documento_id: p.documentoId, p_chave: p.chave, p_dados: p.dados }),
     pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),
     timeoutMs: 30000,
   };

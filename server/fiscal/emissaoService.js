@@ -11,6 +11,7 @@ import { montarAssinadaNormal } from "./nfeAssinada.js";
 import { statusServico, emitirNaSefaz } from "./sefaz/emissor.js";
 import { processarEvento } from "./eventoService.js";
 import { processarContingencia, transmitirContingencia } from "./contingenciaService.js";
+import { dadosDaNota } from "./dadosDaVenda.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -24,6 +25,10 @@ const MENSAGENS = {
   STATUS_NAO_PERMITE: "Esta nota não pode ser enviada na situação atual.",
   UF_NAO_SUPORTADA: "O estado da loja ainda não está configurado no emissor.",
   XML_INVALIDO: "A nota tem dados fora do padrão oficial.",
+  VENDA_INVALIDA: "A venda guardada na nota está incompleta.",
+  VENDA_DIVERGENTE: "A venda não bate com os pedidos pagos (itens, valores ou loja). A nota não foi enviada.",
+  VENDA_NAO_PAGA: "Há pedido desta venda ainda não pago. A nota não foi enviada.",
+  SEM_EMITENTE: "Complete o cadastro fiscal da loja (CNPJ e endereço) antes de emitir.",
   EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota de contingência é a que vale. Esta numeração só será consultada.",
 };
 const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
@@ -67,8 +72,10 @@ export async function processarEmissao(body = {}, deps) {
   if (doc.contingencia_documento_id) return falha("EM_CONTINGENCIA", { contingenciaDocumentoId: doc.contingencia_documento_id });
   if (doc.status === "autorizado") return { ok: true, situacao: "autorizada", jaAutorizada: true, numero: doc.numero, protocolo: doc.protocolo };
   if (!PODE_ENVIAR.has(doc.status)) return falha("STATUS_NAO_PERMITE");
-  const dados = doc.rascunho?.dados;
-  if (!dados?.ide) return falha("SEM_DADOS_NOTA");
+  // E8: venda do caixa → o servidor monta e grava os dados (uma vez).
+  const prep = await dadosDaNota(doc, deps, deps.agora ? deps.agora() : new Date());
+  if (prep.code) return falha(prep.code, prep.detalhe ? { detalhe: prep.detalhe } : {});
+  const dados = prep.dados;
   if (Number(dados.ide.nNF) !== Number(doc.numero) || Number(dados.ide.serie) !== Number(doc.serie) ||
       Number(dados.ide.mod) !== Number(doc.modelo) || Number(dados.ide.tpAmb) !== (doc.ambiente === "producao" ? 1 : 2)) {
     return falha("DADOS_DIVERGENTES");
