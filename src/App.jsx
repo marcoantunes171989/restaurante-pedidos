@@ -120,6 +120,8 @@ import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
 import CashierPdv from "./pages/pdv/CashierPdv";
+import ResumoFiscalCaixa from "./components/fiscal/ResumoFiscalCaixa";
+import { EMISSAO_FISCAL_PDV_ATIVA } from "./lib/fiscal/emissaoPdv";
 import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
 import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
@@ -18768,6 +18770,7 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
             <div className="mt-3 space-y-1 text-sm">
               <div className="flex justify-between text-slate-400"><span>Esperado em dinheiro</span><span className="font-black text-white">{formatCurrency(esperadoDinheiro)}</span></div>
             </div>
+            {EMISSAO_FISCAL_PDV_ATIVA && <ResumoFiscalCaixa supabase={supabase} lojaId={caixaAberto?.lojaId ?? null} desdeIso={caixaAberto?.abertoEmISO ?? null} />}
             <label className="mt-4 block text-xs font-bold uppercase tracking-widest text-slate-500">Valor contado (dinheiro na gaveta)</label>
             <input autoFocus inputMode="decimal" value={contado} onChange={(e) => setContado(e.target.value)} placeholder="R$ 0,00" className="mt-1 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-center text-lg font-black text-white outline-none focus:border-gold-400/60" />
             {contado !== "" && (

@@ -46,6 +46,7 @@ import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
 import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
 import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
+import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { imprimirNotaFiscal as imprimirDanfe } from "../../lib/fiscal/imprimirNota";
 import {
   abrirCupomTermico,
@@ -408,6 +409,16 @@ export default function CashierPdv({
   const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
   const nfceNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
   const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
+  // E8 parte 4: com o caixa aberto, envia sozinho as notas de contingência.
+  useEnvioFiscalAutomatico({
+    ativo: (nfceNaLoja || nfeNaLoja) && !!caixaAberto,
+    lojaId: lojaInfo?.id ?? emitenteFiscal?.lojaId ?? null,
+    buscar: (corpo) => postarApiFiscal(supabase, corpo),
+    onResultado: (r) => {
+      if (r.autorizadas) notify("success", `${r.autorizadas} nota(s) de contingência autorizada(s) pela SEFAZ.`);
+      if (r.rejeitadas) notify("error", `${r.rejeitadas} nota(s) de contingência rejeitada(s): veja em Notas emitidas.`);
+    },
+  });
 
   // Forma virtual "Pontos" — aparece só com cliente identificado e saldo.
   const formasComPontos = useMemo(() => {
