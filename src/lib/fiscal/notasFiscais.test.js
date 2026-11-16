@@ -12,9 +12,9 @@ describe("situacaoNota", () => {
 });
 
 describe("acoesDaNota", () => {
-  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ cancelar: true, cce: false }));
-  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true }));
-  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ cancelar: false, cce: false }));
+  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ cancelar: true, cce: false, enviar: false, consultar: false }));
+  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true, enviar: false, consultar: false }));
+  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ cancelar: false, cce: false, enviar: false, consultar: false }));
 });
 
 describe("validarTextoEvento", () => {
@@ -39,5 +39,50 @@ describe("chamadas", () => {
     expect(r).toMatchObject({ situacao: "registrado" });
     expect(fetchFn.mock.calls[0][0]).toBe("/api/fiscal-emitir");
     expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toEqual({ acao: "cancelar", documentoId: "d1", xJust: "Venda desfeita pelo cliente" });
+  });
+});
+
+// ── Contingência off-line (E7, parte 3) ──
+import { situacaoDaNota, resumoContingencia, textoPrazo } from "./notasFiscais.js";
+
+const OFF = { id: "c1", modelo: 65, numero: 21, status: "contingencia", tpEmis: 9, chave: "x", contingencia: { prazo: "2026-11-19T02:59:59.999Z", vencida: false, tentativas: 0, numeroOrigem: 20, assinada: true } };
+const ORIGEM = { id: "o1", modelo: 65, numero: 20, status: "erro", tpEmis: 1, chave: "y", contingenciaNumero: 21 };
+const AGORA = new Date("2026-11-18T12:00:00-03:00");
+
+describe("contingência na lista", () => {
+  it("situação: nota off-line e nota que ficou sem resposta", () => {
+    expect(situacaoDaNota(OFF)).toMatchObject({ rotulo: "Em contingência", tom: "alerta" });
+    expect(situacaoDaNota({ ...OFF, status: "erro" })).toMatchObject({ rotulo: "Em contingência", tom: "alerta" });
+    expect(situacaoDaNota({ ...OFF, contingencia: { ...OFF.contingencia, vencida: true } })).toMatchObject({ rotulo: "Contingência: prazo vencido", tom: "erro" });
+    expect(situacaoDaNota(ORIGEM)).toMatchObject({ rotulo: "Sem resposta: consultar", tom: "alerta" });
+    expect(situacaoDaNota({ ...ORIGEM, cStat: 217 })).toMatchObject({ rotulo: "Número não usado", tom: "neutro" });
+    expect(situacaoDaNota({ status: "autorizado" })).toMatchObject({ rotulo: "Autorizada" });
+  });
+  it("ações: enviar a off-line, consultar a que ficou sem resposta", () => {
+    expect(acoesDaNota(OFF)).toMatchObject({ enviar: true, consultar: false, cancelar: false });
+    expect(acoesDaNota({ ...OFF, contingencia: { ...OFF.contingencia, assinada: false } })).toMatchObject({ enviar: false });
+    expect(acoesDaNota({ ...OFF, status: "enviado" })).toMatchObject({ enviar: true, consultar: true });
+    expect(acoesDaNota(ORIGEM)).toMatchObject({ enviar: false, consultar: true });
+    expect(acoesDaNota({ ...ORIGEM, cStat: 217 })).toMatchObject({ consultar: false });
+    expect(acoesDaNota({ status: "enviado", modelo: 65, chave: "z", tpEmis: 1 })).toMatchObject({ consultar: true });
+    expect(acoesDaNota({ status: "reservado", modelo: 65, tpEmis: 1 })).toMatchObject({ consultar: false, enviar: false });
+  });
+  it("resumo: pendentes, vencidas e o prazo mais próximo", () => {
+    const r = resumoContingencia([OFF, { ...OFF, id: "c2", contingencia: { ...OFF.contingencia, prazo: "2026-11-18T02:59:59.999Z", vencida: true } }, ORIGEM, { ...OFF, id: "c3", status: "autorizado" }]);
+    expect(r).toEqual({ pendentes: 2, vencidas: 1, proximoPrazo: "2026-11-18T02:59:59.999Z", ids: ["c1", "c2"] });
+    expect(resumoContingencia([ORIGEM])).toEqual({ pendentes: 0, vencidas: 0, proximoPrazo: null, ids: [] });
+  });
+  it("prazo em texto simples, no horário de Brasília", () => {
+    expect(textoPrazo("2026-11-19T02:59:59.999Z", AGORA)).toBe("até 18/11 às 23:59");
+    expect(textoPrazo("2026-11-18T02:59:59.999Z", AGORA)).toBe("prazo vencido em 17/11 às 23:59");
+  });
+  it("a lista traz os dados da contingência (migration 181)", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { ok: true, documentos: [
+      { id: "c1", modelo: 65, numero: 21, status: "contingencia", tp_emis: 9, contingencia: { prazo: OFF.contingencia.prazo, vencida: false, tentativas: 2, numero_origem: 20, assinada: true } },
+      { id: "o1", modelo: 65, numero: 20, status: "erro", tp_emis: 1, contingencia_numero: 21 },
+    ] }, error: null });
+    const [c, o] = await listarDocumentosFiscais({ rpc }, 7);
+    expect(c).toMatchObject({ tpEmis: 9, contingencia: { prazo: OFF.contingencia.prazo, vencida: false, tentativas: 2, numeroOrigem: 20, assinada: true } });
+    expect(o).toMatchObject({ tpEmis: 1, contingencia: null, contingenciaNumero: 21 });
   });
 });

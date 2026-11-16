@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { situacaoNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal } from "../../../lib/fiscal/notasFiscais";
+import { situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo } from "../../../lib/fiscal/notasFiscais";
 
 // ════════════════════════════════════════════════════════════
 //  Aba "Notas emitidas" (Etapa E6): lista as notas da loja e permite
 //  cancelar (NF-e/NFC-e) ou corrigir (CC-e, NF-e). O pedido vai ao servidor,
 //  que assina e envia à SEFAZ; a confirmação acontece na própria tela.
+//  E7: aviso das notas em contingência (prazo), "Enviar agora" e
+//  "Consultar na SEFAZ" para a nota que ficou sem resposta.
 // ════════════════════════════════════════════════════════════
 
 const botao = "inline-flex min-h-9 items-center justify-center rounded-xl bg-[#012E46] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45";
@@ -69,11 +71,57 @@ function PainelEvento({ nota, acao, onFechar, onConcluido, supabase }) {
   );
 }
 
+function mensagemDoResultado(acao, r) {
+  if (acao === "consultar") {
+    if (r.situacao === "autorizada") return { ok: true, texto: r.deveCancelar ? "A SEFAZ autorizou esta nota. Como a venda saiu em contingência, cancele esta nota." : `Nota autorizada. Protocolo ${r.protocolo}.` };
+    if (r.situacao === "nao_encontrada") return { ok: true, texto: r.numeroNaoUsado ? "Não chegou à SEFAZ: este número não foi usado." : "Não chegou à SEFAZ." };
+    if (r.code === "XML_NAO_CONFERE") return { ok: false, texto: r.erro };
+    return { ok: false, texto: r.situacao === "indisponivel" ? "A SEFAZ continua sem responder. Tente de novo mais tarde." : (r.xMotivo || r.erro || "Não foi possível consultar.") };
+  }
+  if (r.situacao === "autorizada") return { ok: true, texto: `Nota autorizada. Protocolo ${r.protocolo}.` };
+  if (r.situacao === "rejeitada") return { ok: false, texto: `A SEFAZ recusou: ${r.xMotivo || "motivo não informado"}.` };
+  return { ok: false, texto: r.situacao === "indisponivel" ? "A SEFAZ continua fora do ar. A nota segue guardada." : (r.xMotivo || r.erro || "Não foi possível enviar.") };
+}
+
+function AvisoContingencia({ resumo, supabase, onConcluido }) {
+  const [enviando, setEnviando] = useState(false);
+  const [texto, setTexto] = useState("");
+  async function enviarTodas() {
+    setEnviando(true);
+    let ok = 0;
+    for (const id of resumo.ids) {
+      try {
+        const r = await pedirEventoFiscal(supabase, { acao: "transmitir_contingencia", documentoId: id });
+        if (r.situacao === "autorizada") ok += 1;
+      } catch { /* segue para a próxima */ }
+    }
+    const faltam = resumo.ids.length - ok;
+    setTexto(faltam ? `${ok} autorizada(s). ${faltam} continua(m) guardada(s) para enviar depois.` : `Todas as ${ok} nota(s) foram autorizadas.`);
+    setEnviando(false);
+    onConcluido();
+  }
+  const urgente = resumo.vencidas > 0;
+  return (
+    <div role="alert" className={`mt-3 rounded-xl border p-3 ${urgente ? "border-[#F5C2CD] bg-[#FDECEF]" : "border-[#F8D9A8] bg-[#FEF3E2]"}`}>
+      <p className={`text-[13px] font-bold ${urgente ? "text-[#C81E4A]" : "text-[#B45309]"}`}>
+        {resumo.pendentes} nota(s) em contingência aguardando envio à SEFAZ
+      </p>
+      <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
+        {urgente ? `${resumo.vencidas} com prazo vencido: envie agora.` : `Envie ${textoPrazo(resumo.proximoPrazo)} (fim do 1º dia útil seguinte à venda).`}
+      </p>
+      {texto && <p role="status" className="mt-1 text-[12px] font-semibold text-[var(--pp-text)]">{texto}</p>}
+      <button type="button" className={`${botao} mt-2`} disabled={enviando} onClick={enviarTodas}>{enviando ? "Enviando…" : "Enviar pendentes agora"}</button>
+    </div>
+  );
+}
+
 export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
   const lojaId = lojaInfo?.id ?? null;
   const [notas, setNotas] = useState([]);
   const [estado, setEstado] = useState({ carregando: true, erro: "" });
   const [aberto, setAberto] = useState(null); // { id, acao }
+  const [ocupado, setOcupado] = useState(null); // nota com envio/consulta em andamento
+  const [avisos, setAvisos] = useState({}); // id → { ok, texto }
 
   const buscar = useCallback(async () => {
     try { return { notas: await listarDocumentosFiscais(supabase, lojaId) }; } catch (e) { return { erro: e.message }; }
@@ -91,6 +139,20 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
     return () => { vivo = false; };
   }, [lojaId, buscar, aplicar]);
 
+  async function acaoRapida(nota, acao) {
+    setOcupado(nota.id);
+    try {
+      const r = await pedirEventoFiscal(supabase, { acao: acao === "enviar" ? "transmitir_contingencia" : "consultar", documentoId: nota.id });
+      setAvisos((v) => ({ ...v, [nota.id]: mensagemDoResultado(acao, r) }));
+    } catch (e) {
+      setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: e.message } }));
+    } finally {
+      setOcupado(null);
+      recarregar();
+    }
+  }
+  const resumo = resumoContingencia(notas);
+
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
   if (estado.carregando) return <p className="text-[13px] text-[var(--pp-text-muted)]">Carregando…</p>;
   if (estado.erro) return <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4"><p className="text-[13px] font-semibold text-[#C81E4A]">{estado.erro}</p></div>;
@@ -101,12 +163,13 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
         <h3 id="notas-titulo" className="text-[15px] font-bold text-[var(--pp-text)]">Notas emitidas</h3>
         <button type="button" className={botaoLeve} onClick={recarregar}>Atualizar</button>
       </div>
+      {resumo.pendentes > 0 && <AvisoContingencia resumo={resumo} supabase={supabase} onConcluido={recarregar} />}
       {notas.length === 0 ? (
         <p className="mt-2 text-[13px] text-[var(--pp-text-muted)]">Nenhuma nota emitida ainda.</p>
       ) : (
         <ul className="mt-3 divide-y divide-[var(--pp-border)]">
           {notas.map((n) => {
-            const s = situacaoNota(n.status);
+            const s = situacaoDaNota(n);
             const a = acoesDaNota(n);
             return (
               <li key={n.id} className="py-3">
@@ -119,10 +182,22 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                 <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">
                   {data(n.dhAutorizacao || n.criadoEm)}{n.protocolo ? ` · protocolo ${n.protocolo}` : ""}{n.cartasCorrecao ? ` · ${n.cartasCorrecao} correção(ões)` : ""}
                 </p>
-                {(n.status === "rejeitado" || n.status === "erro") && n.xMotivo && <p className="mt-0.5 text-[12px] text-[#C81E4A]">{n.xMotivo}</p>}
+                {(n.status === "rejeitado" || n.status === "erro") && n.xMotivo && <p className={`mt-0.5 text-[12px] ${n.contingenciaNumero && Number(n.cStat) === 217 ? "text-[var(--pp-text-muted)]" : "text-[#C81E4A]"}`}>{n.xMotivo}</p>}
                 {n.ultimoEvento?.status === "rejeitado" && <p className="mt-0.5 text-[12px] text-[#B45309]">Último pedido recusado pela SEFAZ: {n.ultimoEvento.xmotivo}</p>}
-                {(a.cancelar || a.cce) && aberto?.id !== n.id && (
+                {n.tpEmis === 9 && n.contingencia && !["autorizado", "cancelado"].includes(n.status) && (
+                  <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
+                    Emitida em contingência{n.contingencia.numeroOrigem ? ` (no lugar da nº ${n.contingencia.numeroOrigem})` : ""} · {n.contingencia.vencida ? "" : "enviar "}{textoPrazo(n.contingencia.prazo)}
+                    {n.contingencia.tentativas ? ` · ${n.contingencia.tentativas} tentativa(s)` : ""}
+                  </p>
+                )}
+                {n.contingenciaNumero && !["autorizado", "cancelado"].includes(n.status) && Number(n.cStat) !== 217 && (
+                  <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">A venda saiu na NFC-e nº {n.contingenciaNumero} (contingência). Esta nota não será reenviada: só consultada.</p>
+                )}
+                {avisos[n.id] && <p role="status" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
+                {(a.cancelar || a.cce || a.enviar || a.consultar) && aberto?.id !== n.id && (
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {a.enviar && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "enviar")}>{ocupado === n.id ? "Enviando…" : "Enviar agora"}</button>}
+                    {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}>{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
                     {a.cancelar && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}>Cancelar nota</button>}
                     {a.cce && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cce" })}>Carta de correção</button>}
                   </div>

@@ -4,6 +4,9 @@
 //   contingencia            { documentoId (nota que falhou), xJust }
 //   transmitir_contingencia { documentoId (nota off-line) }
 //   pendentes_contingencia  { lojaId }
+//   consultar               { documentoId } — nota que ficou sem resposta:
+//       autorizada → guarda (após conferir o digVal) e avisa se precisa cancelar;
+//       não recebida → registra que o número não foi usado.
 //  Regras e fontes oficiais: ver contingencia.js e a migration 180.
 //  Nunca devolve certificado, senha nem CSC.
 // ════════════════════════════════════════════════════════════
@@ -11,7 +14,9 @@
 import { credencialDoCofre } from "./credencialCofre.js";
 import { paraContingencia, montarNfceContingencia, prazoContingencia } from "./contingencia.js";
 import { enderecoServico } from "./sefaz/transporte.js";
-import { emitirNaSefaz } from "./sefaz/emissor.js";
+import { emitirNaSefaz, consultarNota } from "./sefaz/emissor.js";
+import { montarProcNFe } from "./sefaz/mensagens.js";
+import { montarAssinadaNormal } from "./nfeAssinada.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -27,7 +32,10 @@ const MENSAGENS = {
   SEM_SERIE: "A série da nota não foi encontrada.",
   NAO_ASSINADA: "A nota em contingência ainda não foi gerada.",
   XML_INVALIDO: "A nota tem dados fora do padrão oficial.",
+  SEM_CHAVE: "Esta nota nunca foi enviada à SEFAZ: não há o que consultar.",
+  XML_NAO_CONFERE: "A SEFAZ autorizou esta nota, mas o XML guardado não confere. Fale com o suporte antes de qualquer ação.",
 };
+const tagDe = (xml, nome) => (new RegExp(`<${nome}>([^<]*)</${nome}>`).exec(String(xml || "")) || [])[1] ?? null;
 const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
 const agoraDe = (deps) => (deps.agora ? deps.agora() : new Date());
 
@@ -104,8 +112,49 @@ export async function transmitirContingencia(body, deps, conexao) {
   };
 }
 
+async function consultarPendente(body, deps, conexao) {
+  const doc = await deps.documento(String(body.documentoId || ""));
+  if (!doc) return falha("NAO_ENCONTRADO");
+  if (!(await deps.podeEmitir(doc.loja_id))) return falha("FORBIDDEN");
+  if (!doc.chave) return falha("SEM_CHAVE");
+  const off = Number(doc.tp_emis) === 9;
+  if (!["enviado", "erro", ...(off ? ["contingencia"] : [])].includes(doc.status)) return falha("STATUS_NAO_PERMITE", { status: doc.status });
+  const uf = await deps.ufDaLoja(doc.loja_id);
+  const cred = await credencialDoCofre(deps, doc.loja_id);
+  if (cred.erro) return falha(cred.erro);
+
+  const q = await consultarNota({ uf, modelo: Number(doc.modelo), ambiente: doc.ambiente, pfx: cred.pfx, senha: cred.senha, chNFe: doc.chave, ...conexao });
+  const base = { numero: doc.numero, serie: doc.serie, chave: doc.chave, cStat: q.cStat ?? null, xMotivo: q.xMotivo || q.erro || null };
+  if (q.situacao === "autorizada") {
+    let nfeAssinada;
+    try {
+      nfeAssinada = off ? (await deps.contingencia(doc.id))?.xml_assinado
+        : montarAssinadaNormal({ dados: doc.rascunho?.dados, modelo: doc.modelo, ambiente: doc.ambiente, uf, cred });
+    } catch { nfeAssinada = null; }
+    // Só guarda se o XML recomposto for exatamente o que a SEFAZ autorizou.
+    if (!nfeAssinada || tagDe(nfeAssinada, "DigestValue") !== tagDe(q.protNFeXml, "digVal")) {
+      return { ...falha("XML_NAO_CONFERE"), situacao: "autorizada", protocolo: q.nProt || null, ...base };
+    }
+    await deps.registrar({
+      documentoId: doc.id, status: "autorizado", chave: doc.chave, cStat: q.cStat ?? null, xMotivo: q.xMotivo || null,
+      protocolo: q.nProt, dhAutorizacao: q.dhRecbto || null, xml: montarProcNFe({ nfeAssinada, protNFeXml: q.protNFeXml }),
+      payload: { consulta: true },
+    });
+    return { ok: true, situacao: "autorizada", protocolo: q.nProt, deveCancelar: !!doc.contingencia_documento_id, ...base };
+  }
+  if (q.situacao === "nao_encontrada") {
+    const xMotivo = doc.contingencia_documento_id
+      ? "Não chegou à SEFAZ: número não usado (a venda saiu em contingência)."
+      : "Não chegou à SEFAZ: pode reenviar com segurança.";
+    await deps.registrar({ documentoId: doc.id, status: "erro", chave: doc.chave, cStat: q.cStat ?? null, xMotivo, payload: { consulta: "nao_encontrada" } });
+    return { ok: true, situacao: "nao_encontrada", numeroNaoUsado: !!doc.contingencia_documento_id, ...base, xMotivo };
+  }
+  return { ok: false, situacao: q.situacao, ...base };
+}
+
 export async function processarContingencia(body, deps, conexao) {
   const acao = String(body.acao || "");
+  if (acao === "consultar") return consultarPendente(body, deps, conexao);
   if (acao === "contingencia") return emitirOffline(body, deps);
   if (acao === "transmitir_contingencia") return transmitirContingencia(body, deps, conexao);
   if (acao === "pendentes_contingencia") {

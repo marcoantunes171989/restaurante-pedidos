@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  Notas emitidas (Etapa E6): situação em português, ações possíveis e
-//  chamadas (lista pela RPC 179; cancelar/corrigir pela /api/fiscal-emitir).
+//  chamadas (lista pela RPC 179/181; cancelar/corrigir/enviar/consultar
+//  pela /api/fiscal-emitir). E7: contingência off-line da NFC-e.
 // ════════════════════════════════════════════════════════════
 
 import { chamarApiFiscal } from "./fiscalApi.js";
@@ -19,9 +20,45 @@ export function situacaoNota(status) {
   return SITUACOES[status] || { rotulo: String(status || "—"), tom: "neutro" };
 }
 
+const PENDENTE_OFF = new Set(["contingencia", "enviado", "erro"]);
+// Consulta confirmou que a nota não chegou à SEFAZ (cStat 217) e a venda saiu em contingência.
+const naoUsada = (d) => !!d?.contingenciaNumero && d.status === "erro" && Number(d.cStat) === 217;
+const ehOffPendente = (d) => Number(d?.tpEmis) === 9 && PENDENTE_OFF.has(d?.status);
+
+/** Situação considerando a contingência off-line (E7). */
+export function situacaoDaNota(doc) {
+  if (ehOffPendente(doc)) {
+    return doc.contingencia?.vencida ? { rotulo: "Contingência: prazo vencido", tom: "erro" } : { rotulo: "Em contingência", tom: "alerta" };
+  }
+  if (naoUsada(doc)) return { rotulo: "Número não usado", tom: "neutro" };
+  if (doc?.contingenciaNumero && ["enviado", "erro"].includes(doc.status)) return { rotulo: "Sem resposta: consultar", tom: "alerta" };
+  return situacaoNota(doc?.status);
+}
+
 export function acoesDaNota(doc) {
   const autorizada = doc?.status === "autorizado";
-  return { cancelar: autorizada, cce: autorizada && Number(doc?.modelo) === 55 };
+  const off = Number(doc?.tpEmis) === 9;
+  return {
+    cancelar: autorizada,
+    cce: autorizada && Number(doc?.modelo) === 55,
+    // Nota off-line assinada e ainda não autorizada: enviar à SEFAZ.
+    enviar: ehOffPendente(doc) && doc.contingencia?.assinada !== false,
+    // Já foi enviada e não teve resposta certa: perguntar à SEFAZ.
+    consultar: !!doc?.chave && !naoUsada(doc) && (doc.status === "enviado" || (doc.status === "erro" && !off)),
+  };
+}
+
+/** Notas off-line que ainda precisam ir para a SEFAZ. */
+export function resumoContingencia(notas = []) {
+  const p = notas.filter(ehOffPendente);
+  const prazos = p.map((n) => n.contingencia?.prazo).filter(Boolean).sort();
+  return { pendentes: p.length, vencidas: p.filter((n) => n.contingencia?.vencida).length, proximoPrazo: prazos[0] || null, ids: p.map((n) => n.id) };
+}
+
+const fmtBr = (iso) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(", ", " às ").replace(" ", " ");
+export function textoPrazo(prazoIso, agora = new Date()) {
+  if (!prazoIso) return "";
+  return new Date(prazoIso).getTime() < agora.getTime() ? `prazo vencido em ${fmtBr(prazoIso)}` : `até ${fmtBr(prazoIso)}`;
 }
 
 const LIMITES = { cancelar: [15, 255, "A justificativa"], cce: [15, 1000, "A correção"] };
@@ -43,6 +80,10 @@ export async function listarDocumentosFiscais(supabase, lojaId, { limite = 50, a
     id: d.id, modelo: d.modelo, serie: d.serie, numero: d.numero, ambiente: d.ambiente, status: d.status,
     chave: d.chave, protocolo: d.protocolo, cStat: d.cstat, xMotivo: d.xmotivo, valorTotal: Number(d.valor_total || 0),
     criadoEm: d.criado_em, dhAutorizacao: d.dh_autorizacao, cartasCorrecao: Number(d.cartas_correcao || 0), ultimoEvento: d.ultimo_evento || null,
+    tpEmis: Number(d.tp_emis || 1),
+    contingencia: d.contingencia ? { prazo: d.contingencia.prazo, vencida: !!d.contingencia.vencida, tentativas: Number(d.contingencia.tentativas || 0),
+      numeroOrigem: d.contingencia.numero_origem ?? null, assinada: d.contingencia.assinada !== false } : null,
+    contingenciaNumero: d.contingencia_numero ?? null,
   }));
 }
 

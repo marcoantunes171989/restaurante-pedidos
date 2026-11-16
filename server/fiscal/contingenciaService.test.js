@@ -146,3 +146,62 @@ describe("pendentes_contingencia", () => {
     expect(await processarEmissao({ acao: "pendentes_contingencia", lojaId: 7 }, sem)).toMatchObject({ code: "FORBIDDEN" });
   });
 });
+
+// ── Consulta da nota que ficou sem resposta (Anexo IV: cancelar se autorizada) ──
+import { montarAssinadaNormal } from "./nfeAssinada.js";
+import { lerCertificadoPfx } from "./certificado.js";
+import { Buffer } from "node:buffer";
+
+const RET_CONS = (ch, cStat, digVal) => `<retConsSitNFe versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><verAplic>SIM</verAplic><cStat>${cStat}</cStat><xMotivo>m${cStat}</xMotivo><cUF>35</cUF><dhRecbto>2026-11-18T09:00:00-03:00</dhRecbto><chNFe>${ch}</chNFe>` +
+  (cStat === 100 ? `<protNFe versao="4.00"><infProt><tpAmb>2</tpAmb><verAplic>SIM</verAplic><chNFe>${ch}</chNFe><dhRecbto>2026-11-17T12:30:40-03:00</dhRecbto><nProt>135260000000020</nProt><digVal>${digVal}</digVal><cStat>100</cStat><xMotivo>Autorizado o uso da NF-e</xMotivo></infProt></protNFe>` : "") + `</retConsSitNFe>`;
+const cred = lerCertificadoPfx(Buffer.from(PFX_B64, "base64"), "teste-pedido-prime");
+const DIGEST_ORIGEM = (/<DigestValue>([^<]+)</.exec(montarAssinadaNormal({ dados: DADOS, modelo: 65, ambiente: "homologacao", uf: "SP", cred })) || [])[1];
+const ORIGEM_ENVIADA = { id: "o1", loja_id: 7, modelo: 65, serie: 1, numero: 20, ambiente: "homologacao", status: "erro", tp_emis: 1, chave: DADOS.chave, contingencia_documento_id: "c1", rascunho: { dados: DADOS } };
+
+describe("consultar — nota que ficou sem resposta", () => {
+  it("SEFAZ autorizou: recompõe o XML, confere o digVal, guarda e avisa que precisa cancelar", async () => {
+    const d = deps({ documento: vi.fn().mockResolvedValue(ORIGEM_ENVIADA), enviar: vi.fn().mockResolvedValue({ ok: true, xml: RET_CONS(DADOS.chave, 100, DIGEST_ORIGEM) }) });
+    const r = await processarEmissao({ acao: "consultar", documentoId: "o1" }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "autorizada", protocolo: "135260000000020", deveCancelar: true, numero: 20 });
+    const reg = d.registrar.mock.calls.at(-1)[0];
+    expect(reg).toMatchObject({ documentoId: "o1", status: "autorizado", protocolo: "135260000000020" });
+    expect(reg.xml).toMatch(/^<nfeProc /);
+    expect(reg.xml).toContain(`<DigestValue>${DIGEST_ORIGEM}</DigestValue>`);
+  });
+  it("digVal diferente do XML recomposto → não guarda nada e pede suporte", async () => {
+    const d = deps({ documento: vi.fn().mockResolvedValue(ORIGEM_ENVIADA), enviar: vi.fn().mockResolvedValue({ ok: true, xml: RET_CONS(DADOS.chave, 100, "BBBBBBBBBBBBBBBBBBBBBBBBBBB=") }) });
+    const r = await processarEmissao({ acao: "consultar", documentoId: "o1" }, d);
+    expect(r).toMatchObject({ ok: false, situacao: "autorizada", code: "XML_NAO_CONFERE" });
+    expect(d.registrar).not.toHaveBeenCalled();
+  });
+  it("SEFAZ não recebeu: registra que o número não foi usado (a venda saiu em contingência)", async () => {
+    const d = deps({ documento: vi.fn().mockResolvedValue(ORIGEM_ENVIADA), enviar: vi.fn().mockResolvedValue({ ok: true, xml: RET_CONS(DADOS.chave, 217) }) });
+    const r = await processarEmissao({ acao: "consultar", documentoId: "o1" }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "nao_encontrada", numeroNaoUsado: true });
+    expect(d.registrar.mock.calls.at(-1)[0]).toMatchObject({ documentoId: "o1", status: "erro", cStat: 217 });
+    expect(d.registrar.mock.calls.at(-1)[0].xMotivo).toMatch(/não chegou à SEFAZ/i);
+  });
+  it("SEFAZ ainda fora → só informa, não grava", async () => {
+    const d = deps({ documento: vi.fn().mockResolvedValue(ORIGEM_ENVIADA) });
+    expect(await processarEmissao({ acao: "consultar", documentoId: "o1" }, d)).toMatchObject({ ok: false, situacao: "indisponivel" });
+    expect(d.registrar).not.toHaveBeenCalled();
+  });
+  it("nota off-line autorizada na consulta usa o XML guardado", async () => {
+    const d = deps();
+    await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d);
+    const xml = d.salvos[0].xml;
+    const dig = (/<DigestValue>([^<]+)</.exec(xml) || [])[1];
+    d.registrar.mockClear();
+    d.documento = vi.fn().mockResolvedValue({ id: "c1", loja_id: 7, modelo: 65, serie: 1, numero: 21, ambiente: "homologacao", status: "enviado", tp_emis: 9, chave: d.salvos[0].chave });
+    d.enviar = vi.fn().mockResolvedValue({ ok: true, xml: RET_CONS(d.salvos[0].chave, 100, dig) });
+    const r = await processarEmissao({ acao: "consultar", documentoId: "c1" }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "autorizada", deveCancelar: false });
+    expect(d.registrar.mock.calls.at(-1)[0].xml).toContain(xml.replace(/^<\?xml[^>]*>/, ""));
+  });
+  it("nota nunca enviada ou sem permissão → recusa", async () => {
+    const nunca = deps({ documento: vi.fn().mockResolvedValue({ ...ORIGEM_ENVIADA, chave: null, status: "reservado" }) });
+    expect(await processarEmissao({ acao: "consultar", documentoId: "o1" }, nunca)).toMatchObject({ ok: false, code: "SEM_CHAVE" });
+    const sem = deps({ documento: vi.fn().mockResolvedValue(ORIGEM_ENVIADA), podeEmitir: vi.fn().mockResolvedValue(false) });
+    expect(await processarEmissao({ acao: "consultar", documentoId: "o1" }, sem)).toMatchObject({ code: "FORBIDDEN" });
+  });
+});
