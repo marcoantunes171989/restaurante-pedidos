@@ -19,6 +19,10 @@
 //    só usar com StatusServico 107 na SVC; a nota autorizada na SVC NÃO
 //    precisa ser reenviada à SEFAZ de origem.
 //
+//  NF-e (55) — EPEC (NT 2014.001 v1.41): tpEmis 4, número NOVO; o aviso
+//  (evento 110140) vai ao Ambiente Nacional; a NF-e vai depois à SEFAZ de
+//  origem com a MESMA chave. O AN bloqueia novos EPEC com pendência > 168 h.
+//
 //  Limite do desenho: o certificado fica no servidor. Cobre a SEFAZ fora do
 //  ar ou lenta; sem internet na loja não há como assinar a nota.
 // ════════════════════════════════════════════════════════════
@@ -43,9 +47,9 @@ export function paraContingencia(dados, { nNF, dhCont, xJust, tpEmis = 9 } = {})
   const ide = dados?.ide || {};
   const chave = String(dados?.chave || "");
   const tp = Number(tpEmis);
-  if (![6, 7, 9].includes(tp)) throw new Error("Forma de contingência inválida.");
+  if (![4, 6, 7, 9].includes(tp)) throw new Error("Forma de contingência inválida.");
   if (tp === 9 && Number(ide.mod) !== 65) throw new Error("Contingência off-line é só para NFC-e (modelo 65).");
-  if (tp !== 9 && Number(ide.mod) !== 55) throw new Error("A SVC é só para NF-e (modelo 55).");
+  if (tp !== 9 && Number(ide.mod) !== 55) throw new Error("A SVC e o EPEC são só para NF-e (modelo 55).");
   if (!/^[0-9]{6}[0-9A-Z]{12}[0-9]{26}$/.test(chave)) throw new Error("Chave de acesso da nota original inválida.");
   if (String(chave[34]) !== "1") throw new Error("A nota de origem precisa ser de emissão normal.");
   if (tp === 9) {
@@ -104,11 +108,18 @@ export function svcDaUf(uf) {
   throw new Error(`UF ${uf} sem SVC cadastrada.`);
 }
 
-/** Monta e assina a NF-e (55) para a SVC (tpEmis 6/7). Sem QR Code. */
+/** Monta e assina a NF-e (55) em contingência SVC (tpEmis 6/7) ou EPEC (4). Sem QR Code. */
 export function montarNfeSvc(dados, { chavePrivadaPem, certificadoBase64 } = {}) {
-  if (![6, 7].includes(Number(dados?.ide?.tpEmis))) throw new Error("Use paraContingencia com tpEmis 6 ou 7 antes de montar a nota da SVC.");
+  if (![4, 6, 7].includes(Number(dados?.ide?.tpEmis))) throw new Error("Use paraContingencia com tpEmis 4, 6 ou 7 antes de montar a NF-e em contingência.");
   const { xml, chave, totais } = montarXmlNFe(dados);
   return { xml: assinarNFe(xml, { chavePrivadaPem, certificadoBase64, infNFeSupl: "" }), chave, totais };
+}
+
+/** EPEC: a NF-e precisa chegar à SEFAZ de origem antes de 168 h (bloqueio do AN, NT 2014.001 §4.2). */
+export function prazoEpec(dhEmi) {
+  const d = dhEmi instanceof Date ? dhEmi : new Date(String(dhEmi ?? ""));
+  if (Number.isNaN(d.getTime())) throw new Error("Data de emissão inválida.");
+  return new Date(d.getTime() + 168 * 3600 * 1000);
 }
 
 const FUSO_MS = -3 * 3600 * 1000; // Brasília (sem horário de verão desde 2019)

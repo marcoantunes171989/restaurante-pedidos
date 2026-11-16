@@ -98,6 +98,8 @@ function carregarMensagens() {
   cacheMsg["det110111"] = { principal: ev["e110111_v1.00.xsd"], preload: [nfe.tiposEvento] };
   cacheMsg["det110112"] = { principal: ev["e110112_v1.00.xsd"], preload: [nfe.tiposEvento] };
   cacheMsg["det110110"] = { principal: ev["e110110_v1.00.xsd"], preload: [] };
+  // EPEC (NT 2014.001): pacote Evento EPEC v1.01; tipos básicos de evento do 010h.
+  cacheMsg["det110140"] = { principal: ev["e110140_v1.00.xsd"], preload: [nfe.tiposEvento] };
   return cacheMsg;
 }
 

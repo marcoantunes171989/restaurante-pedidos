@@ -98,3 +98,14 @@ describe("NF-e na SVC (E7 parte 4)", () => {
     expect(resumoContingencia([SVC])).toEqual({ pendentes: 1, vencidas: 0, proximoPrazo: null, ids: ["s1"] });
   });
 });
+
+describe("NF-e pelo EPEC (E7 parte 5)", () => {
+  const EPEC = { id: "e1", modelo: 55, status: "contingencia", tpEmis: 4, chave: "x", contingencia: { prazo: "2026-11-24T15:31:00.000Z", vencida: false, tentativas: 0, numeroOrigem: 30, assinada: true, epecProtocolo: null } };
+  it("sem protocolo do EPEC avisa para não imprimir; com protocolo fica em contingência com prazo", () => {
+    expect(situacaoDaNota(EPEC)).toEqual({ rotulo: "EPEC não registrado", tom: "erro" });
+    const ok = { ...EPEC, contingencia: { ...EPEC.contingencia, epecProtocolo: "891260000000123" } };
+    expect(situacaoDaNota(ok)).toEqual({ rotulo: "Em contingência", tom: "alerta" });
+    expect(acoesDaNota(ok)).toMatchObject({ enviar: true });
+    expect(resumoContingencia([ok])).toMatchObject({ pendentes: 1, proximoPrazo: "2026-11-24T15:31:00.000Z" });
+  });
+});

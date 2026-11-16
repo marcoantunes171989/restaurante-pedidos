@@ -87,6 +87,11 @@ export function criarDeps(token) {
     salvarContingencia: (p) => doServidor("app_fiscal_contingencia_salvar_xml", {
       p_documento_id: p.documentoId, p_chave: p.chave, p_xml: p.xml, p_qr_code: p.qrCode,
     }),
+    // EPEC da NF-e (E7 parte 5, migration 183)
+    registrarEpec: (p) => doServidor("app_fiscal_contingencia_registrar_epec", {
+      p_documento_id: p.documentoId, p_protocolo: p.protocolo, p_dh_registro: p.dhRegistro ?? null, p_xml: p.xml,
+      p_cstat: p.cStat ?? null, p_xmotivo: p.xMotivo ?? null,
+    }),
     pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),
     timeoutMs: 30000,
   };

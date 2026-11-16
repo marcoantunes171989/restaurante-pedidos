@@ -2,7 +2,7 @@
 //  Notas emitidas (Etapa E6): situação em português, ações possíveis e
 //  chamadas (lista pela RPC 179/181; cancelar/corrigir/enviar/consultar
 //  pela /api/fiscal-emitir). E7: contingência off-line da NFC-e (tpEmis 9)
-//  e NF-e pela SVC (tpEmis 6/7, sem prazo: é on-line).
+//  e NF-e pela SVC (tpEmis 6/7, sem prazo: é on-line) ou EPEC (tpEmis 4, 168 h).
 // ════════════════════════════════════════════════════════════
 
 import { chamarApiFiscal } from "./fiscalApi.js";
@@ -30,6 +30,8 @@ const ehSvc = (d) => [6, 7].includes(Number(d?.tpEmis));
 /** Situação considerando a contingência (E7). */
 export function situacaoDaNota(doc) {
   if (ehContPendente(doc) && ehSvc(doc)) return { rotulo: "Contingência SVC: enviar", tom: "alerta" };
+  // EPEC sem protocolo: a NF-e não pode ser impressa (NT 2014.001).
+  if (ehContPendente(doc) && Number(doc.tpEmis) === 4 && !doc.contingencia?.epecProtocolo) return { rotulo: "EPEC não registrado", tom: "erro" };
   if (ehContPendente(doc)) {
     return doc.contingencia?.vencida ? { rotulo: "Contingência: prazo vencido", tom: "erro" } : { rotulo: "Em contingência", tom: "alerta" };
   }
@@ -85,7 +87,7 @@ export async function listarDocumentosFiscais(supabase, lojaId, { limite = 50, a
     criadoEm: d.criado_em, dhAutorizacao: d.dh_autorizacao, cartasCorrecao: Number(d.cartas_correcao || 0), ultimoEvento: d.ultimo_evento || null,
     tpEmis: Number(d.tp_emis || 1),
     contingencia: d.contingencia ? { prazo: d.contingencia.prazo, vencida: !!d.contingencia.vencida, tentativas: Number(d.contingencia.tentativas || 0),
-      numeroOrigem: d.contingencia.numero_origem ?? null, assinada: d.contingencia.assinada !== false } : null,
+      numeroOrigem: d.contingencia.numero_origem ?? null, assinada: d.contingencia.assinada !== false, epecProtocolo: d.contingencia.epec_protocolo ?? null } : null,
     contingenciaNumero: d.contingencia_numero ?? null,
   }));
 }

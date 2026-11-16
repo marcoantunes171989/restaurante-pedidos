@@ -277,3 +277,75 @@ describe("contingencia — NF-e pela SVC", () => {
     expect(await processarEmissao({ acao: "emitir", documentoId: "o1" }, d)).toMatchObject({ situacao: "indisponivel", podeContingencia: true, formaContingencia: "svc" });
   });
 });
+
+// ── NF-e (55) pelo EPEC (NT 2014.001 v1.41) ──
+import { validarMensagemXsd } from "./validarXsd.js";
+const RET_EPEC = (ch, cStat = 136) => `<retEnvEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><idLote>1</idLote><tpAmb>2</tpAmb><verAplic>AN</verAplic><cOrgao>91</cOrgao><cStat>128</cStat><xMotivo>Lote de Evento Processado</xMotivo>` +
+  `<retEvento versao="1.00"><infEvento><tpAmb>2</tpAmb><verAplic>AN</verAplic><cOrgao>91</cOrgao><cStat>${cStat}</cStat><xMotivo>m${cStat}</xMotivo><chNFe>${ch}</chNFe><tpEvento>110140</tpEvento><nSeqEvento>1</nSeqEvento><dhRegEvento>2026-11-17T12:31:05-03:00</dhRegEvento>${cStat === 136 ? "<nProt>891260000000123</nProt>" : ""}</infEvento></retEvento></retEnvEvento>`;
+function depsEpec({ cStat = 136, rede = true } = {}) {
+  const d = depsSvc();
+  const base = d.contingencia;
+  d.epec = null;
+  d.contingencia = vi.fn(async (id) => ({ ...(await base(id)), prazo: "2026-11-24T15:31:00.000Z", epec_protocolo: d.epec }));
+  d.registrarEpec = vi.fn(async (p) => { d.epec = p.protocolo; return { ok: true }; });
+  d.enviar = vi.fn(async ({ url, servico, dados }) => {
+    d.urls.push(url);
+    if (servico === "NFeRecepcaoEvento4") { d.evento = dados; return rede ? { ok: true, xml: RET_EPEC(d.salvos.at(-1).chave, cStat) } : { ok: false, code: "CONEXAO", erro: "x" }; }
+    return { ok: false, code: "CONEXAO", erro: "x" };
+  });
+  return d;
+}
+
+describe("contingencia — NF-e pelo EPEC", () => {
+  it("assina a NF-e com tpEmis 4 e número novo, registra o EPEC no AN e guarda o protocolo", async () => {
+    const d = depsEpec();
+    const r = await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "epec", forma: "epec", protocoloEpec: "891260000000123", numero: 21, numeroOrigem: 20 });
+    expect(d.abrirContingencia).toHaveBeenCalledWith({ origemId: "o1", dhCont: AGORA.toISOString(), xJust: JUST, prazo: "2026-11-24T15:31:00.000Z", tpEmis: 4 });
+    const s = d.salvos[0];
+    expect(s.chave).toBe(chave55(21, 4));
+    expect(s.xml).toContain("<tpEmis>4</tpEmis>");
+    expect((await validarNFeXsd(s.xml)).erros).toEqual([]);
+    expect(d.urls).toEqual(["https://hom1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx"]);
+    expect((await validarMensagemXsd(d.evento, "envEvento")).erros).toEqual([]);
+    expect(d.evento).toContain("<cOrgao>91</cOrgao>");
+    expect(d.evento).toContain(`<chNFe>${s.chave}</chNFe>`);
+    const det = /<detEvento[\s\S]*<\/detEvento>/.exec(d.evento)[0];
+    expect((await validarMensagemXsd(det.replace("<detEvento ", '<detEvento xmlns="http://www.portalfiscal.inf.br/nfe" '), "det110140")).erros).toEqual([]);
+    expect(det).toContain("<dhEmi>2026-11-17T12:31:00-03:00</dhEmi>");
+    expect(det).toContain("<dest><UF>SP</UF><CPF>12345678909</CPF><vNF>30.00</vNF>");
+    expect(d.registrarEpec.mock.calls[0][0]).toMatchObject({ documentoId: "c1", protocolo: "891260000000123", cStat: 136 });
+    expect(d.registrarEpec.mock.calls[0][0].xml).toMatch(/^<procEventoNFe /);
+  });
+  it("repetir depois do EPEC registrado devolve o mesmo, sem reenviar", async () => {
+    const d = depsEpec();
+    await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d);
+    const r = await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "epec", reutilizada: true, protocoloEpec: "891260000000123" });
+    expect(d.enviar).toHaveBeenCalledTimes(1);
+  });
+  it("AN fora do ar → não imprimir; tentar de novo reenvia só o aviso (mesma nota)", async () => {
+    const d = depsEpec({ rede: false });
+    const r = await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d);
+    expect(r).toMatchObject({ ok: false, code: "EPEC_NAO_REGISTRADO", situacao: "indisponivel" });
+    expect(d.registrarEpec).not.toHaveBeenCalled();
+    d.enviar = vi.fn(async ({ dados }) => ({ ok: true, xml: RET_EPEC(d.salvos[0].chave), dados }));
+    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d)).toMatchObject({ ok: true, situacao: "epec" });
+    expect(d.salvarContingencia).toHaveBeenCalledTimes(1);
+  });
+  it("AN recusa (ex.: 142 bloqueado) → mostra o motivo", async () => {
+    const d = depsEpec({ cStat: 142 });
+    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d)).toMatchObject({ ok: false, code: "EPEC_NAO_REGISTRADO", situacao: "rejeitado", cStat: 142 });
+  });
+  it("EPEC só para NF-e; SVC inativa sugere o EPEC", async () => {
+    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, deps())).toMatchObject({ ok: false, code: "SO_NFE" });
+    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, depsSvc({ status: 114 }))).toMatchObject({ code: "SVC_INATIVA", podeEpec: true });
+  });
+  it("NF-e do EPEC vai depois à SEFAZ de SP com a mesma chave", async () => {
+    const d = depsEpec();
+    await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST, forma: "epec" }, d);
+    d.enviar = vi.fn(async ({ url, dados }) => { d.urls.push(url); d.enviado = dados; return { ok: true, xml: RET_AUT(d.salvos[0].chave) }; });
+    expect(await processarEmissao({ acao: "transmitir_contingencia", documentoId: "c1" }, d)).toMatchObject({ ok: true, situacao: "autorizada", chave: chave55(21, 4) });
+    expect(d.urls.at(-1)).toBe("https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx");
+  });
+});

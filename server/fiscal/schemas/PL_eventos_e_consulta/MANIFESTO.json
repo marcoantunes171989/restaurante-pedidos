@@ -37,6 +37,13 @@
       "arquivos": [
         "e110110_v1.00.xsd"
       ]
+    },
+    "Evento EPEC v1.01 (30/05/2014, conteudo=OPt9hJUGOv0=; regras: NT 2014.001 v1.41, 08/2026)": {
+      "zip_sha256": "b41ad266c9ea8d590519565c950851e7e1d995ea7f0b15615cba1605242148da",
+      "zip_bytes": 13991,
+      "arquivos": [
+        "e110140_v1.00.xsd"
+      ]
     }
   },
   "arquivos": {
@@ -49,6 +56,7 @@
     "leiauteEvento_v1.00.xsd": "9a48df8603f685653dfde27dbda72e0f47b5d3c13be0090952f1e82f8d2bc476",
     "procEventoNFe_v1.00.xsd": "4263ee5d12e7a731efab126310aba4edb25612e5986a1c5dde0c87e6c6173798",
     "retConsSitNFe_v4.00.xsd": "8b7188d6fe9e879ca057bfb68600746c7491d2e092e3dc5121a6cd5aa79272d5",
-    "retEnvEvento_v1.00.xsd": "5eb93a244c5b26c983c08f725f8eafaa1923664a992181b9d78f60cc8523fa72"
+    "retEnvEvento_v1.00.xsd": "5eb93a244c5b26c983c08f725f8eafaa1923664a992181b9d78f60cc8523fa72",
+    "e110140_v1.00.xsd": "0ba2f350f2193d79369791a0ec50971999b3911c009251b69ae49810ec258f6f"
   }
 }

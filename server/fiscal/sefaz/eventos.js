@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  Eventos da NF-e/NFC-e (Etapa E6): cancelamento (110111), cancelamento
 //  por substituição da NFC-e (110112) e carta de correção da NF-e (110110).
+//  E7 parte 5: EPEC (110140, NT 2014.001 v1.41) — enviado ao Ambiente Nacional.
 //  Envelope genérico do PL 010d (envEvento 1.00) + conteúdo conforme os
 //  schemas específicos de cada evento. XML em forma canônica, assinado
 //  como a NF-e (RSA-SHA1, C14N 2001).
@@ -45,6 +46,32 @@ export function detCancelamentoSubstituicao({ cOrgaoAutor, verAplic, nProt, xJus
 export function detCartaCorrecao({ xCorrecao }) {
   return `<detEvento versao="1.00"><descEvento>Carta de Correcao</descEvento><xCorrecao>${texto(xCorrecao, 15, 1000, "Correção")}</xCorrecao>` +
     `<xCondUso>${esc(textoCondicaoUsoCCe())}</xCondUso></detEvento>`;
+}
+
+/**
+ * Conteúdo do EPEC tirado do XML da NF-e já montada (tpEmis 4): os dados
+ * precisam ser IGUAIS aos da NF-e transmitida depois (NT 2014.001, 2AB08-30).
+ * dest.UF: a nota do Pedido Prime não leva endereço do destinatário, então
+ * vale a UF do emitente (operação interna).
+ */
+export function detEpecDaNFe(nfeXml, { verAplic = "PedidoPrime 1.0" } = {}) {
+  const x = String(nfeXml || "");
+  const bloco = (n) => (new RegExp(`<${n}>([\\s\\S]*?)</${n}>`).exec(x) || [])[1] || "";
+  const de = (xml, n) => (new RegExp(`<${n}>([^<]*)</${n}>`).exec(xml) || [])[1] ?? null;
+  const ide = bloco("ide"), emit = bloco("emit"), dest = bloco("dest"), tot = bloco("ICMSTot");
+  if (de(ide, "tpEmis") !== "4" || de(ide, "mod") !== "55") throw new Error("EPEC só para NF-e (55) em contingência EPEC (tpEmis 4).");
+  const cUF = de(ide, "cUF"), dhEmi = de(ide, "dhEmi"), tpNF = de(ide, "tpNF");
+  const ieEmit = de(emit, "IE"), ufEmit = de(bloco("enderEmit"), "UF");
+  if (!/^[0-9]{2,14}$/.test(String(ieEmit || ""))) throw new Error("EPEC exige a IE do emitente.");
+  const doc = de(dest, "CNPJ") ? `<CNPJ>${de(dest, "CNPJ")}</CNPJ>` : de(dest, "CPF") ? `<CPF>${de(dest, "CPF")}</CPF>` : null;
+  if (!doc) throw new Error("EPEC exige CPF ou CNPJ do destinatário.");
+  const ufDest = de(bloco("enderDest"), "UF") || ufEmit;
+  const ieDest = de(dest, "IE");
+  const vNF = de(tot, "vNF"), vICMS = de(tot, "vICMS"), vST = de(tot, "vST");
+  if ([cUF, dhEmi, tpNF, ufDest, vNF, vICMS, vST].some((v) => v == null)) throw new Error("NF-e incompleta para o EPEC.");
+  return `<detEvento versao="1.00"><descEvento>EPEC</descEvento><cOrgaoAutor>${cUF}</cOrgaoAutor><tpAutor>1</tpAutor>` +
+    `<verAplic>${texto(verAplic, 1, 20, "Versão do aplicativo")}</verAplic><dhEmi>${dhEmi}</dhEmi><tpNF>${tpNF}</tpNF><IE>${ieEmit}</IE>` +
+    `<dest><UF>${ufDest}</UF>${doc}${ieDest ? `<IE>${ieDest}</IE>` : ""}<vNF>${vNF}</vNF><vICMS>${vICMS}</vICMS><vST>${vST}</vST></dest></detEvento>`;
 }
 
 export function montarEvento({ tpEvento, chNFe, cnpj, tpAmb, cOrgao, dhEvento, nSeqEvento = 1, detEvento, fuso = "-03:00" }) {

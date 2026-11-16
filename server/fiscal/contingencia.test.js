@@ -155,7 +155,7 @@ describe("SVC da NF-e (MOC 7.0 Anexo III)", () => {
   });
   it("SVC só para NF-e; off-line só para NFC-e; forma inválida recusada", () => {
     expect(() => paraContingencia(NOTA, { nNF: 21, dhCont: DH_CONT, xJust: JUST, tpEmis: 6 })).toThrow(/SVC/);
-    expect(() => paraContingencia(NFE, { nNF: 21, dhCont: DH_CONT, xJust: JUST, tpEmis: 4 })).toThrow(/inválida/);
-    expect(() => montarNfeSvc(NFE, cert)).toThrow(/tpEmis 6 ou 7/);
+    expect(() => paraContingencia(NFE, { nNF: 21, dhCont: DH_CONT, xJust: JUST, tpEmis: 5 })).toThrow(/inválida/);
+    expect(() => montarNfeSvc(NFE, cert)).toThrow(/tpEmis 4, 6 ou 7/);
   });
 });

@@ -12,7 +12,8 @@
     "SP: inutilização não se aplica desde 01/11/2026 (Ajustes SINIEF 38/2026 e 40/2026); serviços disponíveis até 03/2027.",
     "Autorização assíncrona deixa de existir em 05/04/2027 (NT 2023.002 v1.02): usar só envio síncrono (indSinc=1).",
     "Endereços EPEC da NFC-e aparecem na página da SEFAZ-SP terminando em .asm (sem x) — conferir antes de usar (E7).",
-    "SVC (MOC 7.0 Anexo III §2.1.3): só NF-e 55; usar só com StatusServico 107; cancelamento só de nota da própria SVC; sem CC-e e sem inutilização na SVC."
+    "SVC (MOC 7.0 Anexo III §2.1.3): só NF-e 55; usar só com StatusServico 107; cancelamento só de nota da própria SVC; sem CC-e e sem inutilização na SVC.",
+    "EPEC (NT 2014.001 v1.41): evento 110140 enviado ao Ambiente Nacional (AN, cOrgao 91); NF-e tpEmis 4 transmitida depois à SEFAZ de origem com a mesma chave; AN bloqueia novos EPEC com pendência de mais de 168 h."
   ],
   "SP": {
     "55": {
@@ -124,6 +125,16 @@
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
         "ConsultaProtocolo": "https://nfe.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
         "RecepcaoEvento": "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx"
+      }
+    }
+  },
+  "AN": {
+    "55": {
+      "homologacao": {
+        "RecepcaoEvento": "https://hom1.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx"
+      },
+      "producao": {
+        "RecepcaoEvento": "https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx"
       }
     }
   }

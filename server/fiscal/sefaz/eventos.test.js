@@ -91,3 +91,11 @@ describe("retorno do evento", () => {
     expect(semResposta).toMatchObject({ situacao: "incerto" });
   });
 });
+
+describe("EPEC (110140) a partir da NF-e", () => {
+  it("recusa nota que não é NF-e em EPEC", async () => {
+    const { detEpecDaNFe } = await import("./eventos.js");
+    expect(() => detEpecDaNFe("<NFe><infNFe><ide><mod>55</mod><tpEmis>1</tpEmis></ide></infNFe></NFe>")).toThrow(/EPEC/);
+    expect(() => detEpecDaNFe("<NFe><infNFe><ide><cUF>35</cUF><mod>55</mod><tpEmis>4</tpEmis><dhEmi>2026-11-17T12:31:00-03:00</dhEmi><tpNF>1</tpNF></ide><emit><IE>123456789012</IE><enderEmit><UF>SP</UF></enderEmit></emit><total><ICMSTot><vICMS>0.00</vICMS><vST>0.00</vST><vNF>30.00</vNF></ICMSTot></total></infNFe></NFe>")).toThrow(/destinatário/);
+  });
+});

@@ -107,7 +107,7 @@ function AvisoContingencia({ resumo, supabase, onConcluido }) {
         {resumo.pendentes} nota(s) em contingência aguardando envio à SEFAZ
       </p>
       <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
-        {urgente ? `${resumo.vencidas} com prazo vencido: envie agora.` : resumo.proximoPrazo ? `Envie ${textoPrazo(resumo.proximoPrazo)} (fim do 1º dia útil seguinte à venda).` : "NF-e da SVC (servidor reserva): envie assim que ele responder."}
+        {urgente ? `${resumo.vencidas} com prazo vencido: envie agora.` : resumo.proximoPrazo ? `Envie ${textoPrazo(resumo.proximoPrazo)}.` : "NF-e da SVC (servidor reserva): envie assim que ele responder."}
       </p>
       {texto && <p role="status" className="mt-1 text-[12px] font-semibold text-[var(--pp-text)]">{texto}</p>}
       <button type="button" className={`${botao} mt-2`} disabled={enviando} onClick={enviarTodas}>{enviando ? "Enviando…" : "Enviar pendentes agora"}</button>
@@ -190,9 +190,9 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                     {n.contingencia.tentativas ? ` · ${n.contingencia.tentativas} tentativa(s)` : ""}
                   </p>
                 )}
-                {n.tpEmis === 9 && n.contingencia && !["autorizado", "cancelado"].includes(n.status) && (
+                {[4, 9].includes(n.tpEmis) && n.contingencia && !["autorizado", "cancelado"].includes(n.status) && (
                   <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
-                    Emitida em contingência{n.contingencia.numeroOrigem ? ` (no lugar da nº ${n.contingencia.numeroOrigem})` : ""} · {n.contingencia.vencida ? "" : "enviar "}{textoPrazo(n.contingencia.prazo)}
+                    Emitida em contingência{n.tpEmis === 4 ? (n.contingencia.epecProtocolo ? ` EPEC (protocolo ${n.contingencia.epecProtocolo})` : " EPEC — aviso ainda não registrado: não imprima") : ""}{n.contingencia.numeroOrigem ? ` (no lugar da nº ${n.contingencia.numeroOrigem})` : ""} · {n.contingencia.vencida ? "" : "enviar "}{textoPrazo(n.contingencia.prazo)}
                     {n.contingencia.tentativas ? ` · ${n.contingencia.tentativas} tentativa(s)` : ""}
                   </p>
                 )}
