@@ -2,9 +2,12 @@
 //  Vercel Serverless Function: /api/fiscal-emitir
 //   { acao: "status", lojaId, modelo, ambiente }  → teste de conexão com a SEFAZ
 //   { acao: "emitir", documentoId }               → envia a nota reservada
+//   { acao: "cancelar", documentoId, xJust }      → cancelamento (110111)
+//   { acao: "substituir", documentoId, chNFeRef, xJust } → canc. substituição NFC-e
+//   { acao: "cce", documentoId, xCorrecao }       → carta de correção NF-e
 //
 //  Permissões conferidas no banco com o TOKEN DO USUÁRIO:
-//   status → app_fiscal_pode_configurar (admin da loja / super)
+//   status, cancelar, substituir, cce → app_fiscal_pode_configurar (admin da loja / super)
 //   emitir → app_pode_receber_pagamento (caixa da loja / super)
 //  Certificado (cofre 176) e gravação do resultado (177): service role,
 //  só aqui no servidor. Nada sensível volta na resposta.
@@ -57,6 +60,12 @@ export function criarDeps(token) {
       p_documento_id: p.documentoId, p_status: p.status, p_chave: p.chave ?? null, p_cstat: p.cStat ?? null,
       p_xmotivo: p.xMotivo ?? null, p_protocolo: p.protocolo ?? null, p_dh_autorizacao: p.dhAutorizacao ?? null,
       p_xml: p.xml ?? null, p_payload: p.payload ?? {},
+    }),
+    // Eventos (E6, migration 178)
+    proximaSequencia: (docId, tp) => doServidor("app_fiscal_evento_proxima_sequencia", { p_documento_id: docId, p_tp_evento: tp }),
+    registrarEvento: (p) => doServidor("app_fiscal_evento_registrar", {
+      p_documento_id: p.documentoId, p_tp_evento: p.tpEvento, p_n_seq: p.nSeq, p_status: p.status, p_cstat: p.cStat ?? null,
+      p_xmotivo: p.xMotivo ?? null, p_protocolo: p.protocolo ?? null, p_xml: p.xml ?? null, p_usuario_id: null, p_payload: {},
     }),
     timeoutMs: 30000,
   };

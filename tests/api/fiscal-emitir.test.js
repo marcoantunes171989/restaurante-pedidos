@@ -49,6 +49,20 @@ describe("/api/fiscal-emitir", () => {
   it("outro usuário → 403", async () => {
     expect((await chamar({ acao: "emitir", documentoId: "d1" }, { token: "outro" })).status).toBe(403);
   });
+  it("cancelar pela mesma rota exige permissão de gestão (admin), conferida com o token do usuário", async () => {
+    globalThis.fetch.mockImplementation(async (url, init = {}) => {
+      chamadas.push({ url: String(url), init });
+      const ok = (d) => ({ ok: true, status: 200, text: async () => JSON.stringify(d), json: async () => d });
+      if (String(url).endsWith("/rpc/app_fiscal_documento_para_emissao")) return ok({ ok: true, documento: { id: "d1", loja_id: 7, modelo: 65, status: "autorizado", chave: "x", protocolo: "135260000000001" } });
+      if (String(url).endsWith("/rpc/app_fiscal_pode_configurar")) return ok(false);
+      return { ok: false, status: 404, text: async () => "", json: async () => ({}) };
+    });
+    const r = await chamar({ acao: "cancelar", documentoId: "d1", xJust: "Venda desfeita pelo cliente" });
+    expect(r.status).toBe(403);
+    const perm = chamadas.find((c) => c.url.endsWith("/rpc/app_fiscal_pode_configurar"));
+    expect(perm.init.headers.authorization).toBe("Bearer token-do-caixa");
+    expect(chamadas.some((c) => c.url.includes("evento_registrar"))).toBe(false);
+  });
   it("teste de conexão sem permissão de admin → 403 e a chave do servidor não aparece", async () => {
     const r = await chamar({ acao: "status", lojaId: 7, modelo: 65, ambiente: "homologacao" });
     expect(r.status).toBe(403);

@@ -133,7 +133,7 @@ export async function testarConexaoSefaz(supabase, { lojaId, modelo = 65, ambien
   return chamarApiFiscal(supabase, "/api/fiscal-emitir", { acao: "status", lojaId, modelo, ambiente }, opts);
 }
 
-async function chamarApiFiscal(supabase, rota, corpo, { fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
+export async function chamarApiFiscal(supabase, rota, corpo, { fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
   const { data } = (await supabase?.auth?.getSession?.()) || {};
   const token = data?.session?.access_token;
   if (!token) throw Object.assign(new Error("Faça login novamente para continuar."), { code: "SEM_LOGIN" });

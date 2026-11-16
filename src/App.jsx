@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
+import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
   excluirFiscalNcmLote, atualizarFiscalNcmLoteAtivo,
@@ -21414,6 +21415,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
     ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (simulação)" }] : []),
     ...(emitenteFiscalApi ? [{ id: "emissao", label: "🔐 Emissão (certificado e séries)" }] : []),
+    ...(emitenteFiscalApi ? [{ id: "notas", label: "📄 Notas emitidas" }] : []),
   ];
 
   return (
@@ -21451,6 +21453,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
       {aba === "nfce" && <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={produtos} importadas={importadas} emitenteApi={emitenteFiscalApi} />}
       {aba === "emissao" && <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi?.fetch || null} />}
+      {aba === "notas" && <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} />}
     </main>
   );
 }

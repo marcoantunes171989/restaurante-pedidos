@@ -12,6 +12,7 @@ import { lerCertificadoPfx } from "./certificado.js";
 import { urlQrCodeV3, grupoInfNFeSupl } from "./qrcodeNfce.js";
 import { enderecoServico } from "./sefaz/transporte.js";
 import { statusServico, emitirNaSefaz } from "./sefaz/emissor.js";
+import { processarEvento } from "./eventoService.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -43,6 +44,8 @@ async function credencial(deps, lojaId) {
 
 export async function processarEmissao(body = {}, deps) {
   const acao = String(body.acao || "");
+  // Eventos (E6) na mesma rota — o projeto está no limite de funções da Vercel.
+  if (["cancelar", "substituir", "cce"].includes(acao)) return processarEvento(body, deps);
   const conexao = { ca: deps.ca, timeoutMs: deps.timeoutMs, enviar: deps.enviar, endereco: deps.endereco };
 
   if (acao === "status") {

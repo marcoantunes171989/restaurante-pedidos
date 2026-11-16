@@ -1,0 +1,70 @@
+// ════════════════════════════════════════════════════════════
+//  Eventos pedidos pela tela (Etapa E6): cancelar, cancelar por
+//  substituição (NFC-e) e carta de correção (NF-e). Permissão: gestão da
+//  loja (app_fiscal_pode_configurar). Registro via migration 178.
+// ════════════════════════════════════════════════════════════
+
+import { Buffer } from "node:buffer";
+import { lerCertificadoPfx } from "./certificado.js";
+import { detCancelamento, detCancelamentoSubstituicao, detCartaCorrecao, montarEvento, assinarEvento, enviarEvento } from "./sefaz/eventos.js";
+
+const COD_UF = { SP: "35" };
+const TIPO = { cancelar: "110111", substituir: "110112", cce: "110110" };
+const MENSAGENS = {
+  FORBIDDEN: "Você não tem permissão para cancelar ou corrigir notas.",
+  ENTRADA_INVALIDA: "Dados inválidos.",
+  NAO_ENCONTRADO: "Nota não encontrada.",
+  STATUS_NAO_PERMITE: "Só é possível cancelar ou corrigir uma nota autorizada.",
+  SO_NFCE: "Cancelamento por substituição vale só para NFC-e.",
+  SO_NFE: "Carta de correção vale só para NF-e.",
+  SEM_CERTIFICADO: "Cadastre o certificado A1 na aba Emissão antes.",
+  CERTIFICADO_ILEGIVEL: "Não foi possível abrir o certificado guardado. Envie o certificado de novo.",
+  UF_NAO_SUPORTADA: "O estado da loja ainda não está configurado no emissor.",
+};
+const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
+
+export async function processarEvento(body, deps) {
+  const acao = String(body.acao);
+  const tpEvento = TIPO[acao];
+  const doc = await deps.documento(String(body.documentoId || ""));
+  if (!doc) return falha("NAO_ENCONTRADO");
+  if (!(await deps.podeConfigurar(doc.loja_id))) return falha("FORBIDDEN");
+  if (doc.status !== "autorizado" || !doc.protocolo || !doc.chave) return falha("STATUS_NAO_PERMITE");
+  if (acao === "substituir" && Number(doc.modelo) !== 65) return falha("SO_NFCE");
+  if (acao === "cce" && Number(doc.modelo) !== 55) return falha("SO_NFE");
+
+  const uf = await deps.ufDaLoja(doc.loja_id);
+  const cUF = COD_UF[uf];
+  if (!cUF) return falha("UF_NAO_SUPORTADA");
+
+  let det;
+  try {
+    if (acao === "cancelar") det = detCancelamento({ nProt: doc.protocolo, xJust: body.xJust });
+    if (acao === "substituir") det = detCancelamentoSubstituicao({ cOrgaoAutor: cUF, verAplic: "PedidoPrime 1.0", nProt: doc.protocolo, xJust: body.xJust, chNFeRef: body.chNFeRef });
+    if (acao === "cce") det = detCartaCorrecao({ xCorrecao: body.xCorrecao });
+  } catch (e) {
+    return falha("ENTRADA_INVALIDA", { detalhe: e.message });
+  }
+
+  const s = await deps.segredoCertificado(doc.loja_id);
+  if (!s?.pfx) return falha("SEM_CERTIFICADO");
+  const pfx = Buffer.from(s.pfx, "base64");
+  let cert;
+  try { cert = lerCertificadoPfx(pfx, s.senha); } catch { return falha("CERTIFICADO_ILEGIVEL"); }
+
+  const nSeq = acao === "cce" ? await deps.proximaSequencia(doc.id, tpEvento) : 1;
+  const cnpj = doc.rascunho?.dados?.emit?.CNPJ || cert.cnpj;
+  const evento = assinarEvento(montarEvento({
+    tpEvento, chNFe: doc.chave, cnpj, tpAmb: doc.ambiente === "producao" ? 1 : 2, cOrgao: cUF, nSeqEvento: nSeq, detEvento: det,
+  }), cert);
+
+  const r = await enviarEvento({
+    uf, modelo: Number(doc.modelo), ambiente: doc.ambiente, eventoAssinado: evento, idLote: String(Date.now()).slice(-15),
+    pfx, senha: s.senha, ca: deps.ca, timeoutMs: deps.timeoutMs, enviar: deps.enviar, endereco: deps.endereco,
+  });
+  await deps.registrarEvento({
+    documentoId: doc.id, tpEvento, nSeq, status: r.situacao, cStat: r.cStat ?? null, xMotivo: r.xMotivo ?? null,
+    protocolo: r.nProt ?? null, xml: r.situacao === "registrado" ? r.procEvento : null,
+  });
+  return { ok: r.situacao === "registrado", situacao: r.situacao, cStat: r.cStat ?? null, xMotivo: r.xMotivo ?? null, protocolo: r.nProt ?? null, nSeq };
+}
