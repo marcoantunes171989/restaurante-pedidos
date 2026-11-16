@@ -1,0 +1,59 @@
+{
+  "levantado_em": "2026-11-15",
+  "fontes": {
+    "nfe": [
+      "https://www.nfe.fazenda.gov.br/portal/WebServices.aspx",
+      "https://hom.nfe.fazenda.gov.br/portal/WebServices.aspx"
+    ],
+    "nfce_sp": "https://portal.fazenda.sp.gov.br/servicos/nfce/Paginas/WebServices.aspx"
+  },
+  "observacoes": [
+    "SP: inutilização não se aplica desde 01/11/2026 (Ajustes SINIEF 38/2026 e 40/2026); serviços disponíveis até 03/2027.",
+    "Autorização assíncrona deixa de existir em 05/04/2027 (NT 2023.002 v1.02): usar só envio síncrono (indSinc=1).",
+    "Endereços EPEC da NFC-e aparecem na página da SEFAZ-SP terminando em .asm (sem x) — conferir antes de usar (E7)."
+  ],
+  "SP": {
+    "55": {
+      "homologacao": {
+        "StatusServico": "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfestatusservico4.asmx",
+        "Autorizacao": "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
+        "RetAutorizacao": "https://homologacao.nfe.fazenda.sp.gov.br/ws/nferetautorizacao4.asmx",
+        "ConsultaProtocolo": "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx",
+        "RecepcaoEvento": "https://homologacao.nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
+        "Inutilizacao": "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx",
+        "ConsultaCadastro": "https://homologacao.nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx"
+      },
+      "producao": {
+        "StatusServico": "https://nfe.fazenda.sp.gov.br/ws/nfestatusservico4.asmx",
+        "Autorizacao": "https://nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
+        "RetAutorizacao": "https://nfe.fazenda.sp.gov.br/ws/nferetautorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfe.fazenda.sp.gov.br/ws/nfeconsultaprotocolo4.asmx",
+        "RecepcaoEvento": "https://nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
+        "Inutilizacao": "https://nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx",
+        "ConsultaCadastro": "https://nfe.fazenda.sp.gov.br/ws/cadconsultacadastro4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeStatusServico4.asmx",
+        "Autorizacao": "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeConsultaProtocolo4.asmx",
+        "RecepcaoEvento": "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeRecepcaoEvento4.asmx",
+        "Inutilizacao": "https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeInutilizacao4.asmx",
+        "QRCode": "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode",
+        "ConsultaPublica": "https://www.homologacao.nfce.fazenda.sp.gov.br/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.fazenda.sp.gov.br/ws/NFeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.fazenda.sp.gov.br/ws/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.fazenda.sp.gov.br/ws/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.fazenda.sp.gov.br/ws/NFeConsultaProtocolo4.asmx",
+        "RecepcaoEvento": "https://nfce.fazenda.sp.gov.br/ws/NFeRecepcaoEvento4.asmx",
+        "Inutilizacao": "https://nfce.fazenda.sp.gov.br/ws/NFeInutilizacao4.asmx",
+        "QRCode": "https://www.nfce.fazenda.sp.gov.br/qrcode",
+        "ConsultaPublica": "https://www.nfce.fazenda.sp.gov.br/consulta"
+      }
+    }
+  }
+}
