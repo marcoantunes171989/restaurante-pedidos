@@ -51,3 +51,46 @@ export async function validarNFeXsd(xml) {
   const erros = (r.errors || []).map((e) => String(e.message || e.rawMessage || e).trim());
   return { valido: !!r.valid, erros, pacote: s.pacote };
 }
+
+// ── Mensagens de comunicação (PL 9q) ───────────────────────
+// Cada mensagem usa o próprio conjunto de schemas. Leiaute da NF-e, tipos
+// básicos e assinatura vêm SEMPRE do pacote vigente (010h); do 9q entram
+// só os arquivos das mensagens (MANIFESTO em PL_009q_mensagens).
+let cacheMsg = null;
+function carregarMensagens() {
+  if (cacheMsg) return cacheMsg;
+  const dir = join(DIR_SCHEMAS, "PL_009q_mensagens");
+  const m = JSON.parse(readFileSync(join(dir, "MANIFESTO.json"), "utf8"));
+  const arq = {};
+  for (const [nome, sha] of Object.entries(m.arquivos)) {
+    const bytes = readFileSync(join(dir, nome));
+    if (createHash("sha256").update(bytes).digest("hex") !== sha) throw new Error(`Schema alterado ou corrompido: ${nome} (SHA-256 diferente do manifesto).`);
+    arq[nome] = { fileName: nome, contents: bytes.toString("utf8") };
+  }
+  const nfe = carregarSchemas();
+  const de010h = (nome) => [nfe.principal, ...nfe.demais].find((f) => f.fileName === nome);
+  const todos010h = [nfe.principal, ...nfe.demais];
+  cacheMsg = {
+    enviNFe: { principal: arq["enviNFe_v4.00.xsd"], preload: todos010h },
+    retEnviNFe: { principal: arq["retEnviNFe_v4.00.xsd"], preload: todos010h },
+    procNFe: { principal: arq["procNFe_v4.00.xsd"], preload: todos010h },
+    consStatServ: { principal: arq["consStatServ_v4.00.xsd"], preload: [arq["leiauteConsStatServ_v4.00.xsd"], de010h("tiposBasico_v4.00.xsd")] },
+    retConsStatServ: { principal: arq["retConsStatServ_v4.00.xsd"], preload: [arq["leiauteConsStatServ_v4.00.xsd"], de010h("tiposBasico_v4.00.xsd")] },
+    consSitNFe: { principal: arq["consSitNFe_v4.00.xsd"], preload: [arq["leiauteConsSitNFe_v4.00.xsd"], de010h("tiposBasico_v4.00.xsd"), de010h("xmldsig-core-schema_v1.01.xsd")] },
+    retConsSitNFe: { principal: arq["retConsSitNFe_v4.00.xsd"], preload: [arq["leiauteConsSitNFe_v4.00.xsd"], de010h("tiposBasico_v4.00.xsd"), de010h("xmldsig-core-schema_v1.01.xsd")] },
+  };
+  return cacheMsg;
+}
+
+/**
+ * Valida uma mensagem de comunicação com a SEFAZ.
+ * @param {string} xml
+ * @param {'enviNFe'|'retEnviNFe'|'procNFe'|'consStatServ'|'retConsStatServ'|'consSitNFe'|'retConsSitNFe'} tipo
+ */
+export async function validarMensagemXsd(xml, tipo) {
+  const c = carregarMensagens()[tipo];
+  if (!c) throw new Error(`Tipo de mensagem desconhecido: ${tipo}`);
+  const r = await validateXML({ xml: [{ fileName: `${tipo}.xml`, contents: xml }], schema: [c.principal], preload: c.preload });
+  const erros = (r.errors || []).map((e) => String(e.message || e.rawMessage || e).trim());
+  return { valido: !!r.valid, erros };
+}

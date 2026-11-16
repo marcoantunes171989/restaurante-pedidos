@@ -1,0 +1,21 @@
+{
+  "pacote": "PL_009q_mensagens",
+  "origem": "PL_009q_NT2025_001_v1.00 (Pacote de Liberação nº 9q, NT 2025.001 v1.00, publicado em 19/05/2025)",
+  "fonte": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=BMPFMBoln3w=",
+  "arquivo_url": "https://www.nfe.fazenda.gov.br/portal/exibirArquivo.aspx?conteudo=0qRvxtvKcj4=",
+  "baixado_em": "2026-11-15",
+  "zip_sha256": "82a26d04a778fc214bf8c6c6e5c65ea577721e32ed5efa9a11a80098b8f9802f",
+  "zip_bytes": 45617,
+  "uso": "Só as mensagens de comunicação (status, envio, consulta). Leiaute da NF-e, tipos básicos e assinatura vêm do PL_010h_v1.03 (vigente).",
+  "arquivos": {
+    "consSitNFe_v4.00.xsd": "44d816a725553a0c53508be919629c9235b42c5d41c358a05be8fdf61945f5c1",
+    "consStatServ_v4.00.xsd": "20c2cae522ac79ea52353ca66d7595c6616a46a491e561b076145fe8574b8773",
+    "enviNFe_v4.00.xsd": "9ba17a12e3fd6e153bd8676450526ba3bcfc15b75ecb372823826ee827b8c3ef",
+    "leiauteConsSitNFe_v4.00.xsd": "e74e697bc033d8eec01ff75487eb649598250dd7715f6d120eec817fb2506e8e",
+    "leiauteConsStatServ_v4.00.xsd": "cdc0813b5bf0087c7c8510f6ea0c2a367c829d9ea4b44c23533d18d3bcf23375",
+    "procNFe_v4.00.xsd": "b7af3072ff7398aa557c42bc6d8198dd3c006b1a6ecaad66bc839a5c34cbcb84",
+    "retConsSitNFe_v4.00.xsd": "8b7188d6fe9e879ca057bfb68600746c7491d2e092e3dc5121a6cd5aa79272d5",
+    "retConsStatServ_v4.00.xsd": "337ceed7f74c0764edbc8a18feacaf8c33f66aa951c46b4b29b561cda7c2f7fb",
+    "retEnviNFe_v4.00.xsd": "d58b700f849ea7df9f1d35580ae0de425dfa1e295408c02609b81905b04ce4ce"
+  }
+}
