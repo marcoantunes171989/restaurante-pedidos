@@ -52,6 +52,9 @@ export async function processarEvento(body, deps) {
   let cert;
   try { cert = lerCertificadoPfx(pfx, s.senha); } catch { return falha("CERTIFICADO_ILEGIVEL"); }
 
+  // Nota autorizada pela SVC (tpEmis 6/7 na chave): cancelamento só na própria
+  // SVC (MOC 7.0 Anexo III §2.1.3.4 c). CC-e não existe na SVC: vai à SEFAZ de origem.
+  const autorizador = acao === "cancelar" ? ({ 6: "SVC-AN", 7: "SVC-RS" })[String(doc.chave)[34]] : undefined;
   const nSeq = acao === "cce" ? await deps.proximaSequencia(doc.id, tpEvento) : 1;
   const cnpj = doc.rascunho?.dados?.emit?.CNPJ || cert.cnpj;
   const evento = assinarEvento(montarEvento({
@@ -59,7 +62,7 @@ export async function processarEvento(body, deps) {
   }), cert);
 
   const r = await enviarEvento({
-    uf, modelo: Number(doc.modelo), ambiente: doc.ambiente, eventoAssinado: evento, idLote: String(Date.now()).slice(-15),
+    uf, modelo: Number(doc.modelo), ambiente: doc.ambiente, autorizador, eventoAssinado: evento, idLote: String(Date.now()).slice(-15),
     pfx, senha: s.senha, ca: deps.ca, timeoutMs: deps.timeoutMs, enviar: deps.enviar, endereco: deps.endereco,
   });
   await deps.registrarEvento({

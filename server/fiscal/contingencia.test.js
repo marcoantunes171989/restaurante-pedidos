@@ -6,7 +6,7 @@ import { Buffer } from "node:buffer";
 import { lerCertificadoPfx } from "./certificado.js";
 import { validarNFeXsd } from "./validarXsd.js";
 import { urlQrCodeV2, urlQrCodeV2Offline } from "./qrcodeNfce.js";
-import { paraContingencia, montarNfceContingencia, prazoContingencia } from "./contingencia.js";
+import { paraContingencia, montarNfceContingencia, prazoContingencia, svcDaUf, montarNfeSvc } from "./contingencia.js";
 import { dvChave } from "../../src/lib/fiscal/nfeDaVenda.js";
 
 // ── Exemplos OFICIAIS do "Manual de Padrões Técnicos do DANFE NFC-e e
@@ -134,5 +134,28 @@ describe("prazoContingencia — até o fim do 1º dia útil seguinte (Ajuste SIN
   it("usa a data local de Brasília, não a UTC", () => {
     // 23:30 de terça em Brasília = 02:30Z de quarta → prazo continua sendo quarta.
     expect(prazoContingencia("2026-11-18T02:30:00Z").toISOString()).toBe("2026-11-19T02:59:59.999Z");
+  });
+});
+
+describe("SVC da NF-e (MOC 7.0 Anexo III)", () => {
+  const NFE = { ...NOTA, chave: CHAVE_NORMAL.slice(0, 20) + "55" + CHAVE_NORMAL.slice(22, 43), ide: { ...NOTA.ide, mod: 55, indPres: 4, idDest: 2 } };
+  NFE.chave += String(dvChave(NFE.chave));
+  it("SP usa a SVC-AN (tpEmis 6); BA usa a SVC-RS (tpEmis 7)", () => {
+    expect(svcDaUf("SP")).toEqual({ autorizador: "SVC-AN", tpEmis: 6 });
+    expect(svcDaUf("BA")).toEqual({ autorizador: "SVC-RS", tpEmis: 7 });
+    expect(() => svcDaUf("XX")).toThrow(/SVC/);
+  });
+  it("NF-e vira tpEmis 6 com número novo (sem as regras presenciais da NFC-e)", () => {
+    const c = paraContingencia(NFE, { nNF: 21, dhCont: DH_CONT, xJust: JUST, tpEmis: 6 });
+    expect(c.ide.tpEmis).toBe(6);
+    expect(c.chave.slice(20, 22)).toBe("55");
+    expect(c.chave[34]).toBe("6");
+    expect(c.chave.slice(43)).toBe(String(dvChave(c.chave.slice(0, 43))));
+    expect(() => paraContingencia(NFE, { nNF: 20, dhCont: DH_CONT, xJust: JUST, tpEmis: 6 })).toThrow(/número/i);
+  });
+  it("SVC só para NF-e; off-line só para NFC-e; forma inválida recusada", () => {
+    expect(() => paraContingencia(NOTA, { nNF: 21, dhCont: DH_CONT, xJust: JUST, tpEmis: 6 })).toThrow(/SVC/);
+    expect(() => paraContingencia(NFE, { nNF: 21, dhCont: DH_CONT, xJust: JUST, tpEmis: 4 })).toThrow(/inválida/);
+    expect(() => montarNfeSvc(NFE, cert)).toThrow(/tpEmis 6 ou 7/);
   });
 });

@@ -24,7 +24,7 @@ const MENSAGENS = {
   STATUS_NAO_PERMITE: "Esta nota não pode ser enviada na situação atual.",
   UF_NAO_SUPORTADA: "O estado da loja ainda não está configurado no emissor.",
   XML_INVALIDO: "A nota tem dados fora do padrão oficial.",
-  EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota off-line é a que vale. Esta numeração só será consultada.",
+  EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota de contingência é a que vale. Esta numeração só será consultada.",
 };
 const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
 const PODE_ENVIAR = new Set(["reservado", "rejeitado", "erro", "enviado"]);
@@ -60,9 +60,10 @@ export async function processarEmissao(body = {}, deps) {
   const doc = await deps.documento(String(body.documentoId || ""));
   if (!doc) return falha("NAO_ENCONTRADO");
   if (!(await deps.podeEmitir(doc.loja_id))) return falha("FORBIDDEN");
-  // Nota off-line: envia o XML já assinado (mesma chave). Nota que virou
-  // contingência: nunca reenviar no modo normal (Ajuste SINIEF 19/16).
-  if (Number(doc.tp_emis) === 9) return transmitirContingencia({ documentoId: doc.id }, deps, conexao);
+  // Nota em contingência (off-line 9 ou SVC 6/7): envia o XML já assinado
+  // (mesma chave). Nota que virou contingência: nunca reenviar no modo normal
+  // (Ajuste SINIEF 19/16; MOC 7.0 Anexo III — número novo na SVC).
+  if (Number(doc.tp_emis || 1) !== 1) return transmitirContingencia({ documentoId: doc.id }, deps, conexao);
   if (doc.contingencia_documento_id) return falha("EM_CONTINGENCIA", { contingenciaDocumentoId: doc.contingencia_documento_id });
   if (doc.status === "autorizado") return { ok: true, situacao: "autorizada", jaAutorizada: true, numero: doc.numero, protocolo: doc.protocolo };
   if (!PODE_ENVIAR.has(doc.status)) return falha("STATUS_NAO_PERMITE");
@@ -100,7 +101,8 @@ export async function processarEmissao(body = {}, deps) {
   return {
     ok: r.situacao === "autorizada", situacao: r.situacao, numero: doc.numero, serie: doc.serie, chave,
     protocolo: r.nProt || null, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
-    // SEFAZ fora/sem resposta: a NFC-e pode sair em contingência off-line (E7).
-    podeContingencia: Number(doc.modelo) === 65 && ["indisponivel", "incerta"].includes(r.situacao),
+    // SEFAZ fora/sem resposta: NFC-e sai off-line; NF-e vai pela SVC (E7).
+    podeContingencia: ["indisponivel", "incerta"].includes(r.situacao),
+    formaContingencia: Number(doc.modelo) === 65 ? "offline" : "svc",
   };
 }

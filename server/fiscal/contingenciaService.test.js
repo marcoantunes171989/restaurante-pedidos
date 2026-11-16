@@ -63,7 +63,7 @@ describe("contingencia — emitir off-line", () => {
     const d = deps();
     const r = await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d);
     expect(r).toMatchObject({ ok: true, situacao: "contingencia", documentoId: "c1", numero: 21, serie: 1, prazo: "2026-11-19T02:59:59.999Z", numeroOrigem: 20 });
-    expect(d.abrirContingencia).toHaveBeenCalledWith({ origemId: "o1", dhCont: AGORA.toISOString(), xJust: JUST, prazo: "2026-11-19T02:59:59.999Z" });
+    expect(d.abrirContingencia).toHaveBeenCalledWith({ origemId: "o1", dhCont: AGORA.toISOString(), xJust: JUST, prazo: "2026-11-19T02:59:59.999Z", tpEmis: 9 });
     const s = d.salvos[0];
     expect(s.chave).toBe(chave(21, 9));
     expect(r.chave).toBe(s.chave);
@@ -89,10 +89,10 @@ describe("contingencia — emitir off-line", () => {
     expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d)).toMatchObject({ ok: false, code: "SEM_CSC" });
     expect(d.abrirContingencia).not.toHaveBeenCalled();
   });
-  it("justificativa curta, NF-e, nota autorizada e sem permissão são recusadas", async () => {
+  it("justificativa curta, modelo inválido, nota autorizada e sem permissão são recusadas", async () => {
     expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: "curta" }, deps())).toMatchObject({ code: "JUSTIFICATIVA_INVALIDA" });
-    const nfe = deps({ documento: vi.fn().mockResolvedValue({ id: "o1", loja_id: 7, modelo: 55, status: "erro", tp_emis: 1, rascunho: { dados: DADOS } }) });
-    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, nfe)).toMatchObject({ code: "SO_NFCE" });
+    const outro = deps({ documento: vi.fn().mockResolvedValue({ id: "o1", loja_id: 7, modelo: 57, status: "erro", tp_emis: 1, rascunho: { dados: DADOS } }) });
+    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, outro)).toMatchObject({ code: "MODELO_INVALIDO" });
     const aut = deps({ documento: vi.fn().mockResolvedValue({ id: "o1", loja_id: 7, modelo: 65, status: "autorizado", tp_emis: 1, rascunho: { dados: DADOS } }) });
     expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, aut)).toMatchObject({ code: "STATUS_NAO_PERMITE" });
     const sem = deps({ podeEmitir: vi.fn().mockResolvedValue(false) });
@@ -203,5 +203,77 @@ describe("consultar — nota que ficou sem resposta", () => {
     expect(await processarEmissao({ acao: "consultar", documentoId: "o1" }, nunca)).toMatchObject({ ok: false, code: "SEM_CHAVE" });
     const sem = deps({ documento: vi.fn().mockResolvedValue(ORIGEM_ENVIADA), podeEmitir: vi.fn().mockResolvedValue(false) });
     expect(await processarEmissao({ acao: "consultar", documentoId: "o1" }, sem)).toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+// ── NF-e (55) pela SVC-AN (MOC 7.0 Anexo III §2.1.3) ──
+const chave55 = (nNF, tpEmis) => { const b = "35261112345678000195550010000000" + String(nNF).padStart(2, "0") + tpEmis + "48213579"; return b + dvChave(b); };
+const DADOS55 = { ...DADOS, chave: chave55(20, 1), ide: { ...DADOS.ide, mod: 55 }, dest: { CPF: "12345678909", xNome: "Cliente Teste", indIEDest: "9" } };
+const STATUS_SVC = (cStat) => `<retConsStatServ versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe"><tpAmb>2</tpAmb><verAplic>SVC</verAplic><cStat>${cStat}</cStat><xMotivo>m${cStat}</xMotivo><cUF>35</cUF><dhRecbto>2026-11-17T12:31:00-03:00</dhRecbto></retConsStatServ>`;
+function depsSvc({ status = 107, autoriza = true, ...extra } = {}) {
+  const d = deps({
+    documento: vi.fn().mockResolvedValue({ id: "o1", loja_id: 7, modelo: 55, serie: 1, numero: 20, ambiente: "homologacao", status: "erro", tp_emis: 1, contingencia_documento_id: null, rascunho: { dados: DADOS55 } }),
+    ...extra,
+  });
+  const base = d.contingencia;
+  d.contingencia = vi.fn(async (id) => ({ ...(await base(id)), modelo: 55, prazo: null }));
+  d.urls = [];
+  d.enviar = vi.fn(async ({ url, servico, dados }) => {
+    d.urls.push(url);
+    if (servico === "NFeStatusServico4") return { ok: true, xml: STATUS_SVC(status) };
+    if (servico === "NFeAutorizacao4") { d.enviado = dados; return autoriza ? { ok: true, xml: RET_AUT(d.salvos.at(-1).chave) } : { ok: false, code: "CONEXAO", erro: "x" }; }
+    return { ok: false, code: "CONEXAO", erro: "x" };
+  });
+  return d;
+}
+
+describe("contingencia — NF-e pela SVC", () => {
+  it("confere a SVC (107), reserva número novo, assina com tpEmis 6 e envia à SVC-AN na hora", async () => {
+    const d = depsSvc();
+    const r = await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "autorizada", forma: "svc", autorizador: "SVC-AN", numero: 21, numeroOrigem: 20, protocolo: "135260000000021", prazo: null, vencida: false });
+    expect(d.abrirContingencia).toHaveBeenCalledWith({ origemId: "o1", dhCont: AGORA.toISOString(), xJust: JUST, prazo: null, tpEmis: 6 });
+    const s = d.salvos[0];
+    expect(s.chave).toBe(chave55(21, 6));
+    expect(s.qrCode).toBeNull();
+    expect(s.xml).toContain("<tpEmis>6</tpEmis>");
+    expect(s.xml).toContain("<dhCont>");
+    expect(s.xml).not.toContain("infNFeSupl");
+    expect((await validarNFeXsd(s.xml)).erros).toEqual([]);
+    expect(d.urls).toEqual([
+      "https://hom.sefazvirtual.fazenda.gov.br/NFeStatusServico4/NFeStatusServico4.asmx",
+      "https://hom.sefazvirtual.fazenda.gov.br/NFeAutorizacao4/NFeAutorizacao4.asmx",
+    ]);
+    expect(d.enviado).toContain(s.xml.replace(/^<\?xml[^>]*>/, ""));
+    expect(d.registrar.mock.calls.at(-1)[0]).toMatchObject({ documentoId: "c1", status: "autorizado", payload: { autorizador: "SVC-AN" } });
+    expect(d.segredoCsc).not.toHaveBeenCalled();
+  });
+  it("SVC não ativada pela SEFAZ (114) → não gasta número", async () => {
+    const d = depsSvc({ status: 114 });
+    expect(await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d)).toMatchObject({ ok: false, code: "SVC_INATIVA", cStat: 114 });
+    expect(d.abrirContingencia).not.toHaveBeenCalled();
+  });
+  it("SVC sem resposta no envio → fica guardada para reenviar à SVC, sem prazo", async () => {
+    const d = depsSvc({ autoriza: false });
+    const r = await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d);
+    expect(r).toMatchObject({ ok: false, situacao: "indisponivel", forma: "svc", prazo: null, vencida: false });
+    d.enviar = vi.fn(async ({ url }) => { d.urls.push(url); return { ok: true, xml: RET_AUT(d.salvos[0].chave) }; });
+    const r2 = await processarEmissao({ acao: "transmitir_contingencia", documentoId: "c1" }, d);
+    expect(r2).toMatchObject({ ok: true, situacao: "autorizada" });
+    expect(d.urls.at(-1)).toBe("https://hom.sefazvirtual.fazenda.gov.br/NFeAutorizacao4/NFeAutorizacao4.asmx");
+    expect(d.salvarContingencia).toHaveBeenCalledTimes(1);
+  });
+  it("consulta de nota da SVC vai à própria SVC", async () => {
+    const d = depsSvc();
+    await processarEmissao({ acao: "contingencia", documentoId: "o1", xJust: JUST }, d);
+    const dig = (/<DigestValue>([^<]+)</.exec(d.salvos[0].xml) || [])[1];
+    d.documento = vi.fn().mockResolvedValue({ id: "c1", loja_id: 7, modelo: 55, serie: 1, numero: 21, ambiente: "homologacao", status: "enviado", tp_emis: 6, chave: d.salvos[0].chave });
+    d.enviar = vi.fn(async ({ url }) => { d.urls.push(url); return { ok: true, xml: RET_CONS(d.salvos[0].chave, 100, dig) }; });
+    expect(await processarEmissao({ acao: "consultar", documentoId: "c1" }, d)).toMatchObject({ ok: true, situacao: "autorizada" });
+    expect(d.urls.at(-1)).toBe("https://hom.sefazvirtual.fazenda.gov.br/NFeConsultaProtocolo4/NFeConsultaProtocolo4.asmx");
+  });
+  it("NF-e indisponível no envio normal oferece a SVC", async () => {
+    const d = deps({ documento: vi.fn().mockResolvedValue({ id: "o1", loja_id: 7, modelo: 55, serie: 1, numero: 20, ambiente: "homologacao", status: "reservado", tp_emis: 1, rascunho: { dados: DADOS55 } }) });
+    expect(await processarEmissao({ acao: "emitir", documentoId: "o1" }, d)).toMatchObject({ situacao: "indisponivel", podeContingencia: true, formaContingencia: "svc" });
   });
 });

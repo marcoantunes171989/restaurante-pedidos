@@ -71,3 +71,14 @@ describe("eventos pela rota de emissão", () => {
     expect(d.registrarEvento.mock.calls[0][0]).toMatchObject({ status: "incerto" });
   });
 });
+
+describe("eventos de nota autorizada pela SVC", () => {
+  const CHAVE_SVC = "35261112345678000195550010000000216123456789";
+  it("cancelamento vai à própria SVC-AN; CC-e vai à SEFAZ de origem", async () => {
+    const d = deps({ modelo: 55, chave: CHAVE_SVC });
+    await processarEmissao({ acao: "cancelar", documentoId: "d1", xJust: "Venda desfeita pelo cliente no caixa" }, d);
+    expect(d.enviados[0].url).toBe("https://hom.sefazvirtual.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx");
+    await processarEmissao({ acao: "cce", documentoId: "d1", xCorrecao: "Corrige o endereco de entrega do cliente" }, d);
+    expect(d.enviados[1].url).toBe("https://homologacao.nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx");
+  });
+});

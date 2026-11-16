@@ -12,11 +12,12 @@ import { validarMensagemXsd } from "../validarXsd.js";
 const TPAMB = { producao: 1, homologacao: 2 };
 const COD_UF = { SP: "35" };
 
-function contexto({ uf, modelo, ambiente, pfx, senha, ca, timeoutMs, enviar = enviarSoap, endereco = enderecoServico }) {
+// autorizador: "SVC-AN"/"SVC-RS" na contingência SVC da NF-e (E7 parte 4); padrão = a UF.
+function contexto({ uf, modelo, ambiente, autorizador, pfx, senha, ca, timeoutMs, enviar = enviarSoap, endereco = enderecoServico }) {
   if (!TPAMB[ambiente]) throw new Error("Ambiente inválido.");
   if (!COD_UF[uf]) throw new Error(`UF ${uf} ainda não configurada no emissor.`);
   const chamar = (servicoTabela, servicoWsdl, dados) =>
-    enviar({ url: endereco({ uf, modelo, ambiente, servico: servicoTabela }), servico: servicoWsdl, dados, pfx, senha, ca, timeoutMs });
+    enviar({ url: endereco({ uf: autorizador || uf, modelo, ambiente, servico: servicoTabela }), servico: servicoWsdl, dados, pfx, senha, ca, timeoutMs });
   return { tpAmb: TPAMB[ambiente], cUF: COD_UF[uf], chamar };
 }
 

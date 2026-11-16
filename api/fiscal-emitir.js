@@ -77,7 +77,8 @@ export function criarDeps(token) {
       return r?.ok && r.segredo ? { idCsc: r.id_csc, csc: r.segredo } : null;
     },
     abrirContingencia: (p) => doServidor("app_fiscal_contingencia_abrir", {
-      p_origem_documento_id: p.origemId, p_dh_cont: p.dhCont, p_x_just: p.xJust, p_prazo: p.prazo,
+      p_origem_documento_id: p.origemId, p_dh_cont: p.dhCont, p_x_just: p.xJust, p_prazo: p.prazo ?? null,
+      p_tp_emis: p.tpEmis ?? 9, // 182: 9 off-line (NFC-e) | 6/7 SVC (NF-e)
     }),
     contingencia: async (id) => {
       const r = await doServidor("app_fiscal_contingencia_para_transmitir", { p_documento_id: id });

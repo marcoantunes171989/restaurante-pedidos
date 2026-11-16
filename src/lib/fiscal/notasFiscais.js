@@ -1,7 +1,8 @@
 // ════════════════════════════════════════════════════════════
 //  Notas emitidas (Etapa E6): situação em português, ações possíveis e
 //  chamadas (lista pela RPC 179/181; cancelar/corrigir/enviar/consultar
-//  pela /api/fiscal-emitir). E7: contingência off-line da NFC-e.
+//  pela /api/fiscal-emitir). E7: contingência off-line da NFC-e (tpEmis 9)
+//  e NF-e pela SVC (tpEmis 6/7, sem prazo: é on-line).
 // ════════════════════════════════════════════════════════════
 
 import { chamarApiFiscal } from "./fiscalApi.js";
@@ -23,11 +24,13 @@ export function situacaoNota(status) {
 const PENDENTE_OFF = new Set(["contingencia", "enviado", "erro"]);
 // Consulta confirmou que a nota não chegou à SEFAZ (cStat 217) e a venda saiu em contingência.
 const naoUsada = (d) => !!d?.contingenciaNumero && d.status === "erro" && Number(d.cStat) === 217;
-const ehOffPendente = (d) => Number(d?.tpEmis) === 9 && PENDENTE_OFF.has(d?.status);
+const ehContPendente = (d) => Number(d?.tpEmis || 1) !== 1 && PENDENTE_OFF.has(d?.status);
+const ehSvc = (d) => [6, 7].includes(Number(d?.tpEmis));
 
-/** Situação considerando a contingência off-line (E7). */
+/** Situação considerando a contingência (E7). */
 export function situacaoDaNota(doc) {
-  if (ehOffPendente(doc)) {
+  if (ehContPendente(doc) && ehSvc(doc)) return { rotulo: "Contingência SVC: enviar", tom: "alerta" };
+  if (ehContPendente(doc)) {
     return doc.contingencia?.vencida ? { rotulo: "Contingência: prazo vencido", tom: "erro" } : { rotulo: "Em contingência", tom: "alerta" };
   }
   if (naoUsada(doc)) return { rotulo: "Número não usado", tom: "neutro" };
@@ -37,20 +40,20 @@ export function situacaoDaNota(doc) {
 
 export function acoesDaNota(doc) {
   const autorizada = doc?.status === "autorizado";
-  const off = Number(doc?.tpEmis) === 9;
+  const off = Number(doc?.tpEmis || 1) !== 1;
   return {
     cancelar: autorizada,
     cce: autorizada && Number(doc?.modelo) === 55,
-    // Nota off-line assinada e ainda não autorizada: enviar à SEFAZ.
-    enviar: ehOffPendente(doc) && doc.contingencia?.assinada !== false,
+    // Nota de contingência assinada e ainda não autorizada: enviar.
+    enviar: ehContPendente(doc) && doc.contingencia?.assinada !== false,
     // Já foi enviada e não teve resposta certa: perguntar à SEFAZ.
     consultar: !!doc?.chave && !naoUsada(doc) && (doc.status === "enviado" || (doc.status === "erro" && !off)),
   };
 }
 
-/** Notas off-line que ainda precisam ir para a SEFAZ. */
+/** Notas em contingência que ainda precisam ser enviadas (as da SVC não têm prazo). */
 export function resumoContingencia(notas = []) {
-  const p = notas.filter(ehOffPendente);
+  const p = notas.filter(ehContPendente);
   const prazos = p.map((n) => n.contingencia?.prazo).filter(Boolean).sort();
   return { pendentes: p.length, vencidas: p.filter((n) => n.contingencia?.vencida).length, proximoPrazo: prazos[0] || null, ids: p.map((n) => n.id) };
 }

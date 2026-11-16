@@ -86,3 +86,15 @@ describe("contingência na lista", () => {
     expect(o).toMatchObject({ tpEmis: 1, contingencia: null, contingenciaNumero: 21 });
   });
 });
+
+describe("NF-e na SVC (E7 parte 4)", () => {
+  const SVC = { id: "s1", modelo: 55, status: "erro", tpEmis: 6, chave: "x", contingencia: { prazo: null, vencida: false, tentativas: 1, numeroOrigem: 20, assinada: true } };
+  it("aparece como contingência SVC com botão de enviar, sem prazo", () => {
+    expect(situacaoDaNota(SVC)).toEqual({ rotulo: "Contingência SVC: enviar", tom: "alerta" });
+    expect(acoesDaNota(SVC)).toMatchObject({ enviar: true, consultar: false, cancelar: false });
+    expect(acoesDaNota({ ...SVC, status: "autorizado" })).toMatchObject({ enviar: false, cancelar: true, cce: true });
+  });
+  it("entra no aviso de pendentes sem prazo nem vencida", () => {
+    expect(resumoContingencia([SVC])).toEqual({ pendentes: 1, vencidas: 0, proximoPrazo: null, ids: ["s1"] });
+  });
+});

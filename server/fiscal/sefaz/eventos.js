@@ -95,9 +95,9 @@ export function montarProcEvento({ eventoAssinado, retEventoXml }) {
 }
 
 /** Envia UM evento assinado. situacao: registrado | rejeitado | incerto | indisponivel */
-export async function enviarEvento({ uf, modelo, ambiente, eventoAssinado, idLote, pfx, senha, ca, timeoutMs, enviar = enviarSoap, endereco = enderecoServico }) {
+export async function enviarEvento({ uf, modelo, ambiente, autorizador, eventoAssinado, idLote, pfx, senha, ca, timeoutMs, enviar = enviarSoap, endereco = enderecoServico }) {
   const r = await enviar({
-    url: endereco({ uf, modelo, ambiente, servico: "RecepcaoEvento" }), servico: "NFeRecepcaoEvento4",
+    url: endereco({ uf: autorizador || uf, modelo, ambiente, servico: "RecepcaoEvento" }), servico: "NFeRecepcaoEvento4",
     dados: montarEnvEvento({ idLote, eventoAssinado }), pfx, senha, ca, timeoutMs,
   });
   if (!r.ok) return r.incerto ? { situacao: "incerto", xMotivo: r.erro } : { situacao: "indisponivel", xMotivo: r.erro };

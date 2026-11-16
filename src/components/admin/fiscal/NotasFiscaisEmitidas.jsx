@@ -107,7 +107,7 @@ function AvisoContingencia({ resumo, supabase, onConcluido }) {
         {resumo.pendentes} nota(s) em contingência aguardando envio à SEFAZ
       </p>
       <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
-        {urgente ? `${resumo.vencidas} com prazo vencido: envie agora.` : `Envie ${textoPrazo(resumo.proximoPrazo)} (fim do 1º dia útil seguinte à venda).`}
+        {urgente ? `${resumo.vencidas} com prazo vencido: envie agora.` : resumo.proximoPrazo ? `Envie ${textoPrazo(resumo.proximoPrazo)} (fim do 1º dia útil seguinte à venda).` : "NF-e da SVC (servidor reserva): envie assim que ele responder."}
       </p>
       {texto && <p role="status" className="mt-1 text-[12px] font-semibold text-[var(--pp-text)]">{texto}</p>}
       <button type="button" className={`${botao} mt-2`} disabled={enviando} onClick={enviarTodas}>{enviando ? "Enviando…" : "Enviar pendentes agora"}</button>
@@ -184,6 +184,12 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                 </p>
                 {(n.status === "rejeitado" || n.status === "erro") && n.xMotivo && <p className={`mt-0.5 text-[12px] ${n.contingenciaNumero && Number(n.cStat) === 217 ? "text-[var(--pp-text-muted)]" : "text-[#C81E4A]"}`}>{n.xMotivo}</p>}
                 {n.ultimoEvento?.status === "rejeitado" && <p className="mt-0.5 text-[12px] text-[#B45309]">Último pedido recusado pela SEFAZ: {n.ultimoEvento.xmotivo}</p>}
+                {[6, 7].includes(n.tpEmis) && n.contingencia && !n.contingencia.prazo && !["autorizado", "cancelado"].includes(n.status) && (
+                  <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
+                    Emitida pela SVC (servidor reserva da SEFAZ){n.contingencia.numeroOrigem ? ` no lugar da nº ${n.contingencia.numeroOrigem}` : ""}
+                    {n.contingencia.tentativas ? ` · ${n.contingencia.tentativas} tentativa(s)` : ""}
+                  </p>
+                )}
                 {n.tpEmis === 9 && n.contingencia && !["autorizado", "cancelado"].includes(n.status) && (
                   <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">
                     Emitida em contingência{n.contingencia.numeroOrigem ? ` (no lugar da nº ${n.contingencia.numeroOrigem})` : ""} · {n.contingencia.vencida ? "" : "enviar "}{textoPrazo(n.contingencia.prazo)}
@@ -191,7 +197,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                   </p>
                 )}
                 {n.contingenciaNumero && !["autorizado", "cancelado"].includes(n.status) && Number(n.cStat) !== 217 && (
-                  <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">A venda saiu na NFC-e nº {n.contingenciaNumero} (contingência). Esta nota não será reenviada: só consultada.</p>
+                  <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">A venda saiu na {n.modelo === 65 ? "NFC-e" : "NF-e"} nº {n.contingenciaNumero} (contingência). Esta nota não será reenviada: só consultada.</p>
                 )}
                 {avisos[n.id] && <p role="status" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
                 {(a.cancelar || a.cce || a.enviar || a.consultar) && aberto?.id !== n.id && (
