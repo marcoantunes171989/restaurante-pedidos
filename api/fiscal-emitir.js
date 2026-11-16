@@ -5,10 +5,14 @@
 //   { acao: "cancelar", documentoId, xJust }      → cancelamento (110111)
 //   { acao: "substituir", documentoId, chNFeRef, xJust } → canc. substituição NFC-e
 //   { acao: "cce", documentoId, xCorrecao }       → carta de correção NF-e
+//   { acao: "contingencia", documentoId, xJust }  → NFC-e off-line (tpEmis 9) da venda que falhou
+//   { acao: "transmitir_contingencia", documentoId } → envia a nota off-line
+//   { acao: "pendentes_contingencia", lojaId }    → fila de notas off-line
 //
 //  Permissões conferidas no banco com o TOKEN DO USUÁRIO:
 //   status, cancelar, substituir, cce → app_fiscal_pode_configurar (admin da loja / super)
-//   emitir → app_pode_receber_pagamento (caixa da loja / super)
+//   emitir, contingencia, transmitir_contingencia, pendentes_contingencia →
+//     app_pode_receber_pagamento (caixa da loja / super)
 //  Certificado (cofre 176) e gravação do resultado (177): service role,
 //  só aqui no servidor. Nada sensível volta na resposta.
 // ════════════════════════════════════════════════════════════
@@ -67,6 +71,22 @@ export function criarDeps(token) {
       p_documento_id: p.documentoId, p_tp_evento: p.tpEvento, p_n_seq: p.nSeq, p_status: p.status, p_cstat: p.cStat ?? null,
       p_xmotivo: p.xMotivo ?? null, p_protocolo: p.protocolo ?? null, p_xml: p.xml ?? null, p_usuario_id: null, p_payload: {},
     }),
+    // Contingência off-line da NFC-e (E7, migration 180)
+    segredoCsc: async (lojaId, ambiente) => {
+      const r = await doServidor("app_fiscal_credencial_segredo", { p_loja_id: lojaId, p_tipo: "csc", p_ambiente: ambiente });
+      return r?.ok && r.segredo ? { idCsc: r.id_csc, csc: r.segredo } : null;
+    },
+    abrirContingencia: (p) => doServidor("app_fiscal_contingencia_abrir", {
+      p_origem_documento_id: p.origemId, p_dh_cont: p.dhCont, p_x_just: p.xJust, p_prazo: p.prazo,
+    }),
+    contingencia: async (id) => {
+      const r = await doServidor("app_fiscal_contingencia_para_transmitir", { p_documento_id: id });
+      return r?.ok ? r.documento : null;
+    },
+    salvarContingencia: (p) => doServidor("app_fiscal_contingencia_salvar_xml", {
+      p_documento_id: p.documentoId, p_chave: p.chave, p_xml: p.xml, p_qr_code: p.qrCode,
+    }),
+    pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),
     timeoutMs: 30000,
   };
 }

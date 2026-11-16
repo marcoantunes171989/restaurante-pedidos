@@ -16,7 +16,7 @@
 //  ar ou lenta; sem internet na loja não há como assinar a nota.
 // ════════════════════════════════════════════════════════════
 
-import { montarXmlNFe } from "../../src/lib/fiscal/nfeXml.js";
+import { montarXmlNFe, dataHoraFiscal } from "../../src/lib/fiscal/nfeXml.js";
 import { dvChave } from "../../src/lib/fiscal/nfeDaVenda.js";
 import { assinarNFe } from "./assinarNFe.js";
 import { urlQrCodeV2Offline, grupoInfNFeSupl } from "./qrcodeNfce.js";
@@ -46,7 +46,9 @@ export function paraContingencia(dados, { nNF, dhCont, xJust } = {}) {
 
   const cNF = chave.slice(35, 43);
   if (cNF === pad(nNF, 8)) throw new Error("Código numérico (cNF) igual ao número da nota; gere outro código.");
-  const base = chave.slice(0, 25) + pad(nNF, 9) + "9" + cNF;
+  // AAMM da chave = ano/mês da emissão (dhEmi) da nota off-line.
+  const dh = dataHoraFiscal(ide.dhEmi, ide.fuso);
+  const base = chave.slice(0, 2) + dh.slice(2, 4) + dh.slice(5, 7) + chave.slice(6, 25) + pad(nNF, 9) + "9" + cNF;
   const dv = dvChave(base);
   if (dv == null) throw new Error("Não foi possível calcular o dígito verificador da chave.");
   const novaChave = base + dv;

@@ -63,6 +63,22 @@ describe("/api/fiscal-emitir", () => {
     expect(perm.init.headers.authorization).toBe("Bearer token-do-caixa");
     expect(chamadas.some((c) => c.url.includes("evento_registrar"))).toBe(false);
   });
+  it("fila da contingência: permissão com o token do caixa e leitura com a chave do servidor", async () => {
+    globalThis.fetch.mockImplementation(async (url, init = {}) => {
+      chamadas.push({ url: String(url), init });
+      const ok = (d) => ({ ok: true, status: 200, text: async () => JSON.stringify(d), json: async () => d });
+      if (String(url).endsWith("/rpc/app_pode_receber_pagamento")) return ok(init.headers.authorization === "Bearer token-do-caixa");
+      if (String(url).endsWith("/rpc/app_fiscal_contingencia_pendentes")) return ok({ ok: true, pendentes: [{ documento_id: "c1", prazo: "2026-11-19T02:59:59.999Z" }] });
+      return { ok: false, status: 404, text: async () => "", json: async () => ({}) };
+    });
+    const r = await chamar({ acao: "pendentes_contingencia", lojaId: 7 });
+    expect(r.status).toBe(200);
+    expect(r.json).toMatchObject({ ok: true, pendentes: [{ documento_id: "c1" }] });
+    const fila = chamadas.find((c) => c.url.endsWith("/rpc/app_fiscal_contingencia_pendentes"));
+    expect(fila.init.headers.authorization).toBe(`Bearer ${SERVICE}`);
+    expect(JSON.parse(fila.init.body)).toEqual({ p_loja_id: 7, p_limite: 50 });
+    expect((await chamar({ acao: "pendentes_contingencia", lojaId: 7 }, { token: "outro" })).status).toBe(403);
+  });
   it("teste de conexão sem permissão de admin → 403 e a chave do servidor não aparece", async () => {
     const r = await chamar({ acao: "status", lojaId: 7, modelo: 65, ambiente: "homologacao" });
     expect(r.status).toBe(403);

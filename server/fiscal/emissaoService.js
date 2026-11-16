@@ -1,18 +1,19 @@
 // ════════════════════════════════════════════════════════════
 //  Emissão no servidor (Etapa E5): teste de conexão e envio de uma nota
 //  reservada (migration 175) para a SEFAZ, gravando o resultado (177).
+//  E7: contingência off-line da NFC-e em contingenciaService.js.
 //  Dependências injetadas (banco, cofre, transporte) — testável sem rede.
 //  Nunca devolve certificado, senha nem detalhes internos.
 // ════════════════════════════════════════════════════════════
 
-import { Buffer } from "node:buffer";
 import { montarXmlNFe } from "../../src/lib/fiscal/nfeXml.js";
 import { assinarNFe } from "./assinarNFe.js";
-import { lerCertificadoPfx } from "./certificado.js";
+import { credencialDoCofre } from "./credencialCofre.js";
 import { urlQrCodeV3, grupoInfNFeSupl } from "./qrcodeNfce.js";
 import { enderecoServico } from "./sefaz/transporte.js";
 import { statusServico, emitirNaSefaz } from "./sefaz/emissor.js";
 import { processarEvento } from "./eventoService.js";
+import { processarContingencia, transmitirContingencia } from "./contingenciaService.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -26,27 +27,20 @@ const MENSAGENS = {
   STATUS_NAO_PERMITE: "Esta nota não pode ser enviada na situação atual.",
   UF_NAO_SUPORTADA: "O estado da loja ainda não está configurado no emissor.",
   XML_INVALIDO: "A nota tem dados fora do padrão oficial.",
+  EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota off-line é a que vale. Esta numeração só será consultada.",
 };
 const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
 const PODE_ENVIAR = new Set(["reservado", "rejeitado", "erro", "enviado"]);
 
-async function credencial(deps, lojaId) {
-  const s = await deps.segredoCertificado(lojaId);
-  if (!s?.pfx) return { erro: "SEM_CERTIFICADO" };
-  const pfx = Buffer.from(s.pfx, "base64");
-  try {
-    const c = lerCertificadoPfx(pfx, s.senha);
-    return { pfx, senha: s.senha, chavePrivadaPem: c.chavePrivadaPem, certificadoBase64: c.certificadoBase64 };
-  } catch {
-    return { erro: "CERTIFICADO_ILEGIVEL" };
-  }
-}
+const credencial = credencialDoCofre;
 
 export async function processarEmissao(body = {}, deps) {
   const acao = String(body.acao || "");
   // Eventos (E6) na mesma rota — o projeto está no limite de funções da Vercel.
   if (["cancelar", "substituir", "cce"].includes(acao)) return processarEvento(body, deps);
   const conexao = { ca: deps.ca, timeoutMs: deps.timeoutMs, enviar: deps.enviar, endereco: deps.endereco };
+  // Contingência off-line da NFC-e (E7).
+  if (["contingencia", "transmitir_contingencia", "pendentes_contingencia"].includes(acao)) return processarContingencia(body, deps, conexao);
 
   if (acao === "status") {
     const lojaId = Number(body.lojaId);
@@ -69,6 +63,10 @@ export async function processarEmissao(body = {}, deps) {
   const doc = await deps.documento(String(body.documentoId || ""));
   if (!doc) return falha("NAO_ENCONTRADO");
   if (!(await deps.podeEmitir(doc.loja_id))) return falha("FORBIDDEN");
+  // Nota off-line: envia o XML já assinado (mesma chave). Nota que virou
+  // contingência: nunca reenviar no modo normal (Ajuste SINIEF 19/16).
+  if (Number(doc.tp_emis) === 9) return transmitirContingencia({ documentoId: doc.id }, deps, conexao);
+  if (doc.contingencia_documento_id) return falha("EM_CONTINGENCIA", { contingenciaDocumentoId: doc.contingencia_documento_id });
   if (doc.status === "autorizado") return { ok: true, situacao: "autorizada", jaAutorizada: true, numero: doc.numero, protocolo: doc.protocolo };
   if (!PODE_ENVIAR.has(doc.status)) return falha("STATUS_NAO_PERMITE");
   const dados = doc.rascunho?.dados;
@@ -111,5 +109,7 @@ export async function processarEmissao(body = {}, deps) {
   return {
     ok: r.situacao === "autorizada", situacao: r.situacao, numero: doc.numero, serie: doc.serie, chave,
     protocolo: r.nProt || null, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
+    // SEFAZ fora/sem resposta: a NFC-e pode sair em contingência off-line (E7).
+    podeContingencia: Number(doc.modelo) === 65 && ["indisponivel", "incerta"].includes(r.situacao),
   };
 }
