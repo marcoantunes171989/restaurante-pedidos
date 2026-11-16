@@ -124,13 +124,22 @@ export async function descartarDocumentoFiscal(supabase, documentoId, motivo) {
  * Envia certificado A1 / CSC para a API do servidor (/api/fiscal-credencial).
  * O segredo vai direto ao servidor pelo HTTPS; a resposta traz só metadados.
  */
-export async function enviarCredencialFiscal(supabase, corpo, { fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
+export async function enviarCredencialFiscal(supabase, corpo, opts = {}) {
+  return chamarApiFiscal(supabase, "/api/fiscal-credencial", corpo, opts);
+}
+
+/** Teste de conexão com a SEFAZ usando o certificado do cofre (só servidor). */
+export async function testarConexaoSefaz(supabase, { lojaId, modelo = 65, ambiente = "homologacao" }, opts = {}) {
+  return chamarApiFiscal(supabase, "/api/fiscal-emitir", { acao: "status", lojaId, modelo, ambiente }, opts);
+}
+
+async function chamarApiFiscal(supabase, rota, corpo, { fetchFn = (...a) => globalThis.fetch(...a) } = {}) {
   const { data } = (await supabase?.auth?.getSession?.()) || {};
   const token = data?.session?.access_token;
   if (!token) throw Object.assign(new Error("Faça login novamente para continuar."), { code: "SEM_LOGIN" });
   let resp;
   try {
-    resp = await fetchFn("/api/fiscal-credencial", {
+    resp = await fetchFn(rota, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
       body: JSON.stringify(corpo || {}),

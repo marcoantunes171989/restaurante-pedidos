@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   buscarEmitenteFiscal, resumoCredenciaisFiscais, listarSeriesFiscais, salvarSerieFiscal,
-  buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64,
+  buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
 } from "../../../lib/fiscal/fiscalApi";
 import { situacaoCertificado, conferirMapaMeios, validarSerieForm, prontidaoEmissao } from "../../../lib/fiscal/emissaoConfig";
 
@@ -101,6 +101,18 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     }
   }
 
+  async function testarConexao(modelo) {
+    setEnviando(`teste${modelo}`);
+    try {
+      const r = await testarConexaoSefaz(supabase, { lojaId, modelo, ambiente: "homologacao" });
+      aviso("teste", "ok", `SEFAZ ${modelo === 65 ? "NFC-e" : "NF-e"} (homologação): ${r.xMotivo || "em operação"}${r.cStat ? ` (código ${r.cStat})` : ""}.`);
+    } catch (err) {
+      aviso("teste", "erro", err.message);
+    } finally {
+      setEnviando("");
+    }
+  }
+
   async function enviarCsc(ev) {
     ev.preventDefault();
     setEnviando("csc");
@@ -195,6 +207,14 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
         </form>
         <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">O arquivo e a senha vão direto para o cofre do servidor. A tela nunca mostra a senha de volta.</p>
         <Aviso msg={msg.cert} />
+        {cert && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--pp-border)] pt-3">
+            <span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Testar conexão com a SEFAZ (homologação):</span>
+            <button type="button" onClick={() => testarConexao(65)} disabled={!!enviando} className={botao}>{enviando === "teste65" ? "Testando…" : "NFC-e"}</button>
+            {emitente?.nfeHabilitada && <button type="button" onClick={() => testarConexao(55)} disabled={!!enviando} className={botao}>{enviando === "teste55" ? "Testando…" : "NF-e"}</button>}
+          </div>
+        )}
+        <Aviso msg={msg.teste} />
       </section>
 
       <section className={cartao} aria-labelledby="emissao-csc">

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   mensagemErroFiscal, buscarEmitenteFiscal, buscarConfigFiscalVenda, salvarConfigFiscalVenda,
   configVendaParaSelo, listarSeriesFiscais, salvarSerieFiscal, reservarDocumentoFiscal,
-  descartarDocumentoFiscal, resumoCredenciaisFiscais, enviarCredencialFiscal, arquivoParaBase64,
+  descartarDocumentoFiscal, resumoCredenciaisFiscais, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
 } from "./fiscalApi.js";
 
 describe("enviarCredencialFiscal (API do servidor)", () => {
@@ -28,6 +28,17 @@ describe("enviarCredencialFiscal (API do servidor)", () => {
   it("falha de rede → mensagem simples", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error("offline"));
     await expect(enviarCredencialFiscal(supa(), { acao: "csc" }, { fetchFn })).rejects.toThrow(/conexão/i);
+  });
+});
+
+describe("testarConexaoSefaz", () => {
+  it("chama /api/fiscal-emitir com acao status e devolve o resultado", async () => {
+    const supa = { auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: "t" } } }) } };
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, operando: true, cStat: 107, xMotivo: "Servico em Operacao" }) });
+    const r = await testarConexaoSefaz(supa, { lojaId: 7 }, { fetchFn });
+    expect(r).toMatchObject({ operando: true, cStat: 107 });
+    expect(fetchFn.mock.calls[0][0]).toBe("/api/fiscal-emitir");
+    expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toEqual({ acao: "status", lojaId: 7, modelo: 65, ambiente: "homologacao" });
   });
 });
 

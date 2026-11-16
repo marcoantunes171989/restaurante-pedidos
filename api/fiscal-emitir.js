@@ -1,0 +1,81 @@
+// ════════════════════════════════════════════════════════════
+//  Vercel Serverless Function: /api/fiscal-emitir
+//   { acao: "status", lojaId, modelo, ambiente }  → teste de conexão com a SEFAZ
+//   { acao: "emitir", documentoId }               → envia a nota reservada
+//
+//  Permissões conferidas no banco com o TOKEN DO USUÁRIO:
+//   status → app_fiscal_pode_configurar (admin da loja / super)
+//   emitir → app_pode_receber_pagamento (caixa da loja / super)
+//  Certificado (cofre 176) e gravação do resultado (177): service role,
+//  só aqui no servidor. Nada sensível volta na resposta.
+// ════════════════════════════════════════════════════════════
+
+import process from "node:process";
+import { processarEmissao } from "../server/fiscal/emissaoService.js";
+
+function json(res, status, body) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.end(JSON.stringify(body));
+}
+const supabaseUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+const serviceKey = () => process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+async function rpc(nome, params, bearer) {
+  const r = await fetch(`${supabaseUrl()}/rest/v1/rpc/${nome}`, {
+    method: "POST",
+    headers: { apikey: serviceKey(), authorization: `Bearer ${bearer}`, "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(params),
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`RPC ${nome} HTTP ${r.status}`);
+  return txt ? JSON.parse(txt) : null;
+}
+async function restServico(path) {
+  const r = await fetch(`${supabaseUrl()}/rest/v1${path}`, { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, accept: "application/json" } });
+  if (!r.ok) throw new Error(`REST HTTP ${r.status}`);
+  return r.json();
+}
+
+export function criarDeps(token) {
+  const doServidor = (nome, params) => rpc(nome, params, serviceKey());
+  return {
+    podeConfigurar: async (lojaId) => { try { return (await rpc("app_fiscal_pode_configurar", { p_loja_id: lojaId }, token)) === true; } catch { return false; } },
+    podeEmitir: async (lojaId) => { try { return (await rpc("app_pode_receber_pagamento", { p_loja_id: lojaId }, token)) === true; } catch { return false; } },
+    ufDaLoja: async (lojaId) => (await restServico(`/loja_fiscal_emitente?loja_id=eq.${Number(lojaId)}&select=uf`))?.[0]?.uf || "",
+    segredoCertificado: async (lojaId) => {
+      const r = await doServidor("app_fiscal_credencial_segredo", { p_loja_id: lojaId, p_tipo: "certificado_a1", p_ambiente: null });
+      if (!r?.ok) return null;
+      try { return JSON.parse(r.segredo); } catch { return null; }
+    },
+    documento: async (id) => {
+      const r = await doServidor("app_fiscal_documento_para_emissao", { p_documento_id: id });
+      return r?.ok ? r.documento : null;
+    },
+    registrar: (p) => doServidor("app_fiscal_documento_registrar_resultado", {
+      p_documento_id: p.documentoId, p_status: p.status, p_chave: p.chave ?? null, p_cstat: p.cStat ?? null,
+      p_xmotivo: p.xMotivo ?? null, p_protocolo: p.protocolo ?? null, p_dh_autorizacao: p.dhAutorizacao ?? null,
+      p_xml: p.xml ?? null, p_payload: p.payload ?? {},
+    }),
+    timeoutMs: 30000,
+  };
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") return json(res, 405, { ok: false, erro: "Método não permitido." });
+  if (!serviceKey() || !supabaseUrl()) return json(res, 503, { ok: false, erro: "Configuração do servidor ausente." });
+  const auth = req.headers.authorization || req.headers.Authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  if (!token) return json(res, 401, { ok: false, erro: "Faça login para continuar." });
+  let body = req.body;
+  if (typeof body === "string") { try { body = JSON.parse(body); } catch { body = {}; } }
+  try {
+    const r = await processarEmissao(body || {}, criarDeps(token));
+    // A situação da nota vai no corpo; 200 mesmo em rejeição (o caixa precisa do motivo).
+    const status = r.code === "FORBIDDEN" ? 403 : r.code && !r.situacao ? 400 : 200;
+    return json(res, status, r);
+  } catch {
+    return json(res, 500, { ok: false, erro: "Não foi possível concluir. Tente novamente." });
+  }
+}
