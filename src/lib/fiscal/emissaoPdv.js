@@ -101,7 +101,6 @@ export async function emitirNotaDaVenda({
   config = {}, ctxFiscal = {}, cpf = "", modelo = 65, destinatario = null, ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle,
 } = {}) {
   const nfe = Number(modelo) === 55;
-  const sigla = nfe ? "NF-e" : "NFC-e";
   const ambiente = ativo ? (nfe ? ambienteNfeDaLoja(emitente) : ambienteNfceDaLoja(emitente)) : null;
   if (!ambiente) return { estado: "fora" };
 
@@ -133,16 +132,26 @@ export async function emitirNotaDaVenda({
   }
 
   const opts = fetchFn ? { fetchFn } : {};
-  const r = await postarApiFiscal(supabase, { acao: "emitir", documentoId: reserva.documentoId }, opts);
-  if (r.ok && r.situacao === "autorizada") return { estado: "autorizada", titulo: `${sigla} nº ${r.numero ?? reserva.numero} autorizada`, numero: r.numero ?? reserva.numero, documentoId: reserva.documentoId };
-  if (r.situacao === "rejeitada") return { estado: "erro", titulo: `${sigla} nº ${reserva.numero} rejeitada`, detalhe: [r.cStat, r.xMotivo].filter(Boolean).join(" — "), documentoId: reserva.documentoId };
+  return emitirReservada({ documentoId: reserva.documentoId, numero: reserva.numero, nfe, postar: (corpo) => postarApiFiscal(supabase, corpo, opts) });
+}
+
+/**
+ * Envia uma nota JÁ reservada (venda do caixa, botão "Emitir agora" ou nova tentativa
+ * automática): SEFAZ fora → contingência (NFC-e off-line; NF-e SVC e, se a SVC
+ * também estiver fora, EPEC). postar(corpo) = POST na /api/fiscal-emitir.
+ */
+export async function emitirReservada({ documentoId, numero, nfe = false, postar }) {
+  const sigla = nfe ? "NF-e" : "NFC-e";
+  const r = await postar({ acao: "emitir", documentoId });
+  if (r.ok && r.situacao === "autorizada") return { estado: "autorizada", titulo: `${sigla} nº ${r.numero ?? numero} autorizada`, numero: r.numero ?? numero, documentoId };
+  if (r.situacao === "rejeitada") return { estado: "erro", titulo: `${sigla} nº ${numero} rejeitada`, detalhe: [r.cStat, r.xMotivo].filter(Boolean).join(" — "), documentoId };
   // Resposta de "já foi para a contingência" (repetição): a nota que vale é a de contingência.
   if (r.code === "EM_CONTINGENCIA") return { estado: "contingencia", titulo: "Nota emitida em contingência", detalhe: "Será enviada à SEFAZ automaticamente.", documentoId: r.contingenciaDocumentoId };
 
   if (r.podeContingencia) {
-    let c = await postarApiFiscal(supabase, { acao: "contingencia", documentoId: reserva.documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA }, opts);
+    let c = await postar({ acao: "contingencia", documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA });
     // NF-e: SVC fora também → EPEC (aviso à Receita; MOC 7.0 Anexo III e NT 2014.001).
-    if (nfe && !c.ok && c.podeEpec) c = await postarApiFiscal(supabase, { acao: "contingencia", documentoId: reserva.documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA, forma: "epec" }, opts);
+    if (nfe && !c.ok && c.podeEpec) c = await postar({ acao: "contingencia", documentoId, xJust: JUSTIFICATIVA_CONTINGENCIA, forma: "epec" });
     if (nfe && c.forma === "svc" && c.documentoId) {
       if (c.situacao === "rejeitada") return { estado: "erro", titulo: `NF-e nº ${c.numero} rejeitada na SVC`, detalhe: [c.cStat, c.xMotivo].filter(Boolean).join(" — "), documentoId: c.documentoId };
       return c.situacao === "autorizada"
@@ -151,7 +160,7 @@ export async function emitirNotaDaVenda({
     }
     if (nfe && c.ok && c.forma === "epec") return { estado: "contingencia", titulo: `NF-e nº ${c.numero} em contingência EPEC`, numero: c.numero, detalhe: `Aviso registrado na Receita (protocolo ${c.protocoloEpec}). Envie à SEFAZ em até 7 dias.`, documentoId: c.documentoId };
     if (c.ok) return { estado: "contingencia", titulo: `NFC-e nº ${c.numero} em contingência`, numero: c.numero, detalhe: "SEFAZ fora do ar: a nota vale e será enviada depois.", documentoId: c.documentoId };
-    return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: c.erro || "SEFAZ fora do ar e a contingência falhou. Veja em Notas emitidas.", documentoId: reserva.documentoId };
+    return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: c.erro || "SEFAZ fora do ar e a contingência falhou. Veja em Notas emitidas.", documentoId };
   }
-  return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: r.erro || r.xMotivo || "Não foi possível emitir agora. Veja em Notas emitidas.", documentoId: reserva.documentoId };
+  return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: r.erro || r.xMotivo || "Não foi possível emitir agora. Veja em Notas emitidas.", documentoId };
 }

@@ -50,3 +50,11 @@ describe("alertasFiscais", () => {
     expect(r.map((a) => a.nivel)).toEqual(["erro", "alerta", "alerta"]);
   });
 });
+
+describe("U1 — alerta de nota reservada sem envio", () => {
+  it("reservada há mais de 10 min (normal, sem contingência) gera alerta", () => {
+    const r = alertasFiscais({ agora: AGORA, notas: [N({ status: "reservado", criadoEm: h(-1) }), N({ status: "reservado", criadoEm: new Date(AGORA.getTime() - 60000).toISOString() }), N({ status: "reservado", criadoEm: h(-1), contingenciaNumero: 5 })] });
+    expect(r.map((a) => [a.id, a.quantidade])).toEqual([["reservadas", 1]]);
+    expect(r[0].texto).toMatch(/Emitir agora/);
+  });
+});

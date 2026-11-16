@@ -40,10 +40,20 @@ export function situacaoDaNota(doc) {
   return situacaoNota(doc?.status);
 }
 
+// Rejeições em que o número ficou usado ou não pode ser refeito (MOC 7.0 Anexo I):
+// uso denegado 110/301/302/303, NF-e denegada 205, duplicidade 204/539.
+export const CSTAT_SEM_REFAZER = new Set([110, 204, 205, 301, 302, 303, 539]);
+
 export function acoesDaNota(doc) {
   const autorizada = doc?.status === "autorizado";
   const off = Number(doc?.tpEmis || 1) !== 1;
+  const normalSemContingencia = !off && !doc?.contingenciaNumero;
   return {
+    // U1: reservada e nunca enviada (ex.: sem certificado na hora da venda).
+    emitir: doc?.status === "reservado" && normalSemContingencia,
+    descartar: doc?.status === "reservado" && normalSemContingencia,
+    // U2: rejeitada → corrigir o cadastro e emitir de novo com o mesmo número.
+    refazer: doc?.status === "rejeitado" && normalSemContingencia && !CSTAT_SEM_REFAZER.has(Number(doc?.cStat)),
     cancelar: autorizada,
     cce: autorizada && Number(doc?.modelo) === 55,
     // Nota de contingência assinada e ainda não autorizada: enviar.
@@ -94,6 +104,36 @@ export async function listarDocumentosFiscais(supabase, lojaId, { limite = 50, a
       numeroOrigem: d.contingencia.numero_origem ?? null, assinada: d.contingencia.assinada !== false, epecProtocolo: d.contingencia.epec_protocolo ?? null } : null,
     contingenciaNumero: d.contingencia_numero ?? null,
   }));
+}
+
+/** U2: a venda guardada na nota (para refazer a parte fiscal). */
+export async function buscarVendaDaNota(supabase, documentoId) {
+  const { data, error } = await supabase.rpc("app_fiscal_documento_venda", { p_documento_id: documentoId });
+  if (error || !data?.ok) throw Object.assign(new Error(error ? "Não foi possível ler a venda da nota (migration 188)." : "Nota não encontrada."), { code: data?.code || "RPC_ERROR" });
+  return data;
+}
+
+const ERROS_REFAZER = {
+  STATUS_NAO_PERMITE: "Só dá para refazer uma nota rejeitada.",
+  EM_CONTINGENCIA: "Esta venda já saiu em contingência.",
+  NUMERO_USADO: "A SEFAZ considera este número usado (uso denegado ou duplicidade): não dá para refazer.",
+  VENDA_DIVERGENTE: "Os valores da venda mudaram: não dá para refazer esta nota.",
+  VENDA_COM_PENDENCIA: "Ainda há produto com cadastro fiscal incompleto.",
+  VENDA_INVALIDA: "A venda guardada na nota está incompleta.",
+};
+/** U2: grava a venda com a parte fiscal corrigida e volta a nota para reservada. */
+export async function refazerNota(supabase, documentoId, venda) {
+  const { data, error } = await supabase.rpc("app_fiscal_documento_refazer", { p_documento_id: documentoId, p_venda: venda });
+  if (error) throw Object.assign(new Error("Não foi possível refazer a nota (migration 188)."), { code: "RPC_ERROR" });
+  if (!data?.ok) throw Object.assign(new Error(ERROS_REFAZER[data?.code] || "Não foi possível refazer a nota."), { code: data?.code });
+  return data;
+}
+
+/** U1: descartar número reservado que não será usado (vai para a lista de não usados). */
+export async function descartarNota(supabase, documentoId, motivo) {
+  const { data, error } = await supabase.rpc("app_fiscal_descartar_documento", { p_documento_id: documentoId, p_motivo: motivo });
+  if (error || !data?.ok) throw Object.assign(new Error(data?.code === "MOTIVO_OBRIGATORIO" ? "Escreva o motivo (3 letras ou mais)." : "Não foi possível descartar o número."), { code: data?.code || "RPC_ERROR" });
+  return true;
 }
 
 /** Cancelar / corrigir: vai ao servidor, que assina e envia à SEFAZ. */

@@ -49,6 +49,11 @@ export function alertasFiscais({ notas = [], credenciais = null, agora = new Dat
     && t - new Date(n.criadoEm).getTime() > MINUTOS_SEM_RESPOSTA * 60000);
   if (semResposta.length) out.push({ id: "sem-resposta", nivel: "alerta", destino: "notas", quantidade: semResposta.length,
     texto: `${semResposta.length} ${plural(semResposta.length, "nota enviada", "notas enviadas")} sem resposta da SEFAZ: use "Consultar na SEFAZ".` });
+  // U1: reservada e nunca enviada há mais de 10 min (ex.: sem certificado na hora da venda).
+  const presas = notas.filter((n) => n.status === "reservado" && Number(n.tpEmis || 1) === 1 && !n.contingenciaNumero
+    && t - new Date(n.criadoEm).getTime() > MINUTOS_SEM_RESPOSTA * 60000);
+  if (presas.length) out.push({ id: "reservadas", nivel: "alerta", destino: "notas", quantidade: presas.length,
+    texto: `${presas.length} ${plural(presas.length, "nota reservada", "notas reservadas")} sem envio à SEFAZ: use "Emitir agora" (ou descarte o número).` });
   const rejeitadas = notas.filter((n) => n.status === "rejeitado" && t - new Date(n.criadoEm).getTime() <= 7 * 24 * HORA);
   if (rejeitadas.length) out.push({ id: "rejeitadas", nivel: "alerta", destino: "notas", quantidade: rejeitadas.length,
     texto: `${rejeitadas.length} ${plural(rejeitadas.length, "nota rejeitada", "notas rejeitadas")} pela SEFAZ nos últimos 7 dias: veja o motivo.` });

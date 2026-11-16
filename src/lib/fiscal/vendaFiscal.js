@@ -243,3 +243,22 @@ export function montarVendaFiscal({
     resumo: apto ? "Venda pronta para virar nota fiscal." : `${pendencias.length} pendência(s) da venda e ${itensPend.length} item(ns) com pendência.`,
   };
 }
+
+/**
+ * U2 — "Corrigir e emitir de novo": refaz só a parte FISCAL dos itens de uma
+ * venda já guardada na nota (depois que a loja corrigiu o cadastro do produto).
+ * Valores, pagamentos e pedidos não mudam (o banco confere — migration 188).
+ * @returns {object} a venda com fiscal/pendências novas e apto recalculado
+ */
+export function refazerFiscalDaVenda(venda, produtos = [], ctxFiscal = {}) {
+  const itens = (venda?.itens || []).map((it) => {
+    const produto = (produtos || []).find((p) => String(p.id) === String(it.produtoId)) || null;
+    const pend = [];
+    let fiscal = null;
+    if (!produto) pend.push(`Item "${it.nome}" sem produto cadastrado na loja.`);
+    else { fiscal = resolverFiscalProduto(produto, ctxFiscal); pend.push(...pendenciasFiscais(fiscal)); }
+    return { ...it, fiscal, pendencias: pend };
+  });
+  const apto = (venda?.pendencias || []).length === 0 && itens.length > 0 && itens.every((it) => it.pendencias.length === 0);
+  return { ...venda, itens, apto };
+}

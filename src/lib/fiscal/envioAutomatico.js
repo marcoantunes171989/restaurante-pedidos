@@ -9,6 +9,8 @@
 //  motivo precisa ser corrigido): elas aparecem no resumo e em Notas emitidas.
 // ════════════════════════════════════════════════════════════
 
+import { emitirReservada } from "./emissaoPdv.js";
+
 export const INTERVALO_ENVIO_MS = 5 * 60 * 1000;
 const ENVIAVEL = new Set(["contingencia", "enviado", "erro"]);
 
@@ -24,7 +26,7 @@ export function pendentesEnviaveis(fila = []) {
  * @param {(corpo:object)=>Promise<object>} p.buscar  POST na /api/fiscal-emitir
  * @returns {Promise<{ ok:boolean, enviadas:number, autorizadas:number, rejeitadas:number, erro?:string }>}
  */
-export async function enviarPendentesDaLoja({ lojaId, buscar }) {
+export async function enviarPendentesDaLoja({ lojaId, buscar, listarNotas = null, agora = new Date() }) {
   const f = await buscar({ acao: "pendentes_contingencia", lojaId });
   if (!f?.ok) return { ok: false, enviadas: 0, autorizadas: 0, rejeitadas: 0, erro: f?.erro || "Não foi possível ler a fila." };
   const lista = pendentesEnviaveis(f.pendentes || []);
@@ -36,7 +38,23 @@ export async function enviarPendentesDaLoja({ lojaId, buscar }) {
     // SEFAZ ainda fora (indisponível/incerta): para aqui; tenta na próxima rodada.
     else if (["indisponivel", "incerta"].includes(r?.situacao)) break;
   }
-  return { ok: true, enviadas: lista.length, autorizadas, rejeitadas };
+  // U1: notas reservadas e nunca enviadas (2 min a 48 h): nova tentativa, como no caixa.
+  let reenviadas = 0;
+  if (listarNotas) {
+    let notas;
+    try { notas = await listarNotas(); } catch { notas = []; }
+    const t = agora.getTime();
+    const presas = notas.filter((n) => n.status === "reservado" && Number(n.tpEmis || 1) === 1 && !n.contingenciaNumero
+      && t - new Date(n.criadoEm).getTime() > 2 * 60000 && t - new Date(n.criadoEm).getTime() < 48 * 3600000);
+    for (const n of presas.slice(0, 10)) {
+      const r = await emitirReservada({ documentoId: n.id, numero: n.numero, nfe: Number(n.modelo) === 55, postar: buscar });
+      reenviadas += 1;
+      if (r.estado === "autorizada") autorizadas += 1;
+      else if (/rejeitada/.test(r.titulo || "")) rejeitadas += 1;
+      else if (r.estado === "erro") break; // sem certificado/sem rede: tenta na próxima rodada
+    }
+  }
+  return { ok: true, enviadas: lista.length + reenviadas, autorizadas, rejeitadas };
 }
 
 const PENDENTE = new Set(["contingencia", "enviado", "erro", "reservado"]);

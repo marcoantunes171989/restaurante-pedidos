@@ -2,10 +2,10 @@
 import { useEffect, useRef } from "react";
 import { enviarPendentesDaLoja, INTERVALO_ENVIO_MS } from "../lib/fiscal/envioAutomatico";
 
-export function useEnvioFiscalAutomatico({ ativo, lojaId, buscar, onResultado, intervaloMs = INTERVALO_ENVIO_MS }) {
+export function useEnvioFiscalAutomatico({ ativo, lojaId, buscar, listarNotas = null, onResultado, intervaloMs = INTERVALO_ENVIO_MS }) {
   const rodando = useRef(false);
-  const ultimo = useRef({ buscar, onResultado });
-  useEffect(() => { ultimo.current = { buscar, onResultado }; }, [buscar, onResultado]);
+  const ultimo = useRef({ buscar, listarNotas, onResultado });
+  useEffect(() => { ultimo.current = { buscar, listarNotas, onResultado }; }, [buscar, listarNotas, onResultado]);
 
   useEffect(() => {
     if (!ativo || lojaId == null) return undefined;
@@ -14,7 +14,7 @@ export function useEnvioFiscalAutomatico({ ativo, lojaId, buscar, onResultado, i
       if (rodando.current || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
       rodando.current = true;
       try {
-        const r = await enviarPendentesDaLoja({ lojaId, buscar: (c) => ultimo.current.buscar(c) });
+        const r = await enviarPendentesDaLoja({ lojaId, buscar: (c) => ultimo.current.buscar(c), listarNotas: ultimo.current.listarNotas ? () => ultimo.current.listarNotas() : null });
         if (vivo) ultimo.current.onResultado?.(r);
       } catch { /* tenta na próxima rodada */ } finally {
         rodando.current = false;

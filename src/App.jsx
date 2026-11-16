@@ -21463,7 +21463,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
       {aba === "nfce" && <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={produtos} importadas={importadas} emitenteApi={emitenteFiscalApi} />}
       {aba === "emissao" && <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi?.fetch || null} produtos={produtos} regrasLoja={importadas} salvarEmitente={emitenteFiscalApi?.salvar || null} onIrPara={setAba} />}
-      {aba === "notas" && <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} />}
+      {aba === "notas" && <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={produtos} regrasLoja={importadas} />}
     </main>
   );
 }

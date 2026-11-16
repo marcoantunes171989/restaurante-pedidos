@@ -47,3 +47,26 @@ describe("resumoFiscalDoCaixa", () => {
     });
   });
 });
+
+describe("U1 — nova tentativa das notas reservadas", () => {
+  const AGORA = new Date("2026-11-16T15:00:00Z");
+  const min = (m) => new Date(AGORA.getTime() - m * 60000).toISOString();
+  it("reenvia reservadas de 2 min a 48 h; ignora recentes, antigas e as que viraram contingência", async () => {
+    const notas = [
+      { id: "r1", numero: 1, modelo: 65, status: "reservado", tpEmis: 1, criadoEm: min(15) },
+      { id: "r2", numero: 2, modelo: 65, status: "reservado", tpEmis: 1, criadoEm: min(1) },
+      { id: "r3", numero: 3, modelo: 65, status: "reservado", tpEmis: 1, criadoEm: min(60 * 72) },
+      { id: "r4", numero: 4, modelo: 65, status: "reservado", tpEmis: 1, criadoEm: min(15), contingenciaNumero: 9 },
+    ];
+    const buscar = vi.fn(async (c) => (c.acao === "pendentes_contingencia" ? { ok: true, pendentes: [] } : { ok: true, situacao: "autorizada", numero: 1 }));
+    const r = await enviarPendentesDaLoja({ lojaId: 7, buscar, listarNotas: async () => notas, agora: AGORA });
+    expect(buscar.mock.calls.filter((c) => c[0].acao === "emitir").map((c) => c[0].documentoId)).toEqual(["r1"]);
+    expect(r).toMatchObject({ enviadas: 1, autorizadas: 1 });
+  });
+  it("sem certificado: para a rodada na primeira falha", async () => {
+    const notas = [1, 2].map((i) => ({ id: `r${i}`, numero: i, modelo: 65, status: "reservado", tpEmis: 1, criadoEm: min(15) }));
+    const buscar = vi.fn(async (c) => (c.acao === "pendentes_contingencia" ? { ok: true, pendentes: [] } : { ok: false, code: "SEM_CERTIFICADO", erro: "Cadastre o certificado" }));
+    await enviarPendentesDaLoja({ lojaId: 7, buscar, listarNotas: async () => notas, agora: AGORA });
+    expect(buscar.mock.calls.filter((c) => c[0].acao === "emitir")).toHaveLength(1);
+  });
+});

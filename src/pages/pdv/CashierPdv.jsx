@@ -48,6 +48,7 @@ import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambien
 import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
+import { listarDocumentosFiscais } from "../../lib/fiscal/notasFiscais";
 import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe } from "../../lib/fiscal/imprimirNota";
 import {
@@ -418,6 +419,8 @@ export default function CashierPdv({
     ativo: (nfceNaLoja || nfeNaLoja) && !!caixaAberto,
     lojaId: lojaInfo?.id ?? emitenteFiscal?.lojaId ?? null,
     buscar: (corpo) => postarApiFiscal(supabase, corpo),
+    // U1: também tenta de novo as notas que ficaram reservadas sem envio.
+    listarNotas: () => listarDocumentosFiscais(supabase, lojaInfo?.id ?? emitenteFiscal?.lojaId, { limite: 50 }),
     onResultado: (r) => {
       if (r.autorizadas) notify("success", `${r.autorizadas} nota(s) de contingência autorizada(s) pela SEFAZ.`);
       if (r.rejeitadas) notify("error", `${r.rejeitadas} nota(s) de contingência rejeitada(s): veja em Notas emitidas.`);

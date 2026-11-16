@@ -12,9 +12,9 @@ describe("situacaoNota", () => {
 });
 
 describe("acoesDaNota", () => {
-  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
-  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ cancelar: true, cce: true, enviar: false, consultar: false, imprimir: true }));
-  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
+  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ emitir: false, descartar: false, refazer: false, cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
+  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, cancelar: true, cce: true, enviar: false, consultar: false, imprimir: true }));
+  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
 });
 
 describe("validarTextoEvento", () => {
@@ -109,5 +109,17 @@ describe("NF-e pelo EPEC (E7 parte 5)", () => {
     expect(situacaoDaNota(ok)).toEqual({ rotulo: "Em contingência", tom: "alerta" });
     expect(acoesDaNota(ok)).toMatchObject({ enviar: true });
     expect(resumoContingencia([ok])).toMatchObject({ pendentes: 1, proximoPrazo: "2026-11-24T15:31:00.000Z" });
+  });
+});
+
+describe("U1/U2 — ações da nota reservada e da rejeitada", () => {
+  it("reservada normal: emitir e descartar", () => {
+    expect(acoesDaNota({ status: "reservado", modelo: 65, tpEmis: 1 })).toMatchObject({ emitir: true, descartar: true, refazer: false });
+    expect(acoesDaNota({ status: "reservado", modelo: 65, tpEmis: 1, contingenciaNumero: 3 })).toMatchObject({ emitir: false, descartar: false });
+  });
+  it("rejeitada: refazer, exceto uso denegado e duplicidade", () => {
+    expect(acoesDaNota({ status: "rejeitado", modelo: 65, tpEmis: 1, cStat: 778 }).refazer).toBe(true);
+    for (const c of [110, 204, 205, 301, 302, 303, 539]) expect(acoesDaNota({ status: "rejeitado", modelo: 55, tpEmis: 1, cStat: c }).refazer).toBe(false);
+    expect(acoesDaNota({ status: "rejeitado", modelo: 65, tpEmis: 9, cStat: 778 }).refazer).toBe(false);
   });
 });

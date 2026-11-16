@@ -197,3 +197,21 @@ describe("montarVendaFiscal", () => {
     expect(v.apto).toBe(false);
   });
 });
+
+import { refazerFiscalDaVenda } from "./vendaFiscal.js";
+describe("U2 — refazerFiscalDaVenda", () => {
+  const venda = { apto: true, pendencias: [], pedidosIds: ["P1"], totais: { vNF: 30 },
+    itens: [{ seq: 1, produtoId: 10, nome: "X-Burger", quantidade: 1, valorBruto: 30, fiscal: { ncm: "00000000" }, pendencias: [] }] };
+  it("troca só a parte fiscal pelo cadastro atual; valores iguais", () => {
+    const r = refazerFiscalDaVenda(venda, [{ id: 10, name: "X-Burger", lojaFiscalRegraId: 50 }], { lojaFiscalRegras: [{ id: 50, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" }] });
+    expect(r.apto).toBe(true);
+    expect(r.itens[0].fiscal.ncm).toBe("21069090");
+    expect({ ...r.itens[0], fiscal: null, pendencias: null }).toEqual({ ...venda.itens[0], fiscal: null, pendencias: null });
+    expect(r.totais).toEqual(venda.totais);
+  });
+  it("produto ainda sem regra → não fica apto", () => {
+    const r = refazerFiscalDaVenda(venda, [{ id: 10, name: "X-Burger" }], { lojaFiscalRegras: [] });
+    expect(r.apto).toBe(false);
+    expect(r.itens[0].pendencias.length).toBeGreaterThan(0);
+  });
+});

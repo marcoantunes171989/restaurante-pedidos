@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo } from "../../../lib/fiscal/notasFiscais";
+import { situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, descartarNota } from "../../../lib/fiscal/notasFiscais";
+import { refazerFiscalDaVenda } from "../../../lib/fiscal/vendaFiscal";
+import { emitirReservada } from "../../../lib/fiscal/emissaoPdv";
 import { imprimirNotaFiscal } from "../../../lib/fiscal/imprimirNota";
 import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
 
@@ -117,7 +119,31 @@ function AvisoContingencia({ resumo, supabase, onConcluido }) {
   );
 }
 
-export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
+// U1: descartar número reservado que não será usado (pede o motivo).
+function PainelDescartar({ nota, supabase, onFechar, onConcluido }) {
+  const [motivo, setMotivo] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+  async function confirmar() {
+    setEnviando(true); setErro("");
+    try { await descartarNota(supabase, nota.id, motivo.trim()); onFechar(); onConcluido(); }
+    catch (e) { setErro(e.message); } finally { setEnviando(false); }
+  }
+  return (
+    <div className="mt-2 rounded-xl border border-[var(--pp-border)] p-3">
+      <label className="block text-[12px] font-semibold text-[var(--pp-text-body)]" htmlFor={`descartar-${nota.id}`}>Por que este número não será usado?</label>
+      <input id={`descartar-${nota.id}`} value={motivo} onChange={(e) => setMotivo(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px]" placeholder="Ex.: venda refeita em outra nota" />
+      <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">O número fica registrado como não usado e não volta a ser usado.</p>
+      {erro && <p role="status" className="mt-1 text-[12px] font-semibold text-[#C81E4A]">{erro}</p>}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button type="button" className={botao} disabled={enviando || motivo.trim().length < 3} onClick={confirmar}>{enviando ? "Descartando…" : "Descartar número"}</button>
+        <button type="button" className={botaoLeve} disabled={enviando} onClick={onFechar}>Voltar</button>
+      </div>
+    </div>
+  );
+}
+
+export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = [], regrasLoja = [] }) {
   const lojaId = lojaInfo?.id ?? null;
   const [notas, setNotas] = useState([]);
   const [estado, setEstado] = useState({ carregando: true, erro: "" });
@@ -152,6 +178,33 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
       setOcupado(null);
       recarregar();
     }
+  }
+  const postar = (corpo) => postarApiFiscal(supabase, corpo);
+  // U1: nota reservada e nunca enviada → envia agora (SEFAZ fora → contingência, como no caixa).
+  async function emitirAgora(nota) {
+    setOcupado(nota.id);
+    try {
+      const r = await emitirReservada({ documentoId: nota.id, numero: nota.numero, nfe: Number(nota.modelo) === 55, postar });
+      setAvisos((v) => ({ ...v, [nota.id]: { ok: r.estado === "autorizada" || r.estado === "contingencia", texto: [r.titulo, r.detalhe].filter(Boolean).join(": ") } }));
+    } finally { setOcupado(null); recarregar(); }
+  }
+  // U2: rejeitada → refaz a parte fiscal com o cadastro atual dos produtos e envia de novo.
+  async function corrigirEEmitir(nota) {
+    setOcupado(nota.id);
+    try {
+      const atual = await buscarVendaDaNota(supabase, nota.id);
+      const venda = refazerFiscalDaVenda(atual.venda, produtos, { lojaFiscalRegras: regrasLoja });
+      if (!venda.apto) {
+        const falta = venda.itens.flatMap((it) => it.pendencias.map((p) => (p.includes(it.nome) ? p : `${it.nome}: ${p}`)));
+        setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: `Corrija o cadastro antes: ${falta.slice(0, 3).join(" ")}` } }));
+        return;
+      }
+      await refazerNota(supabase, nota.id, venda);
+      const r = await emitirReservada({ documentoId: nota.id, numero: nota.numero, nfe: Number(nota.modelo) === 55, postar });
+      setAvisos((v) => ({ ...v, [nota.id]: { ok: r.estado === "autorizada" || r.estado === "contingencia", texto: [r.titulo, r.detalhe].filter(Boolean).join(": ") } }));
+    } catch (e) {
+      setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: e.message } }));
+    } finally { setOcupado(null); recarregar(); }
   }
   async function imprimir(nota) {
     const r = await imprimirNotaFiscal({ documentoId: nota.id, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
@@ -206,8 +259,11 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                   <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">A venda saiu na {n.modelo === 65 ? "NFC-e" : "NF-e"} nº {n.contingenciaNumero} (contingência). Esta nota não será reenviada: só consultada.</p>
                 )}
                 {avisos[n.id] && <p role="status" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
-                {(a.cancelar || a.cce || a.enviar || a.consultar || a.imprimir) && aberto?.id !== n.id && (
+                {(a.cancelar || a.cce || a.enviar || a.consultar || a.imprimir || a.emitir || a.descartar || a.refazer) && aberto?.id !== n.id && (
                   <div className="mt-2 flex flex-wrap gap-2">
+                    {a.emitir && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => emitirAgora(n)}>{ocupado === n.id ? "Enviando…" : "Emitir agora"}</button>}
+                    {a.refazer && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => corrigirEEmitir(n)}>{ocupado === n.id ? "Enviando…" : "Corrigir e emitir de novo"}</button>}
+                    {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}>Descartar número</button>}
                     {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}>{n.modelo === 55 ? "Imprimir DANFE" : "Imprimir NFC-e"}</button>}
                     {a.enviar && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "enviar")}>{ocupado === n.id ? "Enviando…" : "Enviar agora"}</button>}
                     {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}>{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
@@ -215,7 +271,8 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo }) {
                     {a.cce && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cce" })}>Carta de correção</button>}
                   </div>
                 )}
-                {aberto?.id === n.id && <PainelEvento nota={n} acao={aberto.acao} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
+                {aberto?.id === n.id && aberto.acao === "descartar" && <PainelDescartar nota={n} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
+                {aberto?.id === n.id && aberto.acao !== "descartar" && <PainelEvento nota={n} acao={aberto.acao} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
               </li>
             );
           })}
