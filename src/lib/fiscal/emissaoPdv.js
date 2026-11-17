@@ -15,7 +15,7 @@
 //  homologação ou produção (simulação não emite).
 // ════════════════════════════════════════════════════════════
 
-import { montarVendaFiscal } from "./vendaFiscal.js";
+import { montarVendaFiscal, composicaoDaConta } from "./vendaFiscal.js";
 import { reservarDocumentoFiscal } from "./fiscalApi.js";
 import { montarDestinatario } from "./nfeDaVenda.js";
 import { normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
@@ -90,6 +90,21 @@ export async function postarApiFiscal(supabase, corpo, { fetchFn = (...a) => glo
     return { ok: false, code: "REDE", erro: "Sem conexão com o servidor." };
   }
   try { return (await resp.json()) || { ok: false, code: `HTTP_${resp.status}` }; } catch { return { ok: false, code: `HTTP_${resp.status}`, erro: "Resposta inválida do servidor." }; }
+}
+
+/**
+ * Caixa Operacional (CentralDoCaixa): fecha UMA conta (um pedido) cobrando
+ * subtotal + taxa de serviço, sem troco, cupom ou desconto manual. Monta os
+ * dados da nota no mesmo formato do PDV principal.
+ */
+export function dadosNotaContaOperacional({ pedido, subtotal, total, detalhes = [] } = {}) {
+  const c = (v) => Math.round((Number(v) || 0) * 100) / 100;
+  const sub = c(subtotal), tot = c(total);
+  return {
+    pedidos: pedido ? [pedido] : [],
+    composicao: composicaoDaConta({ subtotal: sub, taxaServico: Math.max(0, c(tot - sub)) }),
+    pagamento: { total: tot, troco: 0, detalhes: detalhes.map((d) => ({ forma: d.forma, valor: c(d.valor) })) },
+  };
 }
 
 /**

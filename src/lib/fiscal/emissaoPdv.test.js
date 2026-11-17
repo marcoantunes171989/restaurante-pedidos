@@ -176,3 +176,20 @@ describe("buscarEnderecoPorCep (ViaCEP)", () => {
     expect((await buscarEnderecoPorCep("01310100", { fetchFn: async () => { throw new Error("x"); } })).ok).toBe(false);
   });
 });
+
+describe("caixa Operacional — dados da nota da conta", async () => {
+  const { dadosNotaContaOperacional } = await import("./emissaoPdv.js");
+  it("subtotal + taxa de serviço viram a composição; pagamento sem troco, em centavos", () => {
+    const pedido = { id: "PED-1", items: [{ productId: 107, price: 29.9, quantity: 1 }] };
+    const d = dadosNotaContaOperacional({ pedido, subtotal: 29.9, total: 29.9 * 1.1, detalhes: [{ forma: "Pix", valor: 29.9 * 1.1 }] });
+    expect(d.pedidos).toEqual([pedido]);
+    expect(d.composicao).toMatchObject({ subtotal: 29.9, taxaServico: 2.99, total: 32.89 });
+    expect(d.pagamento).toEqual({ total: 32.89, troco: 0, detalhes: [{ forma: "Pix", valor: 32.89 }] });
+  });
+  it("sem taxa (total = subtotal) e sem pedido", () => {
+    const d = dadosNotaContaOperacional({ subtotal: 10, total: 10 });
+    expect(d.pedidos).toEqual([]);
+    expect(d.composicao.taxaServico).toBe(0);
+    expect(d.pagamento.detalhes).toEqual([]);
+  });
+});

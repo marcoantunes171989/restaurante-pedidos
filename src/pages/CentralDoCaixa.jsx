@@ -7,6 +7,9 @@ import CashierStatusFilters from "../components/orders/CashierStatusFilters";
 import AccountCard from "../components/orders/AccountCard";
 import OrdersEmptyState from "../components/orders/OrdersEmptyState";
 import CashierCheckout from "../components/orders/checkout/CashierCheckout";
+import AvisoNotaFiscal from "../components/fiscal/AvisoNotaFiscal";
+import { emitirNotaDaVenda, dadosNotaContaOperacional, postarApiFiscal } from "../lib/fiscal/emissaoPdv";
+import { imprimirNotaFiscal as imprimirDanfe } from "../lib/fiscal/imprimirNota";
 
 // Categoria só é usada para o badge/filtro visual — nunca decide o que a
 // conta PODE fazer (pagar antecipado é sempre permitido, como já era).
@@ -57,7 +60,16 @@ export default function CentralDoCaixa({
   telMascarado = () => "",
   faturadoHoje = 0,
   fidCaixa = null,
+  // E8: nota fiscal da venda também no caixa Operacional (antes só no PDV principal).
+  subtotalDe = null,
+  supabase = null,
+  emitenteFiscal = null,
+  configFiscalVenda = undefined,
+  ctxFiscal = undefined,
+  produtos = [],
 }) {
+  // Situação da nota da última conta fechada aqui (aviso fixo até fechar).
+  const [notaAviso, setNotaAviso] = useState(null);
   const [pagando, setPagando] = useState(null);
   const [retirando, setRetirando] = useState(null);
   const [filtro, setFiltro] = useState("todas");
@@ -102,13 +114,36 @@ export default function CentralDoCaixa({
     return out.length ? out : ["Pix", "Cartão", "Dinheiro"];
   }, [formasPagamento]);
 
+  // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz o pagamento.
+  function emitirNotaDaConta(o, dadosNota) {
+    if (!supabase) return;
+    const rotulo = String(o.table || "Conta").split(" · ")[0];
+    const marca = `${o.id}-${Date.now()}`;
+    const atualizar = (nota) => setNotaAviso((cur) => (cur && cur.marca === marca ? { ...cur, nota } : cur));
+    setNotaAviso({ marca, rotulo, nota: { estado: "emitindo", titulo: "Emitindo nota fiscal…" } });
+    emitirNotaDaVenda({
+      supabase, emitente: emitenteFiscal, ...dadosNota, produtos, formas: formasPagamento,
+      config: configFiscalVenda, ctxFiscal, modelo: 65,
+    })
+      .then((n) => (n?.estado === "fora" ? setNotaAviso((cur) => (cur && cur.marca === marca ? null : cur)) : atualizar(n)))
+      .catch(() => atualizar({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }));
+  }
+
+  async function imprimirNota(nota) {
+    const r = await imprimirDanfe({ documentoId: nota.documentoId, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
+    if (!r.ok) setNotaAviso((cur) => (cur ? { ...cur, nota: { ...cur.nota, detalhe: r.erro } } : cur));
+  }
+
   async function finalizar(o, linhas, total) {
     if (pagandoIdsRef.current.has(o.id)) return; // trava contra clique duplo antes do re-render
     pagandoIdsRef.current.add(o.id);
     setPagando(o.id);
     try {
       const detalhes = linhas.map((l) => ({ forma: l.forma, valor: Number(l.valor) || 0 }));
-      await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id }, { manterStatus: true, somenteId: o.id });
+      const dadosNota = dadosNotaContaOperacional({ pedido: o, subtotal: subtotalDe ? subtotalDe(o) : total, total, detalhes });
+      const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao }, { manterStatus: true, somenteId: o.id });
+      // Só emite se a baixa aconteceu (recusa — sem permissão, já pago — não devolve objeto).
+      if (baixa && typeof baixa === "object") emitirNotaDaConta(o, dadosNota);
     } catch { /* feedback já tratado no backend */ }
     pagandoIdsRef.current.delete(o.id);
     setPagando(null);
@@ -189,6 +224,18 @@ export default function CentralDoCaixa({
           )}
         </section>
       </div>
+
+      {notaAviso && (
+        <div className="fixed inset-x-0 bottom-24 z-[115] mx-auto w-[min(92vw,420px)] rounded-2xl bg-white p-2 shadow-[0_8px_30px_rgba(1,46,70,0.25)]">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[var(--pp-text-muted)]">Nota fiscal · {notaAviso.rotulo}</span>
+            {notaAviso.nota.estado !== "emitindo" && (
+              <button type="button" onClick={() => setNotaAviso(null)} aria-label="Fechar aviso da nota fiscal" className="grid h-8 w-8 place-items-center rounded-full text-[var(--pp-text-muted)] hover:bg-[var(--pp-bg)]">✕</button>
+            )}
+          </div>
+          <AvisoNotaFiscal nota={notaAviso.nota} onImprimir={imprimirNota} className="mt-1" />
+        </div>
+      )}
 
       <OperationalBottomNav items={navItems} active="caixa" onNavigate={onNavigate} />
 
