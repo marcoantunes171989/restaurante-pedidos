@@ -8,7 +8,11 @@ import AccountCard from "../components/orders/AccountCard";
 import OrdersEmptyState from "../components/orders/OrdersEmptyState";
 import CashierCheckout from "../components/orders/checkout/CashierCheckout";
 import AvisoNotaFiscal from "../components/fiscal/AvisoNotaFiscal";
-import { emitirNotaDaVenda, dadosNotaContaOperacional, postarApiFiscal } from "../lib/fiscal/emissaoPdv";
+import {
+  emitirNotaDaVenda, dadosNotaContaOperacional, postarApiFiscal, dadosDaNotaNoCaixa, NOTA_VAZIA,
+  EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja,
+} from "../lib/fiscal/emissaoPdv";
+import PdvNotaFiscalCampos from "./pdv/PdvNotaFiscalCampos";
 import { imprimirNotaFiscal as imprimirDanfe } from "../lib/fiscal/imprimirNota";
 
 // Categoria só é usada para o badge/filtro visual — nunca decide o que a
@@ -115,7 +119,7 @@ export default function CentralDoCaixa({
   }, [formasPagamento]);
 
   // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz o pagamento.
-  function emitirNotaDaConta(o, dadosNota) {
+  function emitirNotaDaConta(o, dadosNota, notaCx = { modelo: 65, cpf: "", destinatario: null }) {
     if (!supabase) return;
     const rotulo = String(o.table || "Conta").split(" · ")[0];
     const marca = `${o.id}-${Date.now()}`;
@@ -123,7 +127,7 @@ export default function CentralDoCaixa({
     setNotaAviso({ marca, rotulo, nota: { estado: "emitindo", titulo: "Emitindo nota fiscal…" } });
     emitirNotaDaVenda({
       supabase, emitente: emitenteFiscal, ...dadosNota, produtos, formas: formasPagamento,
-      config: configFiscalVenda, ctxFiscal, modelo: 65,
+      config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
     })
       .then((n) => (n?.estado === "fora" ? setNotaAviso((cur) => (cur && cur.marca === marca ? null : cur)) : atualizar(n)))
       .catch(() => atualizar({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }));
@@ -134,7 +138,26 @@ export default function CentralDoCaixa({
     if (!r.ok) setNotaAviso((cur) => (cur ? { ...cur, nota: { ...cur.nota, detalhe: r.erro } } : cur));
   }
 
-  async function finalizar(o, linhas, total) {
+  // Antes de cobrar: confirmação com o resumo e, se a loja emite nota, o
+  // CPF/CNPJ do cliente (ou NF-e para empresa) — mesmo campo do PDV principal.
+  const nfceNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
+  const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
+  const [confirmacao, setConfirmacao] = useState(null); // { o, linhas, total }
+  const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
+  const [erroConfirmacao, setErroConfirmacao] = useState("");
+
+  function finalizar(o, linhas, total) {
+    if (pagandoIdsRef.current.has(o.id)) return;
+    setNotaCaixa(NOTA_VAZIA);
+    setErroConfirmacao("");
+    setConfirmacao({ o, linhas, total });
+  }
+
+  async function confirmarPagamento() {
+    if (!confirmacao) return;
+    const { o, linhas, total } = confirmacao;
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    if (!notaCx.ok) { setErroConfirmacao(notaCx.erro); return; }
     if (pagandoIdsRef.current.has(o.id)) return; // trava contra clique duplo antes do re-render
     pagandoIdsRef.current.add(o.id);
     setPagando(o.id);
@@ -143,10 +166,14 @@ export default function CentralDoCaixa({
       const dadosNota = dadosNotaContaOperacional({ pedido: o, subtotal: subtotalDe ? subtotalDe(o) : total, total, detalhes });
       const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao }, { manterStatus: true, somenteId: o.id });
       // Só emite se a baixa aconteceu (recusa — sem permissão, já pago — não devolve objeto).
-      if (baixa && typeof baixa === "object") emitirNotaDaConta(o, dadosNota);
+      if (baixa && typeof baixa === "object") {
+        emitirNotaDaConta(o, dadosNota, notaCx);
+        setContaCheckout((cur) => (cur && cur.id === o.id ? null : cur));
+      }
     } catch { /* feedback já tratado no backend */ }
     pagandoIdsRef.current.delete(o.id);
     setPagando(null);
+    setConfirmacao(null);
   }
 
   const abertas = contas.filter((o) => o.paymentStatus !== "paid");
@@ -172,10 +199,9 @@ export default function CentralDoCaixa({
     faturamentoTurno: formatCurrency(faturadoHoje),
   };
 
-  async function fecharContaPdv(linhas, total) {
+  function fecharContaPdv(linhas, total) {
     if (!contaCheckout) return;
-    await finalizar(contaCheckout, linhas, total);
-    setContaCheckout(null);
+    finalizar(contaCheckout, linhas, total); // o checkout fecha depois de confirmado e pago
   }
 
   return (
@@ -224,6 +250,29 @@ export default function CentralDoCaixa({
           )}
         </section>
       </div>
+
+      {confirmacao && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="cx-conf-titulo" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
+            <h2 id="cx-conf-titulo" className="text-lg font-black text-[var(--pp-text)]">Confirmar pagamento</h2>
+            <p className="mt-1 text-sm text-[var(--pp-text-body)]">
+              {String(confirmacao.o.table || "Conta")}{confirmacao.o.customer ? ` · ${confirmacao.o.customer}` : ""}
+            </p>
+            <div className="mt-4 space-y-1.5 text-sm">
+              {confirmacao.linhas.map((l) => (
+                <div key={l.forma} className="flex justify-between text-[var(--pp-text-body)]"><span>{l.forma}</span><strong>{formatCurrency(Number(l.valor) || 0)}</strong></div>
+              ))}
+              <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5 text-base"><span className="font-bold">Total</span><strong>{formatCurrency(confirmacao.total)}</strong></div>
+            </div>
+            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} />}
+            {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[#B42318]/30 bg-[#FDECEA] px-3 py-2 text-xs font-semibold text-[#B42318]">{erroConfirmacao}</p>}
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setConfirmacao(null)} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-bold text-[var(--pp-text)] hover:bg-[var(--pp-bg)] disabled:opacity-50">Voltar</button>
+              <button type="button" onClick={confirmarPagamento} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl bg-[#012E46] text-sm font-black text-white hover:bg-[#023b59] disabled:opacity-60">{pagando === confirmacao.o.id ? "Registrando…" : "Confirmar pagamento"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {notaAviso && (
         <div className="fixed inset-x-0 bottom-24 z-[115] mx-auto w-[min(92vw,420px)] rounded-2xl bg-white p-2 shadow-[0_8px_30px_rgba(1,46,70,0.25)]">
