@@ -117,6 +117,10 @@ export default function TabletTableAccess({
   // checagem de conflito), quando o pré-check local não pegou a corrida a tempo.
   function mensagemErroMesa(e) {
     const msg = e?.message || "";
+    if (msg === "device_loja_conflito") {
+      // Migration 125: o aparelho pertence a outra empresa e nunca é "tomado".
+      return "Este aparelho já está registrado em outra empresa. Para usá-lo aqui, um administrador precisa remover o aparelho em Controle de Versões › Aparelhos; depois abra o tablet de novo.";
+    }
     return msg === "mesa_em_uso" || msg === "mesa_em_uso_outro_dispositivo"
       ? "Esta mesa acabou de ser vinculada a outro dispositivo. Escolha outra mesa."
       : "Não foi possível configurar este tablet agora. Tente novamente.";

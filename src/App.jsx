@@ -1248,6 +1248,8 @@ export default function RestaurantePedidoApp() {
   // usuário está na tela /login). Quem impede heartbeat/revogação fora de
   // uma execução de logout é sessaoDispositivoPronta (abaixo), não este ref.
   const logoutEmAndamentoRef = useRef(false);
+  // Loja em que o aparelho bateu em device_loja_conflito (heartbeat para de tentar nela).
+  const dispositivoConflitoRef = useRef(null);
   // Gate 8.36.1: "a sessão necessária para registrar este dispositivo está
   // pronta". false na tela de login, durante logout, e enquanto o login
   // ainda não concluiu app_sessao_iniciar; true SOMENTE depois que
@@ -1478,6 +1480,10 @@ export default function RestaurantePedidoApp() {
     if (isSuperAdmin && lojaAtual == null) return;
     const id = obterDeviceId();
     if (!id) return;
+    // Aparelho registrado em OUTRA empresa (device_loja_conflito, migration
+    // 125): o banco nunca troca a dona sozinho, então repetir só gera erro a
+    // cada 2 min. Para de tentar nesta loja até a loja mudar ou a página recarregar.
+    if (dispositivoConflitoRef.current === lojaAtual) return;
     const reportar = () => {
       // Logout em andamento já cuida do cleanup explícito da mesa — não
       // deixa o heartbeat concorrer e reescrever mesa:"<atual>" por cima.
@@ -1485,10 +1491,12 @@ export default function RestaurantePedidoApp() {
       // closure obsoleta dentro do listener de focus/visibilitychange
       // registrado por este efeito.
       if (logoutEmAndamentoRef.current || !currentUserRef.current || !sessaoDispositivoProntaRef.current) return;
+      if (dispositivoConflitoRef.current === lojaAtual) return;
       const { versao, standalone, plataforma } = infoAparelhoAtual();
       registrarDispositivo({ deviceId: id, versao, lojaId: lojaAtual ?? null, plataforma, standalone, mesa: (tableNumber && Number(tableNumber) > 0) ? tableNumber : null }).catch((e) => {
         // Erros transitórios (rede, RPC ainda sem sessão pronta) são
         // tolerados silenciosamente — o próximo heartbeat tenta de novo.
+        if (e?.message === "device_loja_conflito") { dispositivoConflitoRef.current = lojaAtual; return; }
         if (erroExigeNovaSelecaoMesa(e?.message) && tableNumber && Number(tableNumber) > 0) {
           setTableNumber("");
         }

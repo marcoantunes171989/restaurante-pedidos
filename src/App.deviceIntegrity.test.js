@@ -263,3 +263,11 @@ describe("REL-02D-AUTH-HISTORY-E — wiring do App (validação + manterTela)", 
     expect(corpo).not.toMatch(/pushState/);
   });
 });
+
+describe("heartbeat com aparelho de outra empresa (device_loja_conflito)", () => {
+  it("guarda a loja do conflito e para de tentar nela (sem erro a cada 2 min)", () => {
+    expect(appSource).toMatch(/if \(e\?\.message === "device_loja_conflito"\) \{ dispositivoConflitoRef\.current = lojaAtual; return; \}/);
+    const idxReportar = appSource.indexOf("const reportar = () => {");
+    expect(appSource.slice(idxReportar, idxReportar + 800)).toMatch(/if \(dispositivoConflitoRef\.current === lojaAtual\) return;/);
+  });
+});
