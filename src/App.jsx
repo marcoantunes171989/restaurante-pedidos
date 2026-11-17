@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import { cobraTaxaServico } from "./lib/taxaServico";
 import { createPortal } from "react-dom";
 import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
@@ -470,6 +471,10 @@ function createCartItem(product) {
   return { ...product, quantity: 1, observation: "", selectedIngredients: [...(product.ingredients || [])], removedIngredients: [], extraIngredients: [], extraIngredientInput: "" };
 }
 
+// Total cobrado: itens + 10% de serviço, exceto retirada/entrega externa (src/lib/taxaServico.js).
+function totalComTaxa(order) {
+  return orderTotal(order) * (cobraTaxaServico(order?.table) ? 1.1 : 1);
+}
 function orderTotal(order) {
   return order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
@@ -8021,9 +8026,9 @@ function analisarVendas(orders, products) {
   // Cancelados não entram em faturamento, em aberto, produtos vendidos, etc.
   const validos = orders.filter((o) => o.status !== "cancelled");
   const pagos = validos.filter((o) => o.paymentStatus === "paid");
-  const faturamento = pagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0); // com taxa
+  const faturamento = pagos.reduce((s, o) => s + totalComTaxa(o), 0); // com taxa
   const faturamentoSemTaxa = pagos.reduce((s, o) => s + orderTotal(o), 0);
-  const emAberto = validos.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const emAberto = validos.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + totalComTaxa(o), 0);
   const ticket = pagos.length ? faturamento / pagos.length : 0;
 
   // Produtos mais vendidos — considera VENDAS REALIZADAS (pedidos pagos),
@@ -8422,7 +8427,7 @@ function OperacaoMobileView({ fiscalVendaPdv = null, orders = [], updateOrderSta
     });
     return map;
   }, [orders]);
-  const totalCom = (o) => orderTotal(o) * 1.1;
+  const totalCom = (o) => totalComTaxa(o);
   const novos = ativos.filter((o) => o.status === "received");
   const emPreparo = ativos.filter((o) => o.status === "preparing");
   const prontos = ativos.filter((o) => o.status === "ready");
@@ -9450,7 +9455,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 
   // Faturamento por horário (10h → 01h), destaque no pico
   const horas24 = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
-  pagos.forEach((o) => { const h = horaDe(o); if (h != null) { horas24[h].valor += orderTotal(o) * 1.1; horas24[h].qtd += 1; } });
+  pagos.forEach((o) => { const h = horaDe(o); if (h != null) { horas24[h].valor += totalComTaxa(o); horas24[h].qtd += 1; } });
   const vendasPorHora = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24[h]);
   const melhorHora = vendasPorHora.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
 
@@ -9495,7 +9500,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
     const t = o.table; if (!t) return;
     const ms = o.createdAtISO ? new Date(o.createdAtISO).getTime() : agora;
     if (!porMesa[t]) porMesa[t] = { mesa: t, valor: 0, inicio: ms, preparo: false };
-    porMesa[t].valor += orderTotal(o) * 1.1;
+    porMesa[t].valor += totalComTaxa(o);
     if (ms < porMesa[t].inicio) porMesa[t].inicio = ms;
     if (o.status === "preparing" || o.status === "received") porMesa[t].preparo = true;
   });
@@ -9506,7 +9511,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#012E46]/30 bg-[#012E46]/10 text-[#012E46]" } : { label: "Aguardando pagamento", cls: "border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]" };
 
   // Cancelamentos e perdas
-  const valorPerdido = cancelados.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const valorPerdido = cancelados.reduce((s, o) => s + totalComTaxa(o), 0);
   const motivos = {}; cancelados.forEach((o) => { const m = (o.cancelReason || "Não informado").trim(); motivos[m] = (motivos[m] || 0) + 1; });
   const motivoPrincipal = Object.entries(motivos).sort((x, y) => y[1] - x[1])[0]?.[0] || "—";
 
@@ -9552,7 +9557,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
   orders.forEach((o) => {
     if (o.status === "cancelled") return;
     const tel = o.clienteTelefone; if (!tel) return;
-    const val = orderTotal(o) * 1.1;
+    const val = totalComTaxa(o);
     const d = o.createdAtISO ? new Date(o.createdAtISO).getTime() : 0;
     if (!porCli[tel]) porCli[tel] = { tel, nome: o.customer, qtd: 0, total: 0, ultimo: 0 };
     porCli[tel].qtd += 1; porCli[tel].total += val; if (d > porCli[tel].ultimo) porCli[tel].ultimo = d;
@@ -10337,7 +10342,7 @@ function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquis
 // ════════════════════════════════════════════════════════════
 // Modal genérico com lista de pedidos detalhada (clique nos cards)
 function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
-  const total = pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const total = pedidos.reduce((s, o) => s + totalComTaxa(o), 0);
   return (
     <PainelDetalhe aberto ariaLabel={titulo} onFechar={onFechar} titulo={titulo}
       subtitulo={<>{pedidos.length} pedido(s) • Total <span className="font-semibold text-[#2F9E52]">{formatCurrency(total)}</span></>}
@@ -10351,7 +10356,7 @@ function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
                 <p className="truncate text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{o.id} • {o.table} • {o.command}</p>
                 <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
               </div>
-              <span className="shrink-0 text-base font-black text-[#2F9E52]">{formatCurrency(orderTotal(o) * 1.1)}</span>
+              <span className="shrink-0 text-base font-black text-[#2F9E52]">{formatCurrency(totalComTaxa(o))}</span>
             </div>
             <div className="mt-2 space-y-0.5">
               {o.items.map((it, i) => (
@@ -10582,7 +10587,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const margemPct = a.faturamento > 0 ? (margemEstimada / a.faturamento) * 100 : 0;
   // Evolução do faturamento por dia
   const porDia = {};
-  pagosG.forEach((o) => { if (!o.createdAtISO) return; const k = new Date(o.createdAtISO).toISOString().slice(0, 10); porDia[k] = (porDia[k] || 0) + orderTotal(o) * 1.1; });
+  pagosG.forEach((o) => { if (!o.createdAtISO) return; const k = new Date(o.createdAtISO).toISOString().slice(0, 10); porDia[k] = (porDia[k] || 0) + totalComTaxa(o); });
   const evolucao = Object.entries(porDia).sort(([x], [y]) => (x < y ? -1 : 1)).map(([k, v]) => ({ dia: k, valor: v, label: new Date(`${k}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) }));
   const diasAtivos = evolucao.length;
   const [a0g, b0g] = intervaloPeriodo(periodo, ini, fim) || [];
@@ -10590,20 +10595,20 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   const mediaDiaria = totalDiasPeriodo ? a.faturamento / totalDiasPeriodo : 0;
   const semanaNomes = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
   const porSemana = Array.from({ length: 7 }, (_, i) => ({ dia: semanaNomes[i], valor: 0 }));
-  pagosG.forEach((o) => { if (o.createdAtISO) porSemana[new Date(o.createdAtISO).getDay()].valor += orderTotal(o) * 1.1; });
+  pagosG.forEach((o) => { if (o.createdAtISO) porSemana[new Date(o.createdAtISO).getDay()].valor += totalComTaxa(o); });
   const semanaComVenda = porSemana.filter((d) => d.valor > 0);
   const maiorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor > b.valor ? d : b)) : null;
   const menorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor < b.valor ? d : b)) : null;
   // Faturamento por horário (10h → 01h)
   const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
-  pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += orderTotal(o) * 1.1; horas24R[h].qtd += 1; } });
+  pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += totalComTaxa(o); horas24R[h].qtd += 1; } });
   const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
   // Paleta oficial única de donuts do projeto (mesma do Dashboard Gerencial).
   const PALETA_GRAF_RELATORIOS = ["#012E46", "#10B981", "#F38525", "#8B5CF6", "#012E46", "#64748B"];
   const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
   // Mesas com maior faturamento
   const porMesaR = {};
-  pagosG.forEach((o) => { const t = o.table || "—"; if (!porMesaR[t]) porMesaR[t] = { mesa: t, faturamento: 0, pedidos: 0 }; porMesaR[t].faturamento += orderTotal(o) * 1.1; porMesaR[t].pedidos += 1; });
+  pagosG.forEach((o) => { const t = o.table || "—"; if (!porMesaR[t]) porMesaR[t] = { mesa: t, faturamento: 0, pedidos: 0 }; porMesaR[t].faturamento += totalComTaxa(o); porMesaR[t].pedidos += 1; });
   const mesasFaturamento = Object.values(porMesaR).map((m) => ({ ...m, ticket: m.pedidos ? m.faturamento / m.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
   // Clientes (identificados x não identificados)
   const porClienteR = {};
@@ -10612,7 +10617,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const c = o.customer || o.clienteTelefone || "Cliente não identificado";
     if (!porClienteR[c]) porClienteR[c] = { cliente: c, pedidos: 0, faturamento: 0, ultimo: null, identificado: ident };
     porClienteR[c].pedidos += 1;
-    if (o.paymentStatus === "paid") porClienteR[c].faturamento += orderTotal(o) * 1.1;
+    if (o.paymentStatus === "paid") porClienteR[c].faturamento += totalComTaxa(o);
     const d = o.createdAtISO ? new Date(o.createdAtISO) : null;
     if (d && (!porClienteR[c].ultimo || d > porClienteR[c].ultimo)) porClienteR[c].ultimo = d;
   });
@@ -10848,12 +10853,12 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   })();
   // Forma de pagamento — mesma agregação já usada na Visão Financeira (o.pagamentoForma)
   const porFormaV = {};
-  pagosG.forEach((o) => { const f = o.pagamentoForma || "Não informado"; porFormaV[f] = (porFormaV[f] || 0) + orderTotal(o) * 1.1; });
+  pagosG.forEach((o) => { const f = o.pagamentoForma || "Não informado"; porFormaV[f] = (porFormaV[f] || 0) + totalComTaxa(o); });
   const formasPagamentoV = Object.entries(porFormaV).map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor);
   // Canal de venda — mesma heurística já usada no CRM do Dashboard Gerencial
   // (comanda → Mesa/QR Code; mesa sem comanda → Mesa; nenhum dos dois → Balcão/Delivery)
   const porCanalV = {};
-  pagosG.forEach((o) => { const c = o.command ? "Mesa / QR Code" : o.table ? "Mesa" : "Balcão / Delivery"; porCanalV[c] = (porCanalV[c] || 0) + orderTotal(o) * 1.1; });
+  pagosG.forEach((o) => { const c = o.command ? "Mesa / QR Code" : o.table ? "Mesa" : "Balcão / Delivery"; porCanalV[c] = (porCanalV[c] || 0) + totalComTaxa(o); });
   const canalVendaV = Object.entries(porCanalV).map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor);
   // Ranking completo de produtos (não limitado a 6) — mesma regra de
   // analisarVendas (só pedidos pagos, preço × quantidade), enriquecido com
@@ -11062,9 +11067,9 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     const primeira = datas[0] || null;
     const ultima = datas[datas.length - 1] || null;
     const penultima = datas.length >= 2 ? datas[datas.length - 2] : null;
-    const faturamentoTotal = pagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+    const faturamentoTotal = pagos.reduce((s, o) => s + totalComTaxa(o), 0);
     const ticketMedioVida = pagos.length ? faturamentoTotal / pagos.length : 0;
-    const maiorCompra = pagos.length ? Math.max(...pagos.map((o) => orderTotal(o) * 1.1)) : 0;
+    const maiorCompra = pagos.length ? Math.max(...pagos.map((o) => totalComTaxa(o))) : 0;
     const lucroGerado = pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + ((it.price || 0) - (custoPorNome[it.name] ?? 0)) * it.quantity, 0), 0);
     const diasSemComprar = ultima != null ? Math.floor((agoraClientesE - ultima.getTime()) / 864e5) : null;
     const contagemProduto = {}, contagemCategoria = {}, contagemHora = {}, contagemForma = {}, contagemMesa = {};
@@ -11084,7 +11089,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     // Até 50 pedidos (histórico + "Ver todos"); a lista renderiza só 5 por
     // padrão. Mantém o objeto do pedido completo para abrir o cupom real.
     const ultimosPedidos = [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 50)
-      .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: orderTotal(o) * 1.1, status: o.status, pago: o.paymentStatus === "paid", pedidoObj: o }));
+      .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: totalComTaxa(o), status: o.status, pago: o.paymentStatus === "paid", pedidoObj: o }));
     // Frequência de compra — pedidos por mês, considerando o tempo de vida do
     // cliente (primeira compra até agora); "—" quando só há 1 compra (sem
     // intervalo real para medir).
@@ -11125,7 +11130,7 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       const chave = o.customer || o.clienteTelefone; if (!chave) return;
       if (!m[chave]) m[chave] = { pedidos: 0, faturamento: 0 };
       m[chave].pedidos += 1;
-      if (o.paymentStatus === "paid") m[chave].faturamento += orderTotal(o) * 1.1;
+      if (o.paymentStatus === "paid") m[chave].faturamento += totalComTaxa(o);
     });
     return m;
   })();
@@ -12873,7 +12878,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   const nomeUsuarioAtual = currentUser?.name || currentUser?.email || "Usuário";
 
   // ── Painel resumo (mesmos totais já usados no relatório, sem consulta nova) ──
-  const valores = pagos.map((o) => orderTotal(o) * 1.1);
+  const valores = pagos.map((o) => totalComTaxa(o));
   const faturamentoCupons = valores.reduce((s, v) => s + v, 0);
   const ticketMedioCupons = pagos.length ? faturamentoCupons / pagos.length : 0;
   const maiorVendaCupom = valores.length ? Math.max(...valores) : 0;
@@ -12926,7 +12931,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   // pagamento alterada: nenhum desses existe no modelo de dados hoje). ──
   function anomaliasDoPedido(o) {
     const lista = [];
-    const valor = orderTotal(o) * 1.1;
+    const valor = totalComTaxa(o);
     const tPrep = tempoPreparoPedido(o);
     const tCoz = tempoAteCozinhaPedido(o);
     const margem = margemPedido(o);
@@ -12955,7 +12960,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     const porClienteLocal = {};
     pagos.filter((o) => o.customer).forEach((o) => {
       if (!porClienteLocal[o.customer]) porClienteLocal[o.customer] = { nome: o.customer, pedidos: 0, valor: 0 };
-      porClienteLocal[o.customer].pedidos += 1; porClienteLocal[o.customer].valor += orderTotal(o) * 1.1;
+      porClienteLocal[o.customer].pedidos += 1; porClienteLocal[o.customer].valor += totalComTaxa(o);
     });
     const clienteVip = Object.values(porClienteLocal).sort((a, b) => b.valor - a.valor)[0] || null;
     const clientesRecorrentes = Object.values(porClienteLocal).filter((c) => c.pedidos > 1).sort((a, b) => b.pedidos - a.pedidos);
@@ -12969,7 +12974,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     const [formaPredominante, formaPredominanteQtd] = Object.entries(porFormaLocal).sort((a, b) => b[1] - a[1])[0] || [null, 0];
 
     const pedidoMaiorLucro = [...pagos].sort((a, b) => margemPedido(b) - margemPedido(a))[0] || null;
-    const pedidoMaiorTicket = [...pagos].sort((a, b) => (orderTotal(b) * 1.1) - (orderTotal(a) * 1.1))[0] || null;
+    const pedidoMaiorTicket = [...pagos].sort((a, b) => (totalComTaxa(b)) - (totalComTaxa(a)))[0] || null;
     const comPermanencia = pagos.filter((o) => tempoVenda(o) != null);
     const pedidoMaiorPermanencia = comPermanencia.length ? [...comPermanencia].sort((a, b) => tempoVenda(b) - tempoVenda(a))[0] : null;
 
@@ -13007,7 +13012,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     if (fFormaPag !== "todas" && (o.pagamentoForma || "Não informado") !== fFormaPag) return false;
     if (fStatus !== "todos" && o.status !== fStatus) return false;
     if (fSomenteReimpressos && !(acoesLog.get(o.id)?.reimpressoCount > 0)) return false;
-    const valor = orderTotal(o) * 1.1;
+    const valor = totalComTaxa(o);
     if (fValorMin.trim() && valor < Number(fValorMin)) return false;
     if (fValorMax.trim() && valor > Number(fValorMax)) return false;
     const lucroO = margemPedido(o);
@@ -13024,7 +13029,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     return true;
   });
   const ordenados = [...filtrados].sort((x, y) => {
-    const vx = orderTotal(x) * 1.1, vy = orderTotal(y) * 1.1;
+    const vx = totalComTaxa(x), vy = totalComTaxa(y);
     if (ordenacao === "antigo") return new Date(x.createdAtISO || 0) - new Date(y.createdAtISO || 0);
     if (ordenacao === "maior") return vy - vx;
     if (ordenacao === "menor") return vx - vy;
@@ -13093,7 +13098,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     const ids = Array.from(selecionados);
     const itens = ids.map((id) => pagos.find((o) => o.id === id)).filter(Boolean);
     if (itens.length === 0) return;
-    const texto = `Resumo de ${itens.length} cupom(ns):\n` + itens.map((o) => `Cupom ${o.id} — ${formatCurrency(orderTotal(o) * 1.1)}`).join("\n");
+    const texto = `Resumo de ${itens.length} cupom(ns):\n` + itens.map((o) => `Cupom ${o.id} — ${formatCurrency(totalComTaxa(o))}`).join("\n");
     const fone = prompt("Telefone do destinatário (com DDD, ex.: 11999998888):");
     if (!fone) return;
     const num = fone.replace(/\D/g, "");
@@ -13105,7 +13110,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   function enviarCupomEmail(lista) {
     if (!lista || lista.length === 0) return;
     const assunto = `Resumo de ${lista.length} cupom(ns) — ${lojaInfo?.nome || "Restaurante"}`;
-    const corpo = lista.map((o) => `Cupom ${o.id} — ${o.table || "Balcão"} — ${formatCurrency(orderTotal(o) * 1.1)}`).join("\n");
+    const corpo = lista.map((o) => `Cupom ${o.id} — ${o.table || "Balcão"} — ${formatCurrency(totalComTaxa(o))}`).join("\n");
     window.open(`mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`, "_blank");
     lista.forEach((o) => registrarAcao(o.id, "enviado"));
   }
@@ -13124,7 +13129,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   // "⋯" de um único cupom chama exportarCupomPDF([o]) diretamente.
   function exportarCupomPDF(lista = ordenados) {
     const empresa = lojaInfo?.nome || "Restaurante";
-    const linhas = lista.map((o) => `<tr><td>${o.id}</td><td>${o.table || "—"}</td><td>${o.command || "—"}</td><td>${o.customer || "—"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td>${statusMap[o.status]?.label || o.status}</td><td class="r">${formatCurrency(orderTotal(o) * 1.1)}</td></tr>`).join("");
+    const linhas = lista.map((o) => `<tr><td>${o.id}</td><td>${o.table || "—"}</td><td>${o.command || "—"}</td><td>${o.customer || "—"}</td><td>${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</td><td>${statusMap[o.status]?.label || o.status}</td><td class="r">${formatCurrency(totalComTaxa(o))}</td></tr>`).join("");
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Cupons — ${empresa}</title>
     <style>
       @page { size: A4; margin: 14mm; }
@@ -13138,7 +13143,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
       td.r, th.r { text-align: right; }
     </style></head><body>
       <h1>Relatório de Cupons — ${empresa}</h1>
-      <p class="sub">${lista.length} cupom(ns) · Faturamento ${formatCurrency(lista.reduce((s, o) => s + orderTotal(o) * 1.1, 0))}</p>
+      <p class="sub">${lista.length} cupom(ns) · Faturamento ${formatCurrency(lista.reduce((s, o) => s + totalComTaxa(o), 0))}</p>
       <table><thead><tr><th>Cupom</th><th>Mesa</th><th>Comanda</th><th>Cliente</th><th>Data/Hora</th><th>Status</th><th class="r">Valor</th></tr></thead>
       <tbody>${linhas}</tbody></table>
       <script>window.onload=function(){window.print();}<\/script>
@@ -13150,7 +13155,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   }
   function exportarCupomExcel() {
     let csv = "Cupom;Mesa;Comanda;Cliente;Data;Status;Forma pagamento;Valor\n";
-    ordenados.forEach((o) => { csv += `${o.id};${o.table || ""};${o.command || ""};${o.customer || ""};${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt};${statusMap[o.status]?.label || o.status};${o.pagamentoForma || ""};${(orderTotal(o) * 1.1).toFixed(2)}\n`; });
+    ordenados.forEach((o) => { csv += `${o.id};${o.table || ""};${o.command || ""};${o.customer || ""};${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt};${statusMap[o.status]?.label || o.status};${o.pagamentoForma || ""};${(totalComTaxa(o)).toFixed(2)}\n`; });
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -13339,7 +13344,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
       <div className="space-y-3">
         {visiveis.map((o) => {
           const aberto = expandidos.has(o.id);
-          const valor = orderTotal(o) * 1.1;
+          const valor = totalComTaxa(o);
           const acao = acoesLog.get(o.id);
           const anomalias = anomaliasDoPedido(o);
           return (
@@ -14107,7 +14112,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
     const minutos = Math.round(ms / 60000);
     const dia = new Date(c.inicio).toLocaleDateString("pt-BR", { weekday: "long" });
     const horaIni = new Date(c.inicio).getHours();
-    const valor = c.pedidos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+    const valor = c.pedidos.reduce((s, o) => s + totalComTaxa(o), 0);
     const itens = c.pedidos.reduce((s, o) => s + o.items.reduce((x, it) => x + it.quantity, 0), 0);
     const ticketMedio = c.pedidos.length ? valor / c.pedidos.length : 0;
     const prontos = c.pedidos.map((o) => o.prontoEmISO).filter(Boolean).sort();
@@ -14137,7 +14142,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
     if (!clienteChaveDetalheE) return null;
     const doCliente = orders.filter((o) => (o.customer || o.clienteTelefone) === clienteChaveDetalheE && o.paymentStatus === "paid");
     if (doCliente.length === 0) return null;
-    const totalGasto = doCliente.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+    const totalGasto = doCliente.reduce((s, o) => s + totalComTaxa(o), 0);
     const datas = doCliente.map((o) => o.createdAtISO).filter(Boolean).sort();
     const ultimaVisita = datas[datas.length - 1] || null;
     const primeiraVisita = datas[0] || null;
@@ -14244,7 +14249,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   // ── 5. Análise por horário ──
   const horariosGraficoE = horariosPermE.map((h) => ({ rotulo: `${String(h.hora).padStart(2, "0")}h`, valor: Math.round(h.media), qtd: h.n, variacao: mediaGeralMinutos > 0 ? ((h.media - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
   const faturamentoPorHoraE = {};
-  pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO).forEach((o) => { const h = new Date(o.createdAtISO).getHours(); faturamentoPorHoraE[h] = (faturamentoPorHoraE[h] || 0) + orderTotal(o) * 1.1; });
+  pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO).forEach((o) => { const h = new Date(o.createdAtISO).getHours(); faturamentoPorHoraE[h] = (faturamentoPorHoraE[h] || 0) + totalComTaxa(o); });
   const horaPicoFaturamentoE = Object.entries(faturamentoPorHoraE).sort((a, b) => b[1] - a[1])[0]?.[0];
   const relacaoPermanenciaFaturamentoE = (horaPicoFaturamentoE != null && horarioMaiorPermanenciaE)
     ? (Number(horaPicoFaturamentoE) === horarioMaiorPermanenciaE.hora
@@ -16614,7 +16619,7 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
 
   // Métricas
   const pedidosPagos    = orders.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
-  const faturamentoTotal = pedidosPagos.reduce((s, o) => s + orderTotal(o) * 1.1, 0);
+  const faturamentoTotal = pedidosPagos.reduce((s, o) => s + totalComTaxa(o), 0);
   const produtosAtivos  = produtos.filter((p) => p.active !== false);
   const usuariosAtivos  = usuarios.filter((u) => u.active !== false);
   const formasAtivas    = formasPagamento.filter((f) => f.active !== false);

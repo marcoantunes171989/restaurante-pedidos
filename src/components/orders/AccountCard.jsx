@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cobraTaxaServico } from "../../lib/taxaServico";
 import { User, Phone, Loader2, CreditCard, Check } from "lucide-react";
 import { formatCurrency } from "../../App";
 import AccountStatusBadge from "./AccountStatusBadge";
@@ -37,12 +38,12 @@ export default function AccountCard({
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
   // Pontos que o cliente identificado ganha ao pagar esta conta (incentivo).
   const valorPorPontoAc = Number(fidCaixa?.valorPorPonto) || 0;
-  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? Math.floor((total / 1.1) / valorPorPontoAc) : 0;
+  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? Math.floor((total / (cobraTaxaServico(o.table) ? 1.1 : 1)) / valorPorPontoAc) : 0;
   const opcoesPag = maxPontosReais > 0 && !pago ? [...opcoes, "Pontos"] : opcoes;
 
   // Estado do formulário de pagamento (múltiplas formas) — lógica compartilhada
   // com a tela PDV (usePagamentoConta), escondida atrás de "Receber".
-  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais });
+  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, semTaxa: !cobraTaxaServico(o.table) });
 
   const itensVisiveis = (o.items || []).slice(0, 3);
   const itensExtra = (o.items || []).length - itensVisiveis.length;

@@ -20,7 +20,8 @@ export function usePagamentoConta(total, opcoesPontos = null) {
   const formaPontos = opcoesPontos?.formaPontos || "Pontos";
   const maxPontosReais = Math.max(0, Math.round((Number(opcoesPontos?.maxReais) || 0) * 100) / 100);
 
-  const sub = Math.round((total / 1.1) * 100) / 100;
+  // semTaxa: retirada/entrega externa — o total já é o subtotal (sem os 10%).
+  const sub = Math.round((opcoesPontos?.semTaxa ? total : total / 1.1) * 100) / 100;
   const taxa = Math.round((total - sub) * 100) / 100;
 
   const soma = Math.round(linhas.reduce((s, l) => s + (Number(l.valor) || 0), 0) * 100) / 100;
@@ -54,8 +55,8 @@ export function usePagamentoConta(total, opcoesPontos = null) {
 
 // Mesmo derivador de subtotal/taxa isolado, para quem só precisa exibir o resumo
 // sem gerenciar formas de pagamento (útil em resumos read-only).
-export function resumoConta(total) {
-  const sub = Math.round((total / 1.1) * 100) / 100;
+export function resumoConta(total, { semTaxa = false } = {}) {
+  const sub = Math.round((semTaxa ? total : total / 1.1) * 100) / 100;
   const taxa = Math.round((total - sub) * 100) / 100;
   return { sub, taxa };
 }

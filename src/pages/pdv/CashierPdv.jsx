@@ -52,6 +52,7 @@ import { listarDocumentosFiscais } from "../../lib/fiscal/notasFiscais";
 import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe } from "../../lib/fiscal/imprimirNota";
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
+import { cobraTaxaServico } from "../../lib/taxaServico";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -331,7 +332,8 @@ export default function CashierPdv({
   }, [orders, contaSel]);
   const subtotalSel = contaSel?.subtotal || 0;
   const ajusteSel = (contaSel && ajustePorConta[contaSel.key]) || {};
-  const taxaRemovida = !!ajusteSel.taxaRemovida;
+  // Retirada/entrega externa não tem taxa de serviço (o cliente viu o valor sem ela).
+  const taxaRemovida = !!ajusteSel.taxaRemovida || !cobraTaxaServico(contaSel?.mesa);
   const acrescimoSel = Math.max(0, Number(ajusteSel.acrescimo) || 0);
   const descontoManualSel = Math.max(0, Number(ajusteSel.desconto) || 0);
   const taxaValorSel = taxaRemovida ? 0 : subtotalSel * (taxaPct / 100);

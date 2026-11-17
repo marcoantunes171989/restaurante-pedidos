@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cobraTaxaServico } from "../../../lib/taxaServico";
 import { X, Utensils, CalendarClock, Star } from "lucide-react";
 import { formatCurrency } from "../../../App";
 import { usePagamentoConta } from "./usePagamentoConta";
@@ -36,9 +37,9 @@ export default function CashierCheckout({
   // Pontos que o cliente identificado ganha nesta compra (incentivo no fechamento).
   const valorPorPontoCx = Number(fidCaixa?.valorPorPonto) || 0;
   const clienteIdent = !!(fidCaixa?.ativo && o.clienteTelefone);
-  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? Math.floor((total / 1.1) / valorPorPontoCx) : 0;
+  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? Math.floor((total / (cobraTaxaServico(o.table) ? 1.1 : 1)) / valorPorPontoCx) : 0;
   const opcoesPag = maxPontosReais > 0 ? [...opcoes, "Pontos"] : opcoes;
-  const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais });
+  const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, semTaxa: !cobraTaxaServico(o.table) });
   const [entrada, setEntrada] = useState(""); // dígitos em centavos, aplicados à forma ativa
   const [pessoas, setPessoas] = useState(2);
 
