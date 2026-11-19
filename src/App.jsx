@@ -6,6 +6,7 @@ import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } fr
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
 import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
+import ComoFuncionaFiscal from "./components/admin/fiscal/ComoFuncionaFiscal.jsx";
 import DadosEmpresaFiscal from "./components/admin/fiscal/DadosEmpresaFiscal.jsx";
 import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
 import {
@@ -166,7 +167,7 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
-import { ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket } from "lucide-react";
+import { CircleHelp, ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -7590,6 +7591,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
       { id: "tributos-ibpt", icon: <TrendingUp className="h-4 w-4" />, label: "Tributos (IBPT)" },
       { id: "testes-fiscais", icon: <Hourglass className="h-4 w-4" />, label: "Testes (homologação)" },
       { id: "fiscal", icon: <Landmark className="h-4 w-4" />, label: "Cadastros Fiscais" },
+      { id: "como-funciona-fiscal", icon: <CircleHelp className="h-4 w-4" />, label: "Como funciona" },
     ]},
     { grupo: "Financeiro", itens: [
       { id: "financeiro", icon: <IconPagamento />, label: "Visão Financeira" },
@@ -7757,6 +7759,12 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
+          {ativo === "como-funciona-fiscal" && (
+            <main className="space-y-5">
+              <PageHeader icone={<CircleHelp className="h-4 w-4" />} titulo="Como funciona" descricao="O caminho da nota fiscal, do cadastro da empresa até a produção, com atalho para cada tela. Não precisa de empresa selecionada: é só um guia." />
+              <ComoFuncionaFiscal onIr={(tela) => { setFiscalAba(null); setAdminSection(tela); }} />
+            </main>
+          )}
           {ativo === "painel-fiscal" && (precisaEmpresa ? avisoEmpresa : (
             <main className="space-y-5">
               <PageHeader icone={<CheckCircle2 className="h-4 w-4" />} titulo="Painel Fiscal" descricao={`Situação da nota fiscal da ${lojaInfo?.nome || "sua loja"} em um só lugar: o que falta para emitir, o que precisa de atenção e como estão as notas.`} />

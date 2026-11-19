@@ -55,6 +55,7 @@ export const ADMIN_FISCAL_ITENS = [
   { id: "tributos-ibpt", label: "Tributos (IBPT)" },
   { id: "testes-fiscais", label: "Testes (homologação)" },
   { id: "fiscal", label: "Cadastros Fiscais" },
+  { id: "como-funciona-fiscal", label: "Como funciona" },
 ];
 
 const MSG_SEM_PERMISSAO = "Sem permissão";

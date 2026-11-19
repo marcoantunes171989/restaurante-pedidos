@@ -35,6 +35,7 @@ const LABELS_ADMIN = {
   "emissao-fiscal": "Emissão Fiscal",
   "tributos-ibpt": "Tributos (IBPT)",
   "testes-fiscais": "Testes Fiscais",
+  "como-funciona-fiscal": "Como funciona (Fiscal)",
   "config-fiscal": "Tributação",
   "central-fiscal": "Central Fiscal",
   setores: "Setores de Produtos",
