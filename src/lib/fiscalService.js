@@ -25,7 +25,11 @@ const BASE_FISCAL = {
   ipiCst: "", ipiAliquota: 0, ibsAliquota: 0, cbsAliquota: 0, impostoSeletivo: 0,
   beneficioCbenef: "",
   origemMercadoria: "", // origem da mercadoria (0 a 8); vazio = padrão 0 (nacional) com aviso
+  unidadeComercial: "", unidadeTributavel: "", // sigla (UN, KG, L, PC…); vazio = padrão UN com aviso
 };
+
+// "KG - Quilograma" → "KG"; só aceita sigla de 1 a 6 letras (leiaute: uCom/uTrib 1–6 caracteres).
+const siglaUnidade = (v) => { const c = soCodigo(v).toUpperCase(); return /^[A-Z]{1,6}$/.test(c) ? c : ""; };
 
 const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
 const str = (v) => (v == null ? "" : String(v));
@@ -89,6 +93,7 @@ function doJsonb(fis) {
     ipiCst: soCodigo(fis.cstIpi), ipiAliquota: num(fis.aliquotaIpi ?? fis.ipi),
     beneficioCbenef: str(fis.cBenef || fis.beneficio),
     origemMercadoria: soCodigo(fis.origemMercadoria ?? fis.origem ?? fis.orig),
+    unidadeComercial: siglaUnidade(fis.unidadeComercial), unidadeTributavel: siglaUnidade(fis.unidadeTributavel),
   };
 }
 
@@ -117,7 +122,15 @@ export function resolverFiscalProduto(produto, ctx = {}) {
   // vale em qualquer fonte (regra da loja, cadastros ou JSONB); senão cai na da regra, se houver.
   const fisProd = produto.fiscal && typeof produto.fiscal === "object" ? produto.fiscal : null;
   const origemProd = fisProd ? soCodigo(fisProd.origemMercadoria ?? fisProd.origem ?? fisProd.orig) : "";
-  const comOrigem = (r) => (/^[0-8]$/.test(origemProd) ? { ...r, origemMercadoria: origemProd } : r);
+  // Unidade comercial/tributável também são do produto (cadastro: UN, KG, L, PC…).
+  const uComProd = fisProd ? siglaUnidade(fisProd.unidadeComercial) : "";
+  const uTribProd = fisProd ? siglaUnidade(fisProd.unidadeTributavel) : "";
+  const comOrigem = (r) => ({
+    ...r,
+    ...(/^[0-8]$/.test(origemProd) ? { origemMercadoria: origemProd } : {}),
+    ...(uComProd ? { unidadeComercial: uComProd } : {}),
+    ...(uTribProd ? { unidadeTributavel: uTribProd } : {}),
+  });
 
   // 1) Configuração fiscal da loja (Fase 5) — fonte preferida.
   const cfg = porId(ctx.lojaFiscalRegras, produto.lojaFiscalRegraId);

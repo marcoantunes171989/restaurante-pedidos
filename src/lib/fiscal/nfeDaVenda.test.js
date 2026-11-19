@@ -256,3 +256,33 @@ describe("origem do produto chega à nota (ponta a ponta)", () => {
     expect(r.avisos.some((a) => /Origem da mercadoria/.test(a))).toBe(true); // o 2º item ficou no padrão 0
   });
 });
+
+describe("unidade comercial do produto chega à nota (ponta a ponta)", () => {
+  const vendaUn = (prodFiscal, qtd) => { const total = Math.round(49.9 * qtd * 100) / 100; return montarVendaFiscal({
+    pedidos: [{ id: "P1", lojaId: 7, status: "delivered", items: [{ productId: 10, name: "Queijo Minas", price: 49.9, quantity: qtd }] }],
+    produtos: [{ id: 10, name: "Queijo Minas", lojaId: 7, lojaFiscalRegraId: 50, fiscal: prodFiscal }],
+    ctxFiscal: { lojaFiscalRegras: [REGRA] }, formas: [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }], mapaMeios: { dinheiro: "01" },
+    pagamento: { total, troco: 0, detalhes: [{ forma: "Dinheiro", valor: total }] },
+  }); };
+  it("KG com quantidade fracionada: uCom/uTrib KG, qCom com 4 casas e vProd arredondado", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: vendaUn({ unidadeComercial: "KG - Quilograma", unidadeTributavel: "KG - Quilograma", origem: "0 - Nacional" }, 0.35) });
+    expect(r.ok, r.erro).toBe(true);
+    const xml = montarXmlNFe(r.dados).xml;
+    expect(xml).toContain("<uCom>KG</uCom><qCom>0.3500</qCom>");
+    expect(xml).toContain("<uTrib>KG</uTrib><qTrib>0.3500</qTrib>");
+    expect(xml).toContain("<vProd>17.47</vProd>");
+    expect(r.avisos.some((a) => /Unidade comercial = UN/.test(a))).toBe(false);
+  });
+  it("sem unidade cadastrada usa UN e avisa", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: vendaUn({}, 1) });
+    expect(r.dados.itens[0].uCom).toBe("UN");
+    expect(r.avisos.some((a) => /Unidade comercial = UN/.test(a))).toBe(true);
+  });
+  it("unidade tributável diferente da comercial: usa a comercial nas duas e avisa o contador", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: vendaUn({ unidadeComercial: "PC - Pacote", unidadeTributavel: "KG - Quilograma" }, 1) });
+    expect(r.ok, r.erro).toBe(true);
+    expect(montarXmlNFe(r.dados).xml).toContain("<uCom>PC</uCom>");
+    expect(montarXmlNFe(r.dados).xml).toContain("<uTrib>PC</uTrib>");
+    expect(r.avisos.some((a) => /Unidade tributável diferente/.test(a))).toBe(true);
+  });
+});

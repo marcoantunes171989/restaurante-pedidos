@@ -146,6 +146,8 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
 
   const itens = [];
   let origemPadrao = false; // algum item sem origem cadastrada → usou 0 (nacional)
+  let unidadePadrao = false; // algum item sem unidade cadastrada → usou UN
+  const unidadesDiferentes = []; // itens com unidade tributável diferente da comercial (sem fator de conversão no cadastro)
   const credito = { total: 0, aliquotas: new Set() }; // CSOSN 101: crédito do Simples (texto obrigatório em infCpl)
   for (const it of venda.itens) {
     const f = it.fiscal || {};
@@ -154,6 +156,10 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     const origemValida = /^[0-8]$/.test(String(f.origemMercadoria ?? "").trim());
     const orig = origemValida ? String(f.origemMercadoria).trim() : "0";
     if (!origemValida) origemPadrao = true;
+    // Unidade comercial (cadastro do produto); a tributável acompanha a comercial (sem fator de conversão).
+    const uCom = /^[A-Z]{1,6}$/.test(String(f.unidadeComercial || "")) ? String(f.unidadeComercial) : "UN";
+    if (uCom === "UN" && !f.unidadeComercial) unidadePadrao = true;
+    if (f.unidadeTributavel && f.unidadeTributavel !== uCom) unidadesDiferentes.push(it.nome);
     if (simples) {
       const csosn = String(f.csosn || "").trim();
       if (csosn === "101") {
@@ -193,13 +199,13 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     if (cofins.erro) return falha(cofins.erro);
     itens.push({
       cProd: String(it.produtoId ?? it.seq), xProd: it.nome, NCM: f.ncm, CEST: f.cest || "", CFOP: f.cfop,
-      uCom: "UN", qCom: it.quantidade, vUnCom: it.valorUnitario, vProd: it.valorBruto,
+      uCom, qCom: it.quantidade, vUnCom: it.valorUnitario, vProd: it.valorBruto,
       vDesc: it.vDesc, vOutro: it.vOutro, icms, pis, cofins,
     });
   }
-  avisos.push(origemPadrao
-    ? "Origem da mercadoria (orig) = 0 (nacional) nos itens sem origem cadastrada e unidade = UN em todos os itens: conferir no cadastro do produto."
-    : "Unidade = UN em todos os itens: conferir no cadastro do produto.");
+  if (origemPadrao) avisos.push("Origem da mercadoria (orig) = 0 (nacional) nos itens sem origem cadastrada: conferir no cadastro do produto.");
+  if (unidadePadrao) avisos.push("Unidade comercial = UN nos itens sem unidade cadastrada: conferir no cadastro do produto.");
+  if (unidadesDiferentes.length) avisos.push(`Unidade tributável diferente da comercial em: ${unidadesDiferentes.join(", ")}. O emissor usa a comercial nas duas (sem fator de conversão): confirmar com o contador.`);
 
   // Tributos aproximados (Lei 12.741/2012) pela tabela IBPT da UF da loja. Só informa
   // quando todos os itens têm alíquota; sem tabela, a nota segue sem o valor.

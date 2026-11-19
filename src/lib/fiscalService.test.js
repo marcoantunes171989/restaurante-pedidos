@@ -116,3 +116,22 @@ describe("origem da mercadoria (campo do produto vale em qualquer fonte)", () =>
     expect(r.origemMercadoria).toBe("2");
   });
 });
+
+describe("unidade comercial/tributável (campo do produto vale em qualquer fonte)", () => {
+  it("sem unidade no produto: vazio (o emissor usa UN e avisa)", () => {
+    const r = resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10 }, ctx);
+    expect(r.unidadeComercial).toBe("");
+    expect(r.unidadeTributavel).toBe("");
+  });
+  it("texto do select vira sigla, com regra da loja ou JSONB", () => {
+    const r1 = resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { unidadeComercial: "KG - Quilograma", unidadeTributavel: "KG - Quilograma" } }, ctx);
+    expect(r1).toMatchObject({ fonte: "config-loja", unidadeComercial: "KG", unidadeTributavel: "KG" });
+    const r2 = resolverFiscalProduto({ id: 2, fiscal: { ncm: "21069090", cfop: "5102", csosn: "102", unidadeComercial: "L - Litro" } }, {});
+    expect(r2).toMatchObject({ fonte: "produto-jsonb", unidadeComercial: "L" });
+  });
+  it("valor inválido é ignorado (sigla de 1 a 6 letras)", () => {
+    for (const lixo of ["Selecione...", "123", "TOOLONGUN - x", ""]) {
+      expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { unidadeComercial: lixo } }, ctx).unidadeComercial).toBe("");
+    }
+  });
+});
