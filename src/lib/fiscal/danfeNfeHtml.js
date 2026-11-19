@@ -28,10 +28,14 @@ export const ITENS_POR_FOLHA = 22;
 const FRETE = { 0: "0 - Remetente (CIF)", 1: "1 - Destinatário (FOB)", 2: "2 - Terceiros", 3: "3 - Próprio Remetente", 4: "4 - Próprio Destinatário", 9: "9 - Sem Ocorrência de Transporte" };
 
 export const CSS_DANFE_NFE = `
-@page{size:A4 portrait;margin:7mm}
+@page{size:A4 portrait;margin:10mm}
 *{box-sizing:border-box}
 body{margin:0;background:#fff;color:#000;font-family:"Times New Roman",Times,serif}
-.folha{width:196mm;font-size:10pt}
+.folha{width:100%;min-height:275mm;display:flex;flex-direction:column;font-size:10pt}
+.itensbox{flex:1 1 auto;display:flex;flex-direction:column;min-height:40mm}
+.itensbox table.itens{flex:1 1 auto}
+.fill td{border-bottom:0!important}
+@media screen{body{background:#e5e7eb;padding:6mm 0}.folha{width:190mm;margin:0 auto 6mm;background:#fff;padding:10mm;min-height:297mm;box-shadow:0 1px 6px rgba(0,0,0,.25)}}
 .folha+.folha,.via+.via{page-break-before:always;break-before:page}
 .bloco{font-size:6pt;font-weight:700;text-transform:uppercase;margin:1.2mm 0 .3mm}
 .g{display:grid;border:1px solid #000;border-bottom:0;border-right:0}
@@ -61,7 +65,7 @@ function cabecalho(d, folha, total) {
   const protRotulo = d.epec ? "PROTOCOLO DE AUTORIZAÇÃO DO EPEC" : "PROTOCOLO DE AUTORIZAÇÃO DE USO";
   const prot = d.epec ? `${d.epec.nProt} ${dataHoraLocal(d.epec.dhRegistro)}`.trim() : d.protocolo ? `${d.protocolo.nProt} ${dataHoraLocal(d.protocolo.dhRecbto)}` : "";
   return `
-  <div class="g" style="grid-template-columns:78mm 34mm 84mm">
+  <div class="g" style="grid-template-columns:78fr 34fr 84fr">
     <div class="c emit" style="min-height:30mm"><span class="r">Identificação do emitente</span>
       <div class="nome">${esc(e.nome)}</div><div class="end">${esc(end1)}</div><div class="end">${esc(end2)}</div><div class="end">${esc(end3)}</div></div>
     <div class="c danfe"><div class="t">DANFE</div><div class="s">DOCUMENTO AUXILIAR DA NOTA FISCAL ELETRÔNICA</div>
@@ -73,16 +77,16 @@ function cabecalho(d, folha, total) {
       <span class="r">Chave de acesso</span><div class="chave">${esc(chaveEmBlocos(d.chave))}</div>
       <div style="font-size:8pt;margin-top:1mm">Consulta de autenticidade no portal nacional da NF-e www.nfe.fazenda.gov.br/portal ou no site da Sefaz Autorizadora</div></div>
   </div>
-  <div class="g" style="grid-template-columns:112mm 84mm">${campo("Natureza da operação", d.natOp)}${campo(protRotulo, prot)}</div>
-  <div class="g" style="grid-template-columns:65mm 65mm 66mm">${campo("Inscrição estadual", e.ie)}${campo("Insc. estadual do subst. trib.", e.iest || "")}${campo("CNPJ", doc(e.cnpj, e.cpf))}</div>`;
+  <div class="g" style="grid-template-columns:112fr 84fr">${campo("Natureza da operação", d.natOp)}${campo(protRotulo, prot)}</div>
+  <div class="g" style="grid-template-columns:65fr 65fr 66fr">${campo("Inscrição estadual", e.ie)}${campo("Insc. estadual do subst. trib.", e.iest || "")}${campo("CNPJ", doc(e.cnpj, e.cpf))}</div>`;
 }
 
 function destinatario(d) {
   const x = d.destinatario || {}, en = x.ender || {};
   return `<div class="bloco">Destinatário / remetente</div>
-  <div class="g" style="grid-template-columns:118mm 46mm 32mm">${campo("Nome / razão social", x.nome)}${campo("CNPJ / CPF", doc(x.cnpj, x.cpf))}${campo("Data da emissão", data(d.dhEmi))}</div>
-  <div class="g" style="grid-template-columns:96mm 50mm 18mm 32mm">${campo("Endereço", [[en.xLgr, en.nro].filter(Boolean).join(", "), en.xCpl].filter(Boolean).join(" - "))}${campo("Bairro / distrito", en.xBairro)}${campo("CEP", cep(en.CEP))}${campo("Data da saída/entrada", d.dhSaiEnt ? data(d.dhSaiEnt) : "")}</div>
-  <div class="g" style="grid-template-columns:78mm 38mm 12mm 36mm 32mm">${campo("Município", en.xMun)}${campo("Fone / fax", en.fone || "")}${campo("UF", en.UF)}${campo("Inscrição estadual", x.ie || "")}${campo("Hora da saída/entrada", d.dhSaiEnt ? hora(d.dhSaiEnt) : "")}</div>`;
+  <div class="g" style="grid-template-columns:118fr 46fr 32fr">${campo("Nome / razão social", x.nome)}${campo("CNPJ / CPF", doc(x.cnpj, x.cpf))}${campo("Data da emissão", data(d.dhEmi))}</div>
+  <div class="g" style="grid-template-columns:90fr 48fr 26fr 32fr">${campo("Endereço", [[en.xLgr, en.nro].filter(Boolean).join(", "), en.xCpl].filter(Boolean).join(" - "))}${campo("Bairro / distrito", en.xBairro)}${campo("CEP", cep(en.CEP))}${campo("Data da saída/entrada", d.dhSaiEnt ? data(d.dhSaiEnt) : "")}</div>
+  <div class="g" style="grid-template-columns:78fr 38fr 12fr 36fr 32fr">${campo("Município", en.xMun)}${campo("Fone / fax", en.fone || "")}${campo("UF", en.UF)}${campo("Inscrição estadual", x.ie || "")}${campo("Hora da saída/entrada", d.dhSaiEnt ? hora(d.dhSaiEnt) : "")}</div>`;
 }
 
 function imposto(d) {
@@ -91,14 +95,14 @@ function imposto(d) {
   <div class="g" style="grid-template-columns:repeat(5,1fr) 1fr">${campo("Base de cálc. do ICMS", brl(t.vBC), "n")}${campo("Valor do ICMS", brl(t.vICMS), "n")}${campo("Base de cálc. ICMS S.T.", brl(t.vBCST), "n")}${campo("Valor do ICMS subst.", brl(t.vST), "n")}${campo("Valor total dos produtos", brl(t.vProd), "n")}<div class="c" style="border:0"></div></div>
   <div class="g" style="grid-template-columns:repeat(6,1fr)">${campo("Valor do frete", brl(t.vFrete), "n")}${campo("Valor do seguro", brl(t.vSeg), "n")}${campo("Desconto", brl(t.vDesc), "n")}${campo("Outras despesas", brl(t.vOutro), "n")}${campo("Valor do IPI", brl(t.vIPI), "n")}${campo("Valor total da nota", brl(t.vNF), "n")}</div>
   <div class="bloco">Transportador / volumes transportados</div>
-  <div class="g" style="grid-template-columns:90mm 56mm 50mm">${campo("Nome / razão social", "")}${campo("Frete por conta", FRETE[d.modFrete] || d.modFrete || "")}${campo("CNPJ / CPF", "")}</div>`;
+  <div class="g" style="grid-template-columns:90fr 56fr 50fr">${campo("Nome / razão social", "")}${campo("Frete por conta", FRETE[d.modFrete] || d.modFrete || "")}${campo("CNPJ / CPF", "")}</div>`;
 }
 
 function itens(lista) {
   const linhas = lista.map((it) => `<tr><td>${esc(it.cProd)}</td><td>${esc(it.xProd)}${it.infAdProd ? `<br><i>${esc(it.infAdProd)}</i>` : ""}</td><td>${esc(it.NCM)}</td><td>${esc(it.cst)}</td><td>${esc(it.CFOP)}</td><td>${esc(it.uCom)}</td><td class="n">${qtd(it.qCom)}</td><td class="n">${brl(it.vUnCom)}</td><td class="n">${brl(it.vProd)}</td><td class="n">${brl(it.vBC)}</td><td class="n">${brl(it.vICMS)}</td><td class="n">${brl(it.vIPI)}</td><td class="n">${brl(it.pICMS)}</td><td class="n">${brl(it.pIPI)}</td></tr>`).join("");
   const cst = lista.some((it) => it.csosn) ? "O/CSOSN" : "O/CST";
   return `<div class="bloco">Dados dos produtos / serviços</div>
-  <table class="itens"><thead><tr><th>Código</th><th>Descrição do produto / serviço</th><th>NCM/SH</th><th>${cst}</th><th>CFOP</th><th>Un</th><th>Quant.</th><th>Valor unit.</th><th>Valor total</th><th>BC ICMS</th><th>Valor ICMS</th><th>Valor IPI</th><th>Alíq. ICMS</th><th>Alíq. IPI</th></tr></thead><tbody>${linhas}</tbody></table>`;
+  <div class="itensbox"><table class="itens" style="height:100%"><thead><tr><th>Código</th><th>Descrição do produto / serviço</th><th>NCM/SH</th><th>${cst}</th><th>CFOP</th><th>Un</th><th>Quant.</th><th>Valor unit.</th><th>Valor total</th><th>BC ICMS</th><th>Valor ICMS</th><th>Valor IPI</th><th>Alíq. ICMS</th><th>Alíq. IPI</th></tr></thead><tbody>${linhas}<tr class="fill" style="height:100%">${"<td></td>".repeat(14)}</tr></tbody></table></div>`;
 }
 
 function adicionais(d) {
@@ -111,7 +115,7 @@ function adicionais(d) {
   if (d.infAdFisco) linhas.push(d.infAdFisco);
   if (d.infCpl) linhas.push(d.infCpl);
   return `<div class="bloco">Dados adicionais</div>
-  <div class="g" style="grid-template-columns:130mm 66mm"><div class="c" style="min-height:28mm"><span class="r">Informações complementares</span><div class="adic">${esc(linhas.join("\n"))}</div></div><div class="c"><span class="r">Reservado ao fisco</span></div></div>`;
+  <div class="g" style="grid-template-columns:130fr 66fr"><div class="c" style="min-height:28mm"><span class="r">Informações complementares</span><div class="adic">${esc(linhas.join("\n"))}</div></div><div class="c"><span class="r">Reservado ao fisco</span></div></div>`;
 }
 
 /** Corpo HTML do DANFE (uma via; EPEC = duas vias). */

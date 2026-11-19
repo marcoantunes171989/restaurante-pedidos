@@ -103,3 +103,16 @@ describe("ação danfe da NF-e", () => {
     expect(await processarEmissao({ acao: "danfe", documentoId: "d" }, deps({ ok: true, fonte: "contingencia", xml: EPEC_XML, documento: { loja_id: 7, modelo: 55, tp_emis: 4 } }))).toMatchObject({ code: "SEM_AUTORIZACAO" });
   });
 });
+
+describe("DANFE A4: enquadramento na folha", () => {
+  it("margem padrão de 10 mm, folha na largura útil e tabela de itens esticada até o rodapé", async () => {
+    const { CSS_DANFE_NFE } = await import("../../src/lib/fiscal/danfeNfeHtml.js");
+    expect(CSS_DANFE_NFE).toContain("@page{size:A4 portrait;margin:10mm}");
+    expect(CSS_DANFE_NFE).toMatch(/\.folha\{width:100%;min-height:275mm;display:flex;flex-direction:column/);
+    const html = htmlDanfeNfe(dadosDanfeNfe({ xml: PROC, fonte: "autorizada", documento: { id: "d1" } }));
+    expect(html).toContain('class="itensbox"');
+    expect(html).toContain('class="fill"');
+    // as colunas em mm foram trocadas por frações: a folha acompanha a largura da página
+    expect(html).not.toMatch(/grid-template-columns:[^"]*\dmm/);
+  });
+});
