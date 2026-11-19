@@ -47,6 +47,7 @@ export const ADMIN_GESTAO_ITENS = [
 
 // Grupo Fiscal do menu (etapa 1 da reorganização): telas fiscais da loja, mesmos ids de antes.
 export const ADMIN_FISCAL_ITENS = [
+  { id: "painel-fiscal", label: "Painel Fiscal" },
   { id: "config-fiscal", label: "Configuração Fiscal" },
   { id: "fiscal", label: "Cadastros Fiscais" },
 ];

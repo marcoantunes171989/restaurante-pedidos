@@ -5,6 +5,7 @@ import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js"
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
+import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
 import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
@@ -7580,6 +7581,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     // Grupo Fiscal (etapa 1): reúne as telas fiscais da loja que antes ficavam soltas em Gestão.
     // Mesmos ids e permissões de antes — só mudou o agrupamento e o rótulo de "fiscal".
     { grupo: "Fiscal", itens: [
+      { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
       { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Configuração Fiscal" },
       { id: "fiscal", icon: <Landmark className="h-4 w-4" />, label: "Cadastros Fiscais" },
     ]},
@@ -7629,6 +7631,9 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const botaoMenuRef = useRef(null);
   useEffect(() => { setMenuMobileAberto(false); }, [adminSection]); // fecha ao navegar
+  // Painel Fiscal → abre a Configuração Fiscal já na aba certa; some ao sair da tela (menu volta ao padrão).
+  const [fiscalAba, setFiscalAba] = useState(null);
+  useEffect(() => { if (adminSection !== "config-fiscal") setFiscalAba(null); }, [adminSection]);
   // Command Palette (Ctrl/Cmd + K) — navegação rápida (aditivo)
   const [cmdOpen, setCmdOpen] = useState(false);
   const cmdSections = montarSecoesBuscaAdmin(menu, {
@@ -7746,7 +7751,15 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}
+          {ativo === "painel-fiscal" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<CheckCircle2 className="h-4 w-4" />} titulo="Painel Fiscal" descricao={`Situação da nota fiscal da ${lojaInfo?.nome || "sua loja"} em um só lugar: o que falta para emitir, o que precisa de atenção e como estão as notas.`} />
+              <PainelFiscal supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} produtos={products} regrasLoja={lojaFiscalRegras}
+                emitenteLegado={emitenteFiscalApi?.fetch || null}
+                onIr={({ tela, aba }) => { setFiscalAba(aba); setAdminSection(tela); }} />
+            </main>
+          ))}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -21425,8 +21438,8 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, formasPagamento = [] }) {
-  const [aba, setAba] = useState("minha");
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, formasPagamento = [], abaInicial = null }) {
+  const [aba, setAba] = useState(abaInicial || "minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
   const importadaDe = (regraId) => importadas.find((i) => i.regraGlobalId === regraId) || null;
