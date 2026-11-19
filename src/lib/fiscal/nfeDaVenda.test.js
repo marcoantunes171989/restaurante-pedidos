@@ -110,7 +110,7 @@ describe("dadosNFeDaVenda", () => {
     expect(totais.vNF).toBe(v.totais.vNF); // ST retido não muda o total da nota
   });
   it("CSOSN 101 vira ICMSSN101 com pCredSN da regra, crédito por item e texto obrigatório em infCpl", () => {
-    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 1.25 }] } });
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", creditoSnAliquota: 1.25 }] } });
     const r = dadosNFeDaVenda({ ...BASE, venda: v });
     expect(r.ok, r.erro).toBe(true);
     const total = r.dados.itens.reduce((s, i) => s + i.icms.vCredICMSSN, 0);
@@ -324,6 +324,15 @@ describe("CSOSN 900 e ST (201/202/203)", () => {
     expect(r.erro).toContain(`CSOSN ${csosn} (substituição tributária cobrada na nota)`);
     expect(r.erro).toMatch(/vNF/);
     expect(r.erro).toMatch(/CSOSN 500/);
+  });
+  it("101 com 12% no campo de ICMS da regra (caso real de PROD) NÃO vira crédito: recusa pedindo o campo próprio", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 12 }] } }) });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toContain("Crédito do Simples (%)");
+  });
+  it("crédito do Simples acima de 5% é recusado (não é alíquota do Simples)", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", creditoSnAliquota: 12 }] } }) });
+    expect(r.ok).toBe(false);
   });
   it("101 usa o campo creditoSnAliquota quando existe (vence a alíquota de ICMS da regra)", () => {
     const r = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 18, creditoSnAliquota: 1.25 }] } }) });

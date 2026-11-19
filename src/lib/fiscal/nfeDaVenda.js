@@ -165,9 +165,10 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     if (simples) {
       const csosn = String(f.csosn || "").trim();
       if (csosn === "101") {
-        // Alíquota de crédito do Simples: campo próprio do cadastro (creditoSnAliquota); sem ele, o "alíquota de ICMS" da regra.
-        const pCredSN = Number(f.creditoSnAliquota || 0) > 0 ? Number(f.creditoSnAliquota) : Number(f.icmsAliquota || 0);
-        if (!(pCredSN > 0 && pCredSN < 100)) return falha(`Item "${it.nome}": CSOSN 101 exige a alíquota de crédito do Simples Nacional (campo "alíquota de crédito do Simples" do produto, ou a alíquota de ICMS da regra fiscal; entre 0 e 100%). Informe com o contador.`);
+        // Alíquota de crédito do Simples: SÓ do campo próprio (creditoSnAliquota). O campo "alíquota de ICMS" da regra NÃO serve:
+        // é outra coisa (ex.: 12% em regras de PROD) e sairia na nota como crédito errado.
+        const pCredSN = Number(f.creditoSnAliquota || 0);
+        if (!(pCredSN > 0 && pCredSN <= 5)) return falha(`Item "${it.nome}": CSOSN 101 exige a alíquota de crédito do Simples Nacional no campo "Crédito do Simples (%)" do produto (acima de 0 e até 5%: é a alíquota da tabela do Simples, não a do ICMS). Informe com o contador.`);
         const vCredICMSSN = r2(it.valorLiquido * pCredSN / 100);
         icms = { grupo: "ICMSSN101", orig, CSOSN: csosn, pCredSN, vCredICMSSN };
         credito.total = r2(credito.total + vCredICMSSN);
@@ -178,7 +179,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
         const pICMS = Number(f.icmsAliquota || 0);
         const pRed = Number(f.icmsReducao || 0);
         const pCredSN = Number(f.creditoSnAliquota || 0);
-        if (pICMS < 0 || pICMS >= 100 || pRed < 0 || pRed >= 100 || pCredSN < 0 || pCredSN >= 100) return falha(`Item "${it.nome}": CSOSN 900 com alíquota ou redução de base fora de 0 a 100%.`);
+        if (pICMS < 0 || pICMS >= 100 || pRed < 0 || pRed >= 100 || pCredSN < 0 || pCredSN > 5) return falha(`Item "${it.nome}": CSOSN 900 com alíquota ou redução de base fora de 0 a 100%.`);
         icms = { grupo: "ICMSSN900", orig, CSOSN: csosn };
         if (pICMS > 0) {
           const vBC = r2(it.valorLiquido * (1 - pRed / 100));
