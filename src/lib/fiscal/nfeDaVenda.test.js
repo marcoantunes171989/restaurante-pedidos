@@ -80,11 +80,11 @@ describe("dadosNFeDaVenda", () => {
     expect(r.erro).toMatch(/pendência/i);
   });
   it("CSOSN sem grupo suportado vira erro claro (sem chutar outro código)", () => {
-    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "900" }] } });
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "103x" }] } });
     const r = dadosNFeDaVenda({ ...BASE, venda: v });
     expect(r.ok).toBe(false);
-    expect(r.erro).toMatch(/CSOSN 900/);
-    expect(r.erro).toMatch(/101, 102.*500/); // a lista de suportados inclui 101 e 500
+    expect(r.erro).toMatch(/CSOSN 103x/);
+    expect(r.erro).toMatch(/101, 102.*500, 900/); // a lista de suportados inclui 101, 500 e 900
   });
   it("emitente sem Inscrição Estadual ou sem endereço → recusa antes de gerar o XML", () => {
     const v = venda();
@@ -284,5 +284,50 @@ describe("unidade comercial do produto chega à nota (ponta a ponta)", () => {
     expect(montarXmlNFe(r.dados).xml).toContain("<uCom>PC</uCom>");
     expect(montarXmlNFe(r.dados).xml).toContain("<uTrib>PC</uTrib>");
     expect(r.avisos.some((a) => /Unidade tributável diferente/.test(a))).toBe(true);
+  });
+});
+
+describe("CSOSN 900 e ST (201/202/203)", () => {
+  const regra900 = (extra) => venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "900", ...extra }] } });
+  it("900 sem alíquotas: só origem e CSOSN, com aviso", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: regra900({}) });
+    expect(r.ok, r.erro).toBe(true);
+    expect(montarXmlNFe(r.dados).xml).toContain("<ICMSSN900><orig>0</orig><CSOSN>900</CSOSN></ICMSSN900>");
+    expect(r.avisos.filter((a) => /CSOSN 900/.test(a))).toHaveLength(1);
+  });
+  it("900 com alíquota de ICMS e redução de base: ICMS próprio sobre o valor líquido reduzido; totais batem com a venda", () => {
+    const v = regra900({ icmsAliquota: 18, icmsReducao: 10 });
+    const r = dadosNFeDaVenda({ ...BASE, venda: v });
+    expect(r.ok, r.erro).toBe(true);
+    const it0 = r.dados.itens[0].icms;
+    expect(it0).toMatchObject({ grupo: "ICMSSN900", modBC: "3", pRedBC: 10, pICMS: 18 });
+    expect(it0.vBC).toBeCloseTo(27, 2);          // 30 × 0,90
+    expect(it0.vICMS).toBeCloseTo(4.86, 2);      // 27 × 18%
+    const { xml, totais } = montarXmlNFe(r.dados);
+    expect(xml).toContain("<pRedBC>10.00</pRedBC>");
+    expect(totais.vNF).toBe(v.totais.vNF);        // o ICMS próprio não muda o total
+  });
+  it("900 com crédito do Simples: pCredSN do campo próprio, vCredICMSSN e texto obrigatório em infCpl", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: regra900({ creditoSnAliquota: 2 }) });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.itens[0].icms).toMatchObject({ pCredSN: 2 });
+    expect(montarXmlNFe(r.dados).xml).toContain("PERMITE O APROVEITAMENTO DO CREDITO DE ICMS");
+  });
+  it("900 com ST é recusado com explicação (ST entra no vNF)", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: regra900({ icmsSt: true, mva: 30 }) });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/CSOSN 900 com substituição tributária/);
+  });
+  it.each(["201", "202", "203"])("CSOSN %s (ST cobrado na nota) é recusado com a razão e a alternativa (500)", (csosn) => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn }] } }) });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toContain(`CSOSN ${csosn} (substituição tributária cobrada na nota)`);
+    expect(r.erro).toMatch(/vNF/);
+    expect(r.erro).toMatch(/CSOSN 500/);
+  });
+  it("101 usa o campo creditoSnAliquota quando existe (vence a alíquota de ICMS da regra)", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 18, creditoSnAliquota: 1.25 }] } }) });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.itens[0].icms.pCredSN).toBe(1.25);
   });
 });

@@ -25,6 +25,7 @@ const BASE_FISCAL = {
   ipiCst: "", ipiAliquota: 0, ibsAliquota: 0, cbsAliquota: 0, impostoSeletivo: 0,
   beneficioCbenef: "",
   origemMercadoria: "", // origem da mercadoria (0 a 8); vazio = padrão 0 (nacional) com aviso
+  creditoSnAliquota: 0, // alíquota de crédito do Simples Nacional (CSOSN 101/900); 0 = não informada
   unidadeComercial: "", unidadeTributavel: "", // sigla (UN, KG, L, PC…); vazio = padrão UN com aviso
 };
 
@@ -54,7 +55,7 @@ function daConfigLoja(cfg) {
     ipiCst: str(cfg.ipiCst), ipiAliquota: num(cfg.ipiAliquota),
     ibsAliquota: num(cfg.ibsAliquota), cbsAliquota: num(cfg.cbsAliquota), impostoSeletivo: num(cfg.impostoSeletivo),
     beneficioCbenef: str(cfg.beneficioCbenef),
-    origemMercadoria: str(cfg.origemMercadoria),
+    origemMercadoria: str(cfg.origemMercadoria), creditoSnAliquota: num(cfg.creditoSnAliquota),
   };
 }
 
@@ -94,6 +95,7 @@ function doJsonb(fis) {
     beneficioCbenef: str(fis.cBenef || fis.beneficio),
     origemMercadoria: soCodigo(fis.origemMercadoria ?? fis.origem ?? fis.orig),
     unidadeComercial: siglaUnidade(fis.unidadeComercial), unidadeTributavel: siglaUnidade(fis.unidadeTributavel),
+    creditoSnAliquota: num(fis.creditoSnAliquota),
   };
 }
 
@@ -125,8 +127,10 @@ export function resolverFiscalProduto(produto, ctx = {}) {
   // Unidade comercial/tributável também são do produto (cadastro: UN, KG, L, PC…).
   const uComProd = fisProd ? siglaUnidade(fisProd.unidadeComercial) : "";
   const uTribProd = fisProd ? siglaUnidade(fisProd.unidadeTributavel) : "";
+  const creditoProd = fisProd ? num(fisProd.creditoSnAliquota) : 0;
   const comOrigem = (r) => ({
     ...r,
+    ...(creditoProd > 0 ? { creditoSnAliquota: creditoProd } : {}),
     ...(/^[0-8]$/.test(origemProd) ? { origemMercadoria: origemProd } : {}),
     ...(uComProd ? { unidadeComercial: uComProd } : {}),
     ...(uTribProd ? { unidadeTributavel: uTribProd } : {}),

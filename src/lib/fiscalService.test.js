@@ -135,3 +135,14 @@ describe("unidade comercial/tributável (campo do produto vale em qualquer fonte
     }
   });
 });
+
+describe("alíquota de crédito do Simples (campo do produto vale em qualquer fonte)", () => {
+  it("regra da loja, produto e JSONB", () => {
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10 }, ctx).creditoSnAliquota).toBe(0);
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { creditoSnAliquota: "1,25" } }, ctx).creditoSnAliquota).toBe(1.25);
+    const ctxRegra = { lojaFiscalRegras: [{ ...ctx.lojaFiscalRegras[0], creditoSnAliquota: 2 }] };
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10 }, ctxRegra).creditoSnAliquota).toBe(2);
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { creditoSnAliquota: 3 } }, ctxRegra).creditoSnAliquota).toBe(3);
+    expect(resolverFiscalProduto({ id: 2, fiscal: { ncm: "21069090", cfop: "5102", csosn: "101", creditoSnAliquota: "1,5" } }, {}).creditoSnAliquota).toBe(1.5);
+  });
+});

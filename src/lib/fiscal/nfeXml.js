@@ -91,6 +91,25 @@ function grupoIcms(icms, nItem) {
       exigir(Number(icms.pCredSN) > 0 && Number(icms.pCredSN) < 100, `Item ${nItem}: alíquota de crédito do Simples (pCredSN) inválida para o CSOSN 101.`);
       exigir(icms.vCredICMSSN !== undefined && Number(icms.vCredICMSSN) >= 0, `Item ${nItem}: valor do crédito do Simples (vCredICMSSN) não informado para o CSOSN 101.`);
       return g("ICMSSN101", t("orig", icms.orig) + t("CSOSN", "101") + t("pCredSN", dec(icms.pCredSN, 2)) + t("vCredICMSSN", dec(icms.vCredICMSSN)));
+    case "ICMSSN900": {
+      // Outros (Simples Nacional): ICMS próprio destacado e/ou crédito do Simples, ambos opcionais.
+      // O grupo de ST não é suportado (o ST entra no vNF e exige decisão do contador): recusa se vier.
+      exigir(String(icms.CSOSN) === "900", `Item ${nItem}: grupo ICMSSN900 exige CSOSN 900.`);
+      exigir(icms.vBCST === undefined && icms.vICMSST === undefined, `Item ${nItem}: ST no CSOSN 900 ainda não é suportado pelo gerador.`);
+      let proprio = "";
+      if (icms.vICMS !== undefined || icms.pICMS !== undefined) {
+        exigir(["0", "1", "2", "3"].includes(String(icms.modBC)), `Item ${nItem}: modBC inválido para ICMSSN900.`);
+        exigir(Number(icms.vBC) > 0 && Number(icms.pICMS) > 0 && Number(icms.pICMS) < 100, `Item ${nItem}: base e alíquota do ICMS próprio inválidas para ICMSSN900.`);
+        proprio = t("modBC", icms.modBC) + t("vBC", dec(icms.vBC)) + (Number(icms.pRedBC) > 0 ? t("pRedBC", dec(icms.pRedBC, 2)) : "") +
+          t("pICMS", dec(icms.pICMS, 2)) + t("vICMS", dec(icms.vICMS));
+      }
+      let credito = "";
+      if (icms.pCredSN !== undefined || icms.vCredICMSSN !== undefined) {
+        exigir(Number(icms.pCredSN) > 0 && Number(icms.pCredSN) < 100 && Number(icms.vCredICMSSN) >= 0, `Item ${nItem}: crédito do Simples (pCredSN/vCredICMSSN) inválido para ICMSSN900.`);
+        credito = t("pCredSN", dec(icms.pCredSN, 2)) + t("vCredICMSSN", dec(icms.vCredICMSSN));
+      }
+      return g("ICMSSN900", t("orig", icms.orig) + t("CSOSN", "900") + proprio + credito);
+    }
     case "ICMSSN102":
       exigir(["102", "103", "300", "400"].includes(String(icms.CSOSN)), `Item ${nItem}: CSOSN ${icms.CSOSN} não pertence ao grupo ICMSSN102 (leiaute).`);
       return g("ICMSSN102", t("orig", icms.orig) + t("CSOSN", icms.CSOSN));
@@ -245,7 +264,7 @@ export function montarXmlNFe(d = {}) {
     const imposto = (temTotTrib ? t("vTotTrib", dec(it.vTotTrib)) : "") + g("ICMS", grupoIcms(it.icms, n)) + grupoPisCofins("PIS", it.pis, n) + grupoPisCofins("COFINS", it.cofins, n) + grupoIbsCbs(it.ibscbs, n);
     tot.vProd += vProd; tot.vDesc += Number(it.vDesc || 0); tot.vOutro += Number(it.vOutro || 0);
     if (temTotTrib) { tot.vTotTrib += Number(it.vTotTrib); temTotTribGeral = true; }
-    if (it.icms?.grupo === "ICMS00") { tot.vBC += Number(it.icms.vBC || 0); tot.vICMS += Number(it.icms.vICMS || 0); }
+    if (it.icms?.grupo === "ICMS00" || (it.icms?.grupo === "ICMSSN900" && it.icms.vICMS !== undefined)) { tot.vBC += Number(it.icms.vBC || 0); tot.vICMS += Number(it.icms.vICMS || 0); }
     if (it.pis?.v) tot.vPIS += Number(it.pis.v);
     if (it.cofins?.v) tot.vCOFINS += Number(it.cofins.v);
     if (it.ibscbs) {

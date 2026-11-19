@@ -199,9 +199,22 @@ describe("montarXmlNFe — recusas (nunca gera XML inválido em silêncio)", () 
     const semValor = base(); semValor.itens[0] = { ...semValor.itens[0], icms: { grupo: "ICMSSN101", orig: "0", CSOSN: "101", pCredSN: 1.25 } };
     expect(erro(semValor)).toMatch(/vCredICMSSN/);
   });
+  it("ICMSSN900: só orig+CSOSN, com ICMS próprio, com crédito e com os dois; recusa ST e dado inválido", () => {
+    const com = (icms) => { const b = base(); b.itens[0] = { ...b.itens[0], icms }; return b; };
+    expect(montarXmlNFe(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "900" })).xml).toContain("<ICMSSN900><orig>0</orig><CSOSN>900</CSOSN></ICMSSN900>");
+    const proprio = montarXmlNFe(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "900", modBC: "3", vBC: 100, pICMS: 18, vICMS: 18 }));
+    expect(proprio.xml).toContain("<ICMSSN900><orig>0</orig><CSOSN>900</CSOSN><modBC>3</modBC><vBC>100.00</vBC><pICMS>18.00</pICMS><vICMS>18.00</vICMS></ICMSSN900>");
+    expect(proprio.xml).toContain("<vBC>100.00</vBC><vICMS>18.00</vICMS><vICMSDeson>"); // entra no ICMSTot
+    const ambos = montarXmlNFe(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "900", modBC: "3", vBC: 100, pRedBC: 10, pICMS: 18, vICMS: 18, pCredSN: 1.25, vCredICMSSN: 1.25 })).xml;
+    expect(ambos).toContain("<pRedBC>10.00</pRedBC><pICMS>18.00</pICMS><vICMS>18.00</vICMS><pCredSN>1.25</pCredSN><vCredICMSSN>1.25</vCredICMSSN></ICMSSN900>");
+    expect(erro(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "900", vBCST: 10, vICMSST: 1 }))).toMatch(/ST no CSOSN 900/);
+    expect(erro(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "101" }))).toMatch(/exige CSOSN 900/);
+    expect(erro(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "900", modBC: "3", vBC: 100, pICMS: 0, vICMS: 0 }))).toMatch(/ICMS próprio inválidas/);
+    expect(erro(com({ grupo: "ICMSSN900", orig: "0", CSOSN: "900", pCredSN: 0, vCredICMSSN: 0 }))).toMatch(/crédito do Simples/);
+  });
   it("grupo de ICMS não suportado", () => {
-    const b = base(); b.itens[0] = { ...b.itens[0], icms: { grupo: "ICMSSN900", CSOSN: "900" } };
-    expect(erro(b)).toMatch(/ICMSSN900/);
+    const b = base(); b.itens[0] = { ...b.itens[0], icms: { grupo: "ICMSSN201", CSOSN: "201" } };
+    expect(erro(b)).toMatch(/ICMSSN201/);
   });
   it("NCM inválido", () => {
     const b = base(); b.itens[0] = { ...b.itens[0], NCM: "2106" };

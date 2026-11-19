@@ -163,13 +163,35 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     if (simples) {
       const csosn = String(f.csosn || "").trim();
       if (csosn === "101") {
-        // Alíquota de crédito do Simples = campo "alíquota de ICMS" da regra fiscal da loja.
-        const pCredSN = Number(f.icmsAliquota || 0);
-        if (!(pCredSN > 0 && pCredSN < 100)) return falha(`Item "${it.nome}": CSOSN 101 exige a alíquota de crédito do Simples Nacional (campo alíquota de ICMS da regra fiscal, entre 0 e 100%). Informe com o contador.`);
+        // Alíquota de crédito do Simples: campo próprio do cadastro (creditoSnAliquota); sem ele, o "alíquota de ICMS" da regra.
+        const pCredSN = Number(f.creditoSnAliquota || 0) > 0 ? Number(f.creditoSnAliquota) : Number(f.icmsAliquota || 0);
+        if (!(pCredSN > 0 && pCredSN < 100)) return falha(`Item "${it.nome}": CSOSN 101 exige a alíquota de crédito do Simples Nacional (campo "alíquota de crédito do Simples" do produto, ou a alíquota de ICMS da regra fiscal; entre 0 e 100%). Informe com o contador.`);
         const vCredICMSSN = r2(it.valorLiquido * pCredSN / 100);
         icms = { grupo: "ICMSSN101", orig, CSOSN: csosn, pCredSN, vCredICMSSN };
         credito.total = r2(credito.total + vCredICMSSN);
         credito.aliquotas.add(pCredSN);
+      } else if (csosn === "900") {
+        // Outros: ICMS próprio destacado (alíquota de ICMS da regra) e/ou crédito do Simples (campo próprio). ST não suportado.
+        if (f.icmsSt) return falha(`Item "${it.nome}": CSOSN 900 com substituição tributária (ST) ainda não é suportado: o ST precisa entrar no total da nota e no valor cobrado do cliente. Fale com o contador.`);
+        const pICMS = Number(f.icmsAliquota || 0);
+        const pRed = Number(f.icmsReducao || 0);
+        const pCredSN = Number(f.creditoSnAliquota || 0);
+        if (pICMS < 0 || pICMS >= 100 || pRed < 0 || pRed >= 100 || pCredSN < 0 || pCredSN >= 100) return falha(`Item "${it.nome}": CSOSN 900 com alíquota ou redução de base fora de 0 a 100%.`);
+        icms = { grupo: "ICMSSN900", orig, CSOSN: csosn };
+        if (pICMS > 0) {
+          const vBC = r2(it.valorLiquido * (1 - pRed / 100));
+          icms = { ...icms, modBC: "3", vBC, ...(pRed > 0 ? { pRedBC: pRed } : {}), pICMS, vICMS: r2(vBC * pICMS / 100) };
+        }
+        if (pCredSN > 0) {
+          const vCredICMSSN = r2(it.valorLiquido * pCredSN / 100);
+          icms = { ...icms, pCredSN, vCredICMSSN };
+          credito.total = r2(credito.total + vCredICMSSN);
+          credito.aliquotas.add(pCredSN);
+        }
+        const aviso900 = "CSOSN 900 (Outros): o XML leva o ICMS próprio (alíquota de ICMS da regra) e/ou o crédito do Simples conforme o cadastro. Conferir a tributação com o contador e na homologação.";
+        if (!avisos.includes(aviso900)) avisos.push(aviso900);
+      } else if ([201, 202, 203].includes(Number(csosn))) {
+        return falha(`Item "${it.nome}": CSOSN ${csosn} (substituição tributária cobrada na nota) ainda não é suportado: o ST precisa entrar no total da nota (vNF) e no valor cobrado do cliente, e o cálculo (MVA, ICMS próprio) depende do contador. Se a mercadoria já veio com ST, use o CSOSN 500.`);
       } else if (csosn === "500") {
         icms = { grupo: "ICMSSN500", orig, CSOSN: csosn };
         const aviso500 = "CSOSN 500 (ICMS cobrado antes por ST): o XML sai só com origem e CSOSN, sem os campos de ST retido (opcionais no leiaute). Conferir com o contador e na homologação.";
@@ -177,7 +199,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
       } else if (CSOSN_GRUPO_SN102.includes(csosn)) {
         icms = { grupo: "ICMSSN102", orig, CSOSN: csosn };
       } else {
-        return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: 101, ${[...CSOSN_GRUPO_SN102, "500"].join(", ")}).`);
+        return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: 101, ${[...CSOSN_GRUPO_SN102, "500", "900"].join(", ")}).`);
       }
     } else {
       const cst = String(f.cstIcms || "").trim();
