@@ -7582,6 +7582,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     // Mesmos ids e permissões de antes — só mudou o agrupamento e o rótulo de "fiscal".
     { grupo: "Fiscal", itens: [
       { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
+      { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
       { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Configuração Fiscal" },
       { id: "fiscal", icon: <Landmark className="h-4 w-4" />, label: "Cadastros Fiscais" },
     ]},
@@ -7759,7 +7760,13 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
                 onIr={({ tela, aba }) => { setFiscalAba(aba); setAdminSection(tela); }} />
             </main>
           ))}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}
+          {ativo === "notas-fiscais" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<ClipboardList className="h-4 w-4" />} titulo="Notas Emitidas" descricao={`Acompanhe as notas da ${lojaInfo?.nome || "sua loja"}: situação na SEFAZ, reenvio, correção, cancelamento e contingência.`} />
+              <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={products} regrasLoja={lojaFiscalRegras} />
+            </main>
+          ))}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} onIrTela={setAdminSection} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -21438,7 +21445,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, formasPagamento = [], abaInicial = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, formasPagamento = [], abaInicial = null, onIrTela = null }) {
   const [aba, setAba] = useState(abaInicial || "minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
@@ -21459,7 +21466,6 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
     ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (simulação)" }] : []),
     ...(emitenteFiscalApi ? [{ id: "emissao", label: "🔐 Emissão (certificado e séries)" }] : []),
-    ...(emitenteFiscalApi ? [{ id: "notas", label: "📄 Notas emitidas" }] : []),
     ...(emitenteFiscalApi ? [{ id: "ibpt", label: "🧮 Tributos (IBPT)" }] : []),
   ];
 
@@ -21479,7 +21485,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
         ]}
       />
 
-      <AlertasFiscais alertas={alertasFiscaisLoja} onIr={setAba} />
+      <AlertasFiscais alertas={alertasFiscaisLoja} onIr={(destino) => (destino === "notas" && onIrTela ? onIrTela("notas-fiscais") : setAba(destino))} />
 
       {pendentes > 0 && aba !== "minha" && (
         <button onClick={() => setAba("minha")} className="w-full rounded-2xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.08)] px-4 py-3 text-left text-[13px] font-bold text-[#F38525]">
@@ -21504,7 +21510,6 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       {aba === "nfce" && <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={produtos} importadas={importadas} emitenteApi={emitenteFiscalApi} />}
       {aba === "ibpt" && <TabelaIbptConfig supabase={supabase} lojaInfo={lojaInfo} />}
       {aba === "emissao" && <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi?.fetch || null} produtos={produtos} regrasLoja={importadas} salvarEmitente={emitenteFiscalApi?.salvar || null} onIrPara={setAba} />}
-      {aba === "notas" && <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={produtos} regrasLoja={importadas} />}
     </main>
   );
 }

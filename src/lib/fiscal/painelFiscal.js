@@ -76,7 +76,8 @@ export function destinoDoPasso(alvo) {
 
 /** Destino dos alertas (notas / emissao / ibpt) → aba da Configuração Fiscal. */
 export function destinoDoAlerta(destino) {
-  return { tela: "config-fiscal", aba: ["notas", "emissao", "ibpt"].includes(destino) ? destino : "notas" };
+  if (destino === "emissao" || destino === "ibpt") return { tela: "config-fiscal", aba: destino };
+  return { tela: "notas-fiscais", aba: null }; // "notas" e qualquer destino desconhecido
 }
 
 /** Frase única de status para o topo do painel. */

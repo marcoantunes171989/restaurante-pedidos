@@ -41,7 +41,7 @@ export function AvisoFiscalPdv({ alertas = [] }) {
       {aberto && (
         <ul className="mt-1 list-disc space-y-0.5 pl-5 font-medium">
           {alertas.map((x) => <li key={x.id}>{x.texto}</li>)}
-          <li>Detalhes em Configuração Fiscal › Notas emitidas.</li>
+          <li>Detalhes em Fiscal › Notas Emitidas.</li>
         </ul>
       )}
     </div>

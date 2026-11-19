@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { situacaoNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal } from "./notasFiscais.js";
+import { situacaoNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, filtrarNotas, FILTROS_NOTAS } from "./notasFiscais.js";
 
 describe("situacaoNota", () => {
   it("rótulos e tons em português simples", () => {
@@ -121,5 +121,33 @@ describe("U1/U2 — ações da nota reservada e da rejeitada", () => {
     expect(acoesDaNota({ status: "rejeitado", modelo: 65, tpEmis: 1, cStat: 778 }).refazer).toBe(true);
     for (const c of [110, 204, 205, 301, 302, 303, 539]) expect(acoesDaNota({ status: "rejeitado", modelo: 55, tpEmis: 1, cStat: c }).refazer).toBe(false);
     expect(acoesDaNota({ status: "rejeitado", modelo: 65, tpEmis: 9, cStat: 778 }).refazer).toBe(false);
+  });
+});
+
+describe("filtrarNotas (tela Notas Emitidas)", () => {
+  const notas = [
+    { id: 1, modelo: 65, status: "autorizado", tpEmis: 1 },
+    { id: 2, modelo: 55, status: "autorizado", tpEmis: 1 },
+    { id: 3, modelo: 65, status: "rejeitado", tpEmis: 1 },
+    { id: 4, modelo: 65, status: "contingencia", tpEmis: 9, contingencia: { vencida: false } },
+    { id: 5, modelo: 65, status: "contingencia", tpEmis: 9, contingencia: { vencida: true } },
+  ];
+  const ids = (f) => filtrarNotas(notas, f).map((n) => n.id);
+  it("todas devolve tudo (e filtro desconhecido também)", () => {
+    expect(ids("todas")).toEqual([1, 2, 3, 4, 5]);
+    expect(ids("xyz")).toEqual([1, 2, 3, 4, 5]);
+  });
+  it("por modelo", () => {
+    expect(ids("nfce")).toEqual([1, 3, 4, 5]);
+    expect(ids("nfe")).toEqual([2]);
+  });
+  it("com problema = situação de erro (rejeitada, contingência vencida)", () => {
+    expect(ids("problema")).toEqual([3, 5]);
+  });
+  it("contingência = pendentes fora do modo normal", () => {
+    expect(ids("contingencia")).toEqual([4, 5]);
+  });
+  it("os 5 filtros existem, começando por Todas", () => {
+    expect(FILTROS_NOTAS.map((f) => f.id)).toEqual(["todas", "nfce", "nfe", "problema", "contingencia"]);
   });
 });

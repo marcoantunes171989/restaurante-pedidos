@@ -49,10 +49,11 @@ describe("destinos", () => {
     expect(destinoDoPasso("emissao-csc")).toEqual({ tela: "config-fiscal", aba: "emissao" });
     expect(destinoDoPasso("ligar").aba).toBe("emissao");
   });
-  it("alertas levam a notas, emissão ou IBPT (desconhecido cai em notas)", () => {
-    expect(destinoDoAlerta("ibpt").aba).toBe("ibpt");
-    expect(destinoDoAlerta("emissao").aba).toBe("emissao");
-    expect(destinoDoAlerta("xyz").aba).toBe("notas");
+  it("alertas levam à tela Notas Emitidas, à Emissão ou ao IBPT (desconhecido cai em notas)", () => {
+    expect(destinoDoAlerta("ibpt")).toEqual({ tela: "config-fiscal", aba: "ibpt" });
+    expect(destinoDoAlerta("emissao")).toEqual({ tela: "config-fiscal", aba: "emissao" });
+    expect(destinoDoAlerta("notas")).toEqual({ tela: "notas-fiscais", aba: null });
+    expect(destinoDoAlerta("xyz")).toEqual({ tela: "notas-fiscais", aba: null });
   });
 });
 

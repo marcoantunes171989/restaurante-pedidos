@@ -67,6 +67,24 @@ export function acoesDaNota(doc) {
   };
 }
 
+// Filtros da lista de Notas Emitidas (só afetam o que aparece; nada é gravado).
+export const FILTROS_NOTAS = [
+  { id: "todas", rotulo: "Todas" },
+  { id: "nfce", rotulo: "NFC-e" },
+  { id: "nfe", rotulo: "NF-e" },
+  { id: "problema", rotulo: "Com problema" },
+  { id: "contingencia", rotulo: "Contingência" },
+];
+export function filtrarNotas(notas = [], filtro = "todas") {
+  switch (filtro) {
+    case "nfce": return notas.filter((n) => Number(n.modelo) === 65);
+    case "nfe": return notas.filter((n) => Number(n.modelo) === 55);
+    case "problema": return notas.filter((n) => situacaoDaNota(n).tom === "erro");
+    case "contingencia": return notas.filter(ehContPendente);
+    default: return notas;
+  }
+}
+
 /** Notas em contingência que ainda precisam ser enviadas (as da SVC não têm prazo). */
 export function resumoContingencia(notas = []) {
   const p = notas.filter(ehContPendente);

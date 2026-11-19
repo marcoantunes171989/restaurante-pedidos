@@ -29,6 +29,7 @@ const LABELS_ADMIN = {
   cardapioqr: "Cardápio QR",
   cardapioext: "Cardápio Externo",
   "painel-fiscal": "Painel Fiscal",
+  "notas-fiscais": "Notas Emitidas",
   fiscal: "Cadastros Fiscais",
   "config-fiscal": "Configuração Fiscal",
   "central-fiscal": "Central Fiscal",

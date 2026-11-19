@@ -30,7 +30,7 @@ export default function ResumoFiscalCaixa({ supabase, lojaId, desdeIso }) {
         {r.rejeitadas > 0 && <div className="flex justify-between text-red-300"><span>Rejeitadas</span><strong>{r.rejeitadas}</strong></div>}
         {r.canceladas > 0 && <div className="flex justify-between"><span>Canceladas</span><strong>{r.canceladas}</strong></div>}
       </div>
-      {alerta && <p className="mt-1 text-xs text-amber-200">Veja em Fiscal › Notas emitidas. Isso não impede fechar o caixa.</p>}
+      {alerta && <p className="mt-1 text-xs text-amber-200">Veja em Fiscal › Notas Emitidas. Isso não impede fechar o caixa.</p>}
       {estado.cheio && <p className="mt-1 text-xs text-slate-400">Contadas as últimas 200 notas da loja.</p>}
     </div>
   );

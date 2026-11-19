@@ -155,7 +155,7 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Atalhos">
-        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "config-fiscal", aba: "notas" })}>📄 Notas emitidas</button>
+        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "notas-fiscais", aba: null })}>📄 Notas emitidas</button>
         <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "config-fiscal", aba: "emissao" })}>🔐 Certificado, CSC e séries</button>
         <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "config-fiscal", aba: "ibpt" })}>🧮 Tributos (IBPT)</button>
       </section>

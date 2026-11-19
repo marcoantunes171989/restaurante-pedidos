@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, descartarNota } from "../../../lib/fiscal/notasFiscais";
+import { FILTROS_NOTAS, filtrarNotas, situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, descartarNota } from "../../../lib/fiscal/notasFiscais";
 import { refazerFiscalDaVenda } from "../../../lib/fiscal/vendaFiscal";
 import { emitirReservada } from "../../../lib/fiscal/emissaoPdv";
 import { imprimirNotaFiscal } from "../../../lib/fiscal/imprimirNota";
@@ -150,6 +150,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
   const [aberto, setAberto] = useState(null); // { id, acao }
   const [ocupado, setOcupado] = useState(null); // nota com envio/consulta em andamento
   const [avisos, setAvisos] = useState({}); // id → { ok, texto }
+  const [filtro, setFiltro] = useState("todas");
 
   const buscar = useCallback(async () => {
     try { return { notas: await listarDocumentosFiscais(supabase, lojaId) }; } catch (e) { return { erro: e.message }; }
@@ -223,11 +224,27 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
         <button type="button" className={botaoLeve} onClick={recarregar}>Atualizar</button>
       </div>
       {resumo.pendentes > 0 && <AvisoContingencia resumo={resumo} supabase={supabase} onConcluido={recarregar} />}
+      {notas.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrar notas">
+          {FILTROS_NOTAS.map((f) => {
+            const qtd = filtrarNotas(notas, f.id).length;
+            const on = filtro === f.id;
+            return (
+              <button key={f.id} type="button" aria-pressed={on} onClick={() => setFiltro(f.id)}
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] transition ${on ? "border-[#012E46] bg-[#012E46] font-semibold text-white" : "border-[var(--pp-border)] bg-white font-medium text-[var(--pp-text-body)] hover:border-[#012E46]"}`}>
+                {f.rotulo}<span className="text-[11px] font-black opacity-80">{qtd}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       {notas.length === 0 ? (
         <p className="mt-2 text-[13px] text-[var(--pp-text-muted)]">Nenhuma nota emitida ainda.</p>
+      ) : filtrarNotas(notas, filtro).length === 0 ? (
+        <p className="mt-3 text-[13px] text-[var(--pp-text-muted)]">Nenhuma nota neste filtro.</p>
       ) : (
         <ul className="mt-3 divide-y divide-[var(--pp-border)]">
-          {notas.map((n) => {
+          {filtrarNotas(notas, filtro).map((n) => {
             const s = situacaoDaNota(n);
             const a = acoesDaNota(n);
             return (
