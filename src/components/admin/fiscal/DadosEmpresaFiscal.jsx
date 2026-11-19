@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import LojaCadastroModal from "../loja/LojaCadastroModal";
 import { buscarEmitenteFiscal } from "../../../lib/fiscal/fiscalApi";
 import { pendenciasEmitenteNfce, percentualCadastroFiscal } from "../../../lib/emitenteFiscalService";
@@ -24,14 +24,18 @@ export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = n
   const [recarga, setRecarga] = useState(0);
   const [editando, setEditando] = useState(null); // aba inicial do cadastro
 
+  // O App recria `emitenteApi` a cada renderização: guardamos em um ref para NÃO reler o cadastro a cada vez.
+  const apiRef = useRef(emitenteApi);
+  useEffect(() => { apiRef.current = emitenteApi; });
+
   useEffect(() => {
     if (lojaId == null) return undefined;
     let vivo = true;
-    buscarEmitenteFiscal(supabase, lojaId, { legado: emitenteApi?.fetch || null })
+    buscarEmitenteFiscal(supabase, lojaId, { legado: apiRef.current?.fetch || null })
       .then((e) => { if (vivo) setEstado({ carregando: false, emitente: e }); })
       .catch(() => { if (vivo) setEstado({ carregando: false, emitente: null }); });
     return () => { vivo = false; };
-  }, [supabase, lojaId, emitenteApi, recarga]);
+  }, [supabase, lojaId, recarga]);
 
   const doc = lojaInfo?.documento || "";
   const secoes = useMemo(() => secoesDadosFiscais(estado.emitente, doc), [estado.emitente, doc]);

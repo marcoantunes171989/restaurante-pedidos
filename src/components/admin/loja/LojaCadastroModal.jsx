@@ -108,23 +108,36 @@ function LojaCadastroModal({
   const [resultadoCnpj, setResultadoCnpj] = useState(null); // { ok, motivo?, preenchidos, diferentes, semDado, avisos, situacao }
   const mapaCnpjRef = React.useRef(null);
   const ultimoCnpjRef = React.useRef("");
-  const formRef = React.useRef(null);
+  const formRef = React.useRef(form);
+  const buscarCnpjRef = React.useRef(null);
+  // O App recria o objeto `emitenteApi` a CADA renderização. Guardamos a referência atual em um ref e
+  // NÃO a usamos como dependência: senão o cadastro era relido do banco a cada renderização do App,
+  // desfazendo o que o usuário digitou e o que a busca pelo CNPJ preencheu.
+  const apiRef = React.useRef(emitenteApi);
+  const consultaRef = React.useRef(consultaCnpj);
+  useEffect(() => { apiRef.current = emitenteApi; consultaRef.current = consultaCnpj; });
 
   // Carrega o emitente fiscal na edição (a criação começa em branco). O
   // documento vem de tab_lojas (estadoInicial) — o emitente (…e) não o inclui,
   // então o merge preserva o documento.
   useEffect(() => {
-    if (!precisaCarregar) return;
+    if (!precisaCarregar) return undefined;
     let vivo = true;
     (async () => {
       let e = null;
-      try { e = await emitenteApi.fetch(loja.id); } catch { /* migration pendente */ }
+      try { e = await apiRef.current.fetch(loja.id); } catch { /* migration pendente */ }
       if (!vivo) return;
-      if (e) setForm((f) => ({ ...f, ...emitenteParaFormulario(e) }));
+      const carregado = e ? { ...formRef.current, ...emitenteParaFormulario(e) } : formRef.current;
+      formRef.current = carregado;
+      setForm(carregado);
       setCarregando(false);
+      // CNPJ já cadastrado e ainda falta dado obrigatório: completa os campos em branco com a Receita.
+      const d = normalizarDocumentoFiscal(carregado.documento);
+      const v = d.length === 14 ? validarDocumentoFiscal(d) : null;
+      if (v?.valido && v.tipo === "cnpj" && camposFaltando(carregado, d).obrigatorios.length > 0) buscarCnpjRef.current?.(d, { automatico: true });
     })();
     return () => { vivo = false; };
-  }, [precisaCarregar, loja?.id, emitenteApi]);
+  }, [precisaCarregar, loja?.id]); // carga única por empresa (ver apiRef)
 
   const setField = (campo, valor) => {
     setForm((f) => ({ ...f, [campo]: valor }));
@@ -154,19 +167,22 @@ function LojaCadastroModal({
     const d = normalizarDocumentoFiscal(cnpj);
     setConsultando(true); setResultadoCnpj(null);
     let r;
-    try { r = await consultaCnpj(d); } catch { r = { ok: false, motivo: "Não foi possível consultar agora. Preencha manualmente." }; }
+    try { r = await consultaRef.current(d); } catch { r = { ok: false, motivo: "Não foi possível consultar agora. Preencha manualmente." }; }
     setConsultando(false);
     if (!r?.ok) { setResultadoCnpj({ ok: false, motivo: r?.motivo || "Não foi possível consultar agora." }); return; }
     ultimoCnpjRef.current = d;
     mapaCnpjRef.current = r.dados;
     const ap = aplicarDadosCnpj(formRef.current, r.dados, { sobrescrever });
+    formRef.current = ap.form;
     setForm(ap.form);
     if (ap.preenchidos.length) setSujo(true);
-    setResultadoCnpj({ ok: true, preenchidos: ap.preenchidos, diferentes: ap.diferentes, semDado: ap.semDado, avisos: r.dados.avisos, situacao: r.dados.situacao });
+    setResultadoCnpj({ ok: true, sobrescreveu: sobrescrever, preenchidos: ap.preenchidos, diferentes: ap.diferentes, semDado: ap.semDado, avisos: r.dados.avisos, situacao: r.dados.situacao });
   }
+  useEffect(() => { buscarCnpjRef.current = buscarCnpj; });
   function usarDadosDaReceita() {
     if (!mapaCnpjRef.current) return;
     const ap = aplicarDadosCnpj(formRef.current, mapaCnpjRef.current, { sobrescrever: true });
+    formRef.current = ap.form;
     setForm(ap.form); setSujo(true);
     setResultadoCnpj((r) => ({ ...r, preenchidos: [...new Set([...(r?.preenchidos || []), ...ap.preenchidos])], diferentes: [] }));
   }
@@ -253,7 +269,8 @@ function LojaCadastroModal({
     try {
       let lojaId = loja?.id;
       if (ehEdicao) {
-        await onSalvarOperacional(lojaId, { nome: form.nome.trim(), prefixo: pfx, documento: docNorm || null, modo_uso: form.modoUso, logo_url: form.logoUrl || null, funcionamento: form.funcionamento });
+        const okOp = await onSalvarOperacional(lojaId, { nome: form.nome.trim(), prefixo: pfx, documento: docNorm || null, modo_uso: form.modoUso, logo_url: form.logoUrl || null, funcionamento: form.funcionamento });
+        if (okOp === false) throw new Error("Os dados da empresa (nome, CNPJ…) não foram salvos. Veja o aviso de erro no topo da tela e tente de novo.");
       } else {
         const nova = await onCriarEmpresa({ nomeLoja: form.nome.trim(), prefixo: pfx, documento: docNorm, modoUso: form.modoUso, logoUrl: form.logoUrl });
         lojaId = nova?.id;
@@ -356,16 +373,16 @@ function LojaCadastroModal({
                   </div>
                   <div className="sm:col-span-2" data-testid="painel-cnpj">
                     <div className="flex flex-wrap items-center gap-2">
-                      <button type="button" disabled={consultando || !(docValidacao?.valido && docValidacao.tipo === "cnpj")} onClick={() => buscarCnpj(docNorm)}
+                      <button type="button" disabled={consultando || !(docValidacao?.valido && docValidacao.tipo === "cnpj")} onClick={() => buscarCnpj(docNorm, { sobrescrever: true })}
                         className="rounded-xl border border-[#012E46] bg-white px-3 py-2 text-[12px] font-bold text-[#012E46] transition hover:bg-[#F3F7F9] disabled:cursor-not-allowed disabled:opacity-50">
                         {consultando ? "Buscando na Receita…" : "🔎 Buscar dados pelo CNPJ"}
                       </button>
-                      <span className="text-[11px] text-[#6B7280]">Preenche os campos em branco com os dados públicos da Receita Federal. Só o CNPJ é enviado ao serviço de consulta (BrasilAPI).</span>
+                      <span className="text-[11px] text-[#6B7280]">Digitar o CNPJ preenche os campos em branco; o botão atualiza TODOS os campos com os dados públicos da Receita Federal (menos Inscrição Estadual, Inscrição Municipal e o nome no sistema). Só o CNPJ é enviado ao serviço de consulta (BrasilAPI).</span>
                     </div>
                     {resultadoCnpj && !resultadoCnpj.ok && <p role="alert" className="mt-2 rounded-xl border border-[rgba(200,30,74,0.25)] bg-[rgba(200,30,74,0.06)] px-3 py-2 text-[12px] font-semibold text-[#C81E4A]">{resultadoCnpj.motivo}</p>}
                     {resultadoCnpj?.ok && (
                       <div role="status" className="mt-2 space-y-1.5 rounded-xl border border-[#D1D5DB] bg-[#F9FAFB] px-3 py-2.5 text-[12px] text-[#111111]">
-                        <p className="font-bold text-[#012E46]">{resultadoCnpj.preenchidos.length ? `Preenchi ${resultadoCnpj.preenchidos.length} campo(s) com os dados da Receita.` : "Nenhum campo em branco para preencher."}</p>
+                        <p className="font-bold text-[#012E46]">{resultadoCnpj.preenchidos.length ? `${resultadoCnpj.sobrescreveu ? "Atualizei" : "Preenchi"} ${resultadoCnpj.preenchidos.length} campo(s) com os dados da Receita.` : "Nenhum campo precisou ser preenchido: o cadastro já está igual à Receita."}</p>
                         {resultadoCnpj.semDado.length > 0 && (
                           <p className="text-[#4B5563]">Em branco (a Receita não informa ou não foi possível identificar): <b>{resultadoCnpj.semDado.map((k) => CAMPOS_CADASTRO.find((c) => c.chave === k)?.rotulo || NAO_VEM_DA_RECEITA.find((f) => f.chave === k)?.rotulo || k).join(", ")}</b>.
                             {" "}{NAO_VEM_DA_RECEITA.filter((f) => resultadoCnpj.semDado.includes(f.chave)).map((f) => `${f.rotulo} ${f.onde}.`).join(" ")}</p>

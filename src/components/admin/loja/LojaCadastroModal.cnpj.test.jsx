@@ -81,14 +81,44 @@ describe("Busca pelo CNPJ no cadastro da empresa", () => {
     expect(valorDe("lc-tel")).toBe("(11) 3333-4444");
     expect(valorDe("lc-email")).toBe("");
   });
-  it("não consulta ao abrir o cadastro nem com CNPJ incompleto ou inválido", async () => {
+  it("não consulta com CNPJ incompleto ou inválido", async () => {
     const consulta = vi.fn(async () => DADOS_RECEITA);
-    montar({ loja: LOJA, consultaCnpj: consulta });
+    montar({ loja: { ...LOJA, documento: "" }, emitente: null, consultaCnpj: consulta });
     await esperar(20);
     expect(consulta).not.toHaveBeenCalled();
     await digitar("lc-doc", "1122233300018");
     await digitar("lc-doc", "11222333000180");
     expect(consulta).not.toHaveBeenCalled();
+  });
+  it("ao ABRIR um cadastro que já tem CNPJ válido e falta dado obrigatório, completa os campos em branco sozinho (uma vez)", async () => {
+    const consulta = vi.fn(async () => DADOS_RECEITA);
+    montar({ loja: LOJA, consultaCnpj: consulta });                // LOJA tem CNPJ válido; emitente parcial
+    await esperar(40);
+    expect(consulta).toHaveBeenCalledTimes(1);
+    expect(valorDe("lc-razao")).toBe("BURGER STATION ALIMENTOS LTDA");
+    expect(valorDe("lc-ie")).toBe("110042490114");                  // o que já existia é mantido
+  });
+  it("ao abrir um cadastro JÁ completo, não consulta nada", async () => {
+    const consulta = vi.fn(async () => DADOS_RECEITA);
+    const completo = { ...EMITENTE_PARCIAL, razaoSocial: "X LTDA", logradouro: "Rua A", numero: "1", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308" };
+    montar({ loja: LOJA, emitente: completo, consultaCnpj: consulta });
+    await esperar(40);
+    expect(consulta).not.toHaveBeenCalled();
+  });
+  it("o BOTÃO atualiza TODOS os campos com a Receita (inclusive os já preenchidos), mas não mexe em IE nem no nome do sistema", async () => {
+    montar({ loja: LOJA, emitente: { ...EMITENTE_PARCIAL, razaoSocial: "RAZAO ANTIGA", logradouro: "Rua Velha", numero: "1", bairro: "Velho", municipio: "Outra", codigoMunicipioIbge: "3550308" }, consultaCnpj: async () => DADOS_RECEITA });
+    await esperar(20);
+    expect(valorDe("lc-razao")).toBe("RAZAO ANTIGA");
+    await act(async () => { botaoBuscar().click(); });
+    await esperar(30);
+    expect(valorDe("lc-razao")).toBe("BURGER STATION ALIMENTOS LTDA");
+    expect(painelCnpj().textContent).toMatch(/Atualizei \d+ campo/);
+    await aba("endereco");
+    expect(valorDe("lc-log")).toBe("RUA DAS FLORES");
+    expect(valorDe("lc-mun")).toBe("SAO PAULO");
+    await aba("empresa");
+    expect(valorDe("lc-ie")).toBe("110042490114");
+    expect(valorDe("lc-nome")).toBe("Burger Station");
   });
   it("não consulta de novo o mesmo CNPJ ao continuar preenchendo outro campo", async () => {
     const consulta = vi.fn(async () => DADOS_RECEITA);

@@ -3488,13 +3488,15 @@ export default function RestaurantePedidoApp() {
       ? `Licença da empresa "${l?.nome || ""}" SUSPENSA. Acessos bloqueados.`
       : `Licença da empresa "${l?.nome || ""}" LIBERADA. Acessos reativados.`);
   }
+  // Devolve true quando gravou e FALSE quando não gravou (o cadastro da empresa usa isso para não fechar como se tivesse salvo).
   async function editarLoja(id, dados) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    const falhou = (msg) => { notify("error", msg); return false; };
+    if (!canAccess(currentUser, "admin")) return falhou("Usuário sem permissão administrativa.");
     const nome = (dados.nome || "").trim();
     const prefixo = (dados.prefixo || "").trim().toUpperCase();
-    if (!nome || !prefixo) return notify("error", "Informe o nome e o prefixo da empresa.");
-    if (!/^[A-Z]{2,5}$/.test(prefixo)) return notify("error", "O prefixo deve ter de 2 a 5 letras (ex.: PZB).");
-    if (lojas.some((l) => l.id !== id && l.prefixo === prefixo)) return notify("error", "Já existe outra empresa com este prefixo.");
+    if (!nome || !prefixo) return falhou("Informe o nome e o prefixo da empresa.");
+    if (!/^[A-Z]{2,5}$/.test(prefixo)) return falhou("O prefixo deve ter de 2 a 5 letras (ex.: PZB).");
+    if (lojas.some((l) => l.id !== id && l.prefixo === prefixo)) return falhou("Já existe outra empresa com este prefixo.");
     // Campos opcionais (documento/CNPJ e modo de uso) — persistir quando enviados
     const extra = {};
     const extraLocal = {};
@@ -3508,22 +3510,23 @@ export default function RestaurantePedidoApp() {
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, nome, prefixo, ...extraLocal } : x));
     if (dbReady) {
       try { await atualizarLoja(id, { nome, prefixo, ...extra }); }
-      catch (err) { return notify("error", "Erro ao salvar: " + (err.message || err)); }
-      if (temFuncionamento) { try { await salvarFuncionamentoLoja(id, dados.funcionamento); } catch (err) { return notify("error", "Erro ao salvar horários: " + (err.message || err)); } }
+      catch (err) { return falhou("Erro ao salvar: " + (err.message || err)); }
+      if (temFuncionamento) { try { await salvarFuncionamentoLoja(id, dados.funcionamento); } catch (err) { return falhou("Erro ao salvar horários: " + (err.message || err)); } }
     }
     notify("success", `Empresa "${nome}" atualizada.`);
+    return true;
   }
   // ── Emitente fiscal (NFC-e) — migration 107 ──────────────────
   // Atualiza SÓ identidade operacional da loja (nome/documento) — sem exigir
   // prefixo, para o editor fiscal não acoplar às regras de comanda.
   async function salvarIdentidadeLoja(id, { nome, documento }) {
-    if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
+    if (!canAccess(currentUser, "admin")) { notify("error", "Usuário sem permissão administrativa."); return false; }
     const patch = {}; const local = {};
     if (nome !== undefined) { const n = String(nome || "").trim(); if (n) { patch.nome = n; local.nome = n; } }
     if (documento !== undefined) { patch.documento = documento || null; local.documento = documento || null; }
     if (Object.keys(patch).length === 0) return true;
     setLojas((cur) => cur.map((x) => x.id === id ? { ...x, ...local } : x));
-    if (dbReady) try { await atualizarLoja(id, patch); } catch (err) { notify("error", "Erro ao salvar dados da empresa: " + (err.message || err)); return; }
+    if (dbReady) try { await atualizarLoja(id, patch); } catch (err) { notify("error", "Erro ao salvar dados da empresa: " + (err.message || err)); return false; }
     return true;
   }
   // Upsert do cadastro fiscal do emitente (loja_fiscal_emitente).
@@ -7783,7 +7786,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<Store className="h-4 w-4" />} titulo="Dados da Empresa" descricao={`Quem emite a nota fiscal: dados do emitente da ${lojaInfo?.nome || "sua loja"}. Confira o que falta e edite quando precisar.`} />
               <DadosEmpresaFiscal supabase={supabase} lojaInfo={lojaInfo} emitenteApi={emitenteFiscalApi}
-                onSalvarIdentidade={async (id, d) => { await emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento }); }} />
+                onSalvarIdentidade={(id, d) => emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento })} />
             </main>
           ))}
           {ativo === "emissao-fiscal" && (precisaEmpresa ? avisoEmpresa : (
@@ -16436,7 +16439,7 @@ function CardapioExternoAdmin({ lojaInfo, editarLoja = async () => {}, emitenteF
           loja={lojaInfo}
           emitenteApi={emitenteFiscalApi}
           initialTab="operacao"
-          onSalvarOperacional={async (id, d) => { await editarLoja(id, d); }}
+          onSalvarOperacional={(id, d) => editarLoja(id, d)}
           onFechar={() => setEditarEmpresa(false)}
         />
       )}
@@ -16745,7 +16748,7 @@ function MinhaEmpresa({ lojaInfo, usuarios = [], produtos = [], formasPagamento 
           loja={lojaInfo}
           emitenteApi={emitenteFiscalApi}
           operacaoEditavel={false}
-          onSalvarOperacional={async (id, d) => { await emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento }); }}
+          onSalvarOperacional={(id, d) => emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento })}
           onFechar={() => setFiscalAberto(false)}
         />
       )}
@@ -17015,7 +17018,7 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
           mode="edit"
           loja={editando}
           emitenteApi={emitenteFiscalApi}
-          onSalvarOperacional={async (id, d) => { await editarLoja(id, d); }}
+          onSalvarOperacional={(id, d) => editarLoja(id, d)}
           lojasExistentes={lojas}
           onFechar={() => setEditando(null)}
         />
