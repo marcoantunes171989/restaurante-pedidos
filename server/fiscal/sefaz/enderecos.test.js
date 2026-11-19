@@ -40,11 +40,11 @@ describe("endereços oficiais da NF-e (mod. 55) das 27 UFs", () => {
     expect(cobertas).toEqual([...UFS].sort());
   });
 
-  const NFCE_OK = ["AC", "AL", "AP", "BA", "DF", "MT", "MS", "PA", "PR", "PE", "PI", "RS", "RO", "SC", "SE", "TO", "SP"];
-  const NFCE_FORA = ["AM", "CE", "ES", "GO", "MA", "MG", "PB", "RJ", "RN", "RR"];
+  const NFCE_OK = ["AC", "AL", "AP", "BA", "CE", "DF", "MG", "MT", "MS", "PA", "PB", "PR", "PE", "PI", "RS", "RO", "SC", "SE", "TO", "SP"];
+  const NFCE_FORA = ["AM", "ES", "GO", "MA", "RJ", "RN", "RR"];
   const NFCE_SERV = [...SERVICOS, "QRCode", "ConsultaPublica"];
 
-  it("NFC-e (mod. 65): as 17 UFs aplicadas têm os 6 serviços, QR Code e consulta, nos dois ambientes", () => {
+  it("NFC-e (mod. 65): as 20 UFs aplicadas têm os 6 serviços, QR Code e consulta, nos dois ambientes", () => {
     for (const uf of NFCE_OK) for (const amb of ["homologacao", "producao"]) for (const s of NFCE_SERV) {
       expect(enderecoServico({ uf, modelo: 65, ambiente: amb, servico: s }), uf + " " + amb + " " + s).toBeTruthy();
     }
@@ -66,12 +66,13 @@ describe("endereços oficiais da NF-e (mod. 55) das 27 UFs", () => {
   });
   it("NFC-e: UFs com autorizador próprio usam o próprio domínio e as da SVRS compartilham os serviços", () => {
     expect(J.MT["65"].producao.Autorizacao).toContain("sefaz.mt.gov.br");
+    expect(J.MG["65"].producao.Autorizacao).toContain("fazenda.mg.gov.br");
     expect(J.MS["65"].producao.Autorizacao).toContain("sefaz.ms.gov.br");
     expect(J.PR["65"].producao.Autorizacao).toContain("pr.gov.br");
     expect(J.RS["65"].producao.Autorizacao).toContain("rs.gov.br");
     const ref = J.AC["65"].producao.Autorizacao;
     expect(ref).toContain("nfce.svrs.rs.gov.br");
-    for (const uf of ["AL", "AP", "BA", "DF", "PA", "PE", "PI", "RO", "SC", "SE", "TO"]) expect(J[uf]["65"].producao.Autorizacao, uf).toBe(ref);
+    for (const uf of ["AL", "AP", "BA", "CE", "DF", "PA", "PB", "PE", "PI", "RO", "SC", "SE", "TO"]) expect(J[uf]["65"].producao.Autorizacao, uf).toBe(ref);
   });
   it("NFC-e: UFs com dado incerto nas fontes ficam FORA e falham de forma explícita", () => {
     for (const uf of NFCE_FORA) {
