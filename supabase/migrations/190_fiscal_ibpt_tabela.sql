@@ -138,12 +138,14 @@ begin
   end if;
 
   select count(*),
+         -- Cada alíquota precisa ser número entre 0 e 100. O CASE evita converter texto em número
+         -- (o SQL não garante a ordem do OR) e transforma qualquer lixo em "alíquota inválida".
          count(*) filter (where k.key !~ '^[0-9]{8}$'
-                            or jsonb_typeof(k.value) <> 'object'
-                            or jsonb_typeof(k.value -> 'nf') <> 'number' or jsonb_typeof(k.value -> 'imp') <> 'number'
-                            or jsonb_typeof(k.value -> 'est') <> 'number' or jsonb_typeof(k.value -> 'mun') <> 'number'
-                            or (k.value ->> 'nf')::numeric not between 0 and 100 or (k.value ->> 'imp')::numeric not between 0 and 100
-                            or (k.value ->> 'est')::numeric not between 0 and 100 or (k.value ->> 'mun')::numeric not between 0 and 100)
+                            or jsonb_typeof(k.value) is distinct from 'object'
+                            or case when jsonb_typeof(k.value -> 'nf')  = 'number' then not ((k.value ->> 'nf')::numeric  between 0 and 100) else true end
+                            or case when jsonb_typeof(k.value -> 'imp') = 'number' then not ((k.value ->> 'imp')::numeric between 0 and 100) else true end
+                            or case when jsonb_typeof(k.value -> 'est') = 'number' then not ((k.value ->> 'est')::numeric between 0 and 100) else true end
+                            or case when jsonb_typeof(k.value -> 'mun') = 'number' then not ((k.value ->> 'mun')::numeric between 0 and 100) else true end)
     into v_qtd, v_ruins
     from jsonb_each(p_ncm) k;
   if v_qtd < 1000 then return jsonb_build_object('ok', false, 'code', 'POUCOS_NCM', 'qtd', v_qtd); end if;
