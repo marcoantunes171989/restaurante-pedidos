@@ -40,8 +40,7 @@ describe("endereços oficiais da NF-e (mod. 55) das 27 UFs", () => {
     expect(cobertas).toEqual([...UFS].sort());
   });
 
-  const NFCE_OK = ["AC", "AL", "AP", "BA", "CE", "DF", "MG", "MT", "MS", "PA", "PB", "PR", "PE", "PI", "RS", "RO", "SC", "SE", "TO", "SP"];
-  const NFCE_FORA = ["AM", "ES", "GO", "MA", "RJ", "RN", "RR"];
+  const NFCE_OK = UFS;
   const NFCE_SERV = [...SERVICOS, "QRCode", "ConsultaPublica"];
 
   it("NFC-e (mod. 65): as 20 UFs aplicadas têm os 6 serviços, QR Code e consulta, nos dois ambientes", () => {
@@ -72,11 +71,13 @@ describe("endereços oficiais da NF-e (mod. 55) das 27 UFs", () => {
     expect(J.RS["65"].producao.Autorizacao).toContain("rs.gov.br");
     const ref = J.AC["65"].producao.Autorizacao;
     expect(ref).toContain("nfce.svrs.rs.gov.br");
-    for (const uf of ["AL", "AP", "BA", "CE", "DF", "PA", "PB", "PE", "PI", "RO", "SC", "SE", "TO"]) expect(J[uf]["65"].producao.Autorizacao, uf).toBe(ref);
+    for (const uf of ["AL", "AP", "BA", "CE", "DF", "ES", "MA", "PA", "PB", "PE", "PI", "RJ", "RN", "RO", "RR", "SC", "SE", "TO"]) expect(J[uf]["65"].producao.Autorizacao, uf).toBe(ref);
+    expect(J.AM["65"].producao.Autorizacao).toContain("sefaz.am.gov.br");
+    expect(J.GO["65"].producao.Autorizacao).toContain("sefaz.go.gov.br");
   });
-  it("NFC-e: UFs com dado incerto nas fontes ficam FORA e falham de forma explícita", () => {
-    for (const uf of NFCE_FORA) {
-      expect(() => enderecoServico({ uf, modelo: 65, ambiente: "homologacao", servico: "Autorizacao" }), uf).toThrow(/Sem endereço oficial/);
-    }
+  it("NFC-e: as 27 UFs têm endereços e o QR Code de GO e RN usam os domínios novos (2025/2026)", () => {
+    expect(Object.keys(J).filter((k) => J[k]?.["65"]).sort()).toEqual([...UFS].sort());
+    expect(J.GO["65"].producao.QRCode).toBe("https://nfeweb.sefaz.go.gov.br/nfeweb/sites/nfce/danfeNFCe");
+    expect(J.RN["65"].producao.QRCode).toContain("nfce.sefaz.rn.gov.br");
   });
 });

@@ -92,6 +92,6 @@ describe("leitura e endereços", () => {
   it("tabela oficial: NFC-e e NF-e de SP separadas por ambiente", () => {
     expect(enderecoServico({ uf: "SP", modelo: 65, ambiente: "homologacao", servico: "Autorizacao" })).toBe("https://homologacao.nfce.fazenda.sp.gov.br/ws/NFeAutorizacao4.asmx");
     expect(enderecoServico({ uf: "SP", modelo: 55, ambiente: "producao", servico: "StatusServico" })).toBe("https://nfe.fazenda.sp.gov.br/ws/nfestatusservico4.asmx");
-    expect(() => enderecoServico({ uf: "RJ", modelo: 65, ambiente: "homologacao", servico: "Autorizacao" })).toThrow(/RJ/);
+    expect(() => enderecoServico({ uf: "XX", modelo: 65, ambiente: "homologacao", servico: "Autorizacao" })).toThrow(/XX/);
   });
 });
