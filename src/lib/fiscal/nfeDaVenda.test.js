@@ -86,6 +86,19 @@ describe("dadosNFeDaVenda", () => {
     expect(r.erro).toMatch(/CSOSN 900/);
     expect(r.erro).toMatch(/500/); // a lista de suportados inclui o 500
   });
+  it("emitente sem Inscrição Estadual ou sem endereço → recusa antes de gerar o XML", () => {
+    const v = venda();
+    const semIe = dadosNFeDaVenda({ ...BASE, venda: v, emitente: { ...EMIT, inscricaoEstadual: "" } });
+    expect(semIe.ok).toBe(false);
+    expect(semIe.erro).toMatch(/Cadastro fiscal da empresa incompleto.*Inscrição Estadual/);
+    const semEnd = dadosNFeDaVenda({ ...BASE, venda: v, emitente: { ...EMIT, logradouro: "", cep: "" } });
+    expect(semEnd.ok).toBe(false);
+    expect(semEnd.erro).toMatch(/Logradouro/);
+    expect(semEnd.erro).toMatch(/CEP/);
+  });
+  it("a série vem da reserva: emitente sem nfceSerie não bloqueia a nota", () => {
+    expect(dadosNFeDaVenda({ ...BASE, venda: venda(), emitente: { ...EMIT, nfceSerie: undefined } }).ok).toBe(true);
+  });
   it("CSOSN 500 (ICMS cobrado antes por ST) vira ICMSSN500 só com origem e CSOSN, com aviso", () => {
     const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "500" }] } });
     const r = dadosNFeDaVenda({ ...BASE, venda: v });

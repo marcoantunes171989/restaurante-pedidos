@@ -8,7 +8,7 @@
 //  devolve um aviso para a loja/contador conferir.
 // ════════════════════════════════════════════════════════════
 
-import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, UFS } from "../emitenteFiscalService.js";
+import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS } from "../emitenteFiscalService.js";
 
 // ── Chave de acesso (44) — NF-e e NFC-e ───────────────────
 // DV módulo 11 com pesos 2..9; cada posição vale (código ASCII − 48), o que
@@ -124,6 +124,10 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const e = emitente || {};
   const crt = String(e.crt || "");
   if (!["1", "2", "3", "4"].includes(crt)) return falha("Regime tributário (CRT) do emitente não configurado.");
+  // Cadastro mínimo do emitente (IE, endereço, IBGE…): sem ele a SEFAZ rejeitaria a nota.
+  // A série não entra aqui: vem da reserva de numeração (parâmetro `serie`).
+  const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
+  if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   const simples = crt !== "3";
 
   const itens = [];
