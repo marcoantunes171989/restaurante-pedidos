@@ -189,6 +189,16 @@ describe("montarXmlNFe — recusas (nunca gera XML inválido em silêncio)", () 
     const ruim = base(); ruim.itens[0] = { ...ruim.itens[0], icms: { grupo: "ICMSSN500", orig: "0", CSOSN: "102" } };
     expect(erro(ruim)).toMatch(/ICMSSN500 exige CSOSN 500/);
   });
+  it("ICMSSN101 (Simples com crédito): orig, CSOSN, pCredSN e vCredICMSSN; recusa dado inválido", () => {
+    const ok = base(); ok.itens[0] = { ...ok.itens[0], icms: { grupo: "ICMSSN101", orig: "0", CSOSN: "101", pCredSN: 1.25, vCredICMSSN: 0.75 } };
+    expect(montarXmlNFe(ok).xml).toContain("<ICMSSN101><orig>0</orig><CSOSN>101</CSOSN><pCredSN>1.25</pCredSN><vCredICMSSN>0.75</vCredICMSSN></ICMSSN101>");
+    const csosnErrado = base(); csosnErrado.itens[0] = { ...csosnErrado.itens[0], icms: { grupo: "ICMSSN101", orig: "0", CSOSN: "102", pCredSN: 1.25, vCredICMSSN: 0.75 } };
+    expect(erro(csosnErrado)).toMatch(/ICMSSN101 exige CSOSN 101/);
+    const semAliq = base(); semAliq.itens[0] = { ...semAliq.itens[0], icms: { grupo: "ICMSSN101", orig: "0", CSOSN: "101", pCredSN: 0, vCredICMSSN: 0 } };
+    expect(erro(semAliq)).toMatch(/pCredSN/);
+    const semValor = base(); semValor.itens[0] = { ...semValor.itens[0], icms: { grupo: "ICMSSN101", orig: "0", CSOSN: "101", pCredSN: 1.25 } };
+    expect(erro(semValor)).toMatch(/vCredICMSSN/);
+  });
   it("grupo de ICMS não suportado", () => {
     const b = base(); b.itens[0] = { ...b.itens[0], icms: { grupo: "ICMSSN900", CSOSN: "900" } };
     expect(erro(b)).toMatch(/ICMSSN900/);

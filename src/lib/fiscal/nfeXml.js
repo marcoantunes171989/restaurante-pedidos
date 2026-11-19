@@ -85,6 +85,12 @@ const somenteDig = (v) => String(v ?? "").replace(/\D/g, "");
 function grupoIcms(icms, nItem) {
   exigir(icms && icms.grupo, `Item ${nItem}: grupo de ICMS não informado.`);
   switch (icms.grupo) {
+    case "ICMSSN101":
+      // Tributada pelo Simples Nacional COM permissão de crédito: orig, CSOSN, pCredSN, vCredICMSSN.
+      exigir(String(icms.CSOSN) === "101", `Item ${nItem}: grupo ICMSSN101 exige CSOSN 101.`);
+      exigir(Number(icms.pCredSN) > 0 && Number(icms.pCredSN) < 100, `Item ${nItem}: alíquota de crédito do Simples (pCredSN) inválida para o CSOSN 101.`);
+      exigir(icms.vCredICMSSN !== undefined && Number(icms.vCredICMSSN) >= 0, `Item ${nItem}: valor do crédito do Simples (vCredICMSSN) não informado para o CSOSN 101.`);
+      return g("ICMSSN101", t("orig", icms.orig) + t("CSOSN", "101") + t("pCredSN", dec(icms.pCredSN, 2)) + t("vCredICMSSN", dec(icms.vCredICMSSN)));
     case "ICMSSN102":
       exigir(["102", "103", "300", "400"].includes(String(icms.CSOSN)), `Item ${nItem}: CSOSN ${icms.CSOSN} não pertence ao grupo ICMSSN102 (leiaute).`);
       return g("ICMSSN102", t("orig", icms.orig) + t("CSOSN", icms.CSOSN));

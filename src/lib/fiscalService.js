@@ -24,6 +24,7 @@ const BASE_FISCAL = {
   cstPis: "", pisAliquota: 0, cstCofins: "", cofinsAliquota: 0,
   ipiCst: "", ipiAliquota: 0, ibsAliquota: 0, cbsAliquota: 0, impostoSeletivo: 0,
   beneficioCbenef: "",
+  origemMercadoria: "", // origem da mercadoria (0 a 8); vazio = padrão 0 (nacional) com aviso
 };
 
 const num = (v) => { const n = Number(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : 0; };
@@ -49,6 +50,7 @@ function daConfigLoja(cfg) {
     ipiCst: str(cfg.ipiCst), ipiAliquota: num(cfg.ipiAliquota),
     ibsAliquota: num(cfg.ibsAliquota), cbsAliquota: num(cfg.cbsAliquota), impostoSeletivo: num(cfg.impostoSeletivo),
     beneficioCbenef: str(cfg.beneficioCbenef),
+    origemMercadoria: str(cfg.origemMercadoria),
   };
 }
 
@@ -86,6 +88,7 @@ function doJsonb(fis) {
     cstCofins: soCodigo(fis.cstCofins), cofinsAliquota: num(fis.aliquotaCofins ?? fis.cofins),
     ipiCst: soCodigo(fis.cstIpi), ipiAliquota: num(fis.aliquotaIpi ?? fis.ipi),
     beneficioCbenef: str(fis.cBenef || fis.beneficio),
+    origemMercadoria: str(fis.origemMercadoria ?? fis.orig),
   };
 }
 

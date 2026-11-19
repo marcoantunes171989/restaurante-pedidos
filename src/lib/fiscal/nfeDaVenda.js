@@ -145,26 +145,40 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const simples = crt !== "3";
 
   const itens = [];
+  let origemPadrao = false; // algum item sem origem cadastrada → usou 0 (nacional)
+  const credito = { total: 0, aliquotas: new Set() }; // CSOSN 101: crédito do Simples (texto obrigatório em infCpl)
   for (const it of venda.itens) {
     const f = it.fiscal || {};
     let icms;
+    // Origem da mercadoria (0 a 8) do cadastro; sem ela, usa 0 (nacional) e avisa no fim.
+    const origemValida = /^[0-8]$/.test(String(f.origemMercadoria ?? "").trim());
+    const orig = origemValida ? String(f.origemMercadoria).trim() : "0";
+    if (!origemValida) origemPadrao = true;
     if (simples) {
       const csosn = String(f.csosn || "").trim();
-      if (csosn === "500") {
-        icms = { grupo: "ICMSSN500", orig: "0", CSOSN: csosn };
+      if (csosn === "101") {
+        // Alíquota de crédito do Simples = campo "alíquota de ICMS" da regra fiscal da loja.
+        const pCredSN = Number(f.icmsAliquota || 0);
+        if (!(pCredSN > 0 && pCredSN < 100)) return falha(`Item "${it.nome}": CSOSN 101 exige a alíquota de crédito do Simples Nacional (campo alíquota de ICMS da regra fiscal, entre 0 e 100%). Informe com o contador.`);
+        const vCredICMSSN = r2(it.valorLiquido * pCredSN / 100);
+        icms = { grupo: "ICMSSN101", orig, CSOSN: csosn, pCredSN, vCredICMSSN };
+        credito.total = r2(credito.total + vCredICMSSN);
+        credito.aliquotas.add(pCredSN);
+      } else if (csosn === "500") {
+        icms = { grupo: "ICMSSN500", orig, CSOSN: csosn };
         const aviso500 = "CSOSN 500 (ICMS cobrado antes por ST): o XML sai só com origem e CSOSN, sem os campos de ST retido (opcionais no leiaute). Conferir com o contador e na homologação.";
         if (!avisos.includes(aviso500)) avisos.push(aviso500);
       } else if (CSOSN_GRUPO_SN102.includes(csosn)) {
-        icms = { grupo: "ICMSSN102", orig: "0", CSOSN: csosn };
+        icms = { grupo: "ICMSSN102", orig, CSOSN: csosn };
       } else {
-        return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: ${[...CSOSN_GRUPO_SN102, "500"].join(", ")}).`);
+        return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: 101, ${[...CSOSN_GRUPO_SN102, "500"].join(", ")}).`);
       }
     } else {
       const cst = String(f.cstIcms || "").trim();
       if (cst !== "00") return falha(`Item "${it.nome}": CST de ICMS ${cst || "(vazio)"} ainda não suportado pelo emissor (suportado: 00).`);
       const vBC = r2(it.valorLiquido);
       // modBC 3 = "Valor da Operação" (documentação do XSD).
-      icms = { grupo: "ICMS00", orig: "0", CST: "00", modBC: "3", vBC, pICMS: Number(f.icmsAliquota || 0), vICMS: r2(vBC * Number(f.icmsAliquota || 0) / 100) };
+      icms = { grupo: "ICMS00", orig, CST: "00", modBC: "3", vBC, pICMS: Number(f.icmsAliquota || 0), vICMS: r2(vBC * Number(f.icmsAliquota || 0) / 100) };
     }
     const pisCofins = (tipo, cst, aliq) => {
       const gr = grupoPisCofinsPorCst(cst);
@@ -183,13 +197,15 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
       vDesc: it.vDesc, vOutro: it.vOutro, icms, pis, cofins,
     });
   }
-  avisos.push("Origem da mercadoria (orig) = 0 (nacional) e unidade = UN em todos os itens: conferir no cadastro do produto.");
+  avisos.push(origemPadrao
+    ? "Origem da mercadoria (orig) = 0 (nacional) nos itens sem origem cadastrada e unidade = UN em todos os itens: conferir no cadastro do produto."
+    : "Unidade = UN em todos os itens: conferir no cadastro do produto.");
 
   // Tributos aproximados (Lei 12.741/2012) pela tabela IBPT da UF da loja. Só informa
   // quando todos os itens têm alíquota; sem tabela, a nota segue sem o valor.
   let infCplFinal = infCpl;
   if (ibpt) {
-    const trib = tributosAproximados(itens.map((x) => ({ NCM: x.NCM, base: Number(x.vProd) - Number(x.vDesc || 0), orig: "0" })), ibpt, { agora });
+    const trib = tributosAproximados(itens.map((x) => ({ NCM: x.NCM, base: Number(x.vProd) - Number(x.vDesc || 0), orig: x.icms.orig })), ibpt, { agora });
     if (trib.aplicavel) {
       itens.forEach((x, i) => { x.vTotTrib = trib.itens[i]; });
       infCplFinal = [infCpl, trib.texto].filter(Boolean).join(" ");
@@ -200,6 +216,13 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     }
   } else {
     avisos.push("Tabela IBPT não carregada: valor aproximado dos tributos (Lei 12.741/2012) não informado na nota.");
+  }
+
+  // CSOSN 101: informação complementar obrigatória sobre o crédito do Simples Nacional (LC 123/2006, art. 23).
+  if (credito.total > 0) {
+    const aliq = [...credito.aliquotas].sort((a, b) => a - b).map((p) => `${String(p).replace(".", ",")}%`).join(" e ");
+    const valor = credito.total.toFixed(2).replace(".", ",");
+    infCplFinal = [infCplFinal, `PERMITE O APROVEITAMENTO DO CREDITO DE ICMS NO VALOR DE R$ ${valor} CORRESPONDENTE A ALIQUOTA DE ${aliq}, NOS TERMOS DO ART. 23 DA LC 123/2006.`].filter(Boolean).join(" ");
   }
 
   const detPag = venda.pagamentos.map((p) => ({ tPag: p.meio, vPag: p.valor }));

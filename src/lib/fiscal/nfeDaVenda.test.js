@@ -84,7 +84,7 @@ describe("dadosNFeDaVenda", () => {
     const r = dadosNFeDaVenda({ ...BASE, venda: v });
     expect(r.ok).toBe(false);
     expect(r.erro).toMatch(/CSOSN 900/);
-    expect(r.erro).toMatch(/500/); // a lista de suportados inclui o 500
+    expect(r.erro).toMatch(/101, 102.*500/); // a lista de suportados inclui 101 e 500
   });
   it("emitente sem Inscrição Estadual ou sem endereço → recusa antes de gerar o XML", () => {
     const v = venda();
@@ -108,6 +108,35 @@ describe("dadosNFeDaVenda", () => {
     const { xml, totais } = montarXmlNFe(r.dados);
     expect(xml).toContain("<ICMSSN500><orig>0</orig><CSOSN>500</CSOSN></ICMSSN500>");
     expect(totais.vNF).toBe(v.totais.vNF); // ST retido não muda o total da nota
+  });
+  it("CSOSN 101 vira ICMSSN101 com pCredSN da regra, crédito por item e texto obrigatório em infCpl", () => {
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 1.25 }] } });
+    const r = dadosNFeDaVenda({ ...BASE, venda: v });
+    expect(r.ok, r.erro).toBe(true);
+    const total = r.dados.itens.reduce((s, i) => s + i.icms.vCredICMSSN, 0);
+    expect(r.dados.itens[0].icms).toMatchObject({ grupo: "ICMSSN101", orig: "0", CSOSN: "101", pCredSN: 1.25 });
+    const { xml, totais } = montarXmlNFe(r.dados);
+    expect(xml).toContain("<ICMSSN101><orig>0</orig><CSOSN>101</CSOSN><pCredSN>1.25</pCredSN>");
+    expect(xml).toContain("PERMITE O APROVEITAMENTO DO CREDITO DE ICMS NO VALOR DE R$ " + total.toFixed(2).replace(".", ",") + " CORRESPONDENTE A ALIQUOTA DE 1,25%, NOS TERMOS DO ART. 23 DA LC 123/2006.");
+    expect(totais.vNF).toBe(v.totais.vNF); // o crédito não muda o total da nota
+  });
+  it("CSOSN 101 sem alíquota de crédito é recusado com mensagem clara (não chuta valor)", () => {
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 0 }] } });
+    const r = dadosNFeDaVenda({ ...BASE, venda: v });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/CSOSN 101 exige a alíquota de crédito/);
+  });
+  it("origem da mercadoria vem do cadastro (0 a 8); sem ela usa 0 e avisa; valor inválido cai no padrão", () => {
+    const comOrigem = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, origemMercadoria: "2" }] } }) });
+    expect(comOrigem.ok).toBe(true);
+    expect(comOrigem.dados.itens.every((i) => i.icms.orig === "2")).toBe(true);
+    expect(comOrigem.avisos.some((a) => /Origem da mercadoria/.test(a))).toBe(false);
+    expect(montarXmlNFe(comOrigem.dados).xml).toContain("<ICMSSN102><orig>2</orig><CSOSN>102</CSOSN></ICMSSN102>");
+    const semOrigem = dadosNFeDaVenda({ ...BASE, venda: venda() });
+    expect(semOrigem.dados.itens[0].icms.orig).toBe("0");
+    expect(semOrigem.avisos.some((a) => /Origem da mercadoria/.test(a))).toBe(true);
+    const invalida = dadosNFeDaVenda({ ...BASE, venda: venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, origemMercadoria: "9" }] } }) });
+    expect(invalida.dados.itens[0].icms.orig).toBe("0");
   });
   it("Regime Normal usa CST do ICMS com base no valor líquido do item", () => {
     const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "", cstIcms: "00", icmsAliquota: 18 }] } });
