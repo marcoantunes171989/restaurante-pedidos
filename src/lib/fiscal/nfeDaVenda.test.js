@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { montarChaveAcesso, gerarCNF, grupoPisCofinsPorCst, dadosNFeDaVenda } from "./nfeDaVenda.js";
+import { montarChaveAcesso, gerarCNF, grupoPisCofinsPorCst, dadosNFeDaVenda, cfopInterestadual } from "./nfeDaVenda.js";
 import { montarVendaFiscal } from "./vendaFiscal.js";
 import { montarXmlNFe } from "./nfeXml.js";
 import { digitoVerificadorChave } from "../nfceService.js";
@@ -119,5 +119,59 @@ describe("dadosNFeDaVenda", () => {
   it("ambiente de produção na chave e no XML só com pedido explícito", () => {
     const r = dadosNFeDaVenda({ ...BASE, venda: venda(), ambiente: "producao" });
     expect(montarXmlNFe(r.dados).xml).toContain("<tpAmb>1</tpAmb>");
+  });
+});
+
+// ── NF-e interestadual (idDest 2 e CFOP 6xxx) ──────────────
+describe("NF-e para destinatário de outra UF", () => {
+  const DEST = (uf, cMun, ie = "111222333444") => ({
+    documento: "11222333000181", nome: "Empresa Cliente Ltda", ie,
+    ender: { xLgr: "Av Central", nro: "10", xBairro: "Centro", cMun, xMun: "Cidade", UF: uf, CEP: "20040020" },
+  });
+  const NFE = { ...BASE, modelo: 55 };
+
+  it("tabela de CFOP: 5102→6102, 5405→6404 (não 6405), 6xxx é mantido, desconhecido → null", () => {
+    expect(cfopInterestadual("5102")).toBe("6102");
+    expect(cfopInterestadual("5405")).toBe("6404");
+    expect(cfopInterestadual("6102")).toBe("6102");
+    expect(cfopInterestadual("5667")).toBeNull();
+    expect(cfopInterestadual("")).toBeNull();
+  });
+  it("destinatário no mesmo estado: idDest 1 e CFOP 5xxx", () => {
+    const r = dadosNFeDaVenda({ ...NFE, venda: venda(), destinatario: DEST("SP", "3550308") });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.ide.idDest).toBe("1");
+    expect(montarXmlNFe(r.dados).xml).toContain("<idDest>1</idDest>");
+    expect(r.dados.itens.every((i) => String(i.CFOP).startsWith("5"))).toBe(true);
+  });
+  it("destinatário em outro estado com IE: idDest 2, CFOP 6xxx e aviso", () => {
+    const r = dadosNFeDaVenda({ ...NFE, venda: venda(), destinatario: DEST("RJ", "3304557") });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.ide.idDest).toBe("2");
+    expect(r.dados.itens.map((i) => i.CFOP)).toEqual(["6102", "6102"]);
+    expect(montarXmlNFe(r.dados).xml).toContain("<idDest>2</idDest>");
+    expect(r.avisos.some((a) => /interestadual.*RJ/i.test(a))).toBe(true);
+  });
+  it("outro estado sem IE (não contribuinte) → recusa por causa do DIFAL", () => {
+    const r = dadosNFeDaVenda({ ...NFE, venda: venda(), destinatario: DEST("MG", "3106200", "") });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/DIFAL/);
+  });
+  it("CFOP sem equivalente seguro → pede o CFOP 6xxx no produto", () => {
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, cfopCodigo: "5667" }] } });
+    const r = dadosNFeDaVenda({ ...NFE, venda: v, destinatario: DEST("RJ", "3304557") });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/6xxx/);
+  });
+  it("CFOP 6xxx em operação dentro do estado → recusa", () => {
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, cfopCodigo: "6102" }] } });
+    const r = dadosNFeDaVenda({ ...NFE, venda: v, destinatario: DEST("SP", "3550308") });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/dentro do estado/);
+  });
+  it("NFC-e continua sempre operação interna (idDest 1)", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), cpfConsumidor: "52998224725" });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.ide.idDest).toBe("1");
   });
 });

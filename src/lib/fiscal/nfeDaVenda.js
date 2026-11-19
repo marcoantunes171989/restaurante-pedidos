@@ -62,6 +62,19 @@ export function grupoPisCofinsPorCst(cst) {
 }
 const CSOSN_GRUPO_SN102 = ["102", "103", "300", "400"];
 
+// CFOP interno (5xxx) → equivalente interestadual (6xxx). Só pares seguros; fora da
+// tabela, o produto precisa ter o CFOP 6xxx informado (o 5405 vira 6404, não 6405).
+const CFOP_INTERESTADUAL = {
+  5101: "6101", 5102: "6102", 5103: "6103", 5104: "6104", 5105: "6105", 5106: "6106", 5109: "6109", 5110: "6110",
+  5401: "6401", 5402: "6402", 5403: "6403", 5405: "6404", 5929: "6929", 5949: "6949",
+};
+/** CFOP para operação interestadual; null quando não há conversão segura. */
+export function cfopInterestadual(cfop) {
+  const c = String(cfop ?? "").trim();
+  if (/^6\d{3}$/.test(c)) return c;
+  return CFOP_INTERESTADUAL[c] || null;
+}
+
 // ── Destinatário ───────────────────────────────────────────
 // NFC-e: CPF ou CNPJ na nota (opcional), sempre não contribuinte (indIEDest 9;
 // MOC 7.0 Anexo I, nota 1 do campo E16a). NF-e: documento, nome e endereço
@@ -186,9 +199,28 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   }
   const dest = montarDestinatario({ modelo: Number(modelo), cpfConsumidor, destinatario });
   if (dest.erro) return falha(dest.erro);
+
+  // Local de destino da operação (idDest): 1 = dentro da UF do emitente; 2 = outra UF.
+  // Só a NF-e tem destinatário com endereço; a NFC-e é sempre operação interna.
+  const ufDest = Number(modelo) === 55 ? String(dest.dest?.ender?.UF || "").toUpperCase() : "";
+  const interestadual = !!ufDest && ufDest !== String(e.uf || "").toUpperCase();
+  if (interestadual) {
+    if (dest.dest?.indIEDest === "9") {
+      return falha(`NF-e para ${ufDest} (outro estado) a destinatário sem Inscrição Estadual exige o grupo do ICMS interestadual (DIFAL), ainda não suportado pelo emissor. Confirme o tratamento com o contador.`);
+    }
+    for (const it of itens) {
+      const novo = cfopInterestadual(it.CFOP);
+      if (!novo) return falha(`Item "${it.xProd}": CFOP ${it.CFOP} não tem equivalente interestadual automático; informe o CFOP 6xxx no cadastro do produto.`);
+      it.CFOP = novo;
+    }
+    avisos.push(`Operação interestadual (destinatário em ${ufDest}): idDest = 2 e CFOP convertido para 6xxx. Conferir com o contador.`);
+  } else if (itens.some((it) => String(it.CFOP).startsWith("6"))) {
+    return falha("CFOP de operação interestadual (6xxx) em operação dentro do estado: use CFOP 5xxx.");
+  }
+
   const dados = {
     chave,
-    ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], cMunFG: e.codigoMunicipioIbge, cDV: chave.slice(-1), indPres: "1", indFinal: "1" },
+    ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], idDest: interestadual ? "2" : "1", cMunFG: e.codigoMunicipioIbge, cDV: chave.slice(-1), indPres: "1", indFinal: "1" },
     emit: {
       CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: e.inscricaoEstadual, CRT: crt,
       ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: e.codigoMunicipioIbge, xMun: e.municipio, UF: e.uf, CEP: e.cep, fone: e.telefoneFiscal },
