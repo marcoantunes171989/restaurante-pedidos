@@ -1,27 +1,50 @@
 {
   "rewrites": [
-    { "source": "/((?!assets/|api/|.*\\.).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!assets/|api/|.*\\.).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/sw.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-        { "key": "Service-Worker-Allowed", "value": "/" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
       ]
     },
     {
       "source": "/manifest.webmanifest",
       "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
       ]
     },
     {
       "source": "/pedido-prime.apk",
       "headers": [
-        { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
-        { "key": "Content-Disposition", "value": "attachment; filename=pedido-prime.apk" }
+        {
+          "key": "Content-Type",
+          "value": "application/vnd.android.package-archive"
+        },
+        {
+          "key": "Content-Disposition",
+          "value": "attachment; filename=pedido-prime.apk"
+        }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/fiscal-emitir.js": {
+      "includeFiles": "server/fiscal/ibpt/**"
+    }
+  }
 }

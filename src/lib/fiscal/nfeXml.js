@@ -215,8 +215,9 @@ export function montarXmlNFe(d = {}) {
   }
 
   // Itens + totais
-  const tot = { vBC: 0, vICMS: 0, vProd: 0, vDesc: 0, vOutro: 0, vPIS: 0, vCOFINS: 0, vBCIBSCBS: 0, vIBSUF: 0, vIBSMun: 0, vCBS: 0 };
+  const tot = { vBC: 0, vICMS: 0, vProd: 0, vDesc: 0, vOutro: 0, vPIS: 0, vCOFINS: 0, vBCIBSCBS: 0, vIBSUF: 0, vIBSMun: 0, vCBS: 0, vTotTrib: 0 };
   let temIbsCbs = false;
+  let temTotTribGeral = false;
   const detXml = itens.map((it, i) => {
     const n = i + 1;
     exigir(/^[0-9]{2}$|^[0-9]{8}$/.test(String(it.NCM)), `Item ${n}: NCM inválido (8 dígitos).`);
@@ -233,8 +234,11 @@ export function montarXmlNFe(d = {}) {
       t("qTrib", dec(it.qTrib ?? it.qCom, 4)) + t("vUnTrib", decUnit(it.vUnTrib ?? it.vUnCom)) +
       (Number(it.vDesc) > 0 ? t("vDesc", dec(it.vDesc)) : "") + (Number(it.vOutro) > 0 ? t("vOutro", dec(it.vOutro)) : "") +
       t("indTot", "1");
-    const imposto = g("ICMS", grupoIcms(it.icms, n)) + grupoPisCofins("PIS", it.pis, n) + grupoPisCofins("COFINS", it.cofins, n) + grupoIbsCbs(it.ibscbs, n);
+    const temTotTrib = it.vTotTrib != null && it.vTotTrib !== "";
+    if (temTotTrib) exigir(Number(it.vTotTrib) >= 0, `Item ${n}: valor aproximado dos tributos inválido.`);
+    const imposto = (temTotTrib ? t("vTotTrib", dec(it.vTotTrib)) : "") + g("ICMS", grupoIcms(it.icms, n)) + grupoPisCofins("PIS", it.pis, n) + grupoPisCofins("COFINS", it.cofins, n) + grupoIbsCbs(it.ibscbs, n);
     tot.vProd += vProd; tot.vDesc += Number(it.vDesc || 0); tot.vOutro += Number(it.vOutro || 0);
+    if (temTotTrib) { tot.vTotTrib += Number(it.vTotTrib); temTotTribGeral = true; }
     if (it.icms?.grupo === "ICMS00") { tot.vBC += Number(it.icms.vBC || 0); tot.vICMS += Number(it.icms.vICMS || 0); }
     if (it.pis?.v) tot.vPIS += Number(it.pis.v);
     if (it.cofins?.v) tot.vCOFINS += Number(it.cofins.v);
@@ -253,7 +257,7 @@ export function montarXmlNFe(d = {}) {
     t("vBC", dec(tot.vBC)) + t("vICMS", dec(tot.vICMS)) + t("vICMSDeson", "0.00") + t("vFCP", "0.00") + t("vBCST", "0.00") +
     t("vST", "0.00") + t("vFCPST", "0.00") + t("vFCPSTRet", "0.00") + t("vProd", dec(tot.vProd)) + t("vFrete", "0.00") +
     t("vSeg", "0.00") + t("vDesc", dec(tot.vDesc)) + t("vII", "0.00") + t("vIPI", "0.00") + t("vIPIDevol", "0.00") +
-    t("vPIS", dec(tot.vPIS)) + t("vCOFINS", dec(tot.vCOFINS)) + t("vOutro", dec(tot.vOutro)) + t("vNF", dec(vNF)));
+    t("vPIS", dec(tot.vPIS)) + t("vCOFINS", dec(tot.vCOFINS)) + t("vOutro", dec(tot.vOutro)) + t("vNF", dec(vNF)) + (temTotTribGeral ? t("vTotTrib", dec(tot.vTotTrib)) : ""));
   const ibsTot = temIbsCbs ? g("IBSCBSTot",
     t("vBCIBSCBS", dec(tot.vBCIBSCBS)) +
     g("gIBS", g("gIBSUF", t("vDif", "0.00") + t("vDevTrib", "0.00") + t("vIBSUF", dec(tot.vIBSUF))) +

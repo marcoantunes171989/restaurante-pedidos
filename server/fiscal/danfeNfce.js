@@ -56,6 +56,7 @@ export function dadosDanfeNfce({ xml, documento = {}, fonte } = {}) {
     totais: {
       qtdItens: itens.length, vProd: num(de(tot, "vProd")), vDesc: num(de(tot, "vDesc")),
       vAcresc: num(de(tot, "vFrete")) + num(de(tot, "vSeg")) + num(de(tot, "vOutro")), vNF: num(de(tot, "vNF")),
+      vTotTrib: num(de(tot, "vTotTrib")),
     },
     pagamentos: blocos(pag, "detPag").map((p) => ({ tPag: de(p, "tPag"), xPag: de(p, "xPag"), vPag: num(de(p, "vPag")) })),
     troco: num(de(pag, "vTroco")),

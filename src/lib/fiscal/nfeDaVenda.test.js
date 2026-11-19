@@ -175,3 +175,32 @@ describe("NF-e para destinatário de outra UF", () => {
     expect(r.dados.ide.idDest).toBe("1");
   });
 });
+
+// ── Tributos aproximados (IBPT, Lei 12.741/2012) ───────────
+describe("tributos aproximados na nota", () => {
+  // Tabela FICTÍCIA só para o teste.
+  const TABELA = { meta: { uf: "SP", versao: "26.2.A", chave: "ABC123", fonte: "IBPT/empresometro.com.br" }, ncm: { "21069090": { nf: 10, imp: 15, est: 18, mun: 0 } } };
+  it("com a tabela: vTotTrib por item e no total, e texto em infCpl", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), ibpt: TABELA });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.itens.every((i) => i.vTotTrib > 0)).toBe(true);
+    const { xml } = montarXmlNFe(r.dados);
+    expect(xml).toMatch(/<imposto><vTotTrib>[\d.]+<\/vTotTrib><ICMS>/);
+    const total = Number(/<vNF>[\d.]+<\/vNF><vTotTrib>([\d.]+)<\/vTotTrib>/.exec(xml)?.[1]);
+    expect(total).toBeCloseTo(r.dados.itens.reduce((s, i) => s + i.vTotTrib, 0), 2);
+    expect(xml).toContain("Trib aprox R$:");
+    expect(xml).toContain("Fonte: IBPT/empresometro.com.br 26.2.A ABC123");
+  });
+  it("sem tabela: a nota sai sem vTotTrib, com aviso", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda() });
+    expect(r.ok).toBe(true);
+    expect(montarXmlNFe(r.dados).xml).not.toContain("vTotTrib");
+    expect(r.avisos.some((a) => /IBPT/.test(a))).toBe(true);
+  });
+  it("NCM sem alíquota na tabela: não informa e avisa o NCM", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), ibpt: { meta: {}, ncm: { "11111111": { nf: 1, imp: 1, est: 1, mun: 0 } } } });
+    expect(r.ok).toBe(true);
+    expect(montarXmlNFe(r.dados).xml).not.toContain("vTotTrib");
+    expect(r.avisos.some((a) => /21069090/.test(a))).toBe(true);
+  });
+});

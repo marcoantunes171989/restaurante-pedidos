@@ -43,6 +43,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff}
 .alerta{text-align:center;font-weight:700;font-size:11px;border:1px solid #000;padding:1.5mm;margin:2mm 0}
 table{width:100%;border-collapse:collapse}th,td{padding:.3mm 0;vertical-align:top}
 th{font-size:9px;text-align:left;border-bottom:1px solid #000}
+.trib{font-size:9px;text-align:center;margin-top:1mm}
 th:nth-child(4),td:nth-child(4){padding-left:1.2mm}
 .n{text-align:right;white-space:nowrap}
 .row{display:flex;justify-content:space-between;gap:2mm}
@@ -82,6 +83,7 @@ function umaVia(d, qrDataUrl, via) {
   <div class="row b" style="margin-top:1mm"><span>FORMA DE PAGAMENTO</span><span>VALOR PAGO R$</span></div>
   ${(d.pagamentos || []).map((p) => `<div class="row"><span>${esc(nomeMeioPagamento(p.tPag, p.xPag))}</span><span>${brl(p.vPag)}</span></div>`).join("")}
   ${(d.troco || 0) > 0 ? `<div class="row"><span>Troco R$</span><span>${brl(d.troco)}</span></div>` : ""}
+  ${(t.vTotTrib || 0) > 0 ? `<div class="trib">Informação dos Tributos Totais Incidentes<br>(Lei Federal 12.741/2012) R$ ${brl(t.vTotTrib)}</div>` : ""}
   <div class="sep"></div>
   <div class="c b">Consulte pela Chave de Acesso em</div><div class="c">${esc(d.urlChave)}</div>
   <div class="chave">${esc(chaveEmBlocos(d.chave))}</div>

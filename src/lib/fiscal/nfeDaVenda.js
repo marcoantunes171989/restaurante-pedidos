@@ -8,6 +8,7 @@
 //  devolve um aviso para a loja/contador conferir.
 // ════════════════════════════════════════════════════════════
 
+import { tributosAproximados } from "./ibpt.js";
 import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS } from "../emitenteFiscalService.js";
 
 // ── Chave de acesso (44) — NF-e e NFC-e ───────────────────
@@ -129,7 +130,7 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "" } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null } = {}) {
   const avisos = [];
   const falha = (erro) => ({ ok: false, erro, avisos });
   if (!venda?.apto) return falha(`A venda tem pendência(s) e não pode virar nota: ${(venda?.pendencias || []).join(" ") || venda?.resumo || "dados incompletos"}`);
@@ -184,6 +185,21 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   }
   avisos.push("Origem da mercadoria (orig) = 0 (nacional) e unidade = UN em todos os itens: conferir no cadastro do produto.");
 
+  // Tributos aproximados (Lei 12.741/2012) pela tabela IBPT da UF da loja. Só informa
+  // quando todos os itens têm alíquota; sem tabela, a nota segue sem o valor.
+  let infCplFinal = infCpl;
+  if (ibpt) {
+    const trib = tributosAproximados(itens.map((x) => ({ NCM: x.NCM, base: Number(x.vProd) - Number(x.vDesc || 0), orig: "0" })), ibpt);
+    if (trib.aplicavel) {
+      itens.forEach((x, i) => { x.vTotTrib = trib.itens[i]; });
+      infCplFinal = [infCpl, trib.texto].filter(Boolean).join(" ");
+    } else if (trib.semNcm.length) {
+      avisos.push(`Tributos aproximados (IBPT) não informados: sem alíquota na tabela para o NCM ${trib.semNcm.join(", ")}.`);
+    }
+  } else {
+    avisos.push("Tabela IBPT não carregada: valor aproximado dos tributos (Lei 12.741/2012) não informado na nota.");
+  }
+
   const detPag = venda.pagamentos.map((p) => ({ tPag: p.meio, vPag: p.valor }));
   const dh = dhEmi || new Date().toISOString();
   const d = new Date(dh);
@@ -228,7 +244,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     dest: dest.dest,
     itens,
     pag: { detPag, vTroco: venda.totais.vTroco },
-    infAdic: infCpl ? { infCpl } : undefined,
+    infAdic: infCplFinal ? { infCpl: infCplFinal } : undefined,
     respTec: respTec || undefined,
   };
   return { ok: true, dados, chave, avisos };
