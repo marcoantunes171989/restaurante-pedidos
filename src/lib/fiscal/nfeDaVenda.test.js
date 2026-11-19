@@ -240,3 +240,19 @@ describe("tributos aproximados na nota", () => {
     expect(r.avisos.some((a) => /21069090/.test(a))).toBe(true);
   });
 });
+
+describe("origem do produto chega à nota (ponta a ponta)", () => {
+  it("origem escolhida no cadastro do produto vira <orig> no XML, mesmo com regra da loja", () => {
+    const v = montarVendaFiscal({
+      pedidos: [{ id: "P1", lojaId: 7, status: "delivered", items: [{ productId: 10, name: "Vinho Importado", price: 80, quantity: 1 }, { productId: 11, name: "Refri Lata", price: 7, quantity: 1 }] }],
+      produtos: [{ id: 10, name: "Vinho Importado", lojaId: 7, lojaFiscalRegraId: 50, fiscal: { origem: "1 - Estrangeira (importação direta)" } }, { id: 11, name: "Refri Lata", lojaId: 7, lojaFiscalRegraId: 50 }],
+      ctxFiscal: { lojaFiscalRegras: [REGRA] }, formas: [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }], mapaMeios: { dinheiro: "01" },
+      pagamento: { total: 87, troco: 0, detalhes: [{ forma: "Dinheiro", valor: 87 }] },
+    });
+    const r = dadosNFeDaVenda({ ...BASE, venda: v });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.itens.map((i) => i.icms.orig)).toEqual(["1", "0"]);
+    expect(montarXmlNFe(r.dados).xml).toContain("<ICMSSN102><orig>1</orig><CSOSN>102</CSOSN></ICMSSN102>");
+    expect(r.avisos.some((a) => /Origem da mercadoria/.test(a))).toBe(true); // o 2º item ficou no padrão 0
+  });
+});

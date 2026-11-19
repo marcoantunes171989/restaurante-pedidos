@@ -88,7 +88,7 @@ function doJsonb(fis) {
     cstCofins: soCodigo(fis.cstCofins), cofinsAliquota: num(fis.aliquotaCofins ?? fis.cofins),
     ipiCst: soCodigo(fis.cstIpi), ipiAliquota: num(fis.aliquotaIpi ?? fis.ipi),
     beneficioCbenef: str(fis.cBenef || fis.beneficio),
-    origemMercadoria: str(fis.origemMercadoria ?? fis.orig),
+    origemMercadoria: soCodigo(fis.origemMercadoria ?? fis.origem ?? fis.orig),
   };
 }
 
@@ -113,23 +113,29 @@ export function resolverFiscalProduto(produto, ctx = {}) {
     return { ...BASE_FISCAL, fonte: "indefinido", origem: null };
   }
 
+  // Origem da mercadoria (0 a 8) é característica do PRODUTO: se o cadastro do produto a informa,
+  // vale em qualquer fonte (regra da loja, cadastros ou JSONB); senão cai na da regra, se houver.
+  const fisProd = produto.fiscal && typeof produto.fiscal === "object" ? produto.fiscal : null;
+  const origemProd = fisProd ? soCodigo(fisProd.origemMercadoria ?? fisProd.origem ?? fisProd.orig) : "";
+  const comOrigem = (r) => (/^[0-8]$/.test(origemProd) ? { ...r, origemMercadoria: origemProd } : r);
+
   // 1) Configuração fiscal da loja (Fase 5) — fonte preferida.
   const cfg = porId(ctx.lojaFiscalRegras, produto.lojaFiscalRegraId);
   if (cfg) {
-    return { ...daConfigLoja(cfg), fonte: "config-loja", origem: { id: cfg.id, nome: cfg.regraNome || null, versao: cfg.versaoImportada ?? null, customizada: !!cfg.customizada } };
+    return comOrigem({ ...daConfigLoja(cfg), fonte: "config-loja", origem: { id: cfg.id, nome: cfg.regraNome || null, versao: cfg.versaoImportada ?? null, customizada: !!cfg.customizada } });
   }
 
   // 2) Vínculos por FK (NCM→ICMS, CFOP, PIS, COFINS, IPI, CEST).
   const cad = dosCadastros(produto, ctx);
   if (temAlgumDado(cad)) {
-    return { ...cad, fonte: "cadastros", origem: { ncmId: produto.ncmId ?? null, cfopId: produto.cfopId ?? null } };
+    return comOrigem({ ...cad, fonte: "cadastros", origem: { ncmId: produto.ncmId ?? null, cfopId: produto.cfopId ?? null } });
   }
 
   // 3) JSONB fiscal legado.
   const fis = produto.fiscal;
   if (fis && typeof fis === "object") {
     const j = doJsonb(fis);
-    if (temAlgumDado(j)) return { ...j, fonte: "produto-jsonb", origem: null };
+    if (temAlgumDado(j)) return comOrigem({ ...j, fonte: "produto-jsonb", origem: null });
   }
 
   // 4) Nada configurado.

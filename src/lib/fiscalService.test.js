@@ -91,3 +91,28 @@ describe("pendenciasFiscais", () => {
     expect(pendenciasFiscais({ fonte: "indefinido" })).toEqual(["Sem configuração fiscal"]);
   });
 });
+
+describe("origem da mercadoria (campo do produto vale em qualquer fonte)", () => {
+  it("sem origem no produto nem na regra: vazio (o emissor usa 0 e avisa)", () => {
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10 }, ctx).origemMercadoria).toBe("");
+  });
+  it("produto com regra da loja: a origem do cadastro do produto (texto do select) é aplicada", () => {
+    const r = resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { origem: "1 - Estrangeira (importação direta)" } }, ctx);
+    expect(r.fonte).toBe("config-loja");
+    expect(r.origemMercadoria).toBe("1");
+  });
+  it("a origem do produto vence a da regra; a da regra vale quando o produto não tem", () => {
+    const ctxRegra = { lojaFiscalRegras: [{ ...ctx.lojaFiscalRegras[0], origemMercadoria: "5" }] };
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { origem: "8 - Nacional (importação acima de 70%)" } }, ctxRegra).origemMercadoria).toBe("8");
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10 }, ctxRegra).origemMercadoria).toBe("5");
+  });
+  it("valor inválido no produto é ignorado", () => {
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { origem: "9 - Qualquer" } }, ctx).origemMercadoria).toBe("");
+    expect(resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 10, fiscal: { origem: "Selecione..." } }, ctx).origemMercadoria).toBe("");
+  });
+  it("fonte JSONB legado lê a origem do próprio produto", () => {
+    const r = resolverFiscalProduto({ id: 2, fiscal: { ncm: "21069090", cfop: "5102", csosn: "102", origem: "2 - Estrangeira (mercado interno)" } }, {});
+    expect(r.fonte).toBe("produto-jsonb");
+    expect(r.origemMercadoria).toBe("2");
+  });
+});
