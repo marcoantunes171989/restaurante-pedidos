@@ -8,9 +8,9 @@
 import { enviarSoap, enderecoServico } from "./transporte.js";
 import { montarConsStatServ, montarConsSitNFe, montarEnviNFeSincrono, montarProcNFe, lerRetorno, interpretarAutorizacao, interpretarConsulta, interpretarStatus } from "./mensagens.js";
 import { validarMensagemXsd } from "../validarXsd.js";
+import { COD_UF } from "./ufs.js";
 
 const TPAMB = { producao: 1, homologacao: 2 };
-const COD_UF = { SP: "35" };
 
 // autorizador: "SVC-AN"/"SVC-RS" na contingência SVC da NF-e (E7 parte 4); padrão = a UF.
 function contexto({ uf, modelo, ambiente, autorizador, pfx, senha, ca, timeoutMs, enviar = enviarSoap, endereco = enderecoServico }) {

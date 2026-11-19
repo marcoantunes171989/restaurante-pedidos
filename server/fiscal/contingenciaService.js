@@ -22,6 +22,7 @@ import { enderecoServico } from "./sefaz/transporte.js";
 import { emitirNaSefaz, consultarNota, statusServico } from "./sefaz/emissor.js";
 import { montarProcNFe } from "./sefaz/mensagens.js";
 import { montarAssinadaNormal } from "./nfeAssinada.js";
+import { COD_UF } from "./sefaz/ufs.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -139,7 +140,6 @@ async function emitirSvc(origem, dados, xJust, deps, conexao) {
   return { ...r, documentoId: c.id, numeroOrigem: origem.numero, forma: "svc", autorizador: svc.autorizador };
 }
 
-const COD_UF = { SP: "35" };
 
 // NF-e pelo EPEC: número novo, tpEmis 4, prazo de 168 h; o aviso (110140) vai
 // ao Ambiente Nacional. Só com o EPEC registrado a nota pode ser impressa.

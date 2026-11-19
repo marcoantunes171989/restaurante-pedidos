@@ -7,7 +7,8 @@
     ],
     "nfce_sp": "https://portal.fazenda.sp.gov.br/servicos/nfce/Paginas/WebServices.aspx",
     "svc": "https://www.nfe.fazenda.gov.br/portal/WebServices.aspx (Autorizadores em contingência; consultado em 2026-11-16)",
-    "nfe_todas_ufs": "Portal da NF-e, Relação de Serviços Web (www.nfe.fazenda.gov.br e hom.nfe.fazenda.gov.br), levantado em 2026-11-19"
+    "nfe_todas_ufs": "Portal da NF-e, Relação de Serviços Web (www.nfe.fazenda.gov.br e hom.nfe.fazenda.gov.br), levantado em 2026-11-19",
+    "nfce_outras_ufs": "Portal Nacional da NFC-e (nfce.encat.org): web services, URL do QR Code e URL de consulta por chave; levantado em 2026-11-19"
   },
   "observacoes": [
     "SP: inutilização não se aplica desde 01/11/2026 (Ajustes SINIEF 38/2026 e 40/2026); serviços disponíveis até 03/2027.",
@@ -15,7 +16,8 @@
     "Endereços EPEC da NFC-e aparecem na página da SEFAZ-SP terminando em .asm (sem x) — conferir antes de usar (E7).",
     "SVC (MOC 7.0 Anexo III §2.1.3): só NF-e 55; usar só com StatusServico 107; cancelamento só de nota da própria SVC; sem CC-e e sem inutilização na SVC.",
     "EPEC (NT 2014.001 v1.41): evento 110140 enviado ao Ambiente Nacional (AN, cOrgao 91); NF-e tpEmis 4 transmitida depois à SEFAZ de origem com a mesma chave; AN bloqueia novos EPEC com pendência de mais de 168 h.",
-    "Mod. 55 de todas as UFs (levantado em 2026-11-19): AM, BA, GO, MG, MS, MT, PE, PR, RS e SP têm autorizador próprio; MA usa a SVAN; AC, AL, AP, CE, DF, ES, PA, PB, PI, RJ, RN, RO, RR, SC, SE e TO usam a SVRS. Fora de SP, as UFs têm só o mod. 55: o mod. 65 (NFC-e, com QR Code e consulta pública) ainda não foi levantado."
+    "Mod. 55 de todas as UFs (levantado em 2026-11-19): AM, BA, GO, MG, MS, MT, PE, PR, RS e SP têm autorizador próprio; MA usa a SVAN; AC, AL, AP, CE, DF, ES, PA, PB, PI, RJ, RN, RO, RR, SC, SE e TO usam a SVRS. Fora de SP, as UFs têm só o mod. 55: o mod. 65 (NFC-e, com QR Code e consulta pública) ainda não foi levantado.",
+    "Mod. 65 (NFC-e) das UFs AC, AL, AP, BA, DF, MT, MS, PA, PR, PE, PI, RS, RO, SC, SE, TO (levantado em 2026-11-19). Autorizador por eliminação: AM, GO, MT, MS, MG, PR, RS e SP têm NFC-e própria; as demais usam a SVRS. UFs fora por dado incerto nas fontes (ver dados/nfce-qrcode-consulta-uf.json): AM, CE, ES, GO, MA, MG, PB, RJ, RN, RR."
   ],
   "SP": {
     "55": {
@@ -81,6 +83,28 @@
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.hml.sefaznet.ac.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.sefaznet.ac.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.sefaznet.ac.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.sefaznet.ac.gov.br/nfce/consulta"
+      }
     }
   },
   "AL": {
@@ -102,6 +126,28 @@
         "RecepcaoEvento": "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://nfce.sefaz.al.gov.br/QRCode/consultarNFCe.jsp",
+        "ConsultaPublica": "www.sefaz.al.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://nfce.sefaz.al.gov.br/QRCode/consultarNFCe.jsp",
+        "ConsultaPublica": "www.sefaz.al.gov.br/nfce/consulta"
       }
     }
   },
@@ -147,6 +193,28 @@
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://www.sefaz.ap.gov.br/nfcehml/nfce.php",
+        "ConsultaPublica": "www.sefaz.ap.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://www.sefaz.ap.gov.br/nfce/nfcep.php",
+        "ConsultaPublica": "www.sefaz.ap.gov.br/nfce/consulta"
+      }
     }
   },
   "BA": {
@@ -168,6 +236,28 @@
         "RecepcaoEvento": "https://nfe.sefaz.ba.gov.br/webservices/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx",
         "Autorizacao": "https://nfe.sefaz.ba.gov.br/webservices/NFeAutorizacao4/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.sefaz.ba.gov.br/webservices/NFeRetAutorizacao4/NFeRetAutorizacao4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://hnfe.sefaz.ba.gov.br/servicos/nfce/qrcode.aspx",
+        "ConsultaPublica": "http://hinternet.sefaz.ba.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://nfe.sefaz.ba.gov.br/servicos/nfce/qrcode.aspx",
+        "ConsultaPublica": "www.sefaz.ba.gov.br/nfce/consulta"
       }
     }
   },
@@ -212,6 +302,28 @@
         "RecepcaoEvento": "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.fazenda.df.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.fazenda.df.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.fazenda.df.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.fazenda.df.gov.br/nfce/consulta"
       }
     }
   },
@@ -321,6 +433,28 @@
         "Autorizacao": "https://nfe.sefaz.ms.gov.br/ws/NFeAutorizacao4",
         "RetAutorizacao": "https://nfe.sefaz.ms.gov.br/ws/NFeRetAutorizacao4"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://hom.nfce.sefaz.ms.gov.br/ws/NFeStatusServico4",
+        "Autorizacao": "https://hom.nfce.sefaz.ms.gov.br/ws/NFeAutorizacao4",
+        "RetAutorizacao": "https://hom.nfce.sefaz.ms.gov.br/ws/NFeRetAutorizacao4",
+        "ConsultaProtocolo": "https://hom.nfce.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4",
+        "RecepcaoEvento": "https://hom.nfce.sefaz.ms.gov.br/ws/NFeRecepcaoEvento4",
+        "Inutilizacao": "https://hom.nfce.sefaz.ms.gov.br/ws/NFeInutilizacao4",
+        "QRCode": "http://www.dfe.ms.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.dfe.ms.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.sefaz.ms.gov.br/ws/NFeStatusServico4",
+        "Autorizacao": "https://nfce.sefaz.ms.gov.br/ws/NFeAutorizacao4",
+        "RetAutorizacao": "https://nfce.sefaz.ms.gov.br/ws/NFeRetAutorizacao4",
+        "ConsultaProtocolo": "https://nfce.sefaz.ms.gov.br/ws/NFeConsultaProtocolo4",
+        "RecepcaoEvento": "https://nfce.sefaz.ms.gov.br/ws/NFeRecepcaoEvento4",
+        "Inutilizacao": "https://nfce.sefaz.ms.gov.br/ws/NFeInutilizacao4",
+        "QRCode": "http://www.dfe.ms.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.dfe.ms.gov.br/nfce/consulta"
+      }
     }
   },
   "MT": {
@@ -343,6 +477,28 @@
         "Autorizacao": "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeAutorizacao4",
         "RetAutorizacao": "https://nfe.sefaz.mt.gov.br/nfews/v2/services/NfeRetAutorizacao4"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeStatusServico4",
+        "Autorizacao": "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeAutorizacao4",
+        "RetAutorizacao": "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeRetAutorizacao4",
+        "ConsultaProtocolo": "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeConsulta4",
+        "RecepcaoEvento": "https://homologacao.sefaz.mt.gov.br/nfcews/services/RecepcaoEvento4",
+        "Inutilizacao": "https://homologacao.sefaz.mt.gov.br/nfcews/services/NfeInutilizacao4",
+        "QRCode": "http://homologacao.sefaz.mt.gov.br/nfce/consultanfce",
+        "ConsultaPublica": "http://homologacao.sefaz.mt.gov.br/nfce/consultanfce"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeStatusServico4",
+        "Autorizacao": "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeAutorizacao4",
+        "RetAutorizacao": "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeRetAutorizacao4",
+        "ConsultaProtocolo": "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeConsulta4",
+        "RecepcaoEvento": "https://nfce.sefaz.mt.gov.br/nfcews/services/RecepcaoEvento4",
+        "Inutilizacao": "https://nfce.sefaz.mt.gov.br/nfcews/services/NfeInutilizacao4",
+        "QRCode": "http://www.sefaz.mt.gov.br/nfce/consultanfce",
+        "ConsultaPublica": "http://www.sefaz.mt.gov.br/nfce/consultanfce"
+      }
     }
   },
   "PA": {
@@ -364,6 +520,28 @@
         "RecepcaoEvento": "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://appnfc.sefa.pa.gov.br/portal-homologacao/view/consultas/nfce/nfceForm.seam",
+        "ConsultaPublica": "www.sefa.pa.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://appnfc.sefa.pa.gov.br/portal/view/consultas/nfce/nfceForm.seam",
+        "ConsultaPublica": "www.sefa.pa.gov.br/nfce/consulta"
       }
     }
   },
@@ -409,6 +587,28 @@
         "Autorizacao": "https://nfe.sefaz.pe.gov.br/nfe-service/services/NFeAutorizacao4",
         "RetAutorizacao": "https://nfe.sefaz.pe.gov.br/nfe-service/services/NFeRetAutorizacao4"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://nfcehomolog.sefaz.pe.gov.br/nfce/consulta",
+        "ConsultaPublica": "nfce.sefaz.pe.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://nfce.sefaz.pe.gov.br/nfce/consulta",
+        "ConsultaPublica": "nfce.sefaz.pe.gov.br/nfce/consulta"
+      }
     }
   },
   "PI": {
@@ -431,6 +631,28 @@
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.sefaz.pi.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.sefaz.pi.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.sefaz.pi.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.sefaz.pi.gov.br/nfce/consulta"
+      }
     }
   },
   "PR": {
@@ -452,6 +674,28 @@
         "RecepcaoEvento": "https://nfe.sefa.pr.gov.br/nfe/NFeRecepcaoEvento4",
         "Autorizacao": "https://nfe.sefa.pr.gov.br/nfe/NFeAutorizacao4",
         "RetAutorizacao": "https://nfe.sefa.pr.gov.br/nfe/NFeRetAutorizacao4"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeStatusServico4",
+        "Autorizacao": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4",
+        "RetAutorizacao": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRetAutorizacao4",
+        "ConsultaProtocolo": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4",
+        "RecepcaoEvento": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4",
+        "Inutilizacao": "https://homologacao.nfce.sefa.pr.gov.br/nfce/NFeInutilizacao4",
+        "QRCode": "http://www.fazenda.pr.gov.br/nfce/qrcode",
+        "ConsultaPublica": "http://www.fazenda.pr.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.sefa.pr.gov.br/nfce/NFeStatusServico4",
+        "Autorizacao": "https://nfce.sefa.pr.gov.br/nfce/NFeAutorizacao4",
+        "RetAutorizacao": "https://nfce.sefa.pr.gov.br/nfce/NFeRetAutorizacao4",
+        "ConsultaProtocolo": "https://nfce.sefa.pr.gov.br/nfce/NFeConsultaProtocolo4",
+        "RecepcaoEvento": "https://nfce.sefa.pr.gov.br/nfce/NFeRecepcaoEvento4",
+        "Inutilizacao": "https://nfce.sefa.pr.gov.br/nfce/NFeInutilizacao4",
+        "QRCode": "http://www.fazenda.pr.gov.br/nfce/qrcode",
+        "ConsultaPublica": "http://www.fazenda.pr.gov.br/nfce/consulta"
       }
     }
   },
@@ -519,6 +763,28 @@
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.nfce.sefin.ro.gov.br/consultanfce/consulta.jsp",
+        "ConsultaPublica": "www.sefin.ro.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.nfce.sefin.ro.gov.br/consultanfce/consulta.jsp",
+        "ConsultaPublica": "www.sefin.ro.gov.br/nfce/consulta"
+      }
     }
   },
   "RR": {
@@ -563,6 +829,28 @@
         "Autorizacao": "https://nfe.sefazrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.sefazrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.sefazrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.sefazrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.sefazrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx",
+        "ConsultaPublica": "www.sefaz.rs.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.sefazrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.sefazrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.sefazrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.sefazrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.sefazrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.sefazrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://www.sefaz.rs.gov.br/NFCE/NFCE-COM.aspx",
+        "ConsultaPublica": "www.sefaz.rs.gov.br/nfce/consulta"
+      }
     }
   },
   "SC": {
@@ -584,6 +872,28 @@
         "RecepcaoEvento": "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://hom.sat.sef.sc.gov.br/nfce/consulta",
+        "ConsultaPublica": "https://hom.sat.sef.sc.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "https://sat.sef.sc.gov.br/nfce/consulta",
+        "ConsultaPublica": "https://sat.sef.sc.gov.br/nfce/consulta"
       }
     }
   },
@@ -607,6 +917,28 @@
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
       }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.hom.nfe.se.gov.br/nfce/qrcode",
+        "ConsultaPublica": "http://www.hom.nfe.se.gov.br/nfce/consulta"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.nfce.se.gov.br/nfce/qrcode",
+        "ConsultaPublica": "http://www.nfce.se.gov.br/nfce/consulta"
+      }
     }
   },
   "TO": {
@@ -628,6 +960,28 @@
         "RecepcaoEvento": "https://nfe.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
         "Autorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         "RetAutorizacao": "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx"
+      }
+    },
+    "65": {
+      "homologacao": {
+        "StatusServico": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce-homologacao.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce-homologacao.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://homologacao.sefaz.to.gov.br/nfce/qrcode",
+        "ConsultaPublica": "http://homologacao.sefaz.to.gov.br/nfce/consulta.jsf"
+      },
+      "producao": {
+        "StatusServico": "https://nfce.svrs.rs.gov.br/ws/NfeStatusServico/NfeStatusServico4.asmx",
+        "Autorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        "RetAutorizacao": "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+        "ConsultaProtocolo": "https://nfce.svrs.rs.gov.br/ws/NfeConsulta/NfeConsulta4.asmx",
+        "RecepcaoEvento": "https://nfce.svrs.rs.gov.br/ws/recepcaoevento/recepcaoevento4.asmx",
+        "Inutilizacao": "https://nfce.svrs.rs.gov.br/ws/nfeinutilizacao/nfeinutilizacao4.asmx",
+        "QRCode": "http://www.sefaz.to.gov.br/nfce/qrcode",
+        "ConsultaPublica": "www.sefaz.to.gov.br/nfce/consulta"
       }
     }
   },

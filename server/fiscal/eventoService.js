@@ -6,9 +6,9 @@
 
 import { Buffer } from "node:buffer";
 import { lerCertificadoPfx } from "./certificado.js";
+import { COD_UF } from "./sefaz/ufs.js";
 import { detCancelamento, detCancelamentoSubstituicao, detCartaCorrecao, montarEvento, assinarEvento, enviarEvento } from "./sefaz/eventos.js";
 
-const COD_UF = { SP: "35" };
 const TIPO = { cancelar: "110111", substituir: "110112", cce: "110110" };
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para cancelar ou corrigir notas.",
