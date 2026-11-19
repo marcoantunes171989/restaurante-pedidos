@@ -331,3 +331,16 @@ describe("CSOSN 900 e ST (201/202/203)", () => {
     expect(r.dados.itens[0].icms.pCredSN).toBe(1.25);
   });
 });
+
+describe("aviso da IE do emitente na nota", () => {
+  it("IE de SP que não confere gera aviso, mas NÃO bloqueia a nota", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda() }); // EMIT.inscricaoEstadual = 123456789012 (não confere)
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.avisos.some((a) => /Inscrição Estadual não confere/.test(a) || /dígito verificador da Inscrição Estadual/.test(a))).toBe(true);
+  });
+  it("IE de SP válida: sem esse aviso", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), emitente: { ...EMIT, inscricaoEstadual: "110042490114" } });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.avisos.some((a) => /dígito verificador da Inscrição Estadual/.test(a))).toBe(false);
+  });
+});

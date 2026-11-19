@@ -340,6 +340,27 @@ export function podeUsarProducao() {
 export function inscricaoEstadualValida(ie) {
   return /^([0-9]{2,14}|ISENTO)$/.test(String(ie ?? "").trim().toUpperCase());
 }
+/**
+ * Confere os dois dígitos verificadores da IE de São Paulo (12 dígitos: 8 de base, DV1,
+ * 2 de sequência, DV2). DV1 = soma(d1..d8 × 1,3,4,5,6,7,8,10) mod 11; DV2 = soma(d1..d11 ×
+ * 3,2,10,9,8,7,6,5,4,3,2) mod 11 (resto 10 → dígito 0).
+ * @returns {true|false|null} null = não se aplica (ISENTO, vazio ou formato que não é o da IE comum de SP).
+ */
+export function ieSpConfere(ie) {
+  const s = String(ie ?? "").trim().toUpperCase();
+  if (!s || s === "ISENTO" || !/^[0-9]+$/.test(s)) return null;
+  if (s.length !== 12) return false;
+  const d = s.split("").map(Number);
+  const dv = (pesos) => { const r = pesos.reduce((a, p, i) => a + p * d[i], 0) % 11; return r === 10 ? 0 : r; };
+  return dv([1, 3, 4, 5, 6, 7, 8, 10]) === d[8] && dv([3, 2, 10, 9, 8, 7, 6, 5, 4, 3, 2]) === d[11];
+}
+/** Aviso (NÃO bloqueia) quando a IE não passa na conferência do dígito. Só SP por enquanto. */
+export function avisoInscricaoEstadual(uf, ie) {
+  if (String(uf || "").toUpperCase() === "SP" && ieSpConfere(ie) === false) {
+    return "O dígito verificador da Inscrição Estadual não confere com o padrão de SP. Confira o número: a SEFAZ rejeita IE inválida.";
+  }
+  return "";
+}
 // Formata enquanto digita: só números (até 14) ou a palavra ISENTO.
 export function limparInscricaoEstadual(v) {
   const s = String(v ?? "").toUpperCase();

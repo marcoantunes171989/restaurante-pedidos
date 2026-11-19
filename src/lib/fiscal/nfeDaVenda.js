@@ -9,7 +9,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { tributosAproximados } from "./ibpt.js";
-import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS } from "../emitenteFiscalService.js";
+import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual } from "../emitenteFiscalService.js";
 
 // ── Chave de acesso (44) — NF-e e NFC-e ───────────────────
 // DV módulo 11 com pesos 2..9; cada posição vale (código ASCII − 48), o que
@@ -143,6 +143,8 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   const simples = crt !== "3";
+  const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
+  if (avisoIe) avisos.push(avisoIe);
 
   const itens = [];
   let origemPadrao = false; // algum item sem origem cadastrada → usou 0 (nacional)

@@ -3,7 +3,7 @@
 //  Não grava nada: a edição continua no cadastro da empresa (mesmas validações).
 // ════════════════════════════════════════════════════════════
 
-import { rotuloCrt, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
+import { rotuloCrt, rotuloAmbienteNfce, normalizarDocumentoFiscal, avisoInscricaoEstadual } from "../emitenteFiscalService.js";
 import { mascaraDocumentoFiscal, mascaraCep, mascaraTelefone, mascaraCnae } from "../masks.js";
 
 const vazio = (v) => v == null || String(v).trim() === "";
@@ -13,19 +13,19 @@ const sim = (b) => (b ? "Sim" : "Não");
  * @param {object|null} e  emitente (dbParaEmitente)
  * @param {string} documento  CNPJ/CPF da loja (tab_lojas.documento)
  * @returns {Array<{ id:string, titulo:string, aba:string, campos:Array<{ rotulo:string, valor:string, faltando:boolean }> }>}
- *   `aba` = aba do cadastro da empresa onde o campo é editado.
+ *   `aba` = aba do cadastro da empresa onde o campo é editado. Campo pode ter `aviso` (não bloqueia).
  */
 export function secoesDadosFiscais(e, documento = "") {
   const x = e || {};
   const doc = normalizarDocumentoFiscal(documento);
-  const campo = (rotulo, valor, obrigatorio = false) => ({ rotulo, valor: vazio(valor) ? "Não informado" : String(valor), faltando: obrigatorio && vazio(valor) });
+  const campo = (rotulo, valor, obrigatorio = false, aviso = "") => ({ rotulo, valor: vazio(valor) ? "Não informado" : String(valor), faltando: obrigatorio && vazio(valor), ...(aviso ? { aviso } : {}) });
   const enderecoLinha = [x.logradouro, x.numero && `nº ${x.numero}`, x.complemento, x.bairro].filter((p) => !vazio(p)).join(", ");
   return [
     { id: "empresa", titulo: "Empresa", aba: "empresa", campos: [
       campo("Razão social", x.razaoSocial, true),
       campo("Nome fantasia", x.nomeFantasia),
       campo("CNPJ / CPF", doc ? mascaraDocumentoFiscal(doc) : "", true),
-      campo("Inscrição estadual", x.inscricaoEstadual, true),
+      campo("Inscrição estadual", x.inscricaoEstadual, true, avisoInscricaoEstadual(x.uf, x.inscricaoEstadual)),
       campo("Inscrição municipal", x.inscricaoMunicipal),
       campo("CNAE principal", x.cnaePrincipal ? mascaraCnae(x.cnaePrincipal) : ""),
       campo("Segmento", x.segmento),

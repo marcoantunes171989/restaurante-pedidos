@@ -38,3 +38,17 @@ describe("secoesDadosFiscais", () => {
     expect(campoDe(s, "endereco", "Endereço").valor).toBe("Rua A, nº 10, Sala 2, Centro");
   });
 });
+
+describe("aviso da Inscrição Estadual (SP)", () => {
+  const campoIe = (e) => secoesDadosFiscais(e, "12345678000195").find((s) => s.id === "empresa").campos.find((c) => c.rotulo === "Inscrição estadual");
+  it("IE de SP que não confere traz aviso (não vira 'faltando')", () => {
+    const c = campoIe({ ...completo, inscricaoEstadual: "123456789012" });
+    expect(c.aviso).toMatch(/dígito verificador/);
+    expect(c.faltando).toBe(false);
+  });
+  it("IE de SP válida, ISENTO ou outra UF: sem aviso", () => {
+    expect(campoIe({ ...completo, inscricaoEstadual: "110042490114" }).aviso).toBeUndefined();
+    expect(campoIe({ ...completo, inscricaoEstadual: "ISENTO" }).aviso).toBeUndefined();
+    expect(campoIe({ ...completo, uf: "RJ", inscricaoEstadual: "123456789012" }).aviso).toBeUndefined();
+  });
+});

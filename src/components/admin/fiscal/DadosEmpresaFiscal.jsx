@@ -73,6 +73,7 @@ export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = n
                   <div key={c.rotulo} className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <dt className="text-[12px] font-semibold text-[var(--pp-text-muted)]">{c.rotulo}</dt>
                     <dd className={`text-[13px] ${c.faltando ? "font-semibold text-[#B45309]" : c.valor === "Não informado" ? "text-[var(--pp-text-muted)]" : "text-[var(--pp-text)]"}`}>{c.faltando ? "Falta preencher" : c.valor}</dd>
+                    {c.aviso && <p role="alert" className="w-full text-[12px] font-semibold text-[#B45309]">⚠ {c.aviso}</p>}
                   </div>
                 ))}
               </dl>

@@ -10,7 +10,7 @@ import {
   documentoNumericoValido, documentoSuportadoParaChave,
   cepValido, codigoMunicipioIbgeValido, serieNfceValida, SERIE_NFCE_MAX,
   validarCpf, validarCnpjNumerico, validarCnpjAlfanumerico, validarDocumentoFiscal,
-  SEGMENTOS_LOJA,
+  SEGMENTOS_LOJA, ieSpConfere, avisoInscricaoEstadual,
 } from "./emitenteFiscalService";
 
 // Emitente completo (mínimo para NFC-e), sem documento (vem à parte).
@@ -299,5 +299,29 @@ describe("Inscrição Estadual (TIe: [0-9]{2,14}|ISENTO)", async () => {
   });
   it("validação do cadastro aponta IE inválida", () => {
     expect(validar({ inscricaoEstadual: "12345678901234567890" }).erros).toContain("Inscrição Estadual: de 2 a 14 números (ou ISENTO).");
+  });
+});
+
+describe("IE de São Paulo — conferência dos dígitos verificadores", () => {
+  it("IE conhecida e válida (110042490114) confere; com máscara não se aplica (a tela guarda só dígitos)", () => {
+    expect(ieSpConfere("110042490114")).toBe(true);
+  });
+  it("trocar qualquer um dos dois dígitos verificadores invalida", () => {
+    for (const ruim of ["110042490104", "110042490115", "110042491114", "110042490124"]) expect(ieSpConfere(ruim), ruim).toBe(false);
+  });
+  it("tamanho diferente de 12 dígitos não passa; ISENTO, vazio e letras não se aplicam (null)", () => {
+    expect(ieSpConfere("11004249011")).toBe(false);
+    expect(ieSpConfere("1100424901144")).toBe(false);
+    expect(ieSpConfere("ISENTO")).toBeNull();
+    expect(ieSpConfere("")).toBeNull();
+    expect(ieSpConfere(null)).toBeNull();
+    expect(ieSpConfere("P011004243002")).toBeNull();
+  });
+  it("aviso só para SP com IE que não confere; outras UFs e IE válida não avisam", () => {
+    expect(avisoInscricaoEstadual("SP", "123456789012")).toMatch(/dígito verificador/);
+    expect(avisoInscricaoEstadual("sp", "123456789012")).toMatch(/dígito verificador/);
+    expect(avisoInscricaoEstadual("SP", "110042490114")).toBe("");
+    expect(avisoInscricaoEstadual("SP", "ISENTO")).toBe("");
+    expect(avisoInscricaoEstadual("RJ", "123456789012")).toBe("");
   });
 });
