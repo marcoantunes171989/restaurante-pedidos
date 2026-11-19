@@ -26,7 +26,7 @@ export const BLOCOS = [
     id: "preparar", numero: 1, titulo: "Preparar a loja", quem: "Administrador da empresa",
     resumo: "Faça uma vez, na ordem. O Painel Fiscal mostra o que ainda falta.",
     passos: [
-      { id: "dados", titulo: "Dados da Empresa", texto: "Confira CNPJ, Inscrição Estadual, regime tributário (CRT), endereço e marque NFC-e e/ou NF-e como habilitadas.", tela: "dados-fiscais-empresa" },
+      { id: "dados", titulo: "Dados da Empresa", texto: "Digite o CNPJ e o sistema busca na Receita a razão social, o endereço e o contato. Complete o que ficou em branco (a Inscrição Estadual vem da SEFAZ do seu estado), confira o regime (CRT) e marque NFC-e e/ou NF-e como habilitadas. Os selos NFC-e e NF-e indicam o que é obrigatório para emitir.", tela: "dados-fiscais-empresa" },
       { id: "tributacao", titulo: "Regras fiscais", texto: "Importe as regras da Biblioteca Fiscal Prime e vincule cada produto a uma regra (NCM, CFOP, CSOSN ou CST, PIS e COFINS).", tela: "config-fiscal" },
       { id: "produtos", titulo: "Cadastro do produto", texto: "No produto, aba Fiscal: origem da mercadoria, unidade e, se o CSOSN for 101, o Crédito do Simples (%).", tela: "products" },
       { id: "emissao", titulo: "Certificado, CSC e séries", texto: "Envie o certificado digital A1, cadastre o CSC e as séries e informe o código fiscal de cada forma de pagamento.", tela: "emissao-fiscal" },

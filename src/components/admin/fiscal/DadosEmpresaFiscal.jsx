@@ -71,7 +71,9 @@ export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = n
               <dl className="mt-3 space-y-2">
                 {s.campos.map((c) => (
                   <div key={c.rotulo} className="flex flex-wrap items-baseline justify-between gap-x-3">
-                    <dt className="text-[12px] font-semibold text-[var(--pp-text-muted)]">{c.rotulo}</dt>
+                    <dt className="text-[12px] font-semibold text-[var(--pp-text-muted)]">{c.rotulo}
+                      {c.usos?.length > 0 && <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">{c.usos.map((u) => <span key={u} className={`rounded px-1.5 py-px text-[9px] font-bold uppercase tracking-wide ${u === "Gerencial" ? "bg-[#E5E7EB] text-[#4B5563]" : "bg-[#012E46] text-white"}`}>{u}</span>)}</span>}
+                    </dt>
                     <dd className={`text-[13px] ${c.faltando ? "font-semibold text-[#B45309]" : c.valor === "Não informado" ? "text-[var(--pp-text-muted)]" : "text-[var(--pp-text)]"}`}>{c.faltando ? "Falta preencher" : c.valor}</dd>
                     {c.aviso && <p role="alert" className="w-full text-[12px] font-semibold text-[#B45309]">⚠ {c.aviso}</p>}
                   </div>
@@ -82,6 +84,10 @@ export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = n
         })}
       </div>
 
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--pp-text-muted)]">
+        <span className="inline-flex items-center gap-1"><span className="rounded bg-[#012E46] px-1.5 py-px text-[9px] font-bold uppercase text-white">NFC-e</span><span className="rounded bg-[#012E46] px-1.5 py-px text-[9px] font-bold uppercase text-white">NF-e</span> obrigatório para emitir</span>
+        <span className="inline-flex items-center gap-1"><span className="rounded bg-[#E5E7EB] px-1.5 py-px text-[9px] font-bold uppercase text-[#4B5563]">Gerencial</span> usado em relatórios e análises</span>
+      </p>
       {faltando === 0 && pend.length === 0 && <p className="text-[12px] text-[var(--pp-text-muted)]">Para ligar a emissão, siga para o <b>Painel Fiscal</b>.</p>}
 
       {editando && emitenteApi && (

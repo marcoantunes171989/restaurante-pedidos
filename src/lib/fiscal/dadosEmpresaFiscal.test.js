@@ -52,3 +52,18 @@ describe("aviso da Inscrição Estadual (SP)", () => {
     expect(campoIe({ ...completo, uf: "RJ", inscricaoEstadual: "123456789012" }).aviso).toBeUndefined();
   });
 });
+
+describe("selos de uso por campo (NFC-e / NF-e / Gerencial)", () => {
+  const campoPor = (s, secao, rotulo) => s.find((x) => x.id === secao).campos.find((c) => c.rotulo === rotulo);
+  it("cada campo traz os usos certos; opcionais sem selo de emissão", () => {
+    const s = secoesDadosFiscais(completo, "12345678000195");
+    expect(campoPor(s, "empresa", "Razão social").usos).toEqual(["NFC-e", "NF-e", "Gerencial"]);
+    expect(campoPor(s, "empresa", "Inscrição estadual").usos).toEqual(["NFC-e", "NF-e"]);
+    expect(campoPor(s, "empresa", "Inscrição municipal").usos).toEqual([]);
+    expect(campoPor(s, "endereco", "Telefone").usos).toEqual(["Gerencial"]);
+    expect(campoPor(s, "documentos", "Série da NFC-e").usos).toEqual(["NFC-e"]);
+  });
+  it("todo campo obrigatório de emissão que a tela marca como 'faltando' tem selo NFC-e ou NF-e (sem divergência)", () => {
+    for (const sec of secoesDadosFiscais(null, "")) for (const c of sec.campos) if (c.faltando) expect(c.usos.some((u) => u === "NFC-e" || u === "NF-e"), c.rotulo).toBe(true);
+  });
+});

@@ -304,6 +304,11 @@ function valorCampo(emitente, documento, chave, externo) {
  * @param documento CNPJ/CPF da loja (tab_lojas.documento)
  */
 export function pendenciasEmitenteNfce(emitente, documento = "") {
+  const faltando = new Set(chavesPendentesNfce(emitente, documento));
+  return OBRIGATORIOS_NFCE.filter((c) => faltando.has(c.chave)).map((c) => c.rotulo);
+}
+/** As mesmas pendências, pelas CHAVES dos campos (o formulário usa para destacar o campo certo). */
+export function chavesPendentesNfce(emitente, documento = "") {
   const pend = [];
   for (const c of OBRIGATORIOS_NFCE) {
     let ok = !!valorCampo(emitente, documento, c.chave, c.externo);
@@ -312,7 +317,7 @@ export function pendenciasEmitenteNfce(emitente, documento = "") {
     if (ok && c.chave === "cep") ok = cepValido(emitente.cep);
     if (ok && c.chave === "codigoMunicipioIbge") ok = codigoMunicipioIbgeValido(emitente.codigoMunicipioIbge);
     if (ok && c.chave === "nfceSerie") ok = serieNfceValida(emitente.nfceSerie);
-    if (!ok) pend.push(c.rotulo);
+    if (!ok) pend.push(c.chave);
   }
   return pend;
 }
@@ -362,10 +367,35 @@ export function avisoInscricaoEstadual(uf, ie) {
   return "";
 }
 // Formata enquanto digita: só números (até 14) ou a palavra ISENTO.
+// Produtor rural de SP vem como "P011004243002": o leiaute só aceita dígitos, então o "P" some.
 export function limparInscricaoEstadual(v) {
   const s = String(v ?? "").toUpperCase();
-  if (/^[A-Z]/.test(s.trim())) return s.replace(/[^A-Z]/g, "").slice(0, 6);
+  if (/^[A-Z]/.test(s.trim()) && !/^P[\s.\-/]*\d/.test(s.trim())) return s.replace(/[^A-Z]/g, "").slice(0, 6);
   return s.replace(/\D/g, "").slice(0, 14);
+}
+/** IE como o leiaute exige (2 a 14 dígitos ou ISENTO): tira pontuação, espaços e o "P" do produtor rural. */
+export function normalizarInscricaoEstadual(v) {
+  const s = String(v ?? "").trim().toUpperCase();
+  if (s === "") return "";
+  if (s.replace(/[^A-Z]/g, "") === "ISENTO") return "ISENTO";
+  return limparInscricaoEstadual(s);
+}
+/**
+ * Dados do emitente vindos do banco → valores que o formulário aceita. Cadastros antigos podem ter máscara
+ * (IE, CEP, telefone), série fora de 1–999, e-mail com espaço; sem isso o formulário recusaria salvar
+ * por causa de algo que o usuário nem vê. Não inventa dado: só limpa o formato.
+ */
+export function emitenteParaFormulario(e) {
+  if (!e || typeof e !== "object") return {};
+  const d = (v, n) => String(v ?? "").replace(/\D/g, "").slice(0, n);
+  const out = { ...e };
+  if (e.inscricaoEstadual != null) out.inscricaoEstadual = normalizarInscricaoEstadual(e.inscricaoEstadual);
+  if (e.cep != null) out.cep = d(e.cep, 8);
+  if (e.telefoneFiscal != null) out.telefoneFiscal = d(e.telefoneFiscal, 11);
+  if (e.codigoMunicipioIbge != null) out.codigoMunicipioIbge = d(e.codigoMunicipioIbge, 7);
+  if (e.emailFiscal != null) out.emailFiscal = String(e.emailFiscal).trim();
+  if (e.nfceSerie != null && !serieNfceValida(e.nfceSerie)) out.nfceSerie = 1;
+  return out;
 }
 
 // Validação geral do cadastro para persistência (simulação sempre pode salvar;

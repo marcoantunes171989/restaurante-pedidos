@@ -10,7 +10,7 @@ import {
   documentoNumericoValido, documentoSuportadoParaChave,
   cepValido, codigoMunicipioIbgeValido, serieNfceValida, SERIE_NFCE_MAX,
   validarCpf, validarCnpjNumerico, validarCnpjAlfanumerico, validarDocumentoFiscal,
-  SEGMENTOS_LOJA, ieSpConfere, avisoInscricaoEstadual,
+  SEGMENTOS_LOJA, ieSpConfere, avisoInscricaoEstadual, normalizarInscricaoEstadual, emitenteParaFormulario, limparInscricaoEstadual as limparIe,
 } from "./emitenteFiscalService";
 
 // Emitente completo (mínimo para NFC-e), sem documento (vem à parte).
@@ -323,5 +323,26 @@ describe("IE de São Paulo — conferência dos dígitos verificadores", () => {
     expect(avisoInscricaoEstadual("SP", "110042490114")).toBe("");
     expect(avisoInscricaoEstadual("SP", "ISENTO")).toBe("");
     expect(avisoInscricaoEstadual("RJ", "123456789012")).toBe("");
+  });
+});
+
+describe("normalização de dados antigos do emitente (para o formulário não travar)", () => {
+  it("IE: tira pontuação e o P do produtor rural; mantém ISENTO; vazio continua vazio", () => {
+    expect(normalizarInscricaoEstadual("110.042.490.114")).toBe("110042490114");
+    expect(normalizarInscricaoEstadual("P-01100424.3/002")).toBe("011004243002");
+    expect(normalizarInscricaoEstadual(" isento ")).toBe("ISENTO");
+    expect(normalizarInscricaoEstadual("")).toBe("");
+    expect(normalizarInscricaoEstadual(null)).toBe("");
+  });
+  it("digitar P seguido de números não apaga os números", () => {
+    expect(limparIe("P011004243002")).toBe("011004243002");
+    expect(limparIe("ISENTO")).toBe("ISENTO");
+    expect(limparIe("123.456")).toBe("123456");
+  });
+  it("emitenteParaFormulario limpa máscara, e-mail e série inválida, sem inventar dados", () => {
+    const r = emitenteParaFormulario({ inscricaoEstadual: "110.042.490.114", cep: "01001-000", telefoneFiscal: "(11) 99999-9999", codigoMunicipioIbge: "3.550.308", emailFiscal: " a@b.com ", nfceSerie: 0, razaoSocial: "X" });
+    expect(r).toMatchObject({ inscricaoEstadual: "110042490114", cep: "01001000", telefoneFiscal: "11999999999", codigoMunicipioIbge: "3550308", emailFiscal: "a@b.com", nfceSerie: 1, razaoSocial: "X" });
+    expect(emitenteParaFormulario(null)).toEqual({});
+    expect(emitenteParaFormulario({ nfceSerie: 5 }).nfceSerie).toBe(5);
   });
 });
