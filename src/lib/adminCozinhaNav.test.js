@@ -9,6 +9,7 @@ import { canAccessModule, MODULOS_LABEL, MODULOS_SEMPRE_LIVRES } from "./plans.j
 import {
   ACESSO_COZINHA,
   ADMIN_COZINHA_NAV,
+  ADMIN_FISCAL_ITENS,
   ADMIN_GESTAO_ITENS,
   ADMIN_OPERACAO_ITENS,
   ADMIN_VISAO_GERAL_ITENS,
@@ -178,9 +179,11 @@ describe("REL-02D — regra única de acesso da Cozinha", () => {
       "setores", "setor-impressoras", "impressoes", "operacaomobile", "acessosop",
     ]);
     expect(ADMIN_GESTAO_ITENS.map((i) => i.id)).toEqual([
-      "products", "categorias", "fiscal", "config-fiscal", "promocoes",
+      "products", "categorias", "promocoes",
       "cupons", "crm", "fidelidade", "cardapioqr", "cardapioext",
     ]);
+    // Telas fiscais saíram de Gestão para o grupo Fiscal, com os MESMOS ids (permissões intactas).
+    expect(ADMIN_FISCAL_ITENS.map((i) => i.id)).toEqual(["config-fiscal", "fiscal"]);
   });
 
   it("decisão negada não autoriza atualização de setor", () => {

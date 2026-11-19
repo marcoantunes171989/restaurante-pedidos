@@ -37,14 +37,18 @@ export const ADMIN_VISAO_GERAL_ITENS = [
 export const ADMIN_GESTAO_ITENS = [
   { id: "products", label: "Produtos" },
   { id: "categorias", label: "Categorias" },
-  { id: "fiscal", label: "Fiscal" },
-  { id: "config-fiscal", label: "Configuração Fiscal" },
   { id: "promocoes", label: "Promoções" },
   { id: "cupons", label: "Cupons" },
   { id: "crm", label: "Clientes / CRM" },
   { id: "fidelidade", label: "Fidelidade" },
   { id: "cardapioqr", label: "Cardápio QR" },
   { id: "cardapioext", label: "Cardápio Externo" },
+];
+
+// Grupo Fiscal do menu (etapa 1 da reorganização): telas fiscais da loja, mesmos ids de antes.
+export const ADMIN_FISCAL_ITENS = [
+  { id: "config-fiscal", label: "Configuração Fiscal" },
+  { id: "fiscal", label: "Cadastros Fiscais" },
 ];
 
 const MSG_SEM_PERMISSAO = "Sem permissão";
@@ -185,5 +189,6 @@ export function menuAdminRelevanteParaTeste() {
     { grupo: "Visão Geral", itens: ADMIN_VISAO_GERAL_ITENS },
     { grupo: ADMIN_COZINHA_NAV.grupo, itens: ADMIN_OPERACAO_ITENS },
     { grupo: "Gestão", itens: ADMIN_GESTAO_ITENS },
+    { grupo: "Fiscal", itens: ADMIN_FISCAL_ITENS },
   ];
 }

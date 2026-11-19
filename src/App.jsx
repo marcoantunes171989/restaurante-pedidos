@@ -7570,14 +7570,18 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     { grupo: "Gestão", itens: [
       { id: "products", icon: <IconProdutos />, label: "Produtos" },
       { id: "categorias", icon: <IconCategorias />, label: "Categorias" },
-      { id: "fiscal", icon: <Receipt className="h-4 w-4" />, label: "Fiscal" },
-      { id: "config-fiscal", icon: <Download className="h-4 w-4" />, label: "Configuração Fiscal" },
       { id: "promocoes", icon: <IconPromocao />, label: "Promoções" },
       { id: "cupons", icon: <IconPromocao />, label: "Cupons" },
       { id: "crm", icon: <IconCrm />, label: "Clientes / CRM" },
       { id: "fidelidade", icon: <IconLicencas />, label: "Fidelidade" },
       { id: "cardapioqr", icon: <IconQr />, label: "Cardápio QR" },
       { id: "cardapioext", icon: <IconCardapio />, label: "Cardápio Externo" },
+    ]},
+    // Grupo Fiscal (etapa 1): reúne as telas fiscais da loja que antes ficavam soltas em Gestão.
+    // Mesmos ids e permissões de antes — só mudou o agrupamento e o rótulo de "fiscal".
+    { grupo: "Fiscal", itens: [
+      { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Configuração Fiscal" },
+      { id: "fiscal", icon: <Landmark className="h-4 w-4" />, label: "Cadastros Fiscais" },
     ]},
     { grupo: "Financeiro", itens: [
       { id: "financeiro", icon: <IconPagamento />, label: "Visão Financeira" },
