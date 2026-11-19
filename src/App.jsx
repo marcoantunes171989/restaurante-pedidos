@@ -7585,7 +7585,10 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
       { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
       { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
       { id: "dados-fiscais-empresa", icon: <Store className="h-4 w-4" />, label: "Dados da Empresa" },
-      { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Configuração Fiscal" },
+      { id: "emissao-fiscal", icon: <LockKeyhole className="h-4 w-4" />, label: "Emissão" },
+      { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Tributação" },
+      { id: "tributos-ibpt", icon: <TrendingUp className="h-4 w-4" />, label: "Tributos (IBPT)" },
+      { id: "testes-fiscais", icon: <Hourglass className="h-4 w-4" />, label: "Testes (homologação)" },
       { id: "fiscal", icon: <Landmark className="h-4 w-4" />, label: "Cadastros Fiscais" },
     ]},
     { grupo: "Financeiro", itens: [
@@ -7775,7 +7778,32 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
                 onSalvarIdentidade={async (id, d) => { await emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento }); }} />
             </main>
           ))}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} onIrTela={setAdminSection} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}
+          {ativo === "emissao-fiscal" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<LockKeyhole className="h-4 w-4" />} titulo="Emissão" descricao={`Certificado digital, CSC, séries e pagamentos na nota da ${lojaInfo?.nome || "sua loja"}, além de ligar a emissão em homologação.`} />
+              {emitenteFiscalApi
+                ? <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi.fetch || null} produtos={products} regrasLoja={lojaFiscalRegras} salvarEmitente={emitenteFiscalApi.salvar || null}
+                    onIrPara={(aba) => { setFiscalAba(aba); setAdminSection("config-fiscal"); }} />
+                : <EmptyState titulo="Emissão indisponível" dica="O cadastro fiscal da empresa ainda não está disponível neste ambiente." />}
+            </main>
+          ))}
+          {ativo === "tributos-ibpt" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<TrendingUp className="h-4 w-4" />} titulo="Tributos (IBPT)" descricao="Tabela da Lei 12.741 usada para mostrar os tributos aproximados no cupom e na nota." />
+              {emitenteFiscalApi
+                ? <TabelaIbptConfig supabase={supabase} lojaInfo={lojaInfo} />
+                : <EmptyState titulo="Tributos (IBPT) indisponível" dica="O cadastro fiscal da empresa ainda não está disponível neste ambiente." />}
+            </main>
+          ))}
+          {ativo === "testes-fiscais" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<Hourglass className="h-4 w-4" />} titulo="Testes (homologação)" descricao="Simule uma nota antes de emitir de verdade: monta a NFC-e com um pedido real e mostra o que falta, sem enviar à SEFAZ." />
+              {emitenteFiscalApi
+                ? <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={products} importadas={lojaFiscalRegras} emitenteApi={emitenteFiscalApi} />
+                : <EmptyState titulo="Testes indisponíveis" dica="O cadastro fiscal da empresa ainda não está disponível neste ambiente." />}
+            </main>
+          ))}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} onIrTela={setAdminSection} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -21454,7 +21482,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, formasPagamento = [], abaInicial = null, onIrTela = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, abaInicial = null, onIrTela = null }) {
   const [aba, setAba] = useState(abaInicial || "minha");
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
@@ -21473,20 +21501,17 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
     { id: "produtos", label: "🍔 Produtos", badge: produtos.filter((p) => p.lojaFiscalRegraId).length || null },
     { id: "sugestoes", label: "📋 Sugestões por segmento", badge: templates.filter((t) => t.ativo !== false).length || null },
     { id: "biblioteca", label: "📚 Biblioteca Fiscal Prime", badge: publicadas.length || null },
-    ...(emitenteFiscalApi ? [{ id: "nfce", label: "🧾 NFC-e (simulação)" }] : []),
-    ...(emitenteFiscalApi ? [{ id: "emissao", label: "🔐 Emissão (certificado e séries)" }] : []),
-    ...(emitenteFiscalApi ? [{ id: "ibpt", label: "🧮 Tributos (IBPT)" }] : []),
   ];
 
-  // E9 parte 2: alertas fiscais da loja no topo da Configuração Fiscal.
+  // E9 parte 2: alertas fiscais da loja no topo da Tributação.
   const alertasFiscaisLoja = useAlertasFiscais({ supabase, lojaId: lojaInfo?.id ?? null, ativo: !!emitenteFiscalApi });
 
   return (
     <main className="space-y-5">
       <PageHeader
         icone={<span className="text-base leading-none">📥</span>}
-        titulo="Configuração Fiscal"
-        descricao={`Importe regras publicadas da Central Fiscal Prime e mantenha a configuração própria da ${lojaInfo?.nome || "sua loja"}. O que você ajusta aqui é local — nunca altera a Central nem outra loja.`}
+        titulo="Tributação"
+        descricao={`Regras fiscais da ${lojaInfo?.nome || "sua loja"}: importe as regras publicadas pela Central Fiscal Prime e vincule aos produtos. O que você ajusta aqui é local — nunca altera a Central nem outra loja.`}
         indicadores={[
           { valor: importadas.length, rotulo: "regras na loja" },
           { valor: importadas.filter((i) => i.customizada).length, rotulo: "customizadas" },
@@ -21494,7 +21519,10 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
         ]}
       />
 
-      <AlertasFiscais alertas={alertasFiscaisLoja} onIr={(destino) => (destino === "notas" && onIrTela ? onIrTela("notas-fiscais") : setAba(destino))} />
+      <AlertasFiscais alertas={alertasFiscaisLoja} onIr={(destino) => {
+        const tela = { notas: "notas-fiscais", emissao: "emissao-fiscal", ibpt: "tributos-ibpt" }[destino];
+        if (tela && onIrTela) onIrTela(tela); else setAba(destino);
+      }} />
 
       {pendentes > 0 && aba !== "minha" && (
         <button onClick={() => setAba("minha")} className="w-full rounded-2xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.08)] px-4 py-3 text-left text-[13px] font-bold text-[#F38525]">
@@ -21516,9 +21544,6 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} api={api} />}
       {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
-      {aba === "nfce" && <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={produtos} importadas={importadas} emitenteApi={emitenteFiscalApi} />}
-      {aba === "ibpt" && <TabelaIbptConfig supabase={supabase} lojaInfo={lojaInfo} />}
-      {aba === "emissao" && <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi?.fetch || null} produtos={produtos} regrasLoja={importadas} salvarEmitente={emitenteFiscalApi?.salvar || null} onIrPara={setAba} />}
     </main>
   );
 }
@@ -24071,9 +24096,9 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                     <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">O NCM centraliza NCM + CEST + regra de ICMS. Os demais vínculos (CFOP, PIS, COFINS, IPI, CEST) estão logo abaixo.</p>
                   </>)}
             </>)}
-            {secao("📥", "Configuração fiscal da loja", "Vincule este produto a uma configuração fiscal importada da Central (Configuração Fiscal → Minha loja). A tributação passa a vir da regra, com origem, versão e status.", <>
+            {secao("📥", "Configuração fiscal da loja", "Vincule este produto a uma configuração fiscal importada da Central (Fiscal › Tributação → Minha loja). A tributação passa a vir da regra, com origem, versão e status.", <>
               {lojaFiscalRegras.length === 0
-                ? <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma configuração fiscal na loja. Importe uma regra em <b>Configuração Fiscal → Biblioteca Fiscal Prime</b>.</p>
+                ? <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma configuração fiscal na loja. Importe uma regra em <b>Fiscal › Tributação → Biblioteca Fiscal Prime</b>.</p>
                 : (<>
                     <div className="min-w-[220px]"><label className={PP_LBL}>Configuração vinculada</label>
                       <select value={lojaFiscalRegraId ?? ""} onChange={(e) => setLojaFiscalRegraId(e.target.value ? Number(e.target.value) : null)} className={PP_INP}>
@@ -24161,7 +24186,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               </div>)}
             <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
               <p className="font-semibold text-[#012E46]">ⓘ Regime, ambiente e operação são da LOJA</p>
-              <p className="mt-0.5">CRT/regime tributário, ambiente e série NFC-e ficam em <b>Configuração Fiscal → Emitente</b>. Indicadores de presença, consumidor final, destino e frete pertencem à <b>operação da venda</b> — não ao produto. Aqui o produto guarda só o que é inerente à mercadoria.</p>
+              <p className="mt-0.5">CRT/regime tributário, ambiente e série NFC-e ficam em <b>Fiscal › Dados da Empresa</b>. Indicadores de presença, consumidor final, destino e frete pertencem à <b>operação da venda</b> — não ao produto. Aqui o produto guarda só o que é inerente à mercadoria.</p>
             </div>
           </>)}
         </div>

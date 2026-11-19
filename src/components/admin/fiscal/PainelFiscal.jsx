@@ -34,7 +34,7 @@ function Indicador({ valor, rotulo, tom }) {
 
 /**
  * @param {object} p
- * @param {(destino:{tela:string, aba:string|null})=>void} p.onIr  navega (tela do menu + aba da Configuração Fiscal)
+ * @param {(destino:{tela:string, aba:string|null})=>void} p.onIr  navega (tela do menu + aba da Tributação)
  */
 export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [], produtos = [], regrasLoja = [], emitenteLegado = null, onIr = () => {} }) {
   const lojaId = lojaInfo?.id ?? null;
@@ -156,8 +156,8 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Atalhos">
         <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "notas-fiscais", aba: null })}>📄 Notas emitidas</button>
-        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "config-fiscal", aba: "emissao" })}>🔐 Certificado, CSC e séries</button>
-        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "config-fiscal", aba: "ibpt" })}>🧮 Tributos (IBPT)</button>
+        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "emissao-fiscal", aba: null })}>🔐 Certificado, CSC e séries</button>
+        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "tributos-ibpt", aba: null })}>🧮 Tributos (IBPT)</button>
       </section>
     </div>
   );

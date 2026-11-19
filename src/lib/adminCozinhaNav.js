@@ -50,7 +50,10 @@ export const ADMIN_FISCAL_ITENS = [
   { id: "painel-fiscal", label: "Painel Fiscal" },
   { id: "notas-fiscais", label: "Notas Emitidas" },
   { id: "dados-fiscais-empresa", label: "Dados da Empresa" },
-  { id: "config-fiscal", label: "Configuração Fiscal" },
+  { id: "emissao-fiscal", label: "Emissão" },
+  { id: "config-fiscal", label: "Tributação" },
+  { id: "tributos-ibpt", label: "Tributos (IBPT)" },
+  { id: "testes-fiscais", label: "Testes (homologação)" },
   { id: "fiscal", label: "Cadastros Fiscais" },
 ];
 

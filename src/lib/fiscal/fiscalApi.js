@@ -11,7 +11,7 @@ const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
   NAO_ENCONTRADO: "Documento fiscal não encontrado.",
   PRODUCAO_BLOQUEADA: "Produção bloqueada: cadastre um certificado A1 válido antes de emitir com valor fiscal.",
-  SEM_SERIE: "Nenhuma série ativa para este documento e ambiente. Configure a série na Configuração Fiscal.",
+  SEM_SERIE: "Nenhuma série ativa para este documento e ambiente. Configure a série em Fiscal › Emissão.",
   NUMERACAO_ESGOTADA: "A numeração desta série chegou ao limite. Configure uma nova série.",
   MODELO_INVALIDO: "Modelo de documento inválido (use NF-e 55 ou NFC-e 65).",
   SERIE_INVALIDA: "Série inválida (0 a 999).",

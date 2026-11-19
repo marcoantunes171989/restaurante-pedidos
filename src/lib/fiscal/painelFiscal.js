@@ -62,21 +62,22 @@ export function alertaIbpt(resumo, agora = new Date()) {
 
 /**
  * Para onde cada passo do assistente leva.
- * `tela`: tela do menu; `aba`: aba da Configuração Fiscal (quando a tela é config-fiscal).
+ * `tela`: tela do menu; `aba`: aba da Tributação (quando a tela é config-fiscal).
  */
 export function destinoDoPasso(alvo) {
   switch (alvo) {
     case "empresa": return { tela: "dados-fiscais-empresa", aba: null };
     case "produtos": return { tela: "config-fiscal", aba: "produtos" };
     case "emissao-cert": case "emissao-csc": case "emissao-series": case "emissao-pag": case "ligar":
-      return { tela: "config-fiscal", aba: "emissao" };
-    default: return { tela: "config-fiscal", aba: "emissao" };
+      return { tela: "emissao-fiscal", aba: null };
+    default: return { tela: "emissao-fiscal", aba: null };
   }
 }
 
-/** Destino dos alertas (notas / emissao / ibpt) → aba da Configuração Fiscal. */
+/** Destino dos alertas (notas / emissao / ibpt) → tela própria de cada assunto. */
 export function destinoDoAlerta(destino) {
-  if (destino === "emissao" || destino === "ibpt") return { tela: "config-fiscal", aba: destino };
+  if (destino === "emissao") return { tela: "emissao-fiscal", aba: null };
+  if (destino === "ibpt") return { tela: "tributos-ibpt", aba: null };
   return { tela: "notas-fiscais", aba: null }; // "notas" e qualquer destino desconhecido
 }
 

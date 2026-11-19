@@ -46,12 +46,12 @@ describe("destinos", () => {
   it("passos do assistente levam à tela/aba certa", () => {
     expect(destinoDoPasso("empresa")).toEqual({ tela: "dados-fiscais-empresa", aba: null });
     expect(destinoDoPasso("produtos")).toEqual({ tela: "config-fiscal", aba: "produtos" });
-    expect(destinoDoPasso("emissao-csc")).toEqual({ tela: "config-fiscal", aba: "emissao" });
-    expect(destinoDoPasso("ligar").aba).toBe("emissao");
+    expect(destinoDoPasso("emissao-csc")).toEqual({ tela: "emissao-fiscal", aba: null });
+    expect(destinoDoPasso("ligar")).toEqual({ tela: "emissao-fiscal", aba: null });
   });
   it("alertas levam à tela Notas Emitidas, à Emissão ou ao IBPT (desconhecido cai em notas)", () => {
-    expect(destinoDoAlerta("ibpt")).toEqual({ tela: "config-fiscal", aba: "ibpt" });
-    expect(destinoDoAlerta("emissao")).toEqual({ tela: "config-fiscal", aba: "emissao" });
+    expect(destinoDoAlerta("ibpt")).toEqual({ tela: "tributos-ibpt", aba: null });
+    expect(destinoDoAlerta("emissao")).toEqual({ tela: "emissao-fiscal", aba: null });
     expect(destinoDoAlerta("notas")).toEqual({ tela: "notas-fiscais", aba: null });
     expect(destinoDoAlerta("xyz")).toEqual({ tela: "notas-fiscais", aba: null });
   });

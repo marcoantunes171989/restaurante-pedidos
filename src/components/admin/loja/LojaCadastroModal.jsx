@@ -309,7 +309,7 @@ function LojaCadastroModal({
                     <div className="sm:col-span-2 rounded-2xl border border-[rgba(243,133,37,0.35)] bg-[rgba(243,133,37,0.06)] p-4">
                       <p className="text-[12px] font-bold text-[#012E46]">Configuração fiscal recomendada</p>
                       <p className="mt-0.5 text-[13px] font-semibold text-[#111111]">{form.segmento} • {form.uf} • {rotuloCrt(form.crt).split(" — ")[1] || rotuloCrt(form.crt)}</p>
-                      <p className="mt-1 text-[11px] text-[#6B7280]">Sugestão parametrizável. Confirme o enquadramento com a contabilidade do estabelecimento. Importe a regra em <b>Configuração Fiscal → Biblioteca</b>.</p>
+                      <p className="mt-1 text-[11px] text-[#6B7280]">Sugestão parametrizável. Confirme o enquadramento com a contabilidade do estabelecimento. Importe a regra em <b>Fiscal › Tributação → Biblioteca</b>.</p>
                     </div>
                   )}
                 </div>
