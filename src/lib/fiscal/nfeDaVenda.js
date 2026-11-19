@@ -130,7 +130,7 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date() } = {}) {
   const avisos = [];
   const falha = (erro) => ({ ok: false, erro, avisos });
   if (!venda?.apto) return falha(`A venda tem pendência(s) e não pode virar nota: ${(venda?.pendencias || []).join(" ") || venda?.resumo || "dados incompletos"}`);
@@ -189,10 +189,12 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   // quando todos os itens têm alíquota; sem tabela, a nota segue sem o valor.
   let infCplFinal = infCpl;
   if (ibpt) {
-    const trib = tributosAproximados(itens.map((x) => ({ NCM: x.NCM, base: Number(x.vProd) - Number(x.vDesc || 0), orig: "0" })), ibpt);
+    const trib = tributosAproximados(itens.map((x) => ({ NCM: x.NCM, base: Number(x.vProd) - Number(x.vDesc || 0), orig: "0" })), ibpt, { agora });
     if (trib.aplicavel) {
       itens.forEach((x, i) => { x.vTotTrib = trib.itens[i]; });
       infCplFinal = [infCpl, trib.texto].filter(Boolean).join(" ");
+    } else if (trib.vencida) {
+      avisos.push(`Tabela IBPT vencida em ${trib.vencida}: tributos aproximados (Lei 12.741/2012) não informados. Importe a tabela vigente.`);
     } else if (trib.semNcm.length) {
       avisos.push(`Tributos aproximados (IBPT) não informados: sem alíquota na tabela para o NCM ${trib.semNcm.join(", ")}.`);
     }

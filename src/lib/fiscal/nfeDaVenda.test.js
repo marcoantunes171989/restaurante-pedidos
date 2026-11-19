@@ -197,6 +197,13 @@ describe("tributos aproximados na nota", () => {
     expect(montarXmlNFe(r.dados).xml).not.toContain("vTotTrib");
     expect(r.avisos.some((a) => /IBPT/.test(a))).toBe(true);
   });
+  it("tabela vencida: não informa e pede a importação da vigente", () => {
+    const vencida = { ...TABELA, meta: { ...TABELA.meta, vigenciaFim: "30/09/2024" } };
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), ibpt: vencida, agora: new Date(2026, 10, 19) });
+    expect(r.ok).toBe(true);
+    expect(montarXmlNFe(r.dados).xml).not.toContain("vTotTrib");
+    expect(r.avisos.some((a) => a.includes("vencida em 30/09/2024"))).toBe(true);
+  });
   it("NCM sem alíquota na tabela: não informa e avisa o NCM", () => {
     const r = dadosNFeDaVenda({ ...BASE, venda: venda(), ibpt: { meta: {}, ncm: { "11111111": { nf: 1, imp: 1, est: 1, mun: 0 } } } });
     expect(r.ok).toBe(true);

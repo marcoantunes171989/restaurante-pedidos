@@ -20,6 +20,7 @@
 import process from "node:process";
 import { processarEmissao } from "../server/fiscal/emissaoService.js";
 import { cadeiaConfiavelSefaz } from "../server/fiscal/sefaz/cadeiaIcp.js";
+import { criarLeitorTabelaIbpt } from "../server/fiscal/ibptTabela.js";
 import { dbParaEmitente } from "../src/lib/emitenteFiscalService.js";
 
 function json(res, status, body) {
@@ -41,6 +42,9 @@ async function rpc(nome, params, bearer) {
   if (!r.ok) throw new Error(`RPC ${nome} HTTP ${r.status}`);
   return txt ? JSON.parse(txt) : null;
 }
+// Um leitor por instância da função (o cache curto vale entre as requisições).
+const leitorIbpt = criarLeitorTabelaIbpt((uf) => rpc("app_fiscal_ibpt_da_uf", { p_uf: uf }, serviceKey()));
+
 export function criarDeps(token) {
   const doServidor = (nome, params) => rpc(nome, params, serviceKey());
   // 185: emitente/CNPJ por função do servidor (no HML o service_role não lê as tabelas direto).
@@ -116,6 +120,8 @@ export function criarDeps(token) {
     timeoutMs: 30000,
     // Cadeia ICP-Brasil das SEFAZ (ausente do armazenamento padrão do Node).
     ca: cadeiaConfiavelSefaz(),
+    // Tributos aproximados (Lei 12.741): tabela IBPT da UF no banco (190), com reserva em arquivo.
+    tabelaIbpt: leitorIbpt,
   };
 }
 

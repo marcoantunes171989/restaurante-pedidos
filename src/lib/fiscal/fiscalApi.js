@@ -5,6 +5,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { dbParaEmitente } from "../emitenteFiscalService.js";
+import { tabelaParaEnvio } from "./ibpt.js";
 
 const MENSAGENS = {
   FORBIDDEN: "Você não tem permissão para esta ação fiscal.",
@@ -22,6 +23,15 @@ const MENSAGENS = {
   VALOR_INVALIDO: "Valor ou quantidade inválidos.",
   STATUS_NAO_PERMITE: "Este documento não pode mais ser descartado.",
   MOTIVO_OBRIGATORIO: "Informe o motivo (mínimo 3 letras).",
+  UF_INVALIDA: "UF inválida.",
+  UF_DIFERENTE_DA_LOJA: "Você só pode importar a tabela IBPT da UF da sua loja.",
+  FORMATO_INVALIDO: "O arquivo da tabela IBPT está fora do formato esperado.",
+  VIGENCIA_INVALIDA: "A tabela IBPT não informa uma vigência válida.",
+  TABELA_VENCIDA: "Tabela IBPT vencida. Baixe a tabela vigente no portal do IBPT.",
+  POUCOS_NCM: "A tabela tem poucos NCMs. Confira se é o CSV de mercadorias do IBPT.",
+  NCM_DEMAIS: "A tabela tem NCMs demais para ser a tabela do IBPT.",
+  ALIQUOTA_INVALIDA: "A tabela tem alíquotas inválidas (fora de 0 a 100).",
+  VIGENCIA_ANTERIOR: "Já existe uma tabela IBPT mais nova para esta UF.",
 };
 
 export function mensagemErroFiscal(code, extra = {}) {
@@ -176,4 +186,29 @@ export async function resumoCredenciaisFiscais(supabase, lojaId) {
     idCsc: c.id_csc ?? null, validadeInicio: c.validade_inicio ?? null, validadeFim: c.validade_fim ?? null,
     cadastrado: !!c.cadastrado, atualizadoEm: c.atualizado_em ?? null,
   }));
+}
+
+// ── Tabela IBPT (migration 190) ────────────────────────────
+const isoParaBr = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? `${m[3]}/${m[2]}/${m[1]}` : ""; };
+function ibptMigracaoPendente(e) {
+  return e?.code === "MIGRACAO_PENDENTE" ? Object.assign(new Error("Tabela IBPT ainda não instalada no banco (migration 190 pendente)."), { code: "MIGRACAO_PENDENTE" }) : e;
+}
+
+/** Estado das tabelas IBPT (sem os NCMs). Super vê todas as UFs; admin de loja, só a da sua loja. */
+export async function resumoTabelasIbpt(supabase, lojaId) {
+  try {
+    const d = await chamar(supabase, "app_fiscal_ibpt_resumo", { p_loja_id: lojaId });
+    return {
+      ufLoja: d.ufLoja || "", ehSuper: !!d.ehSuper,
+      tabelas: (d.tabelas || []).map((t) => ({ uf: t.uf, versao: t.versao, chave: t.chave || "", fonte: t.fonte || "",
+        vigenciaInicio: isoParaBr(t.vigenciaInicio), vigenciaFim: isoParaBr(t.vigenciaFim), qtdNcm: t.qtdNcm, importadoEm: t.importadoEm || null })),
+    };
+  } catch (e) { throw ibptMigracaoPendente(e); }
+}
+
+/** Grava a tabela (já conferida na tela). O banco valida tudo de novo. */
+export async function importarTabelaIbpt(supabase, lojaId, tabela, uf) {
+  try {
+    return await chamar(supabase, "app_fiscal_ibpt_importar", { p_loja_id: lojaId, ...tabelaParaEnvio(tabela, uf) });
+  } catch (e) { throw ibptMigracaoPendente(e); }
 }
