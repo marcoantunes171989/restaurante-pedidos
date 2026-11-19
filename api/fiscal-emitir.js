@@ -19,6 +19,7 @@
 
 import process from "node:process";
 import { processarEmissao } from "../server/fiscal/emissaoService.js";
+import { cadeiaConfiavelSefaz } from "../server/fiscal/sefaz/cadeiaIcp.js";
 import { dbParaEmitente } from "../src/lib/emitenteFiscalService.js";
 
 function json(res, status, body) {
@@ -113,6 +114,8 @@ export function criarDeps(token) {
     salvarDados: (p) => doServidor("app_fiscal_documento_salvar_dados", { p_documento_id: p.documentoId, p_chave: p.chave, p_dados: p.dados }),
     pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),
     timeoutMs: 30000,
+    // Cadeia ICP-Brasil das SEFAZ (ausente do armazenamento padrão do Node).
+    ca: cadeiaConfiavelSefaz(),
   };
 }
 
