@@ -43,6 +43,7 @@ body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#000;background:#fff}
 .alerta{text-align:center;font-weight:700;font-size:11px;border:1px solid #000;padding:1.5mm;margin:2mm 0}
 table{width:100%;border-collapse:collapse}th,td{padding:.3mm 0;vertical-align:top}
 th{font-size:9px;text-align:left;border-bottom:1px solid #000}
+th:nth-child(4),td:nth-child(4){padding-left:1.2mm}
 .n{text-align:right;white-space:nowrap}
 .row{display:flex;justify-content:space-between;gap:2mm}
 .chave{font-family:"Courier New",monospace;font-size:10px;text-align:center;word-break:break-all}
