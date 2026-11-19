@@ -88,6 +88,12 @@ function grupoIcms(icms, nItem) {
     case "ICMSSN102":
       exigir(["102", "103", "300", "400"].includes(String(icms.CSOSN)), `Item ${nItem}: CSOSN ${icms.CSOSN} não pertence ao grupo ICMSSN102 (leiaute).`);
       return g("ICMSSN102", t("orig", icms.orig) + t("CSOSN", icms.CSOSN));
+    case "ICMSSN500":
+      // ICMS cobrado antes por substituição tributária (Simples): só origem + CSOSN.
+      // Os campos de ST retido (vBCSTRet, pST, vICMSSTRet…) são opcionais no XSD e
+      // não são informados pelo emissor (a loja não tem esse dado no cadastro).
+      exigir(String(icms.CSOSN) === "500", `Item ${nItem}: grupo ICMSSN500 exige CSOSN 500.`);
+      return g("ICMSSN500", t("orig", icms.orig) + t("CSOSN", "500"));
     case "ICMS00":
       exigir(String(icms.CST) === "00", `Item ${nItem}: grupo ICMS00 exige CST 00.`);
       exigir(["0", "1", "2", "3"].includes(String(icms.modBC)), `Item ${nItem}: modBC inválido para ICMS00.`);

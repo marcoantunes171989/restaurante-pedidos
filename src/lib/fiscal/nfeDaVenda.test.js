@@ -80,10 +80,21 @@ describe("dadosNFeDaVenda", () => {
     expect(r.erro).toMatch(/pendência/i);
   });
   it("CSOSN sem grupo suportado vira erro claro (sem chutar outro código)", () => {
-    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "500" }] } });
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "900" }] } });
     const r = dadosNFeDaVenda({ ...BASE, venda: v });
     expect(r.ok).toBe(false);
-    expect(r.erro).toMatch(/CSOSN 500/);
+    expect(r.erro).toMatch(/CSOSN 900/);
+    expect(r.erro).toMatch(/500/); // a lista de suportados inclui o 500
+  });
+  it("CSOSN 500 (ICMS cobrado antes por ST) vira ICMSSN500 só com origem e CSOSN, com aviso", () => {
+    const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "500" }] } });
+    const r = dadosNFeDaVenda({ ...BASE, venda: v });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.itens[0].icms).toEqual({ grupo: "ICMSSN500", orig: "0", CSOSN: "500" });
+    expect(r.avisos.filter((a) => /CSOSN 500/.test(a))).toHaveLength(1);
+    const { xml, totais } = montarXmlNFe(r.dados);
+    expect(xml).toContain("<ICMSSN500><orig>0</orig><CSOSN>500</CSOSN></ICMSSN500>");
+    expect(totais.vNF).toBe(v.totais.vNF); // ST retido não muda o total da nota
   });
   it("Regime Normal usa CST do ICMS com base no valor líquido do item", () => {
     const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "", cstIcms: "00", icmsAliquota: 18 }] } });

@@ -88,6 +88,14 @@ describe("XML gerado × XSD oficial", () => {
     const r = await notaValida({ regras, crt: "3", pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
     expect(r.erros).toEqual([]);
   });
+  it("NFC-e e NF-e com bebida em CSOSN 500 (ICMS cobrado antes por ST)", async () => {
+    const regras = REGRAS_SN.map((x) => (x.id === 51 ? { ...x, csosn: "500" } : x));
+    for (const modelo of [65, 55]) {
+      const r = await notaValida({ regras, modelo, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
+      expect(r.erros).toEqual([]);
+      expect(r.valido).toBe(true);
+    }
+  });
   it("NF-e (55) para empresa", async () => {
     const r = await notaValida({ modelo: 55, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
     expect(r.erros).toEqual([]);

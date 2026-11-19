@@ -132,8 +132,15 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     let icms;
     if (simples) {
       const csosn = String(f.csosn || "").trim();
-      if (!CSOSN_GRUPO_SN102.includes(csosn)) return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: ${CSOSN_GRUPO_SN102.join(", ")}).`);
-      icms = { grupo: "ICMSSN102", orig: "0", CSOSN: csosn };
+      if (csosn === "500") {
+        icms = { grupo: "ICMSSN500", orig: "0", CSOSN: csosn };
+        const aviso500 = "CSOSN 500 (ICMS cobrado antes por ST): o XML sai só com origem e CSOSN, sem os campos de ST retido (opcionais no leiaute). Conferir com o contador e na homologação.";
+        if (!avisos.includes(aviso500)) avisos.push(aviso500);
+      } else if (CSOSN_GRUPO_SN102.includes(csosn)) {
+        icms = { grupo: "ICMSSN102", orig: "0", CSOSN: csosn };
+      } else {
+        return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: ${[...CSOSN_GRUPO_SN102, "500"].join(", ")}).`);
+      }
     } else {
       const cst = String(f.cstIcms || "").trim();
       if (cst !== "00") return falha(`Item "${it.nome}": CST de ICMS ${cst || "(vazio)"} ainda não suportado pelo emissor (suportado: 00).`);

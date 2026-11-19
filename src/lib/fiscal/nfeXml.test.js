@@ -183,6 +183,12 @@ describe("montarXmlNFe — recusas (nunca gera XML inválido em silêncio)", () 
     expect(ok).toContain("<verProc>PedidoPrime 1.0</verProc><dhCont>2026-11-15T12:31:00-03:00</dhCont><xJust>SEFAZ fora do ar no momento</xJust></ide>");
   });
   it("sem itens", () => expect(erro(base({ itens: [] }))).toMatch(/itens/i));
+  it("ICMSSN500 só aceita CSOSN 500", () => {
+    const ok = base(); ok.itens[0] = { ...ok.itens[0], icms: { grupo: "ICMSSN500", orig: "0", CSOSN: "500" } };
+    expect(montarXmlNFe(ok).xml).toContain("<ICMSSN500><orig>0</orig><CSOSN>500</CSOSN></ICMSSN500>");
+    const ruim = base(); ruim.itens[0] = { ...ruim.itens[0], icms: { grupo: "ICMSSN500", orig: "0", CSOSN: "102" } };
+    expect(erro(ruim)).toMatch(/ICMSSN500 exige CSOSN 500/);
+  });
   it("grupo de ICMS não suportado", () => {
     const b = base(); b.itens[0] = { ...b.itens[0], icms: { grupo: "ICMSSN900", CSOSN: "900" } };
     expect(erro(b)).toMatch(/ICMSSN900/);
