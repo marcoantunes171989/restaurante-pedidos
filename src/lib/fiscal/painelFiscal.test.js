@@ -44,7 +44,7 @@ describe("alertaIbpt", () => {
 
 describe("destinos", () => {
   it("passos do assistente levam à tela/aba certa", () => {
-    expect(destinoDoPasso("empresa")).toEqual({ tela: "minhaempresa", aba: null });
+    expect(destinoDoPasso("empresa")).toEqual({ tela: "dados-fiscais-empresa", aba: null });
     expect(destinoDoPasso("produtos")).toEqual({ tela: "config-fiscal", aba: "produtos" });
     expect(destinoDoPasso("emissao-csc")).toEqual({ tela: "config-fiscal", aba: "emissao" });
     expect(destinoDoPasso("ligar").aba).toBe("emissao");

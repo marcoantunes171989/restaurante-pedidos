@@ -173,7 +173,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   // E9: "Fazer agora" leva à seção do passo (ou à aba certa da Configuração Fiscal).
   function irPara(alvo) {
     if (alvo === "produtos" && onIrPara) return onIrPara("produtos");
-    if (alvo === "empresa") return aviso("assist", "erro", "Complete os dados fiscais em Minha Empresa › editar empresa › Fiscal (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
+    if (alvo === "empresa") return aviso("assist", "erro", "Complete os dados fiscais em Fiscal › Dados da Empresa (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
     document.getElementById(alvo)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   async function ligarHomologacao() {

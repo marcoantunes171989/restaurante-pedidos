@@ -30,6 +30,7 @@ const LABELS_ADMIN = {
   cardapioext: "Cardápio Externo",
   "painel-fiscal": "Painel Fiscal",
   "notas-fiscais": "Notas Emitidas",
+  "dados-fiscais-empresa": "Dados da Empresa (Fiscal)",
   fiscal: "Cadastros Fiscais",
   "config-fiscal": "Configuração Fiscal",
   "central-fiscal": "Central Fiscal",

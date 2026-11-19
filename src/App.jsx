@@ -6,6 +6,7 @@ import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } fr
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
 import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
+import DadosEmpresaFiscal from "./components/admin/fiscal/DadosEmpresaFiscal.jsx";
 import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
@@ -7583,6 +7584,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     { grupo: "Fiscal", itens: [
       { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
       { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
+      { id: "dados-fiscais-empresa", icon: <Store className="h-4 w-4" />, label: "Dados da Empresa" },
       { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Configuração Fiscal" },
       { id: "fiscal", icon: <Landmark className="h-4 w-4" />, label: "Cadastros Fiscais" },
     ]},
@@ -7764,6 +7766,13 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<ClipboardList className="h-4 w-4" />} titulo="Notas Emitidas" descricao={`Acompanhe as notas da ${lojaInfo?.nome || "sua loja"}: situação na SEFAZ, reenvio, correção, cancelamento e contingência.`} />
               <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={products} regrasLoja={lojaFiscalRegras} />
+            </main>
+          ))}
+          {ativo === "dados-fiscais-empresa" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<Store className="h-4 w-4" />} titulo="Dados da Empresa" descricao={`Quem emite a nota fiscal: dados do emitente da ${lojaInfo?.nome || "sua loja"}. Confira o que falta e edite quando precisar.`} />
+              <DadosEmpresaFiscal supabase={supabase} lojaInfo={lojaInfo} emitenteApi={emitenteFiscalApi}
+                onSalvarIdentidade={async (id, d) => { await emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento }); }} />
             </main>
           ))}
           {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} onIrTela={setAdminSection} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} formasPagamento={formasPagamento} />)}

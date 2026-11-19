@@ -66,7 +66,7 @@ export function alertaIbpt(resumo, agora = new Date()) {
  */
 export function destinoDoPasso(alvo) {
   switch (alvo) {
-    case "empresa": return { tela: "minhaempresa", aba: null };
+    case "empresa": return { tela: "dados-fiscais-empresa", aba: null };
     case "produtos": return { tela: "config-fiscal", aba: "produtos" };
     case "emissao-cert": case "emissao-csc": case "emissao-series": case "emissao-pag": case "ligar":
       return { tela: "config-fiscal", aba: "emissao" };
