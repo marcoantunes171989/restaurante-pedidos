@@ -99,6 +99,13 @@ function doJsonb(fis) {
   };
 }
 
+// NCM / CFOP / CEST do próprio produto: vínculos por cadastro (FK) e, na falta, o JSONB legado.
+function identificacaoDoProduto(produto, ctx) {
+  const cad = dosCadastros(produto, ctx);
+  const fis = produto.fiscal && typeof produto.fiscal === "object" ? doJsonb(produto.fiscal) : BASE_FISCAL;
+  return { ncm: cad.ncm || fis.ncm, cfop: cad.cfop || fis.cfop, cest: cad.cest || fis.cest };
+}
+
 // true quando o objeto de cadastros/JSONB tem ao menos um dado fiscal útil.
 function temAlgumDado(f) {
   return !!(f.ncm || f.cfop || f.cstIcms || f.csosn || f.cstPis || f.cstCofins ||
@@ -139,7 +146,18 @@ export function resolverFiscalProduto(produto, ctx = {}) {
   // 1) Configuração fiscal da loja (Fase 5) — fonte preferida.
   const cfg = porId(ctx.lojaFiscalRegras, produto.lojaFiscalRegraId);
   if (cfg) {
-    return comOrigem({ ...daConfigLoja(cfg), fonte: "config-loja", origem: { id: cfg.id, nome: cfg.regraNome || null, versao: cfg.versaoImportada ?? null, customizada: !!cfg.customizada } });
+    const daRegra = daConfigLoja(cfg);
+    // A regra da loja manda, mas NÃO apaga o que o cadastro do produto já informa: se a regra vem sem NCM,
+    // CFOP ou CEST, completa com o que foi vinculado ao produto (cadastro, "Atualização em lote" ou dados do
+    // produto). Só preenche lacuna; nunca troca um valor que a regra tem. Campos de tributação (CST/CSOSN,
+    // alíquotas) continuam só da regra, para não misturar combinações de impostos.
+    const lacunas = !daRegra.ncm || !daRegra.cfop || !daRegra.cest ? identificacaoDoProduto(produto, ctx) : null;
+    const completa = lacunas ? {
+      ...daRegra,
+      ncm: daRegra.ncm || lacunas.ncm, cfop: daRegra.cfop || lacunas.cfop, cest: daRegra.cest || lacunas.cest,
+    } : daRegra;
+    const preenchidos = lacunas ? ["ncm", "cfop", "cest"].filter((k) => !daRegra[k] && completa[k]) : [];
+    return comOrigem({ ...completa, fonte: "config-loja", origem: { id: cfg.id, nome: cfg.regraNome || null, versao: cfg.versaoImportada ?? null, customizada: !!cfg.customizada, ...(preenchidos.length ? { completadoPeloProduto: preenchidos } : {}) } });
   }
 
   // 2) Vínculos por FK (NCM→ICMS, CFOP, PIS, COFINS, IPI, CEST).

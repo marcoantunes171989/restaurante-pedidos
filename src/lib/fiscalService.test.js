@@ -146,3 +146,35 @@ describe("alíquota de crédito do Simples (campo do produto vale em qualquer fo
     expect(resolverFiscalProduto({ id: 2, fiscal: { ncm: "21069090", cfop: "5102", csosn: "101", creditoSnAliquota: "1,5" } }, {}).creditoSnAliquota).toBe(1.5);
   });
 });
+
+describe("regra da loja sem NCM/CFOP: completa com o que foi vinculado ao produto (ex.: Atualização em lote)", () => {
+  const regraSemIdent = { id: 20, regraNome: "Simples 101", csosn: "101", creditoSnAliquota: 3, cstPis: "49", cstCofins: "49" }; // sem ncmCodigo/cfopCodigo
+  const c = { ...ctx, lojaFiscalRegras: [regraSemIdent] };
+  it("NCM e CFOP vinculados ao produto entram; a tributação continua só da regra", () => {
+    const r = resolverFiscalProduto({ id: 1, lojaFiscalRegraId: 20, ncmId: 1, cfopId: 3 }, c);
+    expect(r.fonte).toBe("config-loja");
+    expect(r.ncm).toBe("0901.21.00");
+    expect(r.cfop).toBe("5.405");
+    expect(r.csosn).toBe("101");
+    expect(r.cstIcms).toBe(""); // não herda o CST do ICMS do cadastro do NCM
+    expect(r.icmsAliquota).toBe(0);
+    expect(r.origem.completadoPeloProduto).toEqual(["ncm", "cfop"]);
+    expect(pendenciasFiscais(r)).toEqual([]);
+  });
+  it("na falta de vínculo por cadastro, usa o JSONB do produto", () => {
+    const r = resolverFiscalProduto({ id: 2, lojaFiscalRegraId: 20, fiscal: { ncm: "2106.90.90", cfop: "5.102" } }, c);
+    expect(r).toMatchObject({ ncm: "2106.90.90", cfop: "5.102", fonte: "config-loja" });
+  });
+  it("nunca troca o que a regra já tem", () => {
+    const parcial = { ...ctx, lojaFiscalRegras: [{ ...regraSemIdent, ncmCodigo: "2106.90.90" }] };
+    const r = resolverFiscalProduto({ id: 3, lojaFiscalRegraId: 20, ncmId: 1, cfopId: 3 }, parcial);
+    expect(r.ncm).toBe("2106.90.90"); // da regra, não o 0901.21.00 do cadastro
+    expect(r.cfop).toBe("5.405");
+    expect(r.origem.completadoPeloProduto).toEqual(["cfop"]);
+  });
+  it("sem nada no produto, a pendência continua", () => {
+    const r = resolverFiscalProduto({ id: 4, lojaFiscalRegraId: 20 }, c);
+    expect(pendenciasFiscais(r)).toEqual(["NCM ausente", "CFOP ausente"]);
+    expect(r.origem.completadoPeloProduto).toBeUndefined();
+  });
+});

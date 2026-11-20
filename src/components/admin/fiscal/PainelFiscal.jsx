@@ -36,7 +36,7 @@ function Indicador({ valor, rotulo, tom }) {
  * @param {object} p
  * @param {(destino:{tela:string, aba:string|null})=>void} p.onIr  navega (tela do menu + aba da Tributação)
  */
-export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [], produtos = [], regrasLoja = [], emitenteLegado = null, onIr = () => {} }) {
+export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [], produtos = [], regrasLoja = [], ctxFiscal = {}, emitenteLegado = null, onIr = () => {} }) {
   const lojaId = lojaInfo?.id ?? null;
   const [estado, setEstado] = useState({ carregando: true, erro: "", dados: null });
 
@@ -66,7 +66,7 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
   const calc = useMemo(() => {
     const d = estado.dados;
     if (!d) return null;
-    const bruta = passosAtivacao({ emitente: d.emitente, documentoLoja: lojaInfo?.documento || "", credenciais: d.credenciais, series: d.series, formas, config: d.config, produtos, regrasLoja, teste: null });
+    const bruta = passosAtivacao({ emitente: d.emitente, documentoLoja: lojaInfo?.documento || "", credenciais: d.credenciais, series: d.series, formas, config: d.config, produtos, regrasLoja, ctxFiscal, teste: null });
     // O teste de conexão só existe na tela Emissão (fica na memória dela): com a emissão já ligada, o passo é considerado feito.
     const passos = bruta.passos.map((p) => (p.id === "teste" && bruta.ligada ? { ...p, ok: true, detalhe: "Emissão em operação." } : p));
     const feitos = passos.filter((p) => p.ok).length;
@@ -76,7 +76,7 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
       ...[alertaIbpt(d.ibpt)].filter(Boolean),
     ].sort((a, b) => (a.nivel === b.nivel ? 0 : a.nivel === "erro" ? -1 : 1));
     return { ativacao, alertas, ind: indicadoresNotas(d.notas), status: statusGeral({ ativacao, alertas }) };
-  }, [estado.dados, formas, produtos, regrasLoja, lojaInfo?.documento]);
+  }, [estado.dados, formas, produtos, regrasLoja, ctxFiscal, lojaInfo?.documento]);
 
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
   if (estado.carregando) return <p className="text-[13px] text-[var(--pp-text-muted)]">Carregando painel fiscal…</p>;

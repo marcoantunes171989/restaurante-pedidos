@@ -12,10 +12,13 @@ import { situacaoCertificado, conferirMapaMeios } from "./emissaoConfig.js";
 const AMB = "homologacao";
 
 /** Produtos ativos da loja que ainda não têm o que a nota exige (NCM, CFOP, CSOSN/CST…). */
-export function produtosSemFiscal(produtos = [], regrasLoja = []) {
+export function produtosSemFiscal(produtos = [], regrasLoja = [], ctxFiscal = {}) {
+  // O contexto completo (NCM, CFOP, ICMS, PIS… cadastrados) é o MESMO que o caixa usa ao emitir: assim o que foi
+  // vinculado pela "Atualização em lote" do módulo fiscal conta aqui também.
+  const ctx = { ...ctxFiscal, lojaFiscalRegras: regrasLoja };
   return produtos
     .filter((p) => p && p.active !== false && p.ativo !== false)
-    .map((p) => ({ produto: p, pend: pendenciasFiscais(resolverFiscalProduto(p, { lojaFiscalRegras: regrasLoja })) }))
+    .map((p) => ({ produto: p, pend: pendenciasFiscais(resolverFiscalProduto(p, ctx)) }))
     .filter((x) => x.pend.length > 0)
     .map((x) => ({ id: x.produto.id, nome: x.produto.name ?? x.produto.nome ?? "", pendencias: x.pend }));
 }
@@ -30,9 +33,10 @@ export function produtosSemFiscal(produtos = [], regrasLoja = []) {
  * @param {object} p.config        { mapaMeios, taxaServicoTratamento }
  * @param {object[]} p.produtos
  * @param {object[]} p.regrasLoja  regras fiscais da loja (lojaFiscalRegras)
+ * @param {object} [p.ctxFiscal]   cadastros fiscais (fiscalNcm, fiscalCfop, fiscalIcms…): o mesmo contexto do caixa
  * @param {object} [p.teste]       resultado do último teste de conexão { ok, modelo }
  */
-export function passosAtivacao({ emitente = null, documentoLoja = "", credenciais = [], series = [], formas = [], config = {}, produtos = [], regrasLoja = [], teste = null, agora = new Date() } = {}) {
+export function passosAtivacao({ emitente = null, documentoLoja = "", credenciais = [], series = [], formas = [], config = {}, produtos = [], regrasLoja = [], ctxFiscal = {}, teste = null, agora = new Date() } = {}) {
   const e = emitente || {};
   const nfce = e.nfceHabilitada === true, nfe = e.nfeHabilitada === true;
   const pendEmit = pendenciasEmitenteNfce(e, documentoLoja);
@@ -42,7 +46,7 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
   const temSerie = (m) => series.some((s) => Number(s.modelo) === m && s.ambiente === AMB && s.ativa);
   const mapa = conferirMapaMeios(formas, config?.mapaMeios || {});
   const taxaOk = ["outras_despesas", "fora_da_nota"].includes(config?.taxaServicoTratamento);
-  const semFiscal = produtosSemFiscal(produtos, regrasLoja);
+  const semFiscal = produtosSemFiscal(produtos, regrasLoja, ctxFiscal);
   const ativos = produtos.filter((p) => p && p.active !== false && p.ativo !== false).length;
 
   // Primeira forma de pagamento sem código (ou com código inválido): é nela que o cursor cai.

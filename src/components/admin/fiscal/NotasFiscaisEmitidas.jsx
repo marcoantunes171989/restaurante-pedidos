@@ -143,7 +143,7 @@ function PainelDescartar({ nota, supabase, onFechar, onConcluido }) {
   );
 }
 
-export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = [], regrasLoja = [] }) {
+export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = [], regrasLoja = [], ctxFiscal = {} }) {
   const lojaId = lojaInfo?.id ?? null;
   const [notas, setNotas] = useState([]);
   const [estado, setEstado] = useState({ carregando: true, erro: "" });
@@ -194,7 +194,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
     setOcupado(nota.id);
     try {
       const atual = await buscarVendaDaNota(supabase, nota.id);
-      const venda = refazerFiscalDaVenda(atual.venda, produtos, { lojaFiscalRegras: regrasLoja });
+      const venda = refazerFiscalDaVenda(atual.venda, produtos, { ...ctxFiscal, lojaFiscalRegras: regrasLoja });
       if (!venda.apto) {
         const falta = venda.itens.flatMap((it) => it.pendencias.map((p) => (p.includes(it.nome) ? p : `${it.nome}: ${p}`)));
         setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: `Corrija o cadastro antes: ${falta.slice(0, 3).join(" ")}` } }));

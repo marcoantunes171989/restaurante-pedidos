@@ -7649,6 +7649,10 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
   // Atalho do assistente "Ativar nota fiscal": o que a tela de destino deve destacar ao abrir.
   const [fiscalFoco, setFiscalFoco] = useState(null);
   useEffect(() => { if (!["emissao-fiscal", "dados-fiscais-empresa"].includes(adminSection)) setFiscalFoco(null); }, [adminSection]);
+  // Mesmo contexto fiscal que o caixa usa ao emitir (regras da loja + cadastros de NCM, CFOP, ICMS, PIS…). As telas
+  // do módulo fiscal precisam dele para enxergar o que foi vinculado ao produto pela "Atualização em lote".
+  const ctxFiscalAdmin = useMemo(() => fiscalVendaPdv?.ctx || { lojaFiscalRegras, fiscalNcm, fiscalIcms, fiscalCfop, fiscalPis, fiscalCofins, fiscalIpi, fiscalCest },
+    [fiscalVendaPdv, lojaFiscalRegras, fiscalNcm, fiscalIcms, fiscalCfop, fiscalPis, fiscalCofins, fiscalIpi, fiscalCest]);
   // Command Palette (Ctrl/Cmd + K) — navegação rápida (aditivo)
   const [cmdOpen, setCmdOpen] = useState(false);
   const cmdSections = montarSecoesBuscaAdmin(menu, {
@@ -7775,7 +7779,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           {ativo === "painel-fiscal" && (precisaEmpresa ? avisoEmpresa : (
             <main className="space-y-5">
               <PageHeader icone={<CheckCircle2 className="h-4 w-4" />} titulo="Painel Fiscal" descricao={`Situação da nota fiscal da ${lojaInfo?.nome || "sua loja"} em um só lugar: o que falta para emitir, o que precisa de atenção e como estão as notas.`} />
-              <PainelFiscal supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} produtos={products} regrasLoja={lojaFiscalRegras}
+              <PainelFiscal supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} produtos={products} regrasLoja={lojaFiscalRegras} ctxFiscal={ctxFiscalAdmin}
                 emitenteLegado={emitenteFiscalApi?.fetch || null}
                 onIr={({ tela, aba, foco = null }) => { setFiscalAba(aba); setFiscalFoco(foco); setAdminSection(tela); }} />
             </main>
@@ -7783,7 +7787,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           {ativo === "notas-fiscais" && (precisaEmpresa ? avisoEmpresa : (
             <main className="space-y-5">
               <PageHeader icone={<ClipboardList className="h-4 w-4" />} titulo="Notas Emitidas" descricao={`Acompanhe as notas da ${lojaInfo?.nome || "sua loja"}: situação na SEFAZ, reenvio, correção, cancelamento e contingência.`} />
-              <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={products} regrasLoja={lojaFiscalRegras} />
+              <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={products} regrasLoja={lojaFiscalRegras} ctxFiscal={ctxFiscalAdmin} />
             </main>
           ))}
           {ativo === "dados-fiscais-empresa" && (precisaEmpresa ? avisoEmpresa : (
@@ -7797,7 +7801,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<LockKeyhole className="h-4 w-4" />} titulo="Emissão" descricao={`Certificado digital, CSC, séries e pagamentos na nota da ${lojaInfo?.nome || "sua loja"}, além de ligar a emissão em homologação.`} />
               {emitenteFiscalApi
-                ? <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi.fetch || null} produtos={products} regrasLoja={lojaFiscalRegras} salvarEmitente={emitenteFiscalApi.salvar || null}
+                ? <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi.fetch || null} produtos={products} regrasLoja={lojaFiscalRegras} ctxFiscal={ctxFiscalAdmin} salvarEmitente={emitenteFiscalApi.salvar || null}
                     onIrPara={(aba) => { setFiscalAba(aba); setAdminSection("config-fiscal"); }}
                     onIrTela={(tela, foco) => { setFiscalFoco(foco || null); setAdminSection(tela); }}
                     focoInicial={fiscalFoco} onFocoConsumido={() => setFiscalFoco(null)} />
@@ -7816,11 +7820,11 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<Hourglass className="h-4 w-4" />} titulo="Testes (homologação)" descricao="Simule uma nota antes de emitir de verdade: monta a NFC-e com um pedido real e mostra o que falta, sem enviar à SEFAZ." />
               {emitenteFiscalApi
-                ? <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={products} importadas={lojaFiscalRegras} emitenteApi={emitenteFiscalApi} />
+                ? <LojaNfcePreValidacao lojaInfo={lojaInfo} produtos={products} importadas={lojaFiscalRegras} ctxFiscalBase={ctxFiscalAdmin} emitenteApi={emitenteFiscalApi} />
                 : <EmptyState titulo="Testes indisponíveis" dica="O cadastro fiscal da empresa ainda não está disponível neste ambiente." />}
             </main>
           ))}
-          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} onIrTela={setAdminSection} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} />)}
+          {ativo === "config-fiscal" && (precisaEmpresa ? avisoEmpresa : <LojaFiscalConfig key={fiscalAba || "padrao"} abaInicial={fiscalAba} onIrTela={setAdminSection} importadas={lojaFiscalRegras} regras={fiscalRegras} versoes={fiscalRegraVersoes} api={lojaFiscalApi} templates={fiscalTemplates} templateRegras={fiscalTemplateRegras} produtos={products} ctxFiscal={ctxFiscalAdmin} emitenteFiscalApi={emitenteFiscalApi} lojaInfo={lojaInfo} />)}
           {ativo === "setores"    && (precisaEmpresa ? avisoEmpresa : <SetoresCozinhaAdmin setores={setores} produtos={products} orders={orders} api={setoresApi} vincularProduto={vincularProdutoSetor} irParaCozinha={irParaCozinha} />)}
           {ativo === "setor-impressoras" && (precisaEmpresa ? avisoEmpresa : <SetorImpressorasAdmin impressoras={impressoras} categorias={categoriasDb} produtos={products} api={impressorasApi} lojaInfo={lojaInfo} />)}
           {ativo === "impressoes" && (precisaEmpresa ? avisoEmpresa : <ImpressoesCozinhaAdmin impressoes={impressoesCozinha} impressoras={impressoras} categorias={categoriasDb} lojaInfo={lojaInfo} onAtualizarStatus={onAtualizarImpressao} onRecarregar={onRecarregarImpressoes} />)}
@@ -21499,7 +21503,7 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  CONFIGURAÇÃO FISCAL DA LOJA (migration 087) — importa da Central,
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
-function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, abaInicial = null, onIrTela = null }) {
+function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], ctxFiscal = {}, emitenteFiscalApi = null, lojaInfo = null, abaInicial = null, onIrTela = null }) {
   // "produtos:pendentes" = vindo do assistente: abre a aba Produtos já filtrada nos que faltam regra fiscal.
   const [aba, setAba] = useState(abaInicial === "produtos:pendentes" ? "produtos" : (abaInicial || "minha"));
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
@@ -21559,7 +21563,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       </div>
 
       {aba === "minha" && <LojaFiscalMinhaLoja importadas={importadas} atualizacaoDe={atualizacaoDe} api={api} />}
-      {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} api={api} soPendentesInicial={abaInicial === "produtos:pendentes"} />}
+      {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} ctxFiscal={ctxFiscal} api={api} soPendentesInicial={abaInicial === "produtos:pendentes"} />}
       {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
     </main>
@@ -21898,10 +21902,10 @@ function LojaFiscalSugestoes({ templates = [], templateRegras = [], regras = [],
 }
 
 // Vínculo em lote produto ↔ configuração fiscal da loja (Fase 5, migration 105).
-function LojaFiscalProdutos({ produtos = [], importadas = [], api = null, soPendentesInicial = false }) {
+function LojaFiscalProdutos({ produtos = [], importadas = [], ctxFiscal = {}, api = null, soPendentesInicial = false }) {
   const [busca, setBusca] = useState("");
   // Produtos ativos a que ainda falta NCM, CFOP ou CST/CSOSN (a mesma conta do assistente "Ativar nota fiscal").
-  const pendenciasPorProduto = new Map(produtosSemFiscal(produtos, importadas).map((x) => [String(x.id), x.pendencias]));
+  const pendenciasPorProduto = new Map(produtosSemFiscal(produtos, importadas, ctxFiscal).map((x) => [String(x.id), x.pendencias]));
   const [soPendentes, setSoPendentes] = useState(soPendentesInicial);
   const [sel, setSel] = useState(() => new Set());
   const [alvo, setAlvo] = useState(""); // id da config a aplicar ("" = sem/desvincular)
@@ -22000,7 +22004,7 @@ function NfceKpi({ rotulo, valor, tom }) {
 // SIMULAÇÃO: não emite, não assina, não contata a SEFAZ. Usa o emitente + a
 // resolução fiscal do produto para apontar a aptidão e uma chave de EXEMPLO.
 // Paleta oficial light (petróleo/laranja sobre branco).
-function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emitenteApi = null }) {
+function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], ctxFiscalBase = {}, emitenteApi = null }) {
   const [emitente, setEmitente] = useState(undefined); // undefined=carregando, null=sem cadastro
   const [historico, setHistorico] = useState([]);
   const [emitindo, setEmitindo] = useState(false);
@@ -22018,7 +22022,7 @@ function LojaNfcePreValidacao({ lojaInfo, produtos = [], importadas = [], emiten
   }, [lojaInfo?.id]);
 
   const documento = normalizarDocumentoFiscal(lojaInfo?.documento || "");
-  const ctxFiscal = { lojaFiscalRegras: importadas };
+  const ctxFiscal = { ...ctxFiscalBase, lojaFiscalRegras: importadas };
   // Venda simulada: produtos vinculados a uma config fiscal (ou os primeiros).
   const vinculados = produtos.filter((p) => p.lojaFiscalRegraId);
   const amostra = (vinculados.length ? vinculados : produtos).slice(0, 15);

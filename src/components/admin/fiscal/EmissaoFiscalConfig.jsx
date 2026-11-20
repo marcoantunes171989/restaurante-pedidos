@@ -29,7 +29,7 @@ function Aviso({ msg }) {
   return <p role="status" className={`mt-2 text-[12px] font-semibold ${msg.tipo === "erro" ? "text-[#C81E4A]" : "text-[#1F7A3D]"}`}>{msg.texto}</p>;
 }
 
-export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagamento = [], emitenteLegado = null, produtos = [], regrasLoja = [], salvarEmitente = null, onIrPara = null, onIrTela = null, focoInicial = null, onFocoConsumido = null }) {
+export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagamento = [], emitenteLegado = null, produtos = [], regrasLoja = [], salvarEmitente = null, ctxFiscal = {}, onIrPara = null, onIrTela = null, focoInicial = null, onFocoConsumido = null }) {
   const lojaId = lojaInfo?.id ?? null;
   const [carregando, setCarregando] = useState(true);
   const [erroCarga, setErroCarga] = useState("");
@@ -220,7 +220,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   useEffect(() => {
     if (!focoInicial || carregando || erroCarga || focoFeito.current) return;
     focoFeito.current = true;
-    const r = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, teste });
+    const r = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, ctxFiscal, teste });
     const passo = r.passos.find((p) => p.alvo === focoInicial && !p.ok) || r.passos.find((p) => p.alvo === focoInicial) || null;
     setTimeout(() => { irPara(focoInicial, passo); onFocoConsumido?.(); }, 150);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -232,7 +232,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
 
   const cert = credenciais.find((c) => c.tipo === "certificado_a1") || null;
   const sc = situacaoCertificado(cert);
-  const ativacao = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, teste });
+  const ativacao = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, ctxFiscal, teste });
   const cscDe = (amb) => credenciais.find((c) => c.tipo === "csc" && c.ambiente === amb);
 
   return (

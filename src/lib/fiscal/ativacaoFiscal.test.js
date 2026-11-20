@@ -111,3 +111,23 @@ describe("atalhos: cada passo diz o que fazer e para onde ir", () => {
     expect(passo(nova(), "produtos").destino).toMatch(/só os que faltam/);
   });
 });
+
+describe("produtos vinculados pela Atualização em lote contam como prontos", () => {
+  const cadastros = { fiscalNcm: [{ id: 1, codigo: "21069090", icmsId: 5 }], fiscalCfop: [{ id: 3, codigo: "5102" }], fiscalIcms: [{ id: 5, csosn: "102" }] };
+  const produto = { id: 10, name: "X-Burger", ncmId: 1, cfopId: 3 }; // sem regra da loja: só NCM e CFOP do lote
+  it("sem o contexto dos cadastros o produto aparecia como sem regra (defeito corrigido)", () => {
+    expect(produtosSemFiscal([produto], [])).toHaveLength(1);
+  });
+  it("com o contexto dos cadastros (o mesmo do caixa), fica pronto", () => {
+    expect(produtosSemFiscal([produto], [], cadastros)).toEqual([]);
+  });
+  it("produto ligado a regra sem NCM/CFOP e com NCM/CFOP do lote: pronto; sem eles: pendente", () => {
+    const regra = { id: 50, csosn: "101", cstPis: "49", cstCofins: "49" };
+    expect(produtosSemFiscal([{ ...produto, lojaFiscalRegraId: 50 }], [regra], cadastros)).toEqual([]);
+    expect(produtosSemFiscal([{ id: 11, name: "Nuggets", lojaFiscalRegraId: 50 }], [regra], cadastros)[0].pendencias).toEqual(["NCM ausente", "CFOP ausente"]);
+  });
+  it("passosAtivacao repassa o contexto: o passo de produtos fecha", () => {
+    const r = passosAtivacao({ ...TUDO, produtos: [produto], regrasLoja: [], ctxFiscal: cadastros });
+    expect(passo(r, "produtos").ok).toBe(true);
+  });
+});
