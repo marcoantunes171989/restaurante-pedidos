@@ -42,8 +42,16 @@ export async function consultarNota({ chNFe, ...o }) {
  */
 export async function emitirNaSefaz({ nfeAssinada, chNFe, idLote, ...o }) {
   const c = contexto(o);
-  const envio = montarEnviNFeSincrono({ idLote, nfeAssinada });
-  const v = await validarMensagemXsd(envio, "enviNFe");
+  // Montagem e validação do XML acontecem ANTES de transmitir. Se algo estourar aqui, a SEFAZ com certeza não recebeu a nota:
+  // marca o erro para o serviço poder dizer isso sem chute (depois do envio, uma falha deixa a situação incerta).
+  let envio;
+  let v;
+  try {
+    envio = montarEnviNFeSincrono({ idLote, nfeAssinada });
+    v = await validarMensagemXsd(envio, "enviNFe");
+  } catch (e) {
+    throw Object.assign(e instanceof Error ? e : new Error(String(e)), { antesDoEnvio: true });
+  }
   if (!v.valido) return { situacao: "rejeitada", cStat: null, xMotivo: `Nota fora do leiaute oficial: ${v.erros[0]}`, local: true };
 
   const r = await c.chamar("Autorizacao", "NFeAutorizacao4", envio);

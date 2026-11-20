@@ -130,3 +130,12 @@ describe("XML gerado × XSD oficial", () => {
     expect(r.erros.length).toBeGreaterThan(0);
   });
 });
+
+import { lerWasmParaEmpacotar } from "./validarXsd.js";
+describe("empacotamento da função de emissão (Vercel)", () => {
+  it("o xmllint.wasm é lido por um caminho literal (o empacotador da Vercel só inclui o que enxerga)", () => {
+    const bytes = lerWasmParaEmpacotar();
+    expect(bytes.length).toBeGreaterThan(10000);
+    expect([...bytes.subarray(0, 4)]).toEqual([0x00, 0x61, 0x73, 0x6d]); // assinatura "\0asm" de um módulo WebAssembly
+  });
+});

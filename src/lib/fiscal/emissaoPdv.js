@@ -189,5 +189,6 @@ export async function emitirReservada({ documentoId, numero, nfe = false, postar
     if (c.ok) return { estado: "contingencia", titulo: `NFC-e nº ${c.numero} em contingência`, numero: c.numero, detalhe: "SEFAZ fora do ar: a nota vale e será enviada depois.", documentoId: c.documentoId };
     return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: c.erro || "SEFAZ fora do ar e a contingência falhou. Veja em Notas emitidas.", documentoId };
   }
-  return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: r.erro || r.xMotivo || "Não foi possível emitir agora. Veja em Notas emitidas.", documentoId };
+  const motivo = [r.erro || r.xMotivo, ["FALHA_ENVIO", "FALHA_APOS_ENVIO"].includes(r.code) ? r.detalhe : ""].filter(Boolean).join(" — ");
+  return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: motivo || "Não foi possível emitir agora. Veja em Notas emitidas.", documentoId };
 }

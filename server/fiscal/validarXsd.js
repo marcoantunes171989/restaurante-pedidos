@@ -13,6 +13,16 @@ import { fileURLToPath } from "node:url";
 import { validateXML } from "xmllint-wasm";
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * O xmllint-wasm carrega o arquivo xmllint.wasm em tempo de execução, por um caminho montado dinamicamente. O empacotador da
+ * Vercel (nft) NÃO enxerga isso: o .wasm ficava de fora da função, a validação do XML falhava em produção/homologação e a emissão
+ * respondia 500 ("Não foi possível concluir") — enquanto localmente tudo funcionava. Esta leitura literal só existe para o
+ * empacotador incluir o arquivo na função; confira com: npx @vercel/nft print api/fiscal-emitir.js | grep wasm
+ */
+export function lerWasmParaEmpacotar() {
+  return readFileSync(new URL("../../node_modules/xmllint-wasm/xmllint.wasm", import.meta.url));
+}
 const DIR_SCHEMAS = join(AQUI, "schemas");
 
 export function lerManifesto() {

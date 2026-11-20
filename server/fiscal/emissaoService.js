@@ -33,8 +33,12 @@ const MENSAGENS = {
   SEM_EMITENTE: "Complete o cadastro fiscal da loja (CNPJ e endereço) antes de emitir.",
   SEM_XML: "Esta nota ainda não tem XML para imprimir (não foi autorizada nem emitida em contingência).",
   SEM_AUTORIZACAO: "Esta NF-e ainda não foi autorizada (nem tem EPEC registrado): não pode ser impressa.",
+  FALHA_ENVIO: "Falha técnica ao enviar: a nota NÃO chegou à SEFAZ. Em Notas emitidas use Reenviar (o número é mantido).",
+  FALHA_APOS_ENVIO: "Falha técnica depois do envio: a SEFAZ pode ter recebido a nota. Em Notas emitidas use Consultar na SEFAZ antes de reenviar.",
   EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota de contingência é a que vale. Esta numeração só será consultada.",
 };
+// Texto do erro técnico que vai para a tela: sem caminhos de arquivo do servidor (ex.: /var/task/...), só o que ajuda a diagnosticar.
+const limparDetalhe = (msg) => String(msg || "").replace(/\s+/g, " ").replace(/(?:[A-Za-z]:[\\/]|\/)(?:[\w.@-]+[\\/])+([\w.@-]+)/g, "…/$1").slice(0, 300);
 const falha = (code, extra = {}) => ({ ok: false, code, erro: MENSAGENS[code] || "Não foi possível concluir.", ...extra });
 const PODE_ENVIAR = new Set(["reservado", "rejeitado", "erro", "enviado"]);
 
@@ -117,7 +121,25 @@ export async function processarEmissao(body = {}, deps) {
   await deps.registrar({ documentoId: doc.id, status: "enviado", chave, xMotivo: "Enviando à SEFAZ" });
 
   const idLote = String(Date.now()).slice(-15);
-  const r = await emitirNaSefaz({ uf, modelo: Number(doc.modelo), ambiente: doc.ambiente, pfx: c.pfx, senha: c.senha, nfeAssinada: assinado, chNFe: chave, idLote, ...conexao });
+  let r;
+  try {
+    r = await emitirNaSefaz({ uf, modelo: Number(doc.modelo), ambiente: doc.ambiente, pfx: c.pfx, senha: c.senha, nfeAssinada: assinado, chNFe: chave, idLote, ...conexao });
+  } catch (e) {
+    // Falha NOSSA (não é a SEFAZ que respondeu). Antes isso estourava como 500 mudo e a nota ficava "enviando" para sempre.
+    //  • ANTES de transmitir (montar/validar o XML): a SEFAZ não recebeu nada → "erro", reenviar é seguro, número mantido.
+    //  • DEPOIS de transmitir (ler a resposta, montar o XML final…): a SEFAZ pode ter autorizado → fica "enviado" (incerta) e o
+    //    caminho é consultar a SEFAZ antes de reenviar. Nunca diz "não chegou" sem ter certeza.
+    // Nunca vai para contingência: o problema não é a SEFAZ estar fora.
+    const antes = e?.antesDoEnvio === true;
+    const detalhe = limparDetalhe(e?.message);
+    const tipo = String(e?.code || e?.name || "Erro").slice(0, 40);
+    const rotulo = antes ? "Falha técnica ao enviar (a nota não chegou à SEFAZ)" : "Falha técnica depois do envio (a SEFAZ pode ter recebido a nota: consulte antes de reenviar)";
+    await deps.registrar({
+      documentoId: doc.id, status: antes ? "erro" : "enviado", chave, cStat: null, xMotivo: `${rotulo}: ${tipo}${detalhe ? ` — ${detalhe}` : ""}`.slice(0, 480),
+      payload: { etapa: antes ? "envio" : "apos_envio", falhaInterna: true, tipoErro: tipo, detalhe },
+    }).catch(() => {});
+    return falha(antes ? "FALHA_ENVIO" : "FALHA_APOS_ENVIO", { detalhe: `${tipo}${detalhe ? `: ${detalhe}` : ""}`, numero: doc.numero, serie: doc.serie, chave, podeReenviar: antes, podeConsultar: !antes });
+  }
 
   const mapa = { autorizada: "autorizado", rejeitada: "rejeitado", indisponivel: "erro", incerta: "enviado" };
   await deps.registrar({

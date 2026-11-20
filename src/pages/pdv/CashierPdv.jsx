@@ -10,6 +10,7 @@ import PdvDeliveryStrip from "./PdvDeliveryStrip";
 import PdvPaymentPanel from "./PdvPaymentPanel";
 import PdvActionBar from "./PdvActionBar";
 import PdvStatusBar from "./PdvStatusBar";
+import { useVersaoApp } from "../../lib/useVersaoApp";
 import ModalDividirConta from "./PdvDividirConta";
 import ModalIdentificarCliente from "./PdvIdentificarCliente";
 import PdvAjuda from "./PdvAjuda";
@@ -140,6 +141,7 @@ export default function CashierPdv({
   configFiscalVenda = SEM_CONFIG_FISCAL,
   supabase = null,
 }) {
+  const versaoApp = useVersaoApp();
   const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
 
@@ -1620,6 +1622,13 @@ export default function CashierPdv({
         paddingRight: "env(safe-area-inset-right)",
       }}
     >
+      {versaoApp.desatualizada && (
+        <div role="alert" data-testid="aviso-versao-desatualizada" className="flex shrink-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-[#F8D9A8] bg-[#FEF3E2] px-3 py-2 text-[13px] font-semibold text-[#8A5200]">
+          <span>Há uma versão nova do sistema (esta tela roda a {versaoApp.rodando}, a atual é a {versaoApp.publicada}). Correções, como a da nota fiscal, só valem depois de atualizar.</span>
+          <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-[#012E46] px-3 py-1 text-[12px] font-black text-white">Atualizar agora</button>
+          <span className="text-[11px] font-medium">Termine a venda em andamento antes de atualizar.</span>
+        </div>
+      )}
       <PdvHeader
         canal={canal}
         onCanalChange={(c) => {
@@ -1810,7 +1819,7 @@ export default function CashierPdv({
         onHistorico={temConta ? () => setModal("historico") : undefined}
       />
 
-      <PdvStatusBar conexaoOk={conexaoOk} agora={agora} />
+      <PdvStatusBar conexaoOk={conexaoOk} agora={agora} versao={versaoApp.rodando} />
 
       {modal === "incluir" && (
         <ModalIncluirProduto

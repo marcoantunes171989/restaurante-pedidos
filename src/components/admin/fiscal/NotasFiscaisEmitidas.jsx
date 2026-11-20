@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import DetalhesNotaFiscal from "./DetalhesNotaFiscal";
 import { FILTROS_NOTAS, filtrarNotas, situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, descartarNota } from "../../../lib/fiscal/notasFiscais";
 import { refazerFiscalDaVenda } from "../../../lib/fiscal/vendaFiscal";
 import { emitirReservada } from "../../../lib/fiscal/emissaoPdv";
@@ -78,12 +79,16 @@ function PainelEvento({ nota, acao, onFechar, onConcluido, supabase }) {
 function mensagemDoResultado(acao, r) {
   if (acao === "consultar") {
     if (r.situacao === "autorizada") return { ok: true, texto: r.deveCancelar ? "A SEFAZ autorizou esta nota. Como a venda saiu em contingência, cancele esta nota." : `Nota autorizada. Protocolo ${r.protocolo}.` };
-    if (r.situacao === "nao_encontrada") return { ok: true, texto: r.numeroNaoUsado ? "Não chegou à SEFAZ: este número não foi usado." : "Não chegou à SEFAZ." };
+    if (r.situacao === "nao_encontrada") return r.numeroNaoUsado
+      ? { ok: true, texto: "Consulta feita: a SEFAZ não recebeu esta nota e este número não foi usado." }
+      : { ok: true, sugerir: "reenviar", texto: `Consulta feita: a SEFAZ NÃO recebeu esta nota (código ${r.cStat || 217}). Pode reenviar com segurança: clique em Reenviar à SEFAZ.` };
     if (r.code === "XML_NAO_CONFERE") return { ok: false, texto: r.erro };
     return { ok: false, texto: r.situacao === "indisponivel" ? "A SEFAZ continua sem responder. Tente de novo mais tarde." : (r.xMotivo || r.erro || "Não foi possível consultar.") };
   }
   if (r.situacao === "autorizada") return { ok: true, texto: `Nota autorizada. Protocolo ${r.protocolo}.` };
   if (r.situacao === "rejeitada") return { ok: false, texto: `A SEFAZ recusou: ${r.xMotivo || "motivo não informado"}.` };
+  if (r.code === "FALHA_APOS_ENVIO") return { ok: false, sugerir: "consultar", texto: `Falha técnica depois do envio: a SEFAZ PODE ter recebido a nota. Clique em Consultar na SEFAZ antes de reenviar. (${r.detalhe || "erro interno"})` };
+  if (r.code === "FALHA_ENVIO") return { ok: false, texto: `Falha técnica no sistema (a nota NÃO chegou à SEFAZ): ${r.detalhe || "erro interno"}. Abra Detalhes e histórico e copie o diagnóstico.` };
   return { ok: false, texto: r.situacao === "indisponivel" ? "A SEFAZ continua fora do ar. A nota segue guardada." : (r.xMotivo || r.erro || "Não foi possível enviar.") };
 }
 
@@ -153,6 +158,9 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
   const [ocupado, setOcupado] = useState(null); // nota com envio/consulta em andamento
   const [avisos, setAvisos] = useState({}); // id → { ok, texto }
   const [filtro, setFiltro] = useState("todas");
+  const [detalhesId, setDetalhesId] = useState(null); // nota com o painel "Detalhes e histórico" aberto
+  const [tentativas, setTentativas] = useState({}); // id → ações feitas nesta tela (quando, o quê, resultado): o "log" imediato, antes da migration 191
+  const anotar = (id, acao, ok, texto) => setTentativas((m) => ({ ...m, [id]: [...(m[id] || []), { quando: new Date().toISOString(), acao, ok, texto }] }));
 
   const buscar = useCallback(async () => {
     try { return { notas: await listarDocumentosFiscais(supabase, lojaId) }; } catch (e) { return { erro: e.message }; }
@@ -189,9 +197,12 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
     setOcupado(nota.id);
     try {
       const r = await pedirEventoFiscal(supabase, { acao: acao === "enviar" ? "transmitir_contingencia" : "consultar", documentoId: nota.id });
-      setAvisos((v) => ({ ...v, [nota.id]: mensagemDoResultado(acao, r) }));
+      const m = mensagemDoResultado(acao, r);
+      setAvisos((v) => ({ ...v, [nota.id]: m }));
+      anotar(nota.id, acao === "enviar" ? "Enviar (contingência)" : "Consultar na SEFAZ", m.ok, m.texto);
     } catch (e) {
       setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: e.message } }));
+      anotar(nota.id, acao === "enviar" ? "Enviar (contingência)" : "Consultar na SEFAZ", false, e.message);
     } finally {
       setOcupado(null);
       recarregar();
@@ -203,7 +214,14 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
     setOcupado(nota.id);
     try {
       const r = await emitirReservada({ documentoId: nota.id, numero: nota.numero, nfe: Number(nota.modelo) === 55, postar });
-      setAvisos((v) => ({ ...v, [nota.id]: { ok: r.estado === "autorizada" || r.estado === "contingencia", texto: [r.titulo, r.detalhe].filter(Boolean).join(": ") } }));
+      const ok = r.estado === "autorizada" || r.estado === "contingencia";
+      const texto = [r.titulo, r.detalhe].filter(Boolean).join(": ");
+      setAvisos((v) => ({ ...v, [nota.id]: { ok, texto } }));
+      anotar(nota.id, "Reenviar / emitir", ok, texto);
+    } catch (e) {
+      const texto = e?.message || "Não foi possível falar com o servidor de emissão.";
+      setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto } }));
+      anotar(nota.id, "Reenviar / emitir", false, texto);
     } finally { setOcupado(null); recarregar(); }
   }
   // U2: rejeitada → refaz a parte fiscal com o cadastro atual dos produtos e envia de novo.
@@ -298,10 +316,11 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                 {n.contingenciaNumero && !["autorizado", "cancelado"].includes(n.status) && Number(n.cStat) !== 217 && (
                   <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">A venda saiu na {n.modelo === 65 ? "NFC-e" : "NF-e"} nº {n.contingenciaNumero} (contingência). Esta nota não será reenviada: só consultada.</p>
                 )}
-                {avisos[n.id] && <p role="status" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
-                {(a.cancelar || a.cce || a.enviar || a.consultar || a.imprimir || a.emitir || a.descartar || a.refazer) && aberto?.id !== n.id && (
+                {avisos[n.id] && <p role="status" data-testid="aviso-nota" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].sugerir ? "text-[#B45309]" : avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
+                {aberto?.id !== n.id && (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {a.emitir && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => emitirAgora(n)}>{ocupado === n.id ? "Enviando…" : "Emitir agora"}</button>}
+                    {a.reenviar && <button type="button" data-testid="btn-reenviar" className={`${botao}${avisos[n.id]?.sugerir === "reenviar" ? " ring-2 ring-[#F38525] ring-offset-2" : ""}`} disabled={ocupado === n.id} onClick={() => emitirAgora(n)} title="Reenvia com a mesma numeração; o sistema consulta a SEFAZ antes e nunca duplica uma nota já autorizada.">{ocupado === n.id ? "Reenviando…" : "Reenviar à SEFAZ"}</button>}
                     {a.refazer && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => corrigirEEmitir(n)}>{ocupado === n.id ? "Enviando…" : "Corrigir e emitir de novo"}</button>}
                     {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}>Descartar número</button>}
                     {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}>{n.modelo === 55 ? "Imprimir DANFE" : "Imprimir NFC-e"}</button>}
@@ -309,8 +328,10 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                     {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}>{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
                     {a.cancelar && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}>Cancelar nota</button>}
                     {a.cce && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cce" })}>Carta de correção</button>}
+                    <button type="button" className={botaoLeve} aria-expanded={detalhesId === n.id} onClick={() => setDetalhesId((cur) => (cur === n.id ? null : n.id))}>{detalhesId === n.id ? "Ocultar detalhes" : "Detalhes e histórico"}</button>
                   </div>
                 )}
+                {detalhesId === n.id && <DetalhesNotaFiscal nota={n} supabase={supabase} tentativas={tentativas[n.id] || []} onFechar={() => setDetalhesId(null)} />}
                 {aberto?.id === n.id && aberto.acao === "descartar" && <PainelDescartar nota={n} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
                 {aberto?.id === n.id && aberto.acao !== "descartar" && <PainelEvento nota={n} acao={aberto.acao} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
               </li>

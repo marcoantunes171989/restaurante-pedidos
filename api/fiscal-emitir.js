@@ -138,7 +138,10 @@ export default async function handler(req, res) {
     // A situação da nota vai no corpo; 200 mesmo em rejeição (o caixa precisa do motivo).
     const status = r.code === "FORBIDDEN" ? 403 : r.code && !r.situacao ? 400 : 200;
     return json(res, status, r);
-  } catch {
-    return json(res, 500, { ok: false, erro: "Não foi possível concluir. Tente novamente." });
+  } catch (e) {
+    // Antes a falha sumia sem rastro (500 genérico, nada no log). Registra o tipo e o começo da mensagem (sem segredos: o
+    // certificado e as senhas nunca passam por aqui) e devolve só um código curto para quem chamou.
+    console.error("[fiscal-emitir] falha inesperada", String(body?.acao || ""), e?.code || e?.name || "Erro", String(e?.message || "").slice(0, 300));
+    return json(res, 500, { ok: false, erro: "Não foi possível concluir. Tente novamente.", codigo: String(e?.code || e?.name || "Erro").slice(0, 40) });
   }
 }

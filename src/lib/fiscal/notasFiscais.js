@@ -58,6 +58,9 @@ export function acoesDaNota(doc) {
     cce: autorizada && Number(doc?.modelo) === 55,
     // Nota de contingência assinada e ainda não autorizada: enviar.
     enviar: ehContPendente(doc) && doc.contingencia?.assinada !== false,
+    // Falha técnica ou sem resposta (nota normal, sem contingência): reenviar com a MESMA numeração. O servidor consulta a SEFAZ
+    // antes de concluir, então nunca duplica uma nota que já foi autorizada.
+    reenviar: ["erro", "enviado"].includes(doc?.status) && normalSemContingencia && !CSTAT_SEM_REFAZER.has(Number(doc?.cStat)),
     // Já foi enviada e não teve resposta certa: perguntar à SEFAZ.
     consultar: !!doc?.chave && !naoUsada(doc) && (doc.status === "enviado" || (doc.status === "erro" && !off)),
     // DANFE (E8): autorizada; NFC-e off-line (tpEmis 9) já assinada; NF-e com EPEC registrado.
@@ -158,4 +161,106 @@ export async function descartarNota(supabase, documentoId, motivo) {
 export async function pedirEventoFiscal(supabase, corpo, opts = {}) {
   // Mesmo cliente HTTP autenticado da aba Emissão.
   return chamarApiFiscal(supabase, "/api/fiscal-emitir", corpo, opts);
+}
+
+
+// ── Detalhes e histórico (log) de cada nota ──────────────────────────────────────────────────────────────────────────
+
+const TIPOS_EVENTO = {
+  RESERVADO: "Número reservado", RESERVA: "Número reservado", SEFAZ_ENVIADO: "Enviada à SEFAZ", SEFAZ_AUTORIZADO: "Autorizada pela SEFAZ",
+  SEFAZ_REJEITADO: "Rejeitada pela SEFAZ", SEFAZ_ERRO: "Erro no envio", DESCARTADO: "Descartada", CANCELADO: "Cancelada",
+};
+export function rotuloEvento(e) {
+  if (e?.payload?.falhaInterna) return "Falha técnica no envio";
+  const t = String(e?.tipo || "");
+  return TIPOS_EVENTO[t] || t.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()) || "Evento";
+}
+
+/** Linha do histórico pronta para mostrar: quando, o quê, de/para qual situação e o que a SEFAZ/servidor disse. */
+export function linhaDoHistorico(e) {
+  const p = e?.payload || {};
+  const partes = [];
+  if (p.cStat != null && p.cStat !== "") partes.push(`código ${p.cStat}`);
+  if (p.xMotivo) partes.push(String(p.xMotivo));
+  else if (p.detalhe) partes.push(String(p.detalhe));
+  if (p.protocolo) partes.push(`protocolo ${p.protocolo}`);
+  return {
+    id: e?.id, quando: e?.criado_em || e?.criadoEm || null, titulo: rotuloEvento(e),
+    mudanca: e?.status_anterior && e?.status_novo && e.status_anterior !== e.status_novo ? `${situacaoNota(e.status_anterior).rotulo} → ${situacaoNota(e.status_novo).rotulo}` : "",
+    texto: partes.join(" · "), falha: !!p.falhaInterna || e?.status_novo === "erro" || e?.status_novo === "rejeitado",
+  };
+}
+
+export async function buscarHistoricoDocumento(supabase, documentoId) {
+  const { data, error } = await supabase.rpc("app_fiscal_documento_historico", { p_documento_id: documentoId });
+  if (error) {
+    const ausente = /could not find the function|does not exist/i.test(String(error.message)) || ["42883", "PGRST202"].includes(String(error.code));
+    throw Object.assign(new Error(ausente ? "O histórico detalhado ainda não está instalado no banco (migration 191)." : "Não foi possível carregar o histórico."), { code: ausente ? "MIGRACAO_PENDENTE" : "RPC_ERROR" });
+  }
+  if (data?.ok === false) throw Object.assign(new Error("Sem permissão para ver o histórico desta nota."), { code: data.code });
+  return (data?.eventos || []).map(linhaDoHistorico);
+}
+
+/**
+ * Explica em português o problema da nota e o que fazer (para o painel de detalhes). null = nota sem problema.
+ * @returns {{ titulo:string, causa:string, passos:string[], tom:'erro'|'alerta' }|null}
+ */
+export function explicarNota(doc) {
+  if (!doc) return null;
+  const acoes = acoesDaNota(doc);
+  const motivo = String(doc.xMotivo || "").trim();
+  const cStat = doc.cStat != null && doc.cStat !== "" ? Number(doc.cStat) : null;
+  if (doc.status === "autorizado" || doc.status === "cancelado" || doc.status === "descartado") return null;
+  if (/Falha técnica depois do envio/i.test(motivo)) {
+    return { tom: "alerta", titulo: "Falha técnica depois do envio",
+      causa: "A nota foi transmitida, mas o sistema falhou ao ler/gravar a resposta. A SEFAZ PODE ter autorizado a nota.",
+      passos: ["Clique em Consultar na SEFAZ antes de reenviar. Se ela já autorizou, a nota será registrada; se não recebeu, aí use Reenviar à SEFAZ."] };
+  }
+  if (/Falha técnica ao enviar/i.test(motivo)) {
+    return { tom: "erro", titulo: "Falha técnica no envio",
+      causa: "O sistema não conseguiu montar ou validar o XML para enviar. A nota NÃO chegou à SEFAZ e a numeração foi mantida.",
+      passos: ["Clique em Reenviar à SEFAZ. Se a falha continuar, copie o diagnóstico (abaixo) e envie ao suporte."] };
+  }
+  if (doc.status === "rejeitado") {
+    const sem = CSTAT_SEM_REFAZER.has(cStat);
+    return { tom: "erro", titulo: `Rejeitada pela SEFAZ${cStat != null ? ` (código ${cStat})` : ""}`,
+      causa: motivo || "A SEFAZ recusou a nota.",
+      passos: sem
+        ? ["Esta rejeição não permite reenviar com o mesmo número. Fale com o contador e, se preciso, emita uma nova venda."]
+        : ["Corrija o cadastro indicado no motivo (produto, empresa, pagamento) e use Corrigir e emitir de novo — o número é mantido."] };
+  }
+  if (doc.status === "reservado") {
+    return { tom: "alerta", titulo: "Número reservado, nota ainda não enviada", causa: "A venda foi fechada, mas a nota não chegou a ser enviada (por exemplo, falta de certificado ou queda no momento da venda).",
+      passos: ["Clique em Emitir agora, ou em Descartar se esta venda não deve ter nota."] };
+  }
+  if (doc.status === "enviado" || doc.status === "erro") {
+    if (doc.contingenciaNumero) return { tom: "alerta", titulo: "Venda saiu em contingência", causa: "A venda foi emitida em outra nota (contingência). Esta numeração só pode ser consultada.", passos: ["Use Consultar na SEFAZ."] };
+    return { tom: doc.status === "erro" ? "erro" : "alerta",
+      titulo: doc.status === "erro" ? "Sem confirmação da SEFAZ" : "Aguardando confirmação da SEFAZ",
+      causa: motivo || "A nota foi enviada, mas a resposta da SEFAZ não foi gravada.",
+      passos: [acoes.consultar ? "Clique em Consultar na SEFAZ para saber se ela recebeu a nota." : "", acoes.reenviar ? "Se a SEFAZ não recebeu (ou a consulta não responde), clique em Reenviar à SEFAZ: o sistema consulta antes e nunca duplica uma nota já autorizada." : ""].filter(Boolean) };
+  }
+  return null;
+}
+
+/** Texto para copiar e colar no suporte: tudo o que a pessoa precisa mandar, sem segredos. */
+export function textoDiagnostico(doc, historico = [], tentativas = []) {
+  const l = [
+    `${doc?.modelo === 65 ? "NFC-e" : "NF-e"} nº ${doc?.numero} · série ${doc?.serie} · ${doc?.ambiente === "homologacao" ? "homologação" : "produção"}`,
+    `Situação: ${situacaoDaNota(doc).rotulo} (${doc?.status})${doc?.cStat != null ? ` · código ${doc.cStat}` : ""}`,
+    doc?.xMotivo ? `Motivo: ${doc.xMotivo}` : "",
+    doc?.chave ? `Chave: ${doc.chave}` : "",
+    doc?.protocolo ? `Protocolo: ${doc.protocolo}` : "",
+    `Valor: R$ ${Number(doc?.valorTotal || 0).toFixed(2).replace(".", ",")} · criada em ${doc?.criadoEm || "—"}`,
+    `ID: ${doc?.id}`,
+  ];
+  if (historico.length) {
+    l.push("Histórico:");
+    for (const h of historico) l.push(`- ${h.quando || ""} ${h.titulo}${h.mudanca ? ` (${h.mudanca})` : ""}${h.texto ? `: ${h.texto}` : ""}`);
+  }
+  if (tentativas.length) {
+    l.push("Ações feitas nesta tela:");
+    for (const x of tentativas) l.push(`- ${x.quando} ${x.acao} → ${x.ok ? "ok" : "falhou"}: ${x.texto}`);
+  }
+  return l.filter(Boolean).join("\n");
 }

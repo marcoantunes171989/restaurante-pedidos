@@ -12,9 +12,9 @@ describe("situacaoNota", () => {
 });
 
 describe("acoesDaNota", () => {
-  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ emitir: false, descartar: false, refazer: false, cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
-  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, cancelar: true, cce: true, enviar: false, consultar: false, imprimir: true }));
-  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
+  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ emitir: false, descartar: false, refazer: false, reenviar: false, cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
+  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, reenviar: false, cancelar: true, cce: true, enviar: false, consultar: false, imprimir: true }));
+  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, reenviar: false, cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
 });
 
 describe("validarTextoEvento", () => {
@@ -149,5 +149,74 @@ describe("filtrarNotas (tela Notas Emitidas)", () => {
   });
   it("os 5 filtros existem, começando por Todas", () => {
     expect(FILTROS_NOTAS.map((f) => f.id)).toEqual(["todas", "nfce", "nfe", "problema", "contingencia"]);
+  });
+});
+
+import { explicarNota, linhaDoHistorico, rotuloEvento, textoDiagnostico, buscarHistoricoDocumento } from "./notasFiscais.js";
+
+describe("reenviar: nota com falha ou sem resposta pode ser reenviada com a mesma numeração", () => {
+  const base = { modelo: 65, tpEmis: 1, chave: "3".repeat(44) };
+  it("erro e enviado (nota normal) → reenviar; reservado → emitir; autorizado/contingência/duplicidade → não", () => {
+    expect(acoesDaNota({ ...base, status: "erro" })).toMatchObject({ reenviar: true, consultar: true, emitir: false });
+    expect(acoesDaNota({ ...base, status: "enviado" }).reenviar).toBe(true);
+    expect(acoesDaNota({ ...base, status: "reservado" })).toMatchObject({ emitir: true, reenviar: false });
+    expect(acoesDaNota({ ...base, status: "autorizado" }).reenviar).toBe(false);
+    expect(acoesDaNota({ ...base, status: "erro", tpEmis: 9 }).reenviar).toBe(false); // já é contingência: usa "Enviar agora"
+    expect(acoesDaNota({ ...base, status: "erro", contingenciaNumero: 9 }).reenviar).toBe(false); // a venda saiu em outra nota
+    expect(acoesDaNota({ ...base, status: "erro", cStat: 204 }).reenviar).toBe(false); // duplicidade: não reenviar
+  });
+});
+
+describe("explicarNota: o que aconteceu e o que fazer", () => {
+  it("falha técnica: diz que NÃO chegou à SEFAZ e manda reenviar", () => {
+    const e = explicarNota({ status: "erro", modelo: 65, tpEmis: 1, chave: "3".repeat(44), xMotivo: "Falha técnica ao enviar (a nota não chegou à SEFAZ): ENOENT — arquivo" });
+    expect(e.tom).toBe("erro");
+    expect(e.titulo).toBe("Falha técnica no envio");
+    expect(e.causa).toMatch(/NÃO chegou à SEFAZ/);
+    expect(e.passos.join(" ")).toMatch(/Reenviar à SEFAZ/);
+  });
+  it("rejeitada: com correção possível manda corrigir; com número usado (301) manda falar com o contador", () => {
+    const rej = explicarNota({ status: "rejeitado", cStat: 225, xMotivo: "Falha no Schema XML", tpEmis: 1 });
+    expect(rej.titulo).toContain("código 225");
+    expect(rej.passos[0]).toMatch(/Corrigir e emitir de novo/);
+    const usado = explicarNota({ status: "rejeitado", cStat: 301, xMotivo: "Uso Denegado", tpEmis: 1 });
+    expect(usado.passos[0]).toMatch(/contador/);
+  });
+  it("reservada, aguardando resposta e erro sem resposta orientam a ação certa; autorizada não tem problema", () => {
+    expect(explicarNota({ status: "reservado", tpEmis: 1 }).passos[0]).toMatch(/Emitir agora/);
+    const env = explicarNota({ status: "enviado", tpEmis: 1, chave: "3".repeat(44), modelo: 65 });
+    expect(env.passos.join(" ")).toMatch(/Consultar na SEFAZ/);
+    expect(env.passos.join(" ")).toMatch(/Reenviar à SEFAZ/);
+    expect(explicarNota({ status: "autorizado" })).toBeNull();
+    expect(explicarNota(null)).toBeNull();
+  });
+});
+
+describe("histórico (log) da nota", () => {
+  const ev = { id: "1", tipo: "SEFAZ_ERRO", status_anterior: "enviado", status_novo: "erro", criado_em: "2026-11-20T16:31:00Z",
+    payload: { falhaInterna: true, etapa: "envio", tipoErro: "ENOENT", detalhe: "arquivo ausente", cStat: null } };
+  it("rótulo, mudança de situação e texto da linha", () => {
+    expect(rotuloEvento(ev)).toBe("Falha técnica no envio");
+    expect(rotuloEvento({ tipo: "SEFAZ_AUTORIZADO", payload: {} })).toBe("Autorizada pela SEFAZ");
+    const l = linhaDoHistorico(ev);
+    expect(l).toMatchObject({ titulo: "Falha técnica no envio", mudanca: "Aguardando confirmação → SEFAZ indisponível", falha: true });
+    expect(l.texto).toBe("arquivo ausente");
+    const ok = linhaDoHistorico({ id: "2", tipo: "SEFAZ_AUTORIZADO", status_anterior: "enviado", status_novo: "autorizado", payload: { cStat: 100, xMotivo: "Autorizado o uso da NF-e", protocolo: "135000000000001" } });
+    expect(ok.texto).toBe("código 100 · Autorizado o uso da NF-e · protocolo 135000000000001");
+    expect(ok.falha).toBe(false);
+  });
+  it("diagnóstico para copiar traz situação, motivo, chave, valor e o histórico (sem segredos)", () => {
+    const t = textoDiagnostico({ id: "abc", modelo: 65, numero: 1, serie: 1, ambiente: "homologacao", status: "erro", xMotivo: "Falha técnica", chave: "3".repeat(44), valorTotal: 31.79, criadoEm: "2026-11-20T16:31:00Z" }, [linhaDoHistorico(ev)]);
+    expect(t).toContain("NFC-e nº 1 · série 1 · homologação");
+    expect(t).toContain("Motivo: Falha técnica");
+    expect(t).toContain("Valor: R$ 31,79");
+    expect(t).toContain("Histórico:");
+    expect(t).toContain("Falha técnica no envio");
+  });
+  it("lê pela RPC; migration ausente e sem permissão viram erros claros", async () => {
+    const ok = await buscarHistoricoDocumento({ rpc: async () => ({ data: { ok: true, eventos: [ev] }, error: null }) }, "d1");
+    expect(ok).toHaveLength(1);
+    await expect(buscarHistoricoDocumento({ rpc: async () => ({ data: null, error: { code: "PGRST202", message: "Could not find the function" } }) }, "d1")).rejects.toMatchObject({ code: "MIGRACAO_PENDENTE" });
+    await expect(buscarHistoricoDocumento({ rpc: async () => ({ data: { ok: false, code: "FORBIDDEN" }, error: null }) }, "d1")).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

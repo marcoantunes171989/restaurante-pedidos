@@ -3,7 +3,7 @@ import { Settings } from "lucide-react";
 /**
  * Rodapé com atalhos de teclado e status de conexão/backup.
  */
-export default function PdvStatusBar({ conexaoOk = true, agora }) {
+export default function PdvStatusBar({ conexaoOk = true, agora, versao = "" }) {
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   return (
@@ -34,6 +34,7 @@ export default function PdvStatusBar({ conexaoOk = true, agora }) {
           {conexaoOk ? "Conexão ativa" : "Reconectando…"}
         </span>
         <span className="text-[var(--pp-text-muted)]">Backup em dia {hora}</span>
+        {versao && <span className="text-[11px] text-[var(--pp-text-muted)]" title="Versão do sistema que está rodando nesta tela" data-testid="versao-sistema">v{versao}</span>}
         <button type="button" aria-label="Configurações" className="grid h-8 w-8 place-items-center rounded-lg text-[var(--pp-text-muted)] transition hover:bg-[var(--pp-bg)] hover:text-[var(--pp-text)]">
           <Settings size={15} />
         </button>
