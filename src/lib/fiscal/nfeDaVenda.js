@@ -133,7 +133,10 @@ const AMB = { producao: 1, homologacao: 2 };
 export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date() } = {}) {
   const avisos = [];
   const falha = (erro) => ({ ok: false, erro, avisos });
-  if (!venda?.apto) return falha(`A venda tem pendência(s) e não pode virar nota: ${(venda?.pendencias || []).join(" ") || venda?.resumo || "dados incompletos"}`);
+  if (!venda?.apto) {
+    const dosItens = (venda?.itens || []).flatMap((it) => (it.pendencias || []).map((p) => `${it.nome ? `${it.nome}: ` : ""}${p}`));
+    return falha(`A venda tem pendência(s) e não pode virar nota: ${[...(venda?.pendencias || []), ...dosItens].join(" ") || venda?.resumo || "dados incompletos"}`);
+  }
   if (!AMB[ambiente]) return falha("Ambiente inválido (homologação ou produção).");
   const e = emitente || {};
   const crt = String(e.crt || "");

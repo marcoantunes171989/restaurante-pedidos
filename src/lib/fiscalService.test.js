@@ -178,3 +178,15 @@ describe("regra da loja sem NCM/CFOP: completa com o que foi vinculado ao produt
     expect(r.origem.completadoPeloProduto).toBeUndefined();
   });
 });
+
+describe("pendenciasFiscais — CSOSN 101 exige o crédito do Simples (%) antes de reservar número", () => {
+  const base = { fonte: "config-loja", ncm: "21069090", cfop: "5102", csosn: "101" };
+  it("sem crédito, ou fora de 0 a 5%, vira pendência", () => {
+    expect(pendenciasFiscais({ ...base, creditoSnAliquota: 0 })).toEqual([expect.stringContaining("CSOSN 101 exige a alíquota de crédito do Simples Nacional")]);
+    expect(pendenciasFiscais({ ...base, creditoSnAliquota: 12 })).toEqual([expect.stringContaining("CSOSN 101 exige a alíquota de crédito do Simples Nacional")]);
+  });
+  it("com crédito válido (0,01 a 5%), não há pendência; outros CSOSN não são afetados", () => {
+    expect(pendenciasFiscais({ ...base, creditoSnAliquota: 3 })).toEqual([]);
+    expect(pendenciasFiscais({ ...base, csosn: "102", creditoSnAliquota: 0 })).toEqual([]);
+  });
+});

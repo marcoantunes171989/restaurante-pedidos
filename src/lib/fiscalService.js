@@ -194,6 +194,12 @@ export function pendenciasFiscais(resolvido) {
   if (!resolvido.ncm) p.push("NCM ausente");
   if (!resolvido.cfop) p.push("CFOP ausente");
   if (!resolvido.cstIcms && !resolvido.csosn) p.push("CST/CSOSN de ICMS ausente");
+  // CSOSN 101 exige o "Crédito do Simples (%)" do produto (acima de 0 e até 5%): o emissor recusa a nota sem ele.
+  // Avisar aqui evita gastar um número de nota para só então receber a recusa.
+  if (String(resolvido.csosn || "").trim() === "101") {
+    const cred = Number(resolvido.creditoSnAliquota || 0);
+    if (!(cred > 0 && cred <= 5)) p.push('CSOSN 101 exige a alíquota de crédito do Simples Nacional no campo "Crédito do Simples (%)" do produto (de 0,01 a 5%)');
+  }
   return p;
 }
 

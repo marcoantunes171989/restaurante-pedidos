@@ -122,7 +122,7 @@ describe("produtos vinculados pela Atualização em lote contam como prontos", (
     expect(produtosSemFiscal([produto], [], cadastros)).toEqual([]);
   });
   it("produto ligado a regra sem NCM/CFOP e com NCM/CFOP do lote: pronto; sem eles: pendente", () => {
-    const regra = { id: 50, csosn: "101", cstPis: "49", cstCofins: "49" };
+    const regra = { id: 50, csosn: "101", cstPis: "49", cstCofins: "49", creditoSnAliquota: 3 };
     expect(produtosSemFiscal([{ ...produto, lojaFiscalRegraId: 50 }], [regra], cadastros)).toEqual([]);
     expect(produtosSemFiscal([{ id: 11, name: "Nuggets", lojaFiscalRegraId: 50 }], [regra], cadastros)[0].pendencias).toEqual(["NCM ausente", "CFOP ausente"]);
   });

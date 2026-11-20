@@ -1053,7 +1053,8 @@ export default function CashierPdv({
       });
       const codigoPagamento = `PAG-${Date.now().toString().slice(-8)}`;
       // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz a venda.
-      const emiteNota = notaCx.modelo === 55 ? nfeNaLoja : nfceNaLoja;
+      // Venda que não foi gravada no banco (baixa com erro) não gera nota fiscal: a nota só sai de venda registrada.
+      const emiteNota = !baixa?.erro && (notaCx.modelo === 55 ? nfeNaLoja : nfceNaLoja);
       setSucesso({
         ...info,
         notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : null,

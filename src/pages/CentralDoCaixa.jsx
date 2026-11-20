@@ -166,7 +166,7 @@ export default function CentralDoCaixa({
       const dadosNota = dadosNotaContaOperacional({ pedido: o, subtotal: subtotalDe ? subtotalDe(o) : total, total, detalhes });
       const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao }, { manterStatus: true, somenteId: o.id });
       // Só emite se a baixa aconteceu (recusa — sem permissão, já pago — não devolve objeto).
-      if (baixa && typeof baixa === "object") {
+      if (baixa && typeof baixa === "object" && !baixa.erro) {
         emitirNotaDaConta(o, dadosNota, notaCx);
         setContaCheckout((cur) => (cur && cur.id === o.id ? null : cur));
       }

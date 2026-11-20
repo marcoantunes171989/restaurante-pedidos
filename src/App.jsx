@@ -1053,6 +1053,26 @@ export default function RestaurantePedidoApp() {
     return () => { ativo = false; clearInterval(intervalo); };
   }, [dbReady, activeTab]);
 
+  // Produtos (estoque/disponibilidade) só chegavam por Realtime. Se a publicação Realtime de tab_produtos não
+  // estiver ativa no ambiente, o PDV e o cardápio ficavam com o estoque antigo depois da venda. Releitura leve
+  // a cada 6 s nas telas operacionais e ao voltar para a aba do navegador.
+  useEffect(() => {
+    if (!dbReady) return;
+    const abasComPoll = new Set(["kitchen", "panel", "cashier", "opmobile", "tablet"]);
+    if (!abasComPoll.has(activeTab)) return;
+    let ativo = true;
+    async function atualizarProdutos() {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      try {
+        const prods = await fetchProdutos();
+        if (ativo && Array.isArray(prods) && prods.length > 0) setProducts(prods);
+      } catch { /* silencioso — Realtime cobre */ }
+    }
+    const intervalo = setInterval(atualizarProdutos, 6000);
+    document.addEventListener("visibilitychange", atualizarProdutos);
+    return () => { ativo = false; clearInterval(intervalo); document.removeEventListener("visibilitychange", atualizarProdutos); };
+  }, [dbReady, activeTab]);
+
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [tableNumber, setTableNumber] = useState("");
@@ -2496,6 +2516,7 @@ export default function RestaurantePedidoApp() {
       })();
       setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
       let alertasEstoque = [];
+      let falhaGravacao = null; // erro real ao gravar a venda no banco (antes só ia para o console e a tela dizia "sucesso")
       if (dbReady) {
         try {
           await Promise.all(alvo.map((o) => marcarPagoPedido(o.id, formaLabel || null, manterStatus ? null : "entregue")));
@@ -2540,7 +2561,18 @@ export default function RestaurantePedidoApp() {
               }
             } catch {}
           }
-        } catch (err) { console.error("Erro ao finalizar pagamento:", err); }
+        } catch (err) { console.error("Erro ao finalizar pagamento:", err); falhaGravacao = err; }
+        // Relê do banco o que a venda mudou (pedidos pagos e estoque dos produtos) em vez de depender só do
+        // Realtime: se o Realtime estiver desligado ou atrasado no ambiente, o PDV e o cardápio ainda atualizam.
+        try {
+          const [ords, prods] = await Promise.all([fetchPedidos(), fetchProdutos()]);
+          if (Array.isArray(ords) && ords.length > 0) setOrders(ords);
+          if (Array.isArray(prods) && prods.length > 0) setProducts(prods);
+        } catch { /* a atualização periódica e o Realtime cobrem */ }
+      }
+      if (falhaGravacao) {
+        notify("error", `⚠️ A venda não foi totalmente gravada: ${falhaGravacao?.message || "erro ao registrar o pagamento ou baixar o estoque"}. Confira o pedido e o estoque antes de repetir.`);
+        return { alertas: alertasEstoque, erro: true };
       }
       notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
       return { alertas: alertasEstoque };
