@@ -5,6 +5,7 @@ import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js"
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import { produtosSemFiscal } from "./lib/fiscal/ativacaoFiscal.js";
+import { patchVinculosFiscais, percentualCreditoSimples, fiscalComCredito } from "./lib/fiscal/produtoFiscalPatch.js";
 import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
 import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
 import ComoFuncionaFiscal from "./components/admin/fiscal/ComoFuncionaFiscal.jsx";
@@ -3462,7 +3463,7 @@ export default function RestaurantePedidoApp() {
     if (dbReady) try { await excluirLojaFiscalRegra(id); } catch (e) { return notify("error", "Erro ao excluir: " + (e.message || e)); }
     await recarregarLojaRegras(); auditar("excluir", "loja_fiscal_regra", id); return true;
   }
-  const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra, vincularProdutos: vincularProdutosConfigFiscal };
+  const lojaFiscalApi = { importar: importarRegraParaLoja, salvar: salvarLojaRegra, aplicarVersao: aplicarVersaoLojaRegra, manter: manterVersaoLojaRegra, excluir: excluirLojaRegra, vincularProdutos: vincularProdutosConfigFiscal, aplicarCredito: aplicarCreditoSimples };
 
   // ── Templates fiscais por segmento (migration 104, super admin) ──
   const recarregarTemplates = async () => {
@@ -3700,12 +3701,41 @@ export default function RestaurantePedidoApp() {
         // Migration 079 — fiscal (NF-e/NFC-e) e config operacional (JSONB)
         ...(dados.fiscal && typeof dados.fiscal === "object" ? { fiscal: dados.fiscal } : {}),
         ...(dados.operacao && typeof dados.operacao === "object" ? { operacao: dados.operacao } : {}),
+        // Vínculos fiscais do formulário (NCM, CFOP, PIS, COFINS, IPI, CEST e configuração fiscal da loja). Antes só o
+        // JSONB era gravado: esses vínculos apareciam salvos na tela e voltavam ao antigo depois de recarregar.
+        ...patchVinculosFiscais(dados),
         // Ativo/inativo pelo seletor do cabeçalho do modal
         ...(dados.active != null ? { ativo: !!dados.active } : {}),
       });
-    } catch (e) { notify("error", "Erro ao salvar: " + e.message); }
+    } catch (e) {
+      notify("error", "Erro ao salvar: " + e.message);
+      try { setProducts(await fetchProdutos()); } catch { /* o Realtime repõe */ } // desfaz a alteração só em memória
+      return;
+    }
     auditar("editar", "produto", pid, { nome: dados.name });
     notify("success", "Produto atualizado.");
+  }
+
+  // Fiscal › Tributação › Produtos: informa o "Crédito do Simples (%)" (CSOSN 101) em vários produtos de uma vez.
+  // Mescla no JSONB fiscal de cada produto (não apaga origem, unidade etc.) e relê do banco para conferir o que ficou.
+  async function aplicarCreditoSimples(ids = [], percentual) {
+    if (!canAccess(currentUser, "admin")) { notify("error", "Usuário sem permissão administrativa."); return false; }
+    const v = percentualCreditoSimples(percentual);
+    if (v == null) { notify("error", "Informe o crédito do Simples entre 0,01 e 5 (%), conforme o contador."); return false; }
+    const alvos = productsAll.filter((p) => ids.includes(p.id));
+    if (!alvos.length) return false;
+    try {
+      for (const p of alvos) {
+        await atualizarProduto(p.id, { fiscal: fiscalComCredito(p.fiscal, v) });
+      }
+      setProducts(await fetchProdutos());
+      auditar("credito_simples_lote", "produto", null, { produtos: alvos.length, percentual: v });
+      notify("success", `Crédito do Simples de ${String(v).replace(".", ",")}% aplicado em ${alvos.length} produto(s).`);
+      return true;
+    } catch (e) {
+      notify("error", "Não foi possível gravar o crédito do Simples: " + (e?.message || e));
+      return false;
+    }
   }
   // Vincula/desvincula um produto a um setor de cozinha (atualiza só setor_id,
   // sem exigir os demais campos — usado pela tela de Setores de Cozinha)
@@ -21969,6 +21999,12 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], ctxFiscal = {}, ap
     const ok = await api.vincularProdutos([...sel], alvo ? Number(alvo) : null);
     if (ok) setSel(new Set());
   }
+  const [creditoLote, setCreditoLote] = useState("");
+  async function aplicarCredito() {
+    if (sel.size === 0 || !creditoLote) return;
+    const ok = await api.aplicarCredito([...sel], creditoLote);
+    if (ok) { setSel(new Set()); setCreditoLote(""); }
+  }
 
   if (importadas.length === 0) {
     return <EmptyState titulo="Importe uma configuração primeiro" dica="Vá em “Minha loja” / “Biblioteca” e importe uma regra para poder vinculá-la aos produtos." />;
@@ -21997,12 +22033,33 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], ctxFiscal = {}, ap
         <button disabled={sel.size === 0} onClick={aplicar} className="ml-auto rounded-xl bg-[#E67E22] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#D06E1A] disabled:opacity-40">Aplicar aos selecionados</button>
       </div>
 
+      {/* Crédito do Simples (%) em lote: obrigatório nos produtos em CSOSN 101; o valor vem do contador (0,01 a 5%). */}
+      {api?.aplicarCredito && (
+        <div className="mb-3 flex flex-wrap items-end gap-2 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5" data-testid="credito-lote">
+          <div>
+            <label htmlFor="credito-simples-lote" className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Crédito do Simples (%) — CSOSN 101</label>
+            <input id="credito-simples-lote" inputMode="decimal" value={creditoLote} onChange={(e) => setCreditoLote(e.target.value.replace(/[^0-9,.]/g, "").slice(0, 5))} placeholder="Ex.: 1,25"
+              className="w-36 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-sm text-[var(--pp-text)] outline-none focus:border-[#012E46]" />
+          </div>
+          <button type="button" disabled={sel.size === 0 || !creditoLote} onClick={aplicarCredito}
+            className="rounded-xl bg-[#012E46] px-3 py-2 text-xs font-black text-white transition hover:brightness-110 disabled:opacity-40">Aplicar crédito aos {sel.size} selecionado(s)</button>
+          <p className="basis-full text-[11px] text-slate-500">Informe o percentual da tabela do Simples confirmado pelo contador. Mescla no cadastro de cada produto, sem apagar origem, unidade ou outros dados fiscais.</p>
+        </div>
+      )}
+
       {filtrados.length === 0 ? (
         <EmptyState titulo="Nenhum produto" dica="Ajuste a busca." />
       ) : (<>
-        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
-          <input type="checkbox" checked={todosVis} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
-        </label>
+        <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+            <input type="checkbox" checked={todosVis} onChange={marcarTodos} className="h-4 w-4 accent-[#0F4C5C]" /> Selecionar os desta página
+          </label>
+          {filtrados.length > visiveis.length && (
+            <button type="button" data-testid="selecionar-todos-filtrados" onClick={() => setSel(new Set(filtrados.map((p) => p.id)))} className="text-xs font-semibold text-[#012E46] underline">
+              Selecionar todos os {filtrados.length} da lista
+            </button>
+          )}
+        </div>
         <div className="space-y-2">
           {visiveis.map((p) => {
             const nome = nomeConfig(p.lojaFiscalRegraId);
