@@ -143,6 +143,8 @@ function PainelDescartar({ nota, supabase, onFechar, onConcluido }) {
   );
 }
 
+const AUTO_ATUALIZAR_MS = 15000;
+
 export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = [], regrasLoja = [], ctxFiscal = {} }) {
   const lojaId = lojaInfo?.id ?? null;
   const [notas, setNotas] = useState([]);
@@ -167,6 +169,21 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
     buscar().then((r) => { if (vivo) aplicar(r); });
     return () => { vivo = false; };
   }, [lojaId, buscar, aplicar]);
+
+  // A lista só era lida ao abrir a tela: uma nota emitida no caixa depois disso não aparecia até o usuário clicar em
+  // "Atualizar" ou reabrir. Agora relê sozinha a cada 15 s e ao voltar para esta aba do navegador.
+  useEffect(() => {
+    if (lojaId == null) return undefined;
+    let vivo = true;
+    const reler = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      const r = await buscar();
+      if (vivo && !r.erro) setNotas(r.notas); // erro passageiro não troca a lista por uma mensagem de erro
+    };
+    const t = setInterval(reler, AUTO_ATUALIZAR_MS);
+    document.addEventListener("visibilitychange", reler);
+    return () => { vivo = false; clearInterval(t); document.removeEventListener("visibilitychange", reler); };
+  }, [lojaId, buscar]);
 
   async function acaoRapida(nota, acao) {
     setOcupado(nota.id);
@@ -220,7 +237,10 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
   return (
     <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5" aria-labelledby="notas-titulo" data-testid="notas-fiscais-emitidas">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="notas-titulo" className="text-[15px] font-bold text-[var(--pp-text)]">Notas emitidas</h3>
+        <div>
+          <h3 id="notas-titulo" className="text-[15px] font-bold text-[var(--pp-text)]">Notas emitidas</h3>
+          <p className="text-[12px] text-[var(--pp-text-muted)]" data-testid="notas-empresa">Empresa: {lojaInfo?.nome || "—"} (código {lojaId})</p>
+        </div>
         <button type="button" className={botaoLeve} onClick={recarregar}>Atualizar</button>
       </div>
       {resumo.pendentes > 0 && <AvisoContingencia resumo={resumo} supabase={supabase} onConcluido={recarregar} />}
@@ -239,7 +259,10 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
         </div>
       )}
       {notas.length === 0 ? (
-        <p className="mt-2 text-[13px] text-[var(--pp-text-muted)]">Nenhuma nota emitida ainda.</p>
+        <div className="mt-2 text-[13px] text-[var(--pp-text-muted)]">
+          <p>Nenhuma nota emitida por esta empresa ainda.</p>
+          <p className="mt-1 text-[12px]">Emitiu uma nota e ela não aparece? As notas ficam na empresa da venda. Confira, no seletor de empresa do topo, se esta é a mesma empresa em que a venda foi feita no caixa.</p>
+        </div>
       ) : filtrarNotas(notas, filtro).length === 0 ? (
         <p className="mt-3 text-[13px] text-[var(--pp-text-muted)]">Nenhuma nota neste filtro.</p>
       ) : (
