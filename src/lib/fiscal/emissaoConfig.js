@@ -24,6 +24,8 @@ export function conferirMapaMeios(formas = [], mapa = {}) {
   const invalidos = [];
   for (const f of formas.filter(ativa)) {
     const cod = mapa?.[`id:${f.id}`] ?? mapa?.[f.tipo];
+    // "Pontos" (programa de fidelidade) sem código fiscal é lançado como desconto incondicional na nota: não precisa de código.
+    if ((cod == null || cod === "") && /pontos/i.test(String(f.nome ?? ""))) continue;
     if (cod == null || cod === "") semCodigo.push(f.nome);
     else if (!/^[0-9]{2}$/.test(String(cod))) invalidos.push(f.nome);
   }

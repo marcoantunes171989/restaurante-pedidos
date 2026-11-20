@@ -9,6 +9,9 @@
 //   - Dinheiro sempre em CENTAVOS inteiros (sem erro de ponto flutuante).
 //   - Desconto (cupom + manual) vira vDesc RATEADO por item; acréscimo vira
 //     vOutro rateado; a soma dos itens fecha exatamente o total.
+//   - Resgate de PONTOS do programa de fidelidade (forma "Pontos" sem código fiscal) é desconto incondicional: sai dos
+//     pagamentos e entra no mesmo rateio proporcional por item (vDesc), com texto em infCpl (ver nfeDaVenda). Com código
+//     fiscal mapeado (ex.: tPag 19), vale como meio de pagamento.
 //   - Taxa de serviço NÃO tem tratamento fixo: a loja (com o contador) escolhe
 //     "outras_despesas" (entra na nota como vOutro) ou "fora_da_nota". Sem
 //     escolha, a venda fica com pendência — o sistema não decide sozinho.
@@ -80,6 +83,11 @@ export function vincularProduto(item, produtos = [], lojaId = null) {
   return { produto: null, via: "nenhum" };
 }
 
+/** A forma de pagamento é o resgate de pontos do programa de fidelidade? */
+export function ehPagamentoComPontos(nome) {
+  return /pontos/i.test(String(nome ?? ""));
+}
+
 // ── Pagamentos → meio de pagamento fiscal ──────────────────
 /**
  * @param detalhes  [{ forma, valor }] como o caixa grava hoje.
@@ -94,12 +102,13 @@ export function mapearPagamentos(detalhes = [], formas = [], mapaMeios = {}) {
     const cad = (formas || []).find((f) => normNome(f.nome) === normNome(nome)) || null;
     let meio = null;
     if (cad) meio = mapaMeios?.[`id:${cad.id}`] ?? mapaMeios?.[cad.tipo] ?? null;
-    if (!meio && /pontos/i.test(nome)) {
-      pendencias.push(`Pagamento com pontos (R$ ${brl(valorCentavos)}): defina com o contador se é desconto ou outro meio.`);
-    } else if (!meio) {
+    // Pontos do programa de fidelidade SEM código fiscal = desconto incondicional (rateado nos itens, ver montarVendaFiscal).
+    // Se a loja mapear "Pontos" para um código (ex.: 19), vale como meio de pagamento, como qualquer outra forma.
+    const desconto = !meio && ehPagamentoComPontos(nome);
+    if (!meio && !desconto) {
       pendencias.push(`Forma "${nome}" sem código de pagamento fiscal configurado.`);
     }
-    return { forma: nome, formaId: cad?.id ?? null, tipo: cad?.tipo ?? null, meio, valorCentavos };
+    return { forma: nome, formaId: cad?.id ?? null, tipo: cad?.tipo ?? null, meio, valorCentavos, ...(desconto ? { desconto: true } : {}) };
   });
   return { pagamentos, pendencias };
 }
@@ -182,8 +191,15 @@ export function montarVendaFiscal({
   }
   if (!itens.length) pendencias.push("Venda sem itens.");
 
-  // 2) Ajustes da conta.
-  const descontoC = paraCentavos(ajustes.desconto) + paraCentavos(ajustes.descontoCupom) + paraCentavos(ajustes.descontoManual);
+  // 2) Pagamentos → meios; o resgate de pontos (sem código fiscal) sai dos pagamentos e vira desconto incondicional.
+  const { pagamentos: pagTodos, pendencias: pendPag } = mapearPagamentos(pagamento?.detalhes, formas, mapaMeios);
+  pendencias.push(...pendPag);
+  const pontosC = pagTodos.filter((x) => x.desconto).reduce((sm, x) => sm + x.valorCentavos, 0);
+  const pagamentos = pagTodos.filter((x) => !x.desconto);
+
+  // 3) Ajustes da conta (o desconto dos pontos entra no MESMO rateio proporcional dos demais descontos).
+  const descontoOutrosC = paraCentavos(ajustes.desconto) + paraCentavos(ajustes.descontoCupom) + paraCentavos(ajustes.descontoManual);
+  const descontoC = descontoOutrosC + pontosC;
   const acrescimoC = paraCentavos(ajustes.acrescimo);
   const taxaC = paraCentavos(ajustes.taxaServico);
   const tratTaxa = regras?.taxaServico;
@@ -195,7 +211,11 @@ export function montarVendaFiscal({
 
   const bases = itens.map((x) => x._brutoC);
   const vProdC = bases.reduce((s, b) => s + b, 0);
-  if (descontoC > vProdC) pendencias.push("Desconto maior que o valor dos produtos.");
+  if (descontoC > vProdC) {
+    pendencias.push(pontosC > 0
+      ? `Pontos (R$ ${brl(pontosC)}) mais os demais descontos passam do valor dos produtos (R$ ${brl(vProdC)}): cobre o excedente com outra forma de pagamento.`
+      : "Desconto maior que o valor dos produtos.");
+  }
   const descItens = ratearCentavos(Math.min(descontoC, vProdC), bases);
   const outroItens = ratearCentavos(acrescimoC + taxaNaNotaC, bases);
   itens.forEach((it, i) => {
@@ -207,12 +227,13 @@ export function montarVendaFiscal({
   const vDescC = descItens.reduce((s, x) => s + x, 0);
   const vOutroC = outroItens.reduce((s, x) => s + x, 0);
   const vNFC = vProdC - vDescC + vOutroC;
+  if (pontosC > 0 && itens.length && vNFC <= 0) {
+    pendencias.push("Venda paga só com pontos: a nota ficaria com valor zero. Receba ao menos uma parte em outra forma de pagamento.");
+  }
 
-  // 3) Pagamentos: confere o que o caixa cobrou com a composição.
-  const { pagamentos, pendencias: pendPag } = mapearPagamentos(pagamento?.detalhes, formas, mapaMeios);
-  pendencias.push(...pendPag);
+  // 4) Pagamentos: confere o que o caixa cobrou (inclui os pontos) com a composição.
   const cobradoC = paraCentavos(pagamento?.total);
-  const esperadoC = vNFC + taxaForaC + (taxaC > 0 && !TRATAMENTOS_TAXA.has(tratTaxa) ? taxaC : 0);
+  const esperadoC = vNFC + pontosC + taxaForaC + (taxaC > 0 && !TRATAMENTOS_TAXA.has(tratTaxa) ? taxaC : 0);
   if (!parcial && itens.length && cobradoC !== esperadoC) {
     pendencias.push(`Total cobrado (R$ ${brl(cobradoC)}) difere da composição da venda (R$ ${brl(esperadoC)}): diferença de R$ ${brl(cobradoC - esperadoC)}.`);
   }
@@ -235,7 +256,7 @@ export function montarVendaFiscal({
     itens,
     pagamentos: pagamentos.map((p) => ({ forma: p.forma, formaId: p.formaId, tipo: p.tipo, meio: p.meio, valor: p.valor })),
     totais: {
-      vProd: deCentavos(vProdC), vDesc: deCentavos(vDescC), vOutro: deCentavos(vOutroC),
+      vProd: deCentavos(vProdC), vDesc: deCentavos(vDescC), vOutro: deCentavos(vOutroC), vDescPontos: deCentavos(pontosC),
       vNF: deCentavos(vNFC), vPag: deCentavos(vPagC), vTroco: deCentavos(trocoCalcC),
       taxaServicoForaDaNota: deCentavos(taxaForaC),
     },

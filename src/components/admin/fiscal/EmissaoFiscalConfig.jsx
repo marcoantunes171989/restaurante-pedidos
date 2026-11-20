@@ -350,6 +350,12 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
         <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">Código de 2 dígitos da tabela oficial de meios de pagamento (Informe Técnico ENCAT). Confirme com o contador.</p>
         <form onSubmit={salvarPagamentos} className="mt-3 space-y-3">
           {formas.length === 0 && <p className="text-[13px] text-[var(--pp-text-muted)]">Nenhuma forma de pagamento ativa.</p>}
+          {formas.some((f) => /pontos/i.test(f.nome || "")) && (
+            <p className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 text-[12px] text-[var(--pp-text-body)]" data-testid="dica-pontos">
+              <b>Pontos (programa de fidelidade):</b> deixe o código em branco. O valor pago em pontos é lançado na nota como <b>desconto incondicional</b>, rateado
+              proporcionalmente nos produtos, com a informação na nota (padrão aceito pela SEFAZ-SP, RC 32591/2025 — confirme com o contador). Se preencher um código (ex.: 19), os pontos passam a valer como meio de pagamento.
+            </p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2">
             {formas.map((f) => {
               const chave = `id:${f.id}`;

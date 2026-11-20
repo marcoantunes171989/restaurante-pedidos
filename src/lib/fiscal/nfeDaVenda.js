@@ -259,7 +259,19 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     infCplFinal = [infCplFinal, `PERMITE O APROVEITAMENTO DO CREDITO DE ICMS NO VALOR DE R$ ${valor} CORRESPONDENTE A ALIQUOTA DE ${aliq}, NOS TERMOS DO ART. 23 DA LC 123/2006.`].filter(Boolean).join(" ");
   }
 
-  const detPag = venda.pagamentos.map((p) => ({ tPag: p.meio, vPag: p.valor }));
+  // Resgate de pontos do programa de fidelidade: desconto incondicional (rateado nos itens, vDesc). Deixa EXPRESSO na nota o
+  // valor do crédito concedido pelo programa, como pede a SEFAZ-SP (RC 32591/2025).
+  const descPontos = Number(venda.totais?.vDescPontos || 0);
+  if (descPontos > 0) {
+    infCplFinal = [infCplFinal, `DESCONTO INCONDICIONAL DE R$ ${descPontos.toFixed(2).replace(".", ",")} REFERENTE AO RESGATE DE PONTOS DO PROGRAMA DE FIDELIDADE.`].filter(Boolean).join(" ");
+  }
+
+  // tPag 99 (Outros) exige a descrição do meio de pagamento (xPag, 2 a 60 caracteres): usa o nome da forma cadastrada.
+  const detPag = venda.pagamentos.map((p) => ({
+    tPag: p.meio,
+    ...(String(p.meio) === "99" ? { xPag: String(p.forma || "Outros").replace(/\s+/g, " ").trim().slice(0, 60).padEnd(2, " ") } : {}),
+    vPag: p.valor,
+  }));
   const dh = dhEmi || new Date().toISOString();
   const d = new Date(dh);
   const aamm = String(d.getUTCFullYear()).slice(-2) + String(d.getUTCMonth() + 1).padStart(2, "0");

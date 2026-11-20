@@ -353,3 +353,15 @@ describe("aviso da IE do emitente na nota", () => {
     expect(r.avisos.some((a) => /dígito verificador da Inscrição Estadual/.test(a))).toBe(false);
   });
 });
+
+describe("tPag 99 (Outros) leva a descrição do meio de pagamento (xPag)", () => {
+  it("usa o nome da forma cadastrada e valida no XSD; os demais meios não levam xPag", async () => {
+    const mk = (meio, forma) => venda({ pagamento: { total: 44, troco: 0, detalhes: [{ forma, valor: 44 }] }, formas: [{ id: 1, nome: forma, tipo: "outro" }], mapaMeios: { "id:1": meio } });
+    const outro = dadosNFeDaVenda({ ...BASE, venda: mk("99", "Vale Combustível Interno") });
+    expect(outro.ok, outro.erro).toBe(true);
+    expect(outro.dados.pag.detPag[0]).toMatchObject({ tPag: "99", xPag: "Vale Combustível Interno" });
+    expect(montarXmlNFe(outro.dados).xml).toContain("<tPag>99</tPag><xPag>Vale Combustível Interno</xPag>");
+    const pix = dadosNFeDaVenda({ ...BASE, venda: mk("17", "PIX") });
+    expect(pix.dados.pag.detPag[0].xPag).toBeUndefined();
+  });
+});

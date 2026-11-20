@@ -51,7 +51,7 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
 
   // Primeira forma de pagamento sem código (ou com código inválido): é nela que o cursor cai.
   const formaPendente = formas.filter((f) => f && f.active !== false && (f.nome || "").trim())
-    .find((f) => { const c = config?.mapaMeios?.[`id:${f.id}`] ?? config?.mapaMeios?.[f.tipo]; return c == null || c === "" || !/^[0-9]{2}$/.test(String(c)); }) || null;
+    .find((f) => { const c = config?.mapaMeios?.[`id:${f.id}`] ?? config?.mapaMeios?.[f.tipo]; if ((c == null || c === "") && /pontos/i.test(String(f.nome ?? ""))) return false; return c == null || c === "" || !/^[0-9]{2}$/.test(String(c)); }) || null;
   const modeloSemSerie = nfce && !temSerie(65) ? 65 : nfe && !temSerie(55) ? 55 : null;
 
   const passos = [
@@ -70,7 +70,10 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
     { id: "pagamentos", titulo: "Pagamentos e taxa de serviço", alvo: "emissao-pag", acao: "Mapear pagamentos", destino: "Fiscal › Emissão › Pagamentos", foco: formaPendente ? `emissao-tpag-${formaPendente.id}` : "emissao-taxa",
       ok: mapa.ok && taxaOk,
       detalhe: [!mapa.ok ? `Código fiscal faltando em: ${[...mapa.semCodigo, ...mapa.invalidos].join(", ")}` : "", !taxaOk ? "defina com o contador se a taxa de serviço entra na nota" : ""].filter(Boolean).join("; ") || "Configurado." },
-    { id: "produtos", titulo: "Produtos com regra fiscal", alvo: "produtos", acao: "Corrigir produtos", destino: "Fiscal › Tributação › Produtos (só os que faltam)",
+    { id: "produtos", titulo: "Produtos com regra fiscal", alvo: "produtos",
+      // Só falta o crédito do Simples (CSOSN 101)? Ele se informa em lote na mesma tela da Tributação.
+      acao: semFiscal.length && semFiscal.every((x) => x.pendencias.every((t) => /Crédito do Simples/.test(t))) ? "Informar crédito do Simples" : "Corrigir produtos",
+      destino: "Fiscal › Tributação › Produtos (só os que faltam; o crédito do Simples se informa em lote ali)",
       ok: ativos > 0 && semFiscal.length === 0,
       detalhe: ativos === 0 ? "Nenhum produto ativo." : semFiscal.length ? `${semFiscal.length} de ${ativos} produto(s) sem regra fiscal completa.` : `Todos os ${ativos} produtos prontos.`,
       lista: semFiscal.slice(0, 10) },

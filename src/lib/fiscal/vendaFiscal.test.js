@@ -105,9 +105,13 @@ describe("mapearPagamentos", () => {
     expect(r.pagamentos[0].meio).toBeNull();
     expect(r.pendencias[0]).toMatch(/Vale Refeição/);
   });
-  it("pagamento com pontos exige regra definida", () => {
-    const r = mapearPagamentos([{ forma: "Pontos", valor: 5 }], FORMAS, MAPA);
-    expect(r.pendencias[0]).toMatch(/pontos/i);
+  it("pontos SEM código fiscal viram desconto (sem pendência); COM código valem como meio de pagamento", () => {
+    const sem = mapearPagamentos([{ forma: "Pontos", valor: 5 }], FORMAS, MAPA);
+    expect(sem.pendencias).toEqual([]);
+    expect(sem.pagamentos[0]).toMatchObject({ forma: "Pontos", meio: null, desconto: true, valorCentavos: 500 });
+    const com = mapearPagamentos([{ forma: "Pontos", valor: 5 }], [...FORMAS, { id: 9, nome: "Pontos", tipo: "outro" }], { ...MAPA, "id:9": "19" });
+    expect(com.pagamentos[0]).toMatchObject({ meio: "19", valorCentavos: 500 });
+    expect(com.pagamentos[0].desconto).toBeUndefined();
   });
 });
 
@@ -213,5 +217,50 @@ describe("U2 — refazerFiscalDaVenda", () => {
     const r = refazerFiscalDaVenda(venda, [{ id: 10, name: "X-Burger" }], { lojaFiscalRegras: [] });
     expect(r.apto).toBe(false);
     expect(r.itens[0].pendencias.length).toBeGreaterThan(0);
+  });
+});
+
+
+describe("pontos do programa de fidelidade = desconto incondicional rateado nos itens", () => {
+  const base = {
+    pedidos: [pedido("P1", [{ name: "X-Burger", price: 30, quantity: 1 }, { name: "Refrigerante Lata", price: 7, quantity: 2 }])], // 30,00 + 14,00 = 44,00
+    produtos: PRODUTOS, formas: FORMAS, mapaMeios: MAPA, ctxFiscal: CTX,
+  };
+  it("pontos parciais: rateio proporcional, soma fecha, pagamentos só com o resto e total da nota reduzido", () => {
+    const v = montarVendaFiscal({ ...base, pagamento: { total: 44, troco: 0, detalhes: [{ forma: "Pontos", valor: 11 }, { forma: "PIX", valor: 33 }] } });
+    expect(v.apto, v.pendencias.join(" ")).toBe(true);
+    expect(v.totais).toMatchObject({ vProd: 44, vDesc: 11, vDescPontos: 11, vNF: 33, vPag: 33, vTroco: 0 });
+    expect(v.itens.map((i) => i.vDesc)).toEqual([7.5, 3.5]); // 11 × 30/44 = 7,50 · 11 × 14/44 = 3,50
+    expect(v.itens.reduce((s, i) => s + paraCentavos(i.vDesc), 0)).toBe(1100);
+    expect(v.pagamentos).toHaveLength(1);
+    expect(v.pagamentos[0]).toMatchObject({ forma: "PIX", valor: 33 });
+  });
+  it("pontos + cupom + dinheiro com troco: tudo no mesmo rateio e o troco só sobre o dinheiro", () => {
+    const v = montarVendaFiscal({ ...base, ajustes: { descontoCupom: 4 }, pagamento: { total: 40, troco: 6, detalhes: [{ forma: "Pontos", valor: 10 }, { forma: "Dinheiro", valor: 36 }] } });
+    expect(v.apto, v.pendencias.join(" ")).toBe(true);
+    expect(v.totais).toMatchObject({ vDesc: 14, vDescPontos: 10, vNF: 30, vPag: 36, vTroco: 6 });
+    expect(v.itens.reduce((s, i) => s + paraCentavos(i.vDesc), 0)).toBe(1400);
+  });
+  it("pontos com taxa de serviço fora da nota: a taxa sai dos pagamentos em dinheiro, não dos pontos", () => {
+    const v = montarVendaFiscal({ ...base, ajustes: { taxaServico: 4.4 }, regras: { taxaServico: "fora_da_nota" }, pagamento: { total: 48.4, troco: 0, detalhes: [{ forma: "Pontos", valor: 10 }, { forma: "PIX", valor: 38.4 }] } });
+    expect(v.apto, v.pendencias.join(" ")).toBe(true);
+    expect(v.totais).toMatchObject({ vDescPontos: 10, vNF: 34, vPag: 34, taxaServicoForaDaNota: 4.4 });
+  });
+  it("pontos mapeados para um código fiscal NÃO viram desconto: valem como pagamento", () => {
+    const v = montarVendaFiscal({ ...base, formas: [...FORMAS, { id: 9, nome: "Pontos", tipo: "outro" }], mapaMeios: { ...MAPA, "id:9": "19" },
+      pagamento: { total: 44, troco: 0, detalhes: [{ forma: "Pontos", valor: 11 }, { forma: "PIX", valor: 33 }] } });
+    expect(v.apto, v.pendencias.join(" ")).toBe(true);
+    expect(v.totais).toMatchObject({ vDesc: 0, vDescPontos: 0, vNF: 44, vPag: 44 });
+    expect(v.pagamentos.map((x) => x.meio)).toContain("19");
+  });
+  it("não deixa passar: pontos acima dos produtos, venda só em pontos (nota zerada) ou total cobrado diferente", () => {
+    const acima = montarVendaFiscal({ ...base, pagamento: { total: 50, troco: 0, detalhes: [{ forma: "Pontos", valor: 50 }] } });
+    expect(acima.apto).toBe(false);
+    expect(acima.pendencias.join(" ")).toMatch(/Pontos .* passam do valor dos produtos/);
+    const soPontos = montarVendaFiscal({ ...base, pagamento: { total: 44, troco: 0, detalhes: [{ forma: "Pontos", valor: 44 }] } });
+    expect(soPontos.apto).toBe(false);
+    expect(soPontos.pendencias.join(" ")).toMatch(/valor zero/);
+    const errado = montarVendaFiscal({ ...base, pagamento: { total: 44, troco: 0, detalhes: [{ forma: "Pontos", valor: 11 }, { forma: "PIX", valor: 30 }] } });
+    expect(errado.apto).toBe(false); // 11 + 30 = 41 ≠ 44 cobrado
   });
 });

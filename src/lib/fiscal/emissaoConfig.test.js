@@ -62,3 +62,12 @@ describe("prontidaoEmissao (lista do que falta para emitir em homologação)", (
     expect(p.itens.find((i) => i.id === "serie55")?.ok).toBe(false);
   });
 });
+
+describe("conferirMapaMeios — Pontos não precisa de código (vira desconto)", () => {
+  const formas = [{ id: 1, nome: "PIX", tipo: "pix" }, { id: 6, nome: "Pontos", tipo: "outro" }];
+  it("Pontos sem código não é pendência; com código inválido ainda é", () => {
+    expect(conferirMapaMeios(formas, { "id:1": "17" })).toEqual({ ok: true, semCodigo: [], invalidos: [] });
+    expect(conferirMapaMeios(formas, { "id:1": "17", "id:6": "1" }).invalidos).toEqual(["Pontos"]);
+    expect(conferirMapaMeios(formas, { "id:6": "19" }).semCodigo).toEqual(["PIX"]);
+  });
+});
