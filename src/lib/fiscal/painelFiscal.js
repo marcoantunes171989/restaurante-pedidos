@@ -65,12 +65,13 @@ export function alertaIbpt(resumo, agora = new Date()) {
  * `tela`: tela do menu; `aba`: aba da Tributação (quando a tela é config-fiscal).
  */
 export function destinoDoPasso(alvo) {
+  // `foco`: o que a tela de destino deve destacar ao abrir (seção da Emissão ou o cadastro da empresa aberto).
   switch (alvo) {
-    case "empresa": return { tela: "dados-fiscais-empresa", aba: null };
-    case "produtos": return { tela: "config-fiscal", aba: "produtos" };
-    case "emissao-cert": case "emissao-csc": case "emissao-series": case "emissao-pag": case "ligar":
-      return { tela: "emissao-fiscal", aba: null };
-    default: return { tela: "emissao-fiscal", aba: null };
+    case "empresa": return { tela: "dados-fiscais-empresa", aba: null, foco: "empresa" };
+    case "produtos": return { tela: "config-fiscal", aba: "produtos:pendentes", foco: null };
+    case "emissao-cert": case "emissao-csc": case "emissao-series": case "emissao-pag":
+      return { tela: "emissao-fiscal", aba: null, foco: alvo };
+    default: return { tela: "emissao-fiscal", aba: null, foco: null };
   }
 }
 

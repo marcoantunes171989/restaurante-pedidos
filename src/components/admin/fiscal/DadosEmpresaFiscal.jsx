@@ -18,7 +18,7 @@ const botao = "inline-flex min-h-10 items-center justify-center rounded-xl bg-[#
  * @param {object} p.emitenteApi  API do emitente (fetch/salvar/salvarIdentidade)
  * @param {(id:number, dados:object)=>Promise<void>} p.onSalvarIdentidade  grava nome/CNPJ (mesmo caminho do cadastro da empresa)
  */
-export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = null, onSalvarIdentidade = async () => {} }) {
+export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = null, onSalvarIdentidade = async () => {}, abrirEdicao = false, onEdicaoAberta = null }) {
   const lojaId = lojaInfo?.id ?? null;
   const [estado, setEstado] = useState({ carregando: true, emitente: null });
   const [recarga, setRecarga] = useState(0);
@@ -43,6 +43,16 @@ export default function DadosEmpresaFiscal({ supabase, lojaInfo, emitenteApi = n
   const pct = useMemo(() => percentualCadastroFiscal(estado.emitente || {}, doc), [estado.emitente, doc]);
   const pend = useMemo(() => pendenciasEmitenteNfce(estado.emitente || {}, doc), [estado.emitente, doc]);
   const barra = pct >= 100 ? "#1F7A3D" : pct >= 60 ? "#F38525" : "#C81E4A";
+
+  // Vindo do assistente "Ativar nota fiscal": abre o cadastro já na aba do primeiro campo que falta.
+  const aberturaFeita = useRef(false);
+  useEffect(() => {
+    if (!abrirEdicao || estado.carregando || aberturaFeita.current || !emitenteApi) return;
+    aberturaFeita.current = true;
+    const primeira = secoes.find((s) => s.campos.some((c) => c.faltando));
+    setEditando(primeira?.aba || "documentos"); // nada faltando nos campos: o que resta é habilitar NFC-e/NF-e
+    onEdicaoAberta?.();
+  }, [abrirEdicao, estado.carregando, secoes, emitenteApi, onEdicaoAberta]);
 
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
   if (estado.carregando) return <p className="text-[13px] text-[var(--pp-text-muted)]">Carregando dados fiscais…</p>;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   buscarEmitenteFiscal, resumoCredenciaisFiscais, listarSeriesFiscais, salvarSerieFiscal,
   buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
@@ -7,6 +7,7 @@ import {
 import { situacaoCertificado, conferirMapaMeios, validarSerieForm } from "../../../lib/fiscal/emissaoConfig";
 import { passosAtivacao } from "../../../lib/fiscal/ativacaoFiscal";
 import { validarEmitenteFiscal } from "../../../lib/emitenteFiscalService";
+import { lerTesteSalvo, salvarTeste } from "../../../lib/fiscal/testeConexaoSalvo";
 import AssistenteAtivacaoFiscal from "./AssistenteAtivacaoFiscal";
 
 // ════════════════════════════════════════════════════════════
@@ -28,7 +29,7 @@ function Aviso({ msg }) {
   return <p role="status" className={`mt-2 text-[12px] font-semibold ${msg.tipo === "erro" ? "text-[#C81E4A]" : "text-[#1F7A3D]"}`}>{msg.texto}</p>;
 }
 
-export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagamento = [], emitenteLegado = null, produtos = [], regrasLoja = [], salvarEmitente = null, onIrPara = null }) {
+export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagamento = [], emitenteLegado = null, produtos = [], regrasLoja = [], salvarEmitente = null, onIrPara = null, onIrTela = null, focoInicial = null, onFocoConsumido = null }) {
   const lojaId = lojaInfo?.id ?? null;
   const [carregando, setCarregando] = useState(true);
   const [erroCarga, setErroCarga] = useState("");
@@ -45,7 +46,8 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   const [serieForm, setSerieForm] = useState({ modelo: 65, ambiente: "homologacao", serie: "1", proximoNumero: "1" });
   const [mapa, setMapa] = useState({});
   const [taxa, setTaxa] = useState("");
-  const [teste, setTeste] = useState(null); // último teste de conexão (E9)
+  // Último teste de conexão (E9). Fica guardado no navegador por 12 h para não sumir ao recarregar a página.
+  const [teste, setTeste] = useState(() => lerTesteSalvo(lojaId));
   const [producao, setProducao] = useState(null); // E10: liberação da produção (186)
 
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
@@ -98,7 +100,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     setEnviando("cert");
     try {
       const r = await enviarCredencialFiscal(supabase, { acao: "certificado", lojaId, pfxBase64: await arquivoParaBase64(arquivo), senha });
-      setSenha(""); setArquivo(null);
+      setSenha(""); setArquivo(null); setTeste(null); salvarTeste(lojaId, { ok: false }); // certificado novo: o teste anterior deixa de valer
       aviso("cert", "ok", `Certificado de ${r.titular} guardado no cofre. Válido por mais ${r.diasRestantes} dias.`);
       await carregar();
     } catch (err) {
@@ -114,9 +116,11 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
       const r = await testarConexaoSefaz(supabase, { lojaId, modelo, ambiente: "homologacao" });
       aviso("teste", "ok", `SEFAZ ${modelo === 65 ? "NFC-e" : "NF-e"} (homologação): ${r.xMotivo || "em operação"}${r.cStat ? ` (código ${r.cStat})` : ""}.`);
       setTeste({ ok: true, modelo });
+      salvarTeste(lojaId, { ok: true, modelo });
     } catch (err) {
       aviso("teste", "erro", err.message);
       setTeste({ ok: false, modelo, texto: err.message });
+      salvarTeste(lojaId, { ok: false });
     } finally {
       setEnviando("");
     }
@@ -170,11 +174,23 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     }
   }
 
-  // E9: "Fazer agora" leva à seção do passo (ou à aba certa da Configuração Fiscal).
-  function irPara(alvo) {
-    if (alvo === "produtos" && onIrPara) return onIrPara("produtos");
-    if (alvo === "empresa") return aviso("assist", "erro", "Complete os dados fiscais em Fiscal › Dados da Empresa (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
-    document.getElementById(alvo)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // "Fazer agora" leva ao lugar exato: outra tela (empresa, produtos) ou a seção do passo, que pisca
+  // por 2 s com o cursor no primeiro campo que falta.
+  function irPara(alvo, passo = null) {
+    if (alvo === "produtos" && onIrPara) return onIrPara("produtos:pendentes");
+    if (alvo === "empresa") {
+      if (onIrTela) return onIrTela("dados-fiscais-empresa", "empresa");
+      return aviso("assist", "erro", "Complete os dados fiscais em Fiscal › Dados da Empresa (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
+    }
+    if (passo?.id === "series" && passo.modeloSugerido) setSerieForm((f) => ({ ...f, modelo: passo.modeloSugerido, ambiente: "homologacao" }));
+    const secao = document.getElementById(alvo)?.closest("section");
+    secao?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    if (secao) {
+      secao.classList.add("ring-2", "ring-[#F38525]");
+      setTimeout(() => secao.classList.remove("ring-2", "ring-[#F38525]"), 2200);
+    }
+    const foco = passo?.foco;
+    if (foco) setTimeout(() => document.getElementById(foco)?.focus({ preventScroll: true }), 350);
   }
   async function ligarHomologacao() {
     if (!salvarEmitente || !emitente) return { ok: false, erro: "Cadastro fiscal da empresa não encontrado." };
@@ -198,6 +214,17 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     if (!r) return { ok: false, erro: "O banco não liberou a produção. Veja o que falta no passo 9." };
     return { ok: true };
   }
+
+  // Vindo do Painel Fiscal: depois de carregar, vai direto ao passo pendente (rola, destaca e põe o cursor).
+  const focoFeito = useRef(false);
+  useEffect(() => {
+    if (!focoInicial || carregando || erroCarga || focoFeito.current) return;
+    focoFeito.current = true;
+    const r = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, teste });
+    const passo = r.passos.find((p) => p.alvo === focoInicial && !p.ok) || r.passos.find((p) => p.alvo === focoInicial) || null;
+    setTimeout(() => { irPara(focoInicial, passo); onFocoConsumido?.(); }, 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focoInicial, carregando, erroCarga]);
 
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
   if (carregando) return <p className="text-[13px] text-[var(--pp-text-muted)]">Carregando…</p>;
@@ -233,8 +260,8 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
         {cert && (
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--pp-border)] pt-3">
             <span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Testar conexão com a SEFAZ (homologação):</span>
-            <button type="button" onClick={() => testarConexao(65)} disabled={!!enviando} className={botao}>{enviando === "teste65" ? "Testando…" : "NFC-e"}</button>
-            {emitente?.nfeHabilitada && <button type="button" onClick={() => testarConexao(55)} disabled={!!enviando} className={botao}>{enviando === "teste55" ? "Testando…" : "NF-e"}</button>}
+            <button id="emissao-testar-65" type="button" onClick={() => testarConexao(65)} disabled={!!enviando} className={botao}>{enviando === "teste65" ? "Testando…" : "NFC-e"}</button>
+            {emitente?.nfeHabilitada && <button id="emissao-testar-55" type="button" onClick={() => testarConexao(55)} disabled={!!enviando} className={botao}>{enviando === "teste55" ? "Testando…" : "NF-e"}</button>}
           </div>
         )}
         <Aviso msg={msg.teste} />

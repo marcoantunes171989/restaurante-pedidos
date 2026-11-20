@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
+import { produtosSemFiscal } from "./lib/fiscal/ativacaoFiscal.js";
 import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
 import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
 import ComoFuncionaFiscal from "./components/admin/fiscal/ComoFuncionaFiscal.jsx";
@@ -7645,6 +7646,9 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
   // Painel Fiscal → abre a Configuração Fiscal já na aba certa; some ao sair da tela (menu volta ao padrão).
   const [fiscalAba, setFiscalAba] = useState(null);
   useEffect(() => { if (adminSection !== "config-fiscal") setFiscalAba(null); }, [adminSection]);
+  // Atalho do assistente "Ativar nota fiscal": o que a tela de destino deve destacar ao abrir.
+  const [fiscalFoco, setFiscalFoco] = useState(null);
+  useEffect(() => { if (!["emissao-fiscal", "dados-fiscais-empresa"].includes(adminSection)) setFiscalFoco(null); }, [adminSection]);
   // Command Palette (Ctrl/Cmd + K) — navegação rápida (aditivo)
   const [cmdOpen, setCmdOpen] = useState(false);
   const cmdSections = montarSecoesBuscaAdmin(menu, {
@@ -7773,7 +7777,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
               <PageHeader icone={<CheckCircle2 className="h-4 w-4" />} titulo="Painel Fiscal" descricao={`Situação da nota fiscal da ${lojaInfo?.nome || "sua loja"} em um só lugar: o que falta para emitir, o que precisa de atenção e como estão as notas.`} />
               <PainelFiscal supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} produtos={products} regrasLoja={lojaFiscalRegras}
                 emitenteLegado={emitenteFiscalApi?.fetch || null}
-                onIr={({ tela, aba }) => { setFiscalAba(aba); setAdminSection(tela); }} />
+                onIr={({ tela, aba, foco = null }) => { setFiscalAba(aba); setFiscalFoco(foco); setAdminSection(tela); }} />
             </main>
           ))}
           {ativo === "notas-fiscais" && (precisaEmpresa ? avisoEmpresa : (
@@ -7785,7 +7789,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           {ativo === "dados-fiscais-empresa" && (precisaEmpresa ? avisoEmpresa : (
             <main className="space-y-5">
               <PageHeader icone={<Store className="h-4 w-4" />} titulo="Dados da Empresa" descricao={`Quem emite a nota fiscal: dados do emitente da ${lojaInfo?.nome || "sua loja"}. Confira o que falta e edite quando precisar.`} />
-              <DadosEmpresaFiscal supabase={supabase} lojaInfo={lojaInfo} emitenteApi={emitenteFiscalApi}
+              <DadosEmpresaFiscal supabase={supabase} lojaInfo={lojaInfo} emitenteApi={emitenteFiscalApi} abrirEdicao={fiscalFoco === "empresa"} onEdicaoAberta={() => setFiscalFoco(null)}
                 onSalvarIdentidade={(id, d) => emitenteFiscalApi.salvarIdentidade(id, { nome: d.nome, documento: d.documento })} />
             </main>
           ))}
@@ -7794,7 +7798,9 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
               <PageHeader icone={<LockKeyhole className="h-4 w-4" />} titulo="Emissão" descricao={`Certificado digital, CSC, séries e pagamentos na nota da ${lojaInfo?.nome || "sua loja"}, além de ligar a emissão em homologação.`} />
               {emitenteFiscalApi
                 ? <EmissaoFiscalConfig supabase={supabase} lojaInfo={lojaInfo} formasPagamento={formasPagamento} emitenteLegado={emitenteFiscalApi.fetch || null} produtos={products} regrasLoja={lojaFiscalRegras} salvarEmitente={emitenteFiscalApi.salvar || null}
-                    onIrPara={(aba) => { setFiscalAba(aba); setAdminSection("config-fiscal"); }} />
+                    onIrPara={(aba) => { setFiscalAba(aba); setAdminSection("config-fiscal"); }}
+                    onIrTela={(tela, foco) => { setFiscalFoco(foco || null); setAdminSection(tela); }}
+                    focoInicial={fiscalFoco} onFocoConsumido={() => setFiscalFoco(null)} />
                 : <EmptyState titulo="Emissão indisponível" dica="O cadastro fiscal da empresa ainda não está disponível neste ambiente." />}
             </main>
           ))}
@@ -21494,7 +21500,8 @@ function FiscalTemplateModal({ template = null, api, onFechar }) {
 //  edita localmente e recebe aviso de nova versão (nunca automático).
 // ════════════════════════════════════════════════════════════
 function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = null, templates = [], templateRegras = [], produtos = [], emitenteFiscalApi = null, lojaInfo = null, abaInicial = null, onIrTela = null }) {
-  const [aba, setAba] = useState(abaInicial || "minha");
+  // "produtos:pendentes" = vindo do assistente: abre a aba Produtos já filtrada nos que faltam regra fiscal.
+  const [aba, setAba] = useState(abaInicial === "produtos:pendentes" ? "produtos" : (abaInicial || "minha"));
   const publicadaDe = (regraId) => versoes.find((v) => v.regraId === regraId && v.status === "publicada") || null;
   const publicadas = regras.filter((r) => r.status === "publicada");
   const importadaDe = (regraId) => importadas.find((i) => i.regraGlobalId === regraId) || null;
@@ -21552,7 +21559,7 @@ function LojaFiscalConfig({ importadas = [], regras = [], versoes = [], api = nu
       </div>
 
       {aba === "minha" && <LojaFiscalMinhaLoja importadas={importadas} atualizacaoDe={atualizacaoDe} api={api} />}
-      {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} api={api} />}
+      {aba === "produtos" && <LojaFiscalProdutos produtos={produtos} importadas={importadas} api={api} soPendentesInicial={abaInicial === "produtos:pendentes"} />}
       {aba === "sugestoes" && <LojaFiscalSugestoes templates={templates} templateRegras={templateRegras} regras={regras} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} lojaId={lojaInfo?.id} />}
       {aba === "biblioteca" && <LojaFiscalBiblioteca publicadas={publicadas} publicadaDe={publicadaDe} importadaDe={importadaDe} api={api} />}
     </main>
@@ -21891,8 +21898,11 @@ function LojaFiscalSugestoes({ templates = [], templateRegras = [], regras = [],
 }
 
 // Vínculo em lote produto ↔ configuração fiscal da loja (Fase 5, migration 105).
-function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
+function LojaFiscalProdutos({ produtos = [], importadas = [], api = null, soPendentesInicial = false }) {
   const [busca, setBusca] = useState("");
+  // Produtos ativos a que ainda falta NCM, CFOP ou CST/CSOSN (a mesma conta do assistente "Ativar nota fiscal").
+  const pendenciasPorProduto = new Map(produtosSemFiscal(produtos, importadas).map((x) => [String(x.id), x.pendencias]));
+  const [soPendentes, setSoPendentes] = useState(soPendentesInicial);
   const [sel, setSel] = useState(() => new Set());
   const [alvo, setAlvo] = useState(""); // id da config a aplicar ("" = sem/desvincular)
   const [pag, setPag] = useState(1);
@@ -21900,7 +21910,7 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
   const configDe = (id) => importadas.find((c) => String(c.id) === String(id)) || null;
   const nomeConfig = (id) => { const c = configDe(id); return c ? (c.regraNome || `Config #${c.id}`) : null; };
 
-  const filtrados = produtos.filter((p) => (p.name || "").toLowerCase().includes(busca.toLowerCase()));
+  const filtrados = produtos.filter((p) => (p.name || "").toLowerCase().includes(busca.toLowerCase()) && (!soPendentes || pendenciasPorProduto.has(String(p.id))));
   const totalPag = Math.max(1, Math.ceil(filtrados.length / POR));
   const pagAtual = Math.min(pag, totalPag);
   const visiveis = filtrados.slice((pagAtual - 1) * POR, pagAtual * POR);
@@ -21925,6 +21935,13 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
         <p className="text-xs text-slate-400">Selecione os produtos e a configuração da loja a aplicar. O vínculo é em lote — não altera os campos fiscais legados.</p></div>
       <div className="relative mb-3"><span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
         <input value={busca} onChange={(e) => buscarSet(e.target.value)} placeholder="Buscar produto..." className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" /></div>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <button type="button" aria-pressed={soPendentes} data-testid="filtro-so-pendentes" onClick={() => { setSoPendentes((v) => !v); setPag(1); }}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${soPendentes ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>
+          Só os que faltam regra fiscal ({pendenciasPorProduto.size})
+        </button>
+        {soPendentes && pendenciasPorProduto.size === 0 && <span className="text-xs font-semibold text-[#1F7A3D]">Todos os produtos ativos já têm regra completa.</span>}
+      </div>
 
       {/* Barra de ação em lote */}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[#0F4C5C]/30 bg-[rgba(15,76,92,0.08)] px-4 py-2.5">
@@ -21956,6 +21973,7 @@ function LojaFiscalProdutos({ produtos = [], importadas = [], api = null }) {
                     {nome
                       ? <span className="rounded-full bg-[rgba(15,76,92,0.15)] px-2 py-0.5 font-semibold text-[#0F4C5C]">🔗 {nome}</span>
                       : <span className="text-slate-500">sem configuração fiscal</span>}
+                    {pendenciasPorProduto.has(String(p.id)) && <span className="rounded-full bg-[#FEF3E2] px-2 py-0.5 font-semibold text-[#B45309]">falta: {pendenciasPorProduto.get(String(p.id)).join(", ")}</span>}
                   </div>
                 </div>
               </div>

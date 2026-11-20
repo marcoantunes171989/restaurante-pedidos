@@ -145,7 +145,7 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
                       </ul>
                     )}
                   </div>
-                  {!p.ok && <button type="button" className={botaoLeve} onClick={() => onIr(destinoDoPasso(p.alvo))}>{p.id === "ligar" ? "Ir para Emissão" : "Fazer agora"}</button>}
+                  {!p.ok && <button type="button" className={botaoLeve} onClick={() => onIr(destinoDoPasso(p.alvo))}>{p.id === "ligar" ? "Ir para Emissão" : `${p.acao || "Fazer agora"} →`}</button>}
                 </div>
               </li>
             );

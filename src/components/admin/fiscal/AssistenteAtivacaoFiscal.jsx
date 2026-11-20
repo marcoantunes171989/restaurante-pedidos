@@ -60,12 +60,18 @@ export default function AssistenteAtivacaoFiscal({ resultado, onIr, onLigar, pro
                   <p className={`text-[13px] ${p.ok ? "text-[var(--pp-text-body)]" : "font-semibold text-[var(--pp-text)]"}`}>{p.titulo}<span className="sr-only">{p.ok ? " — pronto" : " — pendente"}</span></p>
                   <p className="text-[12px] text-[var(--pp-text-muted)]">{p.detalhe}</p>
                   {!p.ok && p.lista?.length > 0 && (
-                    <ul className="mt-1 list-disc pl-4 text-[12px] text-[var(--pp-text-body)]">
-                      {p.lista.map((x) => <li key={x.id}>{x.nome}: {x.pendencias.join(", ")}</li>)}
-                    </ul>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="lista-pendentes">
+                      {p.lista.map((x) => (
+                        <button key={x.id} type="button" onClick={() => onIr(p.alvo, p)}
+                          className="rounded-full border border-[var(--pp-border)] bg-white px-2.5 py-0.5 text-[12px] text-[var(--pp-text-body)] hover:border-[#012E46]">
+                          {x.nome} · <span className="text-[#B45309]">{x.pendencias.join(", ")}</span>
+                        </button>
+                      ))}
+                    </div>
                   )}
+                  {!p.ok && p.id !== "ligar" && p.destino && <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Destino: {p.destino}</p>}
                 </div>
-                {!p.ok && p.id !== "ligar" && <button type="button" className={botaoLeve} onClick={() => onIr(p.alvo)}>Fazer agora</button>}
+                {!p.ok && p.id !== "ligar" && <button type="button" className={atual ? botao : botaoLeve} onClick={() => onIr(p.alvo, p)}>{p.acao || "Fazer agora"} →</button>}
               </div>
               {p.id === "ligar" && !ligada && (
                 <div className="mt-2 pl-8">

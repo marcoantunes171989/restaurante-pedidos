@@ -83,3 +83,31 @@ describe("produção (E10 parte 2)", () => {
     expect(await consultarLiberacaoProducao(supabase, 7)).toEqual({ liberada: false, faltas: ["Série da NFC-e em produção."], emProducao: false });
   });
 });
+
+describe("atalhos: cada passo diz o que fazer e para onde ir", () => {
+  const nova = () => passosAtivacao({ emitente: { nfceHabilitada: true, nfeHabilitada: true, nfceAmbiente: "simulacao" }, agora: AGORA, produtos: [{ id: 1, name: "Suco" }],
+    formas: [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }, { id: 2, nome: "PIX", tipo: "pix" }], config: { mapaMeios: { dinheiro: "01" }, taxaServicoTratamento: "fora_da_nota" } });
+  it("todo passo (menos ligar) tem rótulo de ação e texto de destino", () => {
+    for (const p of nova().passos) {
+      expect(p.acao, p.id).toBeTruthy();
+      expect(p.destino, p.id).toMatch(/^Fiscal ›/);
+    }
+  });
+  it("pagamentos: o cursor vai para a primeira forma sem código; sem pendência de forma, para a taxa de serviço", () => {
+    expect(passo(nova(), "pagamentos").foco).toBe("emissao-tpag-2");
+    const so_taxa = passosAtivacao({ ...TUDO, config: { mapaMeios: { dinheiro: "01" }, taxaServicoTratamento: null } });
+    expect(passo(so_taxa, "pagamentos").foco).toBe("emissao-taxa");
+  });
+  it("séries: sugere o documento que falta (NF-e quando a NFC-e já tem série)", () => {
+    const r = passosAtivacao({ ...TUDO, emitente: { ...EMIT, nfeHabilitada: true } });
+    expect(passo(r, "series")).toMatchObject({ ok: false, foco: "emissao-serie-num", modeloSugerido: 55 });
+  });
+  it("teste de conexão: com certificado foca o botão de testar; sem certificado, o envio do arquivo", () => {
+    expect(passo(passosAtivacao({ ...TUDO, teste: null }), "teste")).toMatchObject({ acao: "Testar conexão", foco: "emissao-testar-65" });
+    const sem = passosAtivacao({ ...TUDO, credenciais: [], teste: null });
+    expect(passo(sem, "teste")).toMatchObject({ acao: "Enviar certificado", foco: "emissao-pfx" });
+  });
+  it("produtos: o destino avisa que a lista já vem filtrada", () => {
+    expect(passo(nova(), "produtos").destino).toMatch(/só os que faltam/);
+  });
+});
