@@ -44,7 +44,8 @@ import { legendaCupom } from "./pdvCupomValidacao";
 import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
-import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
+import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, motivoSemNota, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
+import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "../../lib/fiscal/fiscalApi";
 import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
@@ -1054,10 +1055,24 @@ export default function CashierPdv({
       const codigoPagamento = `PAG-${Date.now().toString().slice(-8)}`;
       // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz a venda.
       // Venda que não foi gravada no banco (baixa com erro) não gera nota fiscal: a nota só sai de venda registrada.
-      const emiteNota = !baixa?.erro && (notaCx.modelo === 55 ? nfeNaLoja : nfceNaLoja);
+      // O cadastro fiscal em memória pode estar velho (a emissão foi ligada depois de abrir o caixa): se ele diz que a loja
+      // não emite, relê do banco na hora da venda antes de decidir. É a leitura do banco que vale.
+      const ehNfe = notaCx.modelo === 55;
+      let emitenteVenda = emitenteFiscal;
+      let configVenda = configFiscalVenda;
+      const ambienteDe = (e) => (ehNfe ? ambienteNfeDaLoja(e) : ambienteNfceDaLoja(e));
+      if (EMISSAO_FISCAL_PDV_ATIVA && supabase && lojaInfo?.id != null && !ambienteDe(emitenteFiscal)) {
+        try {
+          const [e, c] = await Promise.all([buscarEmitenteFiscal(supabase, lojaInfo.id), buscarConfigFiscalVenda(supabase, lojaInfo.id)]);
+          if (e) { emitenteVenda = e; configVenda = configVendaParaSelo(c); } // pagamentos mapeados depois de abrir o caixa também valem
+        } catch { /* segue com o que tem */ }
+      }
+      const emiteNota = !baixa?.erro && EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteDe(emitenteVenda);
+      // Emissão ligada no sistema mas esta venda não gerou nota: diz o motivo (antes ficava só o recibo antigo, em silêncio).
+      const motivoSem = !emiteNota && !baixa?.erro && EMISSAO_FISCAL_PDV_ATIVA && !!supabase ? motivoSemNota(emitenteVenda, { nfe: ehNfe }) : null;
       setSucesso({
         ...info,
-        notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : null,
+        notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : motivoSem ? { estado: "desligada", titulo: "Nota fiscal não emitida", detalhe: motivoSem } : null,
         subtotal: subtotalSel,
         taxa: taxaValorSel,
         acrescimo: acrescimoSel,
@@ -1075,9 +1090,9 @@ export default function CashierPdv({
       if (emiteNota) {
         const atualizarNota = (n) => setSucesso((cur) => (cur && cur.codigo === codigoPagamento ? { ...cur, notaFiscal: n } : cur));
         emitirNotaDaVenda({
-          supabase, emitente: emitenteFiscal, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
+          supabase, emitente: emitenteVenda, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
           pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
-          config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
+          config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
         }).then((n) => {
           atualizarNota(n);
           auditar("nota_fiscal_venda", "comanda", null, { mesa: mesaFechada, estado: n.estado, numero: n.numero ?? null });

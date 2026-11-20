@@ -41,7 +41,19 @@ export function ambienteNfeDaLoja(emitente) {
   return ["homologacao", "producao"].includes(emitente.nfceAmbiente) ? emitente.nfceAmbiente : null;
 }
 
-export const NOTA_VAZIA = Object.freeze({ documento: "", nfe: false, nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
+/**
+ * Por que a venda NÃO gerou nota fiscal (para o caixa dizer, em vez de mostrar só o recibo antigo em silêncio).
+ * Só faz sentido quando a emissão pelo caixa está ligada no build; devolve null quando a loja emite normalmente.
+ */
+export function motivoSemNota(emitente, { nfe = false } = {}) {
+  const sigla = nfe ? "NF-e" : "NFC-e";
+  if (!emitente) return `Cadastro fiscal desta empresa não carregado: a ${sigla} não foi emitida. Recarregue a página (Ctrl+F5) e confira em Fiscal › Dados da Empresa.`;
+  if ((nfe ? emitente.nfeHabilitada : emitente.nfceHabilitada) !== true) return `${sigla} não habilitada para esta empresa: ligue em Fiscal › Dados da Empresa.`;
+  if (!["homologacao", "producao"].includes(emitente.nfceAmbiente)) return `Emissão fiscal desligada (empresa em simulação): a ${sigla} não foi emitida. Para emitir, ligue a emissão em Fiscal › Emissão.`;
+  return null;
+}
+
+export const NOTA_VAZIA =Object.freeze({ documento: "", nfe: false, nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
 
 /**
  * Confere o que o caixa digitou para a nota (E8 parte 3).

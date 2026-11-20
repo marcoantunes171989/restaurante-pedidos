@@ -6,6 +6,7 @@ const TOM_NOTA = {
   autorizada: "border-[#1F7A3D]/30 bg-[#EAF6EE] text-[#1F7A3D]",
   contingencia: "border-[#B26A00]/30 bg-[#FFF5E5] text-[#8A5200]",
   pendente: "border-[#B26A00]/30 bg-[#FFF5E5] text-[#8A5200]",
+  desligada: "border-[#B26A00]/30 bg-[#FFF5E5] text-[#8A5200]", // nota não emitida por configuração (simulação, não habilitada…)
   erro: "border-[#B42318]/30 bg-[#FDECEA] text-[#B42318]",
 };
 

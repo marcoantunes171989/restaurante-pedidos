@@ -1555,17 +1555,25 @@ export default function RestaurantePedidoApp() {
   // E2: leitura pelas RPCs da 175 (funciona com a ACL fechada do HML); sem a
   // 175 instalada, o emitente cai no caminho antigo e a config vem vazia.
   const [emitenteFiscalCache, setEmitenteFiscalCache] = useState({ lojaId: null, emitente: null, configVenda: null });
+  // O cadastro fiscal era lido UMA vez ao entrar. Se alguém ligava a emissão em homologação depois (Fiscal › Emissão),
+  // o caixa continuava achando que a loja estava em simulação e não emitia a nota, só o recibo antigo. Agora relê ao
+  // entrar numa tela operacional, ao voltar para a aba do navegador e a cada 60 s.
   useEffect(() => {
     if (!dbReady || lojaAtual == null) return undefined;
     let vivo = true;
-    Promise.all([
+    const ler = () => Promise.all([
       buscarEmitenteFiscal(supabase, lojaAtual, { legado: fetchLojaFiscalEmitente }),
       buscarConfigFiscalVenda(supabase, lojaAtual),
     ]).then(([emitente, config]) => {
       if (vivo) setEmitenteFiscalCache({ lojaId: lojaAtual, emitente, configVenda: configVendaParaSelo(config) });
-    });
-    return () => { vivo = false; };
-  }, [dbReady, lojaAtual]);
+    }).catch(() => { /* mantém o que já estava carregado */ });
+    ler();
+    const aoVoltar = () => { if (document.visibilityState !== "hidden") ler(); };
+    const iv = setInterval(aoVoltar, 60000);
+    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoVoltar);
+    return () => { vivo = false; clearInterval(iv); document.removeEventListener("visibilitychange", aoVoltar); window.removeEventListener("focus", aoVoltar); };
+  }, [dbReady, lojaAtual, activeTab]);
   // Só vale o emitente da loja atual (troca de loja nunca mostra o da anterior).
   const emitenteDaLojaAtual = emitenteFiscalCache.lojaId === lojaAtual;
   const emitenteFiscalLoja = emitenteDaLojaAtual ? emitenteFiscalCache.emitente : null;

@@ -193,3 +193,22 @@ describe("caixa Operacional — dados da nota da conta", async () => {
     expect(d.pagamento.detalhes).toEqual([]);
   });
 });
+
+import { motivoSemNota } from "./emissaoPdv.js";
+describe("motivoSemNota — por que a venda não gerou nota (em vez de só o recibo, em silêncio)", () => {
+  const ok = { nfceHabilitada: true, nfeHabilitada: true, nfceAmbiente: "homologacao" };
+  it("loja que emite não tem motivo", () => {
+    expect(motivoSemNota(ok)).toBeNull();
+    expect(motivoSemNota({ ...ok, nfceAmbiente: "producao" }, { nfe: true })).toBeNull();
+  });
+  it("cadastro não carregado: pede para recarregar", () => {
+    expect(motivoSemNota(null)).toMatch(/não carregado.*Ctrl\+F5/);
+  });
+  it("empresa em simulação: manda ligar a emissão em Fiscal › Emissão", () => {
+    expect(motivoSemNota({ ...ok, nfceAmbiente: "simulacao" })).toMatch(/simulação.*Fiscal › Emissão/);
+  });
+  it("NFC-e ou NF-e não habilitada", () => {
+    expect(motivoSemNota({ ...ok, nfceHabilitada: false })).toMatch(/NFC-e não habilitada/);
+    expect(motivoSemNota({ ...ok, nfeHabilitada: false }, { nfe: true })).toMatch(/NF-e não habilitada/);
+  });
+});
