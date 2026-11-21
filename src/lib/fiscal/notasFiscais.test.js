@@ -12,9 +12,15 @@ describe("situacaoNota", () => {
 });
 
 describe("acoesDaNota", () => {
-  it("NFC-e autorizada: só cancelar", () => expect(acoesDaNota({ status: "autorizado", modelo: 65 })).toEqual({ emitir: false, descartar: false, refazer: false, reenviar: false, cancelar: true, cce: false, enviar: false, consultar: false, imprimir: true }));
-  it("NF-e autorizada: cancelar e corrigir", () => expect(acoesDaNota({ status: "autorizado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, reenviar: false, cancelar: true, cce: true, enviar: false, consultar: false, imprimir: true }));
-  it("nota não autorizada: nada", () => expect(acoesDaNota({ status: "cancelado", modelo: 55 })).toEqual({ emitir: false, descartar: false, refazer: false, reenviar: false, cancelar: false, cce: false, enviar: false, consultar: false, imprimir: false }));
+  const SO = (a, ...ativas) => Object.entries(a).filter(([, v]) => v).map(([k]) => k).sort().join(",") === [...ativas].sort().join(",");
+  it("NFC-e autorizada: cancelar, imprimir e conferir na SEFAZ", () => expect(SO(acoesDaNota({ status: "autorizado", modelo: 65, chave: "k" }), "cancelar", "imprimir", "conferir")).toBe(true));
+  it("NF-e autorizada: cancelar, corrigir, imprimir e conferir", () => expect(SO(acoesDaNota({ status: "autorizado", modelo: 55, chave: "k" }), "cancelar", "cce", "imprimir", "conferir")).toBe(true));
+  it("nota cancelada: só conferir na SEFAZ", () => expect(SO(acoesDaNota({ status: "cancelado", modelo: 55, chave: "k" }), "conferir")).toBe(true));
+  it("nota inutilizada/descartada: nada", () => expect(SO(acoesDaNota({ status: "descartado", modelo: 65 }))).toBe(true));
+  it("inutilizar o número vale para nota que nunca foi autorizada (reservada, rejeitada, com erro, sem resposta)", () => {
+    for (const status of ["reservado", "rejeitado", "erro", "enviado"]) expect(acoesDaNota({ status, modelo: 65, tpEmis: 1 }).descartar).toBe(true);
+    for (const status of ["autorizado", "cancelado", "descartado"]) expect(acoesDaNota({ status, modelo: 65, tpEmis: 1 }).descartar).toBe(false);
+  });
 });
 
 describe("validarTextoEvento", () => {
@@ -218,5 +224,34 @@ describe("histórico (log) da nota", () => {
     expect(ok).toHaveLength(1);
     await expect(buscarHistoricoDocumento({ rpc: async () => ({ data: null, error: { code: "PGRST202", message: "Could not find the function" } }) }, "d1")).rejects.toMatchObject({ code: "MIGRACAO_PENDENTE" });
     await expect(buscarHistoricoDocumento({ rpc: async () => ({ data: { ok: false, code: "FORBIDDEN" }, error: null }) }, "d1")).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("inutilização e conferência (chamadas ao servidor)", () => {
+  const supa = { auth: { getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: "t" } } }) } };
+  it("inutilizar vai para /api/fiscal-emitir e devolve o protocolo", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, inutilizado: true, protocolo: "13526000027700001" }) });
+    const r = await (await import("./notasFiscais.js")).inutilizarNota(supa, "d1", "Venda cancelada antes da transmissão", { fetchFn });
+    expect(r).toMatchObject({ inutilizado: true, protocolo: "13526000027700001" });
+    expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toEqual({ acao: "inutilizar", documentoId: "d1", motivo: "Venda cancelada antes da transmissão" });
+  });
+  it("recusa da SEFAZ/servidor vira erro com a mensagem", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: false, code: "JA_NA_SEFAZ", erro: "A SEFAZ já tem esta nota." }) });
+    await expect((await import("./notasFiscais.js")).inutilizarNota(supa, "d1", "Venda cancelada antes da transmissão", { fetchFn })).rejects.toMatchObject({ code: "JA_NA_SEFAZ", message: expect.stringMatching(/já tem esta nota/) });
+  });
+  it("conferir na SEFAZ", async () => {
+    const fetchFn = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, conforme: true, cStat: 100 }) });
+    expect(await (await import("./notasFiscais.js")).conferirNotaSefaz(supa, "d1", { fetchFn })).toMatchObject({ conforme: true });
+    expect(JSON.parse(fetchFn.mock.calls[0][1].body)).toEqual({ acao: "conferir", documentoId: "d1" });
+  });
+  it("situação: inutilizada (com protocolo) × número não usado (sem protocolo, SP)", () => {
+    expect(situacaoDaNota({ status: "descartado", protocolo: "13526000027700001" }).rotulo).toBe("Inutilizada na SEFAZ");
+    expect(situacaoDaNota({ status: "descartado" }).rotulo).toBe("Número não usado");
+  });
+  it("histórico mostra protocolo da inutilização e a conferência", async () => {
+    const { linhaDoHistorico } = await import("./notasFiscais.js");
+    expect(linhaDoHistorico({ tipo: "INUTILIZADO", payload: { motivo: "teste de motivo ok", protocolo: "13526000027700001", cStat: 102 } }).texto).toMatch(/protocolo de inutilização 13526000027700001/);
+    expect(linhaDoHistorico({ tipo: "NUMERO_NAO_USADO", payload: { motivo: "teste de motivo ok" } }).texto).toMatch(/sem protocolo/);
+    expect(linhaDoHistorico({ tipo: "CONFERIDA_SEFAZ", payload: { conforme: false, divergencias: ["Protocolo diferente"] } })).toMatchObject({ falha: true });
   });
 });

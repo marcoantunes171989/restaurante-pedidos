@@ -46,6 +46,11 @@ describe("certificado e CSC", () => {
 
 describe("itens", () => {
   it("produto correto: sem problemas", () => expect(problemasDosItens([ITEM], { crt: "1", modelo: 65 })).toEqual([]));
+  it("MEI (CRT 4) na NFC-e só aceita CFOP 5102: barra 5101 antes de reservar número", () => {
+    expect(codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, cfop: "5101" } }], { crt: "4", modelo: 65 }))).toContain("CFOP_MEI");
+    expect(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, cfop: "5102" } }], { crt: "4", modelo: 65 })).toEqual([]);
+    expect(codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, cfop: "5101" } }], { crt: "1", modelo: 65 }))).not.toContain("CFOP_MEI");
+  });
   it("MEI (CRT 4) é Simples Nacional: confere CSOSN, não exige CST de ICMS", () => {
     expect(problemasDosItens([ITEM], { crt: "4", modelo: 65 })).toEqual([]);
     expect(codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, csosn: "" } }], { crt: "4", modelo: 65 }))).toContain("CSOSN");

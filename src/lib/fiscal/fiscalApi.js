@@ -124,12 +124,6 @@ export async function reservarDocumentoFiscal(supabase, { lojaId, modelo, ambien
   return { documentoId: d.documento_id, modelo: d.modelo, serie: d.serie, numero: d.numero, ambiente: d.ambiente, status: d.status, reutilizado: !!d.reutilizado };
 }
 
-export async function descartarDocumentoFiscal(supabase, documentoId, motivo) {
-  if (!motivo || String(motivo).trim().length < 3) throw erroFiscal("MOTIVO_OBRIGATORIO");
-  await chamar(supabase, "app_fiscal_descartar_documento", { p_documento_id: documentoId, p_motivo: String(motivo).trim() });
-  return true;
-}
-
 /**
  * Envia certificado A1 / CSC para a API do servidor (/api/fiscal-credencial).
  * O segredo vai direto ao servidor pelo HTTPS; a resposta traz só metadados.

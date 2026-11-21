@@ -9,6 +9,8 @@
 //   { acao: "transmitir_contingencia", documentoId } → envia a nota off-line
 //   { acao: "pendentes_contingencia", lojaId }    → fila de notas off-line
 //   { acao: "xml", documentoId }                  → XML guardado (consulta/download)
+//   { acao: "conferir", documentoId } → confere a nota na base nacional da SEFAZ (só lê; grava no histórico)
+//   { acao: "inutilizar", documentoId, motivo } → inutiliza/descarta número que nunca foi autorizado (consulta a SEFAZ antes; protocolo onde o serviço existe)
 //   { acao: "manutencao_abrir"|"manutencao_salvar", documentoId, motivo, alteracoes, transmitir } → manutenção fiscal (admin da loja)
 //
 //  Permissões conferidas no banco com o TOKEN DO USUÁRIO:
@@ -123,6 +125,15 @@ export function criarDeps(token) {
     salvarManutencao: (p) => doServidor("app_fiscal_documento_manutencao_salvar", {
       p_documento_id: p.documentoId, p_dados: p.dados, p_usuario_id: p.usuario?.id ?? null, p_usuario_nome: p.usuario?.nome ?? null,
       p_usuario_email: p.usuario?.email ?? null, p_motivo: p.motivo, p_alteracoes: p.alteracoes,
+    }),
+    // 197: inutilização / número não usado (com o protocolo da SEFAZ onde o serviço existe).
+    registrarInutilizacao: (p) => doServidor("app_fiscal_inutilizacao_registrar", {
+      p_documento_id: p.documentoId, p_motivo: p.motivo, p_usuario_id: p.usuarioId ?? null, p_inutilizado: !!p.inutilizado, p_protocolo: p.protocolo ?? null,
+      p_cstat: p.cStat ?? null, p_xmotivo: p.xMotivo ?? null, p_dh: p.dhRecbto ?? null, p_xml: p.xml ?? null,
+    }),
+    registrarConferencia: (p) => doServidor("app_fiscal_conferencia_registrar", {
+      p_documento_id: p.documentoId, p_conforme: !!p.conforme, p_cstat: p.cStat ?? null, p_xmotivo: p.xMotivo ?? null, p_protocolo: p.protocolo ?? null,
+      p_dh_recbto: p.dhRecbto ?? null, p_dig_val: p.digVal ?? null, p_situacao: p.situacaoSefaz ?? null, p_divergencias: p.divergencias ?? [],
     }),
     // 192: grava a data-hora de emissão renovada no reenvio (a consulta posterior recompõe o MESMO XML transmitido).
     renovarDhEmissao: (p) => doServidor("app_fiscal_documento_renovar_dh_emissao", { p_documento_id: p.documentoId, p_dh_emi: p.dhEmi }),

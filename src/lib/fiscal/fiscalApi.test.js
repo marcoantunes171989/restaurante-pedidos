@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   mensagemErroFiscal, buscarEmitenteFiscal, buscarConfigFiscalVenda, salvarConfigFiscalVenda,
   configVendaParaSelo, listarSeriesFiscais, salvarSerieFiscal, reservarDocumentoFiscal,
-  descartarDocumentoFiscal, resumoCredenciaisFiscais, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
+  resumoCredenciaisFiscais, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
 } from "./fiscalApi.js";
 
 describe("enviarCredencialFiscal (API do servidor)", () => {
@@ -127,9 +127,6 @@ describe("séries e documentos", () => {
     const r = await reservarDocumentoFiscal({ rpc }, { lojaId: 7, modelo: 65, ambiente: "homologacao", idempotencyKey: k, valorTotal: 44, qtdItens: 2, pedidosIds: ["P1"] });
     expect(r).toMatchObject({ documentoId: "d1", numero: 1, reutilizado: false });
     expect(rpc.mock.calls[0][1]).toMatchObject({ p_idempotency_key: k, p_valor_total: 44, p_pedidos_ids: ["P1"] });
-  });
-  it("descartar exige motivo", async () => {
-    await expect(descartarDocumentoFiscal({ rpc: vi.fn() }, "d1", "")).rejects.toMatchObject({ code: "MOTIVO_OBRIGATORIO" });
   });
   it("resumo de credenciais nunca expõe referência de segredo", async () => {
     const r = await resumoCredenciaisFiscais({ rpc: ok({ ok: true, credenciais: [{ tipo: "certificado_a1", titular: "X", validade_fim: "2027-01-01", cadastrado: true, vault_secret_id: "nao-devia" }] }) }, 7);

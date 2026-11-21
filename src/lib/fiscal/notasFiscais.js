@@ -16,7 +16,7 @@ const SITUACOES = {
   cancelado: { rotulo: "Cancelada", tom: "neutro" },
   contingencia: { rotulo: "Em contingência", tom: "alerta" },
   erro: { rotulo: "SEFAZ indisponível", tom: "erro" },
-  descartado: { rotulo: "Descartada", tom: "neutro" },
+  descartado: { rotulo: "Número não usado", tom: "neutro" },
 };
 export function situacaoNota(status) {
   return SITUACOES[status] || { rotulo: String(status || "—"), tom: "neutro" };
@@ -30,6 +30,8 @@ const ehSvc = (d) => [6, 7].includes(Number(d?.tpEmis));
 
 /** Situação considerando a contingência (E7). */
 export function situacaoDaNota(doc) {
+  // Número que nunca foi usado: inutilizado na SEFAZ (tem protocolo) ou só registrado como não usado (SP, BA e AC não têm mais o serviço).
+  if (doc?.status === "descartado") return doc?.protocolo ? { rotulo: "Inutilizada na SEFAZ", tom: "neutro" } : { rotulo: "Número não usado", tom: "neutro" };
   if (ehContPendente(doc) && ehSvc(doc)) return { rotulo: "Contingência SVC: enviar", tom: "alerta" };
   // EPEC sem protocolo: a NF-e não pode ser impressa (NT 2014.001).
   if (ehContPendente(doc) && Number(doc.tpEmis) === 4 && !doc.contingencia?.epecProtocolo) return { rotulo: "EPEC não registrado", tom: "erro" };
@@ -52,7 +54,10 @@ export function acoesDaNota(doc) {
   return {
     // U1: reservada e nunca enviada (ex.: sem certificado na hora da venda).
     emitir: doc?.status === "reservado" && normalSemContingencia,
-    descartar: doc?.status === "reservado" && normalSemContingencia,
+    // Inutilizar / descartar o número: só nota que nunca foi autorizada (o servidor consulta a SEFAZ antes de aceitar).
+    descartar: ["reservado", "rejeitado", "erro", "enviado"].includes(doc?.status) && normalSemContingencia,
+    // Conferir na base nacional da SEFAZ: nota emitida (autorizada ou cancelada).
+    conferir: ["autorizado", "cancelado"].includes(doc?.status) && !!doc?.chave,
     // U2: rejeitada → corrigir o cadastro e emitir de novo com o mesmo número.
     refazer: doc?.status === "rejeitado" && normalSemContingencia && !CSTAT_SEM_REFAZER.has(Number(doc?.cStat)),
     cancelar: autorizada,
@@ -151,11 +156,23 @@ export async function refazerNota(supabase, documentoId, venda) {
   return data;
 }
 
-/** U1: descartar número reservado que não será usado (vai para a lista de não usados). */
-export async function descartarNota(supabase, documentoId, motivo) {
-  const { data, error } = await supabase.rpc("app_fiscal_descartar_documento", { p_documento_id: documentoId, p_motivo: motivo });
-  if (error || !data?.ok) throw Object.assign(new Error(data?.code === "MOTIVO_OBRIGATORIO" ? "Escreva o motivo (3 letras ou mais)." : "Não foi possível descartar o número."), { code: data?.code || "RPC_ERROR" });
-  return true;
+/**
+ * Inutilizar / descartar o número de uma nota que nunca foi autorizada. Vai ao servidor, que consulta a SEFAZ antes e:
+ *  • onde o serviço existe, envia a inutilização e guarda o protocolo;
+ *  • em SP, BA e AC (sem o serviço desde 11/11/2026), registra só como número não usado (sem protocolo).
+ * @returns {Promise<{ ok:true, inutilizado:boolean, protocolo?:string, aviso?:string }>}
+ */
+export async function inutilizarNota(supabase, documentoId, motivo, opts = {}) {
+  const r = await chamarApiFiscal(supabase, "/api/fiscal-emitir", { acao: "inutilizar", documentoId, motivo }, opts);
+  if (!r?.ok) throw Object.assign(new Error([r?.erro || "Não foi possível inutilizar o número.", r?.xMotivo].filter(Boolean).join(" ")), { code: r?.code || "ERRO", resposta: r });
+  return r;
+}
+
+/** Confere a nota na base nacional da SEFAZ (só lê; grava a conferência no histórico). */
+export async function conferirNotaSefaz(supabase, documentoId, opts = {}) {
+  const r = await chamarApiFiscal(supabase, "/api/fiscal-emitir", { acao: "conferir", documentoId }, opts);
+  if (!r?.ok) throw Object.assign(new Error(r?.erro || "Não foi possível conferir na SEFAZ."), { code: r?.code || "ERRO", resposta: r });
+  return r;
 }
 
 /** Cancelar / corrigir: vai ao servidor, que assina e envia à SEFAZ. */
@@ -171,6 +188,7 @@ const TIPOS_EVENTO = {
   RESERVADO: "Número reservado", RESERVA: "Número reservado", SEFAZ_ENVIADO: "Enviada à SEFAZ", SEFAZ_AUTORIZADO: "Autorizada pela SEFAZ",
   SEFAZ_REJEITADO: "Rejeitada pela SEFAZ", SEFAZ_ERRO: "Erro no envio", DESCARTADO: "Descartada", CANCELADO: "Cancelada",
   MANUTENCAO_FISCAL: "Manutenção fiscal", DH_EMISSAO_RENOVADA: "Data de emissão renovada",
+  INUTILIZADO: "Número inutilizado na SEFAZ", NUMERO_NAO_USADO: "Número não usado (controle do emitente)", CONFERIDA_SEFAZ: "Conferência na SEFAZ",
 };
 export function rotuloEvento(e) {
   if (e?.payload?.falhaInterna) return "Falha técnica no envio";
@@ -189,6 +207,20 @@ export function linhaDoHistorico(e) {
     const alt = Array.isArray(p.alteracoes) ? p.alteracoes : [];
     if (alt.length) partes.push(`alterações: ${alt.map((a) => `${a.campo}: "${a.de}" → "${a.para}"`).join("; ")}`);
     return { id: e?.id, quando: e?.criado_em || e?.criadoEm || null, titulo: rotuloEvento(e), mudanca: "", texto: partes.join(" · "), falha: false, bruto: e };
+  }
+  if (e?.tipo === "INUTILIZADO" || e?.tipo === "NUMERO_NAO_USADO") {
+    partes.push(`motivo: ${p.motivo || "—"}`);
+    if (p.protocolo) partes.push(`protocolo de inutilização ${p.protocolo}`);
+    if (p.cStat != null && p.cStat !== "") partes.push(`código ${p.cStat}`);
+    if (e.tipo === "NUMERO_NAO_USADO") partes.push("sem protocolo: a SEFAZ do estado não recebe mais inutilização");
+    return { id: e?.id, quando: e?.criado_em || e?.criadoEm || null, titulo: rotuloEvento(e), mudanca: "", texto: partes.join(" · "), falha: false, bruto: e };
+  }
+  if (e?.tipo === "CONFERIDA_SEFAZ") {
+    const div = Array.isArray(p.divergencias) ? p.divergencias : [];
+    partes.push(p.conforme ? "conforme: a SEFAZ confirma a nota" : `DIVERGENTE: ${div.join(" ") || "ver detalhes"}`);
+    if (p.cStat != null && p.cStat !== "") partes.push(`código ${p.cStat}`);
+    if (p.protocolo) partes.push(`protocolo ${p.protocolo}`);
+    return { id: e?.id, quando: e?.criado_em || e?.criadoEm || null, titulo: rotuloEvento(e), mudanca: "", texto: partes.join(" · "), falha: !p.conforme, bruto: e };
   }
   if (p.cStat != null && p.cStat !== "") partes.push(`código ${p.cStat}`);
   if (p.xMotivo) partes.push(String(p.xMotivo));

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { buscarHistoricoDocumento, explicarNota, textoDiagnostico } from "../../../lib/fiscal/notasFiscais";
+import { buscarHistoricoDocumento, conferirNotaSefaz, explicarNota, linhaDoHistorico, textoDiagnostico } from "../../../lib/fiscal/notasFiscais";
 import { agruparTentativas, camposTecnicos, categoriaDoEvento, fraseDaTentativa, resumoDasTentativas } from "../../../lib/fiscal/historicoTentativas";
 
 // Painel "Detalhes e histórico" de uma nota. Duas abas:
@@ -102,6 +102,8 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
   const [filtro, setFiltro] = useState("tudo");
   const [hist, setHist] = useState({ carregando: true, linhas: [], erro: "", pendente: false });
   const [copiado, setCopiado] = useState("");
+  const [versao, setVersao] = useState(0); // sobe depois de uma conferência: recarrega o histórico
+  const [conf, setConf] = useState({ ocupado: false, ok: null, texto: "" });
   const explicacao = explicarNota(nota);
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
       .then((linhas) => { if (vivo) setHist({ carregando: false, linhas, erro: "", pendente: false }); })
       .catch((e) => { if (vivo) setHist({ carregando: false, linhas: [], erro: e.message, pendente: e.code === "MIGRACAO_PENDENTE" }); });
     return () => { vivo = false; };
-  }, [supabase, nota.id, nota.status, nota.cStat]);
+  }, [supabase, nota.id, nota.status, nota.cStat, versao]);
 
   const brutos = useMemo(() => hist.linhas.map((l) => l.bruto).filter(Boolean), [hist.linhas]);
   const linhasPorId = useMemo(() => new Map(hist.linhas.map((l) => [l.id, l])), [hist.linhas]);
@@ -118,6 +120,21 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
   const resumo = useMemo(() => resumoDasTentativas(grupo), [grupo]);
   const manutencoes = useMemo(() => brutos.filter((e) => categoriaDoEvento(e) === "manutencao").sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em))), [brutos]);
   const sistema = useMemo(() => brutos.filter((e) => categoriaDoEvento(e) === "sistema" && !["MANUTENCAO_FISCAL"].includes(e.tipo)).sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em))), [brutos]);
+
+  // Controle fiscal: a última conferência na base nacional e, se o número foi inutilizado / não usado, como e quando.
+  const ultimaDoTipo = (tipos) => brutos.filter((e) => tipos.includes(e.tipo)).sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)))[0] || null;
+  const ultimaConferencia = ultimaDoTipo(["CONFERIDA_SEFAZ"]);
+  const baixaDoNumero = ultimaDoTipo(["INUTILIZADO", "NUMERO_NAO_USADO"]);
+  const emitida = ["autorizado", "cancelado"].includes(nota.status) && !!nota.chave;
+
+  async function conferir() {
+    setConf({ ocupado: true, ok: null, texto: "" });
+    try {
+      const r = await conferirNotaSefaz(supabase, nota.id);
+      setConf({ ocupado: false, ok: r.conforme, texto: r.conforme ? `Conforme: a SEFAZ confirma a nota (código ${r.cStat}${r.protocolo ? `, protocolo ${r.protocolo}` : ""}).` : `DIVERGENTE: ${(r.divergencias || []).join(" ")}` });
+      setVersao((v) => v + 1);
+    } catch (e) { setConf({ ocupado: false, ok: false, texto: e.message }); }
+  }
 
   async function copiarDiagnostico() {
     const ok = await copiar(textoDiagnostico(nota, hist.linhas, tentativas));
@@ -176,6 +193,25 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
               </div>
             ))}
           </dl>
+          {emitida && (
+            <div className="mt-3 rounded-lg border border-[var(--pp-border)] bg-white px-3 py-2" data-testid="validacao-sefaz">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Validação na base nacional da SEFAZ</p>
+              <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">Esta nota é definitiva: o XML, a chave e o protocolo não podem ser alterados. Para confirmar que ela consta como válida na SEFAZ, confira abaixo (a conferência só lê e fica registrada no histórico).</p>
+              {ultimaConferencia && (() => {
+                const l = linhaDoHistorico(ultimaConferencia);
+                return <p className={`mt-1 text-[12px] font-semibold ${l.falha ? "text-[#C81E4A]" : "text-[#1F7A3D]"}`} data-testid="ultima-conferencia">Última conferência {dataHora(l.quando)}: {l.texto}</p>;
+              })()}
+              {!ultimaConferencia && <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">Ainda não conferida nesta tela.</p>}
+              {conf.texto && <p role="status" className={`mt-1 text-[12px] font-semibold ${conf.ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`} data-testid="resultado-conferencia">{conf.texto}</p>}
+              <button type="button" className={`${botaoLeve} mt-2`} disabled={conf.ocupado} onClick={conferir} data-testid="btn-conferir-sefaz">{conf.ocupado ? "Consultando a SEFAZ…" : "Conferir na SEFAZ"}</button>
+            </div>
+          )}
+          {nota.status === "descartado" && (
+            <div className="mt-3 rounded-lg border border-[var(--pp-border)] bg-white px-3 py-2" data-testid="baixa-numero">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">{nota.protocolo ? "Número inutilizado na SEFAZ" : "Número não usado"}</p>
+              {baixaDoNumero ? <p className="mt-0.5 text-[12px] text-[var(--pp-text-body)]">{dataHora(baixaDoNumero.criado_em)} · {linhaDoHistorico(baixaDoNumero).texto}</p> : <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">Carregando o registro…</p>}
+            </div>
+          )}
           {tentativas.length > 0 && (
             <>
               <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Ações feitas nesta tela</p>

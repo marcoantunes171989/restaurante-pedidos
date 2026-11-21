@@ -12,6 +12,8 @@ import { statusServico, emitirNaSefaz } from "./sefaz/emissor.js";
 import { processarEvento } from "./eventoService.js";
 import { processarManutencao } from "./manutencaoService.js";
 import { processarContingencia, transmitirContingencia } from "./contingenciaService.js";
+import { processarInutilizacao } from "./inutilizacaoService.js";
+import { processarConferencia } from "./conferenciaService.js";
 import { dadosDaNota } from "./dadosDaVenda.js";
 import { dadosDanfeNfce } from "./danfeNfce.js";
 import { dadosDanfeNfe } from "./danfeNfe.js";
@@ -55,6 +57,10 @@ export async function processarEmissao(body = {}, deps) {
   if (["manutencao_abrir", "manutencao_salvar"].includes(acao)) return processarManutencao(body, deps, (b) => processarEmissao(b, deps));
   // Contingência off-line da NFC-e (E7).
   if (["contingencia", "transmitir_contingencia", "pendentes_contingencia", "consultar"].includes(acao)) return processarContingencia(body, deps, conexao);
+  // Inutilização / descarte de número que nunca foi autorizado (197).
+  if (acao === "inutilizar") return processarInutilizacao(body, deps, conexao);
+  // Conferência da nota na base nacional da SEFAZ (só lê; grava no histórico).
+  if (acao === "conferir") return processarConferencia(body, deps, conexao);
 
   if (acao === "status") {
     const lojaId = Number(body.lojaId);

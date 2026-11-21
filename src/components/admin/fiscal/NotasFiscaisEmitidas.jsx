@@ -5,7 +5,7 @@ import ManutencaoFiscal from "./ManutencaoFiscal";
 import { podeManutencao } from "../../../lib/fiscal/manutencaoCampos";
 import { nfceForaDoPrazo } from "../../../lib/fiscal/prazoCancelamento";
 import { baixarXml, buscarXmlDaNota, nomeArquivoXml } from "../../../lib/fiscal/xmlNota";
-import { FILTROS_NOTAS, filtrarNotas, situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, descartarNota } from "../../../lib/fiscal/notasFiscais";
+import { FILTROS_NOTAS, filtrarNotas, situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, inutilizarNota } from "../../../lib/fiscal/notasFiscais";
 import { refazerFiscalDaVenda } from "../../../lib/fiscal/vendaFiscal";
 import { emitirReservada } from "../../../lib/fiscal/emissaoPdv";
 import { imprimirNotaFiscal } from "../../../lib/fiscal/imprimirNota";
@@ -131,24 +131,38 @@ function AvisoContingencia({ resumo, supabase, onConcluido }) {
   );
 }
 
-// U1: descartar número reservado que não será usado (pede o motivo).
+// Inutilizar / descartar o número de uma nota que nunca foi autorizada. O servidor consulta a SEFAZ antes; onde o serviço existe envia a
+// inutilização e guarda o protocolo; em SP, BA e AC (sem o serviço desde 11/11/2026) registra só como número não usado.
 function PainelDescartar({ nota, supabase, onFechar, onConcluido }) {
   const [motivo, setMotivo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
+  const [feito, setFeito] = useState(null);
   async function confirmar() {
     setEnviando(true); setErro("");
-    try { await descartarNota(supabase, nota.id, motivo.trim()); onFechar(); onConcluido(); }
+    try { const r = await inutilizarNota(supabase, nota.id, motivo.trim()); setFeito(r); onConcluido(); }
     catch (e) { setErro(e.message); } finally { setEnviando(false); }
   }
+  if (feito) {
+    return (
+      <div className="mt-2 rounded-xl border border-[var(--pp-border)] p-3" data-testid="inutilizacao-resultado">
+        <p role="status" className="text-[13px] font-semibold text-[#1F7A3D]">
+          {feito.inutilizado ? `Número inutilizado na SEFAZ. Protocolo ${feito.protocolo}.` : "Número registrado como não usado."}
+        </p>
+        {!feito.inutilizado && feito.aviso && <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">{feito.aviso}</p>}
+        <button type="button" className={`${botaoLeve} mt-2`} onClick={onFechar}>Fechar</button>
+      </div>
+    );
+  }
+  const curto = motivo.trim().length < 15;
   return (
-    <div className="mt-2 rounded-xl border border-[var(--pp-border)] p-3">
-      <label className="block text-[12px] font-semibold text-[var(--pp-text-body)]" htmlFor={`descartar-${nota.id}`}>Por que este número não será usado?</label>
-      <input id={`descartar-${nota.id}`} value={motivo} onChange={(e) => setMotivo(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px]" placeholder="Ex.: venda refeita em outra nota" />
-      <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">O número fica registrado como não usado e não volta a ser usado.</p>
+    <div className="mt-2 rounded-xl border border-[var(--pp-border)] p-3" data-testid="painel-inutilizar">
+      <label className="block text-[12px] font-semibold text-[var(--pp-text-body)]" htmlFor={`descartar-${nota.id}`}>Por que este número não será usado? (mínimo 15 letras)</label>
+      <input id={`descartar-${nota.id}`} value={motivo} onChange={(e) => setMotivo(e.target.value)} className="mt-1 min-h-10 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px]" placeholder="Ex.: venda cancelada antes de ser transmitida" />
+      <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">Antes de inutilizar, o sistema confere na SEFAZ que esta nota não existe lá. Se o seu estado ainda tem o serviço, a inutilização é enviada e o protocolo fica guardado. Em SP, BA e AC (sem o serviço desde 11/11/2026) o número fica só registrado como não usado, sem protocolo. Nota autorizada não se inutiliza: se foi cancelada, use Cancelar nota.</p>
       {erro && <p role="status" className="mt-1 text-[12px] font-semibold text-[#C81E4A]">{erro}</p>}
       <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" className={botao} disabled={enviando || motivo.trim().length < 3} onClick={confirmar}>{enviando ? "Descartando…" : "Descartar número"}</button>
+        <button type="button" className={botao} disabled={enviando || curto} onClick={confirmar}>{enviando ? "Conferindo na SEFAZ…" : "Inutilizar número"}</button>
         <button type="button" className={botaoLeve} disabled={enviando} onClick={onFechar}>Voltar</button>
       </div>
     </div>
@@ -339,7 +353,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                     {a.emitir && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => emitirAgora(n)}>{ocupado === n.id ? "Enviando…" : "Emitir agora"}</button>}
                     {a.reenviar && <button type="button" data-testid="btn-reenviar" className={`${botao}${avisos[n.id]?.sugerir === "reenviar" ? " ring-2 ring-[#F38525] ring-offset-2" : ""}`} disabled={ocupado === n.id} onClick={() => emitirAgora(n)} title="Reenvia com a mesma numeração; o sistema consulta a SEFAZ antes e nunca duplica uma nota já autorizada.">{ocupado === n.id ? "Reenviando…" : "Reenviar à SEFAZ"}</button>}
                     {a.refazer && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => corrigirEEmitir(n)}>{ocupado === n.id ? "Enviando…" : "Corrigir e emitir de novo"}</button>}
-                    {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}>Descartar número</button>}
+                    {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}>Inutilizar número</button>}
                     {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}>{n.modelo === 55 ? "Imprimir DANFE" : "Imprimir NFC-e"}</button>}
                     {podeManutencao(n) && <button type="button" className={botaoLeve} aria-expanded={manutId === n.id} onClick={() => setManutId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-manutencao">{manutId === n.id ? "Fechar manutenção" : "Manutenção fiscal"}</button>}
                     {a.imprimir && <button type="button" className={botaoLeve} onClick={() => baixarDireto(n)} data-testid="btn-baixar-xml">Baixar XML</button>}
