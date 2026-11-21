@@ -59,9 +59,9 @@ function acessosOperacionais(idsAcesso: string[] | null | undefined, superAdmin:
 async function validarWebhook(req: Request): Promise<boolean> {
   const recebido = req.headers.get("x-webhook-secret");
   if (!recebido) return false;
-  const { data } = await admin.schema("vault").from("decrypted_secrets").select("decrypted_secret").eq("name", "notif_webhook_secret").maybeSingle();
-  const esperado = (data as { decrypted_secret?: string } | null)?.decrypted_secret;
-  return !!esperado && esperado === recebido;
+  // Comparação feita no banco (migration 202): o schema vault não é exposto pela API.
+  const { data, error } = await admin.rpc("notif_validar_webhook", { p_secret: recebido });
+  return !error && data === true;
 }
 
 // Usuário dono do JWT recebido (para o botão "Enviar notificação de teste").
