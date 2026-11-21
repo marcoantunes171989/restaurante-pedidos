@@ -3598,6 +3598,8 @@ function dbParaLancamento(r) {
     descricao: r.descricao ?? "", tipo: r.tipo ?? "despesa", categoria: r.categoria ?? "",
     valor: Number(r.valor) || 0, status: r.status ?? "pendente",
     formaPagamento: r.forma_pagamento ?? "", observacao: r.observacao ?? "", criadoEmISO: r.criado_em,
+    // Lançamento gerado por nota fiscal autorizada (migration 197): somente leitura, a nota é definitiva.
+    documentoFiscalId: r.documento_fiscal_id ?? null,
   }
 }
 function lancamentoParaDb(l) {

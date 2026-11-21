@@ -6464,7 +6464,8 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
   }
 
   const hoje = new Date().toISOString().slice(0, 10);
-  const ativos = lista.filter((l) => l.status !== "cancelado");
+  // Lançamento de nota fiscal (documentoFiscalId) aparece na lista, mas não soma de novo: a mesma venda já entra em "Vendas (pedidos)".
+  const ativos = lista.filter((l) => l.status !== "cancelado" && !l.documentoFiscalId);
   const receitasPagas = ativos.filter((l) => l.tipo === "receita" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
   const despesasPagas = ativos.filter((l) => l.tipo === "despesa" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
   const aReceber = ativos.filter((l) => l.tipo === "receita" && l.status === "pendente").reduce((s, l) => s + l.valor, 0);
@@ -6483,7 +6484,7 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
   // Receitas × Despesas por mês (últimos 6) — para o gráfico
   const meses = (() => { const arr = []; const now = new Date(); for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); arr.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("pt-BR", { month: "short" }), rec: 0, desp: 0 }); } return arr; })();
   const mesMap = Object.fromEntries(meses.map((m) => [m.key, m]));
-  lista.filter((l) => l.status === "pago").forEach((l) => { const k = (l.data || "").slice(0, 7); if (mesMap[k]) { if (l.tipo === "receita") mesMap[k].rec += l.valor; else mesMap[k].desp += l.valor; } });
+  lista.filter((l) => l.status === "pago" && !l.documentoFiscalId).forEach((l) => { const k = (l.data || "").slice(0, 7); if (mesMap[k]) { if (l.tipo === "receita") mesMap[k].rec += l.valor; else mesMap[k].desp += l.valor; } });
   pedidosPagos.forEach((o) => { const k = (o.createdAtISO || "").slice(0, 7); if (mesMap[k]) mesMap[k].rec += orderTotal(o); });
   const maxMes = Math.max(1, ...meses.flatMap((m) => [m.rec, m.desp]));
   const barH = (v) => Math.max(v > 0 ? 3 : 0, Math.round((v / maxMes) * 120));
@@ -6571,6 +6572,8 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
                     <td className="whitespace-nowrap px-5 py-3 text-right">
                       {l.auto ? (
                         <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300/90">venda automática</span>
+                      ) : l.documentoFiscalId ? (
+                        <span title="Gerado pela nota fiscal; mudanças acontecem na nota (cancelamento)" className="rounded-full border border-sky-400/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-bold text-sky-300/90">nota fiscal</span>
                       ) : (<>
                         {l.status === "pendente" && <button onClick={() => mudarStatus(l, "pago")} className="mr-1.5 rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 hover:bg-emerald-500/25">Baixar</button>}
                         <button onClick={() => setModal({ ...l })} className="mr-1.5 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-bold text-slate-200 hover:bg-white/10">Editar</button>
