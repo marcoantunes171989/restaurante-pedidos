@@ -36,7 +36,8 @@ async function carregar(body, deps) {
   if (!(await deps.podeConfigurar(doc.loja_id))) return { erro: falha("FORBIDDEN") };
   if (doc.contingencia_documento_id) return { erro: falha("EM_CONTINGENCIA") };
   if (!podeManutencao({ status: doc.status, tpEmis: doc.tp_emis })) return { erro: falha("STATUS_NAO_PERMITE", { status: doc.status }) };
-  const prep = await dadosDaNota(doc, deps, deps.agora ? deps.agora() : new Date());
+  // permissivo: nota ainda sem dados montados e barrada por pendência de cadastro (ex.: CSOSN vazio) precisa abrir para ser corrigida aqui.
+  const prep = await dadosDaNota(doc, deps, deps.agora ? deps.agora() : new Date(), { permissivo: true });
   if (prep.code) return { erro: falha(prep.code, prep.detalhe ? { detalhe: prep.detalhe } : {}) };
   return { doc, dados: prep.dados };
 }

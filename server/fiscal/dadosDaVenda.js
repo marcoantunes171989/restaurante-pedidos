@@ -32,8 +32,8 @@ export function somaItensPedidos(pedidos = []) {
 }
 
 /** Confere a venda do rascunho contra o documento reservado e os pedidos do banco. */
-export function conferirVenda(doc, venda, pedidos) {
-  if (!venda?.apto || !Array.isArray(venda.itens) || !venda.totais) return "VENDA_INVALIDA";
+export function conferirVenda(doc, venda, pedidos, { permissivo = false } = {}) {
+  if ((!venda?.apto && !permissivo) || !Array.isArray(venda.itens) || !venda.totais) return "VENDA_INVALIDA";
   const idsDoc = [...(doc.pedidos_ids || [])].map(String).sort();
   const idsVenda = [...(venda.pedidosIds || [])].map(String).sort();
   if (!idsDoc.length || idsDoc.join(",") !== idsVenda.join(",")) return "VENDA_DIVERGENTE";
@@ -53,7 +53,7 @@ export function conferirVenda(doc, venda, pedidos) {
  * Devolve os dados gravados da nota, montando-os na primeira vez.
  * @returns {Promise<{ dados?: object, code?: string, detalhe?: string }>}
  */
-export async function dadosDaNota(doc, deps, agora = new Date()) {
+export async function dadosDaNota(doc, deps, agora = new Date(), { permissivo = false } = {}) {
   const gravados = doc.rascunho?.dados;
   if (gravados?.ide) return { dados: gravados };
   const venda = doc.rascunho?.venda;
@@ -61,7 +61,7 @@ export async function dadosDaNota(doc, deps, agora = new Date()) {
   if (doc.status !== "reservado") return { code: "STATUS_NAO_PERMITE" };
 
   const pedidos = await deps.pedidosDaNota(doc.id);
-  const divergencia = conferirVenda(doc, venda, pedidos);
+  const divergencia = conferirVenda(doc, venda, pedidos, { permissivo });
   if (divergencia) return { code: divergencia };
 
   const emitente = await deps.emitente(doc.loja_id);
@@ -74,6 +74,7 @@ export async function dadosDaNota(doc, deps, agora = new Date()) {
     destinatario: doc.rascunho?.dest || null,
     // Tributos aproximados (Lei 12.741) pela tabela IBPT da UF da loja, se existir.
     ibpt: await (deps.tabelaIbpt || tabelaIbpt)(emitente.dados?.uf),
+    permissivo,
   });
   if (!r.ok) return { code: "XML_INVALIDO", detalhe: String(r.erro || "").slice(0, 200) };
   const g = await deps.salvarDados({ documentoId: doc.id, chave: r.chave, dados: r.dados });

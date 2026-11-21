@@ -147,3 +147,28 @@ describe("NF-e (55) da venda com destinatário", () => {
     expect(v.valido, JSON.stringify(v)).toBe(true);
   });
 });
+
+describe("dadosDaNota em modo permissivo (Manutenção fiscal)", () => {
+  // Cadastro com CSOSN vazio: a venda não fica apta e o modo normal recusa; a Manutenção precisa abrir a nota para corrigir.
+  const SEM_CSOSN = montarVendaFiscal({
+    pedidos: [{ id: "PED-1", lojaId: 7, status: "delivered", items: ITENS }],
+    produtos: [{ id: 10, name: "X-Burger", lojaId: 7, lojaFiscalRegraId: 50 }, { id: 11, name: "Refri Lata", lojaId: 7, lojaFiscalRegraId: 50 }],
+    ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "" }] }, formas: [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }], mapaMeios: { dinheiro: "01" },
+    pagamento: { total: 44, troco: 6, detalhes: [{ forma: "Dinheiro", valor: 50 }] },
+  });
+  const doc = { ...DOC, rascunho: { versao: 1, venda: SEM_CSOSN, cpf: "" } };
+  it("modo normal recusa (nada é gravado)", async () => {
+    const d = deps();
+    const r = await dadosDaNota(doc, d, AGORA);
+    expect(r.code).toBeDefined();
+    expect(d.salvarDados).not.toHaveBeenCalled();
+  });
+  it("modo permissivo monta os dados com o CSOSN vazio para ser corrigido no editor, e o XML ainda não monta assim", async () => {
+    const d = deps();
+    const r = await dadosDaNota(doc, d, AGORA, { permissivo: true });
+    expect(r.code).toBeUndefined();
+    expect(r.dados.itens[0].icms).toMatchObject({ grupo: "ICMSSN102", CSOSN: "" });
+    expect(() => montarXmlNFe(r.dados)).toThrow();
+    expect(montarXmlNFe({ ...r.dados, itens: r.dados.itens.map((it) => ({ ...it, icms: { ...it.icms, CSOSN: "102" } })) }).xml).toContain("<CSOSN>102</CSOSN>");
+  });
+});

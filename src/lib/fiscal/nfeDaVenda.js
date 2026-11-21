@@ -134,10 +134,12 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date() } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false } = {}) {
+  // `permissivo`: SÓ para a Manutenção fiscal. Monta os dados mesmo com pendência de cadastro (CSOSN vazio etc.) para a pessoa corrigir
+  // no editor; a conferência completa (XML + XSD) continua obrigatória ao gravar e ao transmitir.
   const avisos = [];
   const falha = (erro) => ({ ok: false, erro, avisos });
-  if (!venda?.apto) {
+  if (!venda?.apto && !permissivo) {
     const dosItens = (venda?.itens || []).flatMap((it) => (it.pendencias || []).map((p) => `${it.nome ? `${it.nome}: ` : ""}${p}`));
     return falha(`A venda tem pendência(s) e não pode virar nota: ${[...(venda?.pendencias || []), ...dosItens].join(" ") || venda?.resumo || "dados incompletos"}`);
   }
@@ -150,7 +152,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   // Conferência completa ANTES de montar: tudo que a SEFAZ rejeitaria por dado nosso (CNPJ, IE, IBGE, NCM, CFOP, CST, destinatário…).
-  const pre = validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor });
+  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor });
   if (!pre.ok) return falha(`Dados fiscais com problema: ${pre.texto}`);
   const simples = crt !== "3";
   const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
@@ -211,6 +213,10 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
         if (!avisos.includes(aviso500)) avisos.push(aviso500);
       } else if (CSOSN_GRUPO_SN102.includes(csosn)) {
         icms = { grupo: "ICMSSN102", orig, CSOSN: csosn };
+      } else if (permissivo && !CSOSN_GRUPO_SN102.includes(csosn)) {
+        // Manutenção: CSOSN vazio/não suportado entra como campo vazio do grupo 102 para ser preenchido no editor (não transmite assim: o XML exige CSOSN válido).
+        icms = { grupo: "ICMSSN102", orig, CSOSN: csosn };
+        avisos.push(`Item "${it.nome}": CSOSN "${csosn}" precisa ser corrigido.`);
       } else {
         return falha(`Item "${it.nome}": CSOSN ${csosn || "(vazio)"} ainda não suportado pelo emissor (suportados: 101, ${[...CSOSN_GRUPO_SN102, "500", "900"].join(", ")}).`);
       }
