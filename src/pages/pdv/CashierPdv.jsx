@@ -56,6 +56,7 @@ import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } fr
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
 import { listarDocumentosFiscais } from "../../lib/fiscal/notasFiscais";
+import { comPrazo, guardarVendaPendente, listarVendasPendentes, marcarVendaPendente, removerVendaPendente, vendasParaAvisar } from "../../lib/fiscal/vendaPendenteNota";
 import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../../lib/fiscal/imprimirNota";
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
@@ -189,6 +190,14 @@ export default function CashierPdv({
   const processandoRef = useRef(false);
 
   const [agora, setAgora] = useState(() => new Date());
+  // Vendas pagas cuja NFC-e ainda não saiu (emissão interrompida ou com falha): ficam na fila do aparelho até a nota existir.
+  const [vendasSemNotaVersao, setVendasSemNotaVersao] = useState(0);
+  const [reemitindoSemNota, setReemitindoSemNota] = useState("");
+  const vendasSemNota = useMemo(
+    () => vendasParaAvisar(listarVendasPendentes(lojaInfo?.id), { agora: agora.getTime() }).filter((v) => !(sucesso && sucesso.codigo === v.codigo)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lojaInfo?.id, vendasSemNotaVersao, agora, sucesso],
+  );
   useEffect(() => {
     const iv = setInterval(() => setAgora(new Date()), 30000);
     return () => clearInterval(iv);
@@ -1006,6 +1015,41 @@ export default function CashierPdv({
     if (passo !== 2) { setPasso(2); return; }
     confirmarEFinalizar();
   }
+  // Venda paga que ficou sem nota: emite de novo com os mesmos dados. A chave de idempotência vem dos pedidos: nunca duplica.
+  async function emitirVendaSemNota(v) {
+    if (reemitindoSemNota) return;
+    setReemitindoSemNota(v.codigo);
+    try {
+      let emitente = emitenteFiscal;
+      if (supabase && lojaInfo?.id != null && !(emitente && emitente.nfceHabilitada === true)) {
+        try { const e = await buscarEmitenteFiscal(supabase, lojaInfo.id); if (e) emitente = e; } catch { /* segue com o que tem */ }
+      }
+      const n = await comPrazo(emitirNotaDaVenda({
+        supabase, emitente, pedidos: v.pedidos, produtos: products, composicao: v.composicao, pagamento: v.pagamento, formas: formasPagamento,
+        config: configFiscalVenda, ctxFiscal, modelo: v.modelo, cpf: v.cpf, destinatario: v.destinatario,
+      }), 90000, () => ({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A emissão demorou demais. Tente de novo." }));
+      if (n.documentoId || ["autorizada", "contingencia"].includes(n.estado)) {
+        removerVendaPendente(lojaInfo?.id, v.codigo);
+        if (["autorizada", "contingencia"].includes(n.estado)) { setUltimaNota({ documentoId: n.documentoId, numero: n.numero ?? null }); notify("success", `${n.titulo}. Confira em Notas emitidas.`); }
+        else notify("error", `${n.titulo}${n.detalhe ? `: ${n.detalhe}` : ""}. A nota está em Notas emitidas.`);
+      } else {
+        marcarVendaPendente(lojaInfo?.id, v.codigo, n.estado === "pendente" ? "pendente" : "erro", [n.titulo, n.detalhe].filter(Boolean).join(": "));
+        notify("error", [n.titulo, n.detalhe].filter(Boolean).join(": "));
+      }
+      auditar("nota_fiscal_venda_reemitida", "comanda", null, { codigo: v.codigo, estado: n.estado, numero: n.numero ?? null });
+    } catch {
+      notify("error", "Não foi possível emitir agora. Tente de novo.");
+    } finally {
+      setReemitindoSemNota("");
+      setVendasSemNotaVersao((x) => x + 1);
+    }
+  }
+  function dispensarVendaSemNota(v) {
+    if (typeof window !== "undefined" && !window.confirm("Dispensar este aviso? A venda continua paga, mas ficará SEM nota fiscal.")) return;
+    removerVendaPendente(lojaInfo?.id, v.codigo);
+    setVendasSemNotaVersao((x) => x + 1);
+  }
+
   async function confirmarEFinalizar() {
     if (processandoRef.current || !contaSel) return;
     const valorPago = recebidoEfetivo;
@@ -1114,11 +1158,22 @@ export default function CashierPdv({
       if (emiteNota) {
         const atualizarNota = (n) => setSucesso((cur) => (cur && cur.codigo === codigoPagamento ? { ...cur, notaFiscal: n } : cur));
         janelaNotaEmUso = true;
-        emitirNotaDaVenda({
+        const lojaIdFila = lojaInfo?.id ?? null;
+        guardarVendaPendente(lojaIdFila, {
+          codigo: codigoPagamento, total: totalCobrar, mesa: mesaFechada, pedidos: pedidosSel, composicao: info.composicao,
+          pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, cpf: notaCx.cpf, modelo: notaCx.modelo, destinatario: notaCx.destinatario,
+        });
+        setVendasSemNotaVersao((v) => v + 1);
+        // A emissão nunca fica eternamente em "Emitindo…": passou do prazo, a venda segue na fila para emitir de novo (sem duplicar).
+        comPrazo(emitirNotaDaVenda({
           supabase, emitente: emitenteVenda, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
           pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
           config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
-        }).then((n) => {
+        }), 90000, () => ({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A emissão demorou demais. A venda ficou em \"Venda sem nota fiscal\": use Emitir agora (não duplica a nota)." })).then((n) => {
+          // A nota existe (ou o documento está reservado em Notas emitidas): sai da fila. Senão, a venda fica com o motivo.
+          if (n.documentoId || ["autorizada", "contingencia", "fora"].includes(n.estado)) removerVendaPendente(lojaIdFila, codigoPagamento);
+          else marcarVendaPendente(lojaIdFila, codigoPagamento, n.estado === "pendente" ? "pendente" : "erro", [n.titulo, n.detalhe].filter(Boolean).join(": "));
+          setVendasSemNotaVersao((v) => v + 1);
           atualizarNota(n);
           if (n.documentoId && ["autorizada", "contingencia"].includes(n.estado)) setUltimaNota({ documentoId: n.documentoId, numero: n.numero ?? null });
           auditar("nota_fiscal_venda", "comanda", null, { mesa: mesaFechada, estado: n.estado, numero: n.numero ?? null });
@@ -1127,7 +1182,12 @@ export default function CashierPdv({
             imprimirDanfe({ documentoId: n.documentoId, janela: janelaNota, buscar: (corpo) => postarApiFiscal(supabase, corpo) })
               .then((r) => { if (!r.ok) notify("error", r.erro); else auditar("imprimir_nota_fiscal", "comanda", null, { numero: n.numero ?? null, automatico: true }); });
           } else fecharJanelaDeImpressao(janelaNota);
-        }).catch(() => { atualizarNota({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }); fecharJanelaDeImpressao(janelaNota); });
+        }).catch(() => {
+          marcarVendaPendente(lojaIdFila, codigoPagamento, "erro", "Falha ao emitir a nota.");
+          setVendasSemNotaVersao((v) => v + 1);
+          atualizarNota({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A venda ficou em \"Venda sem nota fiscal\": use Emitir agora." });
+          fecharJanelaDeImpressao(janelaNota);
+        });
       }
       setNotaCaixa(NOTA_VAZIA);
       setBufferEntrada("");
@@ -1721,6 +1781,21 @@ export default function CashierPdv({
         onSair={onSair}
       />
 
+      {vendasSemNota.length > 0 && (
+        <section role="alert" className="shrink-0 border-b border-[#B26A00]/30 bg-[#FFF5E5] px-3 py-2" data-testid="vendas-sem-nota">
+          <p className="text-[12px] font-black text-[#8A5200]">Venda sem nota fiscal</p>
+          <ul className="mt-1 space-y-1">
+            {vendasSemNota.slice(0, 3).map((v) => (
+              <li key={v.codigo} className="flex flex-wrap items-center gap-2 text-[12px] text-[#8A5200]">
+                <span className="min-w-0 flex-1"><b>{formatCurrency(v.total)}</b>{v.mesa ? ` · ${v.mesa}` : ""} — {v.estado === "emitindo" ? "a emissão foi interrompida" : v.detalhe || "a nota não foi gerada"}</span>
+                <button type="button" onClick={() => emitirVendaSemNota(v)} disabled={!!reemitindoSemNota} data-testid="emitir-venda-sem-nota" className="btn-laranja min-h-9 rounded-xl px-3 text-[12px] font-black text-[#012E46] disabled:opacity-60">{reemitindoSemNota === v.codigo ? "Emitindo…" : "Emitir agora"}</button>
+                <button type="button" onClick={() => dispensarVendaSemNota(v)} disabled={!!reemitindoSemNota} className="min-h-9 rounded-xl border border-[#B26A00]/40 bg-white px-3 text-[12px] font-bold text-[#8A5200]">Dispensar</button>
+              </li>
+            ))}
+          </ul>
+          {vendasSemNota.length > 3 && <p className="mt-1 text-[11px] text-[#8A5200]">e mais {vendasSemNota.length - 3} venda(s) sem nota.</p>}
+        </section>
+      )}
       <PdvFaixaTurno
         agora={agora}
         faturamentoDia={faturamentoDia}

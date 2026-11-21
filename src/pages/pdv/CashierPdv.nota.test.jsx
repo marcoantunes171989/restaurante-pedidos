@@ -243,3 +243,38 @@ describe("PDV: NFC-e quando a baixa da venda tem falha parcial", () => {
     expect(chamadas).not.toContain("fetch:/api/fiscal-emitir:emitir");
   });
 });
+
+// Venda paga que ficou SEM nota (emissão interrompida ou com falha antes de reservar o número): fica na fila do aparelho e o caixa
+// emite de novo com "Emitir agora", sem risco de duplicar.
+describe("PDV: venda sem nota fiscal (recuperação)", () => {
+  const emit = () => ({ ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" });
+  beforeEach(() => { try { localStorage.clear(); } catch { /* sem storage */ } });
+  const banco = (reservaOk) => {
+    const base = supabaseCom(EMIT_BANCO_HML);
+    return { ...base, rpc: async (nome, p) => (nome === "app_fiscal_reservar_documento" && !reservaOk.valor ? (chamadas.push("rpc:" + nome), { data: null, error: { message: "timeout do banco" } }) : base.rpc(nome, p)) };
+  };
+
+  it("a reserva do número falhou: a venda continua paga, fica na fila e aparece o aviso com Emitir agora; ao emitir, sai da fila", async () => {
+    const reservaOk = { valor: false };
+    await fecharConta({ emitenteFiscal: emit(), supabase: banco(reservaOk) });
+    expect(JSON.parse(localStorage.getItem("pp.vendasSemNota.v1") || "[]")).toHaveLength(1); // ficou na fila
+    // fecha a janela de pagamento concluído
+    const voltar = [...el.querySelectorAll("button")].find((b) => /Voltar ao PDV/.test(b.textContent || ""));
+    await act(async () => { voltar?.click(); }); await esperar();
+    expect(el.querySelector("[data-testid=\"vendas-sem-nota\"]")).not.toBeNull();
+    expect(el.textContent).toContain("Venda sem nota fiscal");
+
+    reservaOk.valor = true; // o banco voltou
+    chamadas.length = 0;
+    await act(async () => { el.querySelector("[data-testid=\"emitir-venda-sem-nota\"]").click(); });
+    await esperar(300);
+    expect(chamadas).toContain("rpc:app_fiscal_reservar_documento");
+    expect(chamadas).toContain("fetch:/api/fiscal-emitir:emitir");
+    expect(JSON.parse(localStorage.getItem("pp.vendasSemNota.v1") || "[]")).toHaveLength(0); // a nota existe: sai da fila
+    expect(el.querySelector("[data-testid=\"vendas-sem-nota\"]")).toBeNull();
+  });
+  it("venda com nota emitida normalmente não deixa nada na fila", async () => {
+    await fecharConta({ emitenteFiscal: emit(), supabase: supabaseCom(EMIT_BANCO_HML) });
+    expect(JSON.parse(localStorage.getItem("pp.vendasSemNota.v1") || "[]")).toHaveLength(0);
+  });
+});
