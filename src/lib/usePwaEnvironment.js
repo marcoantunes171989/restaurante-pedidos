@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { guardarPromptInstalacao, limparPromptInstalacao } from "./pwaInstallBridge";
 import { avaliarStatus, detectarPlataforma, ehStandalone, lerInstalacaoPersistida, registrarInstalacaoPersistida } from "./pwaDetection";
 
 // ════════════════════════════════════════════════════════════
@@ -64,10 +65,12 @@ export function usePwaEnvironment() {
     const onBIP = (e) => {
       e.preventDefault();
       deferredRef.current = e;
+      guardarPromptInstalacao(e);
       setTemPromptNativo(true);
     };
     const onInstalled = () => {
       deferredRef.current = null;
+      limparPromptInstalacao();
       setTemPromptNativo(false);
       setApiInstalado(true);
       setRecemInstalado(true);
@@ -114,6 +117,7 @@ export function usePwaEnvironment() {
     const evt = deferredRef.current;
     if (!evt) return { outcome: "unavailable" };
     deferredRef.current = null;
+    limparPromptInstalacao();
     setTemPromptNativo(false);
     try {
       evt.prompt();

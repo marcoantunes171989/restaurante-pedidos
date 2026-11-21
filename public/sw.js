@@ -9,6 +9,9 @@
    controllerchange) e o app recarrega já com a versão nova.
 
    v7: push + notificationclick (Web Push — migration 064).
+   v9: push de pedido com requireInteraction/renotify/vibração, respeita
+   "som desligado" (silent) e o clique na notificação navega DENTRO do app
+   (postMessage NOTIFICACAO_CLICADA, tratado em main.jsx).
    v8: remove o skipWaiting automático do install (update só por ação
    do usuário). Mantém o handler de mensagem SKIP_WAITING e o activate.
    ═══════════════════════════════════════════════════════════════ */
@@ -101,15 +104,23 @@ self.addEventListener("push", (e) => {
 
   const titulo = payload.title || "Pedido Prime";
   const eventId = payload.data?.eventId || payload.tag || undefined;
+  const tipo = payload.data?.tipo;
+  const ehPedido = tipo === "novo_pedido" || tipo === "caixa_aguardando";
+  const semSom = payload.silent === true; // "Som das notificações" desligado (preferência do usuário)
   const opcoes = {
     body: payload.body || "",
     icon: "/icon-192.png",
     badge: "/icon-192.png",
     tag: payload.tag || eventId, // agrupa/evita duplicidade visual do mesmo evento
     data: { ...(payload.data || {}), eventId },
-    actions: Array.isArray(payload.actions) ? payload.actions : [],
-    requireInteraction: false,
-    silent: false, // nunca silent: true — som padrão do sistema/navegador
+    actions: Array.isArray(payload.actions) && payload.actions.length ? payload.actions : (ehPedido ? [{ action: "abrir", title: "Abrir" }] : []),
+    // Pedido real fica na tela até alguém tocar (não some sozinho no desktop)
+    // e avisa de novo se o mesmo tag for reenviado.
+    requireInteraction: ehPedido,
+    renotify: ehPedido && !!(payload.tag || eventId),
+    silent: semSom,
+    vibrate: semSom ? undefined : [200, 100, 200],
+    timestamp: Date.now(),
   };
 
   e.waitUntil(self.registration.showNotification(titulo, opcoes));
@@ -122,16 +133,14 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil((async () => {
     const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
 
-    // Foca uma janela já aberta e navega ela para a rota certa, em vez de
-    // abrir uma nova aba toda vez que uma notificação é clicada.
+    // Foca uma janela já aberta e pede ao app para navegar internamente até a
+    // tela certa (sem recarregar a página nem perder a sessão). Só cai no
+    // navigate() se o app não puder receber a mensagem.
     for (const client of clientList) {
       if ("focus" in client) {
         await client.focus();
-        if ("navigate" in client) {
-          try { await client.navigate(rota); } catch { client.postMessage({ type: "NOTIFICACAO_CLICADA", rota }); }
-        } else {
-          client.postMessage({ type: "NOTIFICACAO_CLICADA", rota });
-        }
+        try { client.postMessage({ type: "NOTIFICACAO_CLICADA", rota }); }
+        catch { if ("navigate" in client) { try { await client.navigate(rota); } catch { /* sem alternativa */ } } }
         return;
       }
     }

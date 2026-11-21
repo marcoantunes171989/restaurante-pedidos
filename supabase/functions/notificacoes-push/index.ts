@@ -22,6 +22,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
+import { montarMensagemPedido } from "./mensagem.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -139,8 +140,8 @@ Deno.serve(async (req) => {
       const u = await usuarioDoToken(req);
       if (!u) return json({ error: "Não autenticado." }, 401);
       const resultado = await enviarWebPushPara(u.id, {
-        title: "Pedido Prime",
-        body: "Notificação de teste — se você está vendo isso, está tudo funcionando.",
+        title: "✅ Teste do Pedido Prime",
+        body: "Tudo certo! É assim que você vai ser avisado de novos pedidos neste aparelho.",
         tag: `teste:${Date.now()}`,
         data: { tipo: "teste", rota: "/operacional" },
       });
@@ -170,13 +171,14 @@ Deno.serve(async (req) => {
     const numero = novo?.criado_em ? await numeroDoPedidoNoDia(lojaId, novo.criado_em) : "";
     const eventId = `${evento}:${pedidoId}`;
     const rota = evento === "caixa_aguardando" ? `/operacional/caixa?destacar=${encodeURIComponent(pedidoId)}` : `/operacional/pedidos?destacar=${encodeURIComponent(pedidoId)}`;
-    const titulo = evento === "caixa_aguardando" ? "Pagamento aguardando" : "Novo pedido recebido";
-    const corpo = evento === "caixa_aguardando" ? `Pedido #${numero} foi enviado para o Caixa` : `Pedido #${numero} aguardando atendimento`;
+    const { data: loja } = await admin.from("tab_lojas").select("nome").eq("id", lojaId).maybeSingle();
+    // Loja + tipo + mesa/cliente + itens + valor (ver mensagem.js).
+    const { titulo, corpo } = montarMensagemPedido({ evento, pedido: novo, lojaNome: loja?.nome, numero });
 
     // Preferências por usuário (linha ausente = tudo ligado por padrão).
     const { data: prefsRows } = await admin
       .from("tab_notificacao_prefs")
-      .select("usuario_id, push_ativo, alerta_novo_pedido, alerta_caixa")
+      .select("usuario_id, push_ativo, alerta_novo_pedido, alerta_caixa, som")
       .in("usuario_id", destinatarios.map((d) => d.id));
     const prefsPorUsuario = new Map((prefsRows || []).map((p) => [p.usuario_id, p]));
 
@@ -204,7 +206,12 @@ Deno.serve(async (req) => {
 
     let totalPush = 0;
     for (const row of inseridas || []) {
-      const r = await enviarWebPushPara(row.usuario_id, { title: titulo, body: corpo, tag: eventId, data: { tipo: evento, pedidoId, rota, eventId } });
+      // "Som das notificações" desligado → push silencioso (sem som/vibração).
+      const semSom = prefsPorUsuario.get(row.usuario_id)?.som === false;
+      const r = await enviarWebPushPara(row.usuario_id, {
+        title: titulo, body: corpo, tag: eventId, silent: semSom,
+        data: { tipo: evento, pedidoId, rota, eventId },
+      });
       totalPush += r.enviados || 0;
     }
 

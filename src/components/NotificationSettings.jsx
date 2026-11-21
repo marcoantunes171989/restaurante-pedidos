@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Settings, X, Loader2 } from "lucide-react";
+import { Settings, X, Loader2, Check, Download, Volume2 } from "lucide-react";
 import {
   capacidadesPush, permissaoAtual, swEstaAtivo, obterAssinaturaAtual,
   ativarNotificacoes, desativarNotificacoes, removerEsteDispositivo,
   carregarPreferencias, atualizarPreferencias,
+  avaliarAtivacao, instrucoesInstalacao, tocarSomAlerta,
 } from "../lib/notificacoes";
+import { temPromptInstalacao, ouvirPromptInstalacao, dispararPromptInstalacao } from "../lib/pwaInstallBridge";
 import { fetchPushSubscriptionAtual, enviarNotificacaoTeste } from "../lib/supabase";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import { useFocusTrap } from "../lib/useFocusTrap";
@@ -33,6 +35,13 @@ function Linha({ titulo, desc, children }) {
     </div>
   );
 }
+
+const TOM_AVISO = {
+  ok: "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]",
+  info: "bg-[var(--pp-info-soft)] text-[var(--pp-info)]",
+  warn: "bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)]",
+  erro: "bg-[var(--pp-danger-soft)] text-[var(--pp-danger)]",
+};
 
 const TEXTO_PERMISSAO = {
   granted: { txt: "Concedida", cor: "var(--pp-success-text)" },
@@ -65,9 +74,18 @@ export default function NotificationSettings() {
   // nenhuma trava existente, só decide qual botão mostra "Enviando teste..."
   // vs "Removendo...".
   const [acaoEmAndamento, setAcaoEmAndamento] = useState(null); // "teste" | "remover" | null
+  const [temPrompt, setTemPrompt] = useState(() => temPromptInstalacao());
   const botaoRef = useRef(null);
   const painelRef = useRef(null);
   useFocusTrap(painelRef, aberto);
+  useEffect(() => ouvirPromptInstalacao(setTemPrompt), []);
+  const guia = avaliarAtivacao({ cap, permissao, inscrito });
+
+  async function instalarApp() {
+    const r = await dispararPromptInstalacao();
+    if (r === "accepted") setMensagem({ tipo: "ok", texto: "App instalado! Abra o Pedido Prime pelo ícone novo e ative as notificações por lá." });
+    await recarregarStatus();
+  }
 
   async function recarregarStatus() {
     setCarregando(true);
@@ -120,7 +138,7 @@ export default function NotificationSettings() {
         setMensagem({ tipo: "ok", texto: "Notificações ativadas neste aparelho." });
       } else {
         const motivos = {
-          nao_instalado: "Instale o Pedido Prime para receber notificações.",
+          nao_instalado: "No iPhone/iPad, instale o Pedido Prime na Tela de Início e abra pelo ícone para ativar as notificações.",
           sem_suporte: "Este navegador/dispositivo não suporta notificações push.",
           vapid_ausente: "Notificações ainda não foram configuradas pelo administrador do sistema.",
           negada: "Permissão bloqueada. Reative nas configurações de notificação do navegador ou do sistema para este site e tente de novo.",
@@ -145,8 +163,12 @@ export default function NotificationSettings() {
     setAcaoEmAndamento("teste");
     setMensagem(null);
     try {
-      await enviarNotificacaoTeste();
-      setMensagem({ tipo: "ok", texto: "Notificação de teste enviada — verifique em alguns segundos." });
+      const r = await enviarNotificacaoTeste();
+      if (r && r.enviados === 0) {
+        setMensagem({ tipo: "erro", texto: "O servidor não conseguiu entregar a este aparelho. Desative e ative as notificações de novo, ou use “Remover este dispositivo” e refaça o passo a passo." });
+      } else {
+        setMensagem({ tipo: "ok", texto: "Teste enviado! Em instantes deve aparecer um aviso neste aparelho (veja também se o som tocou)." });
+      }
     } catch (e) {
       setMensagem({ tipo: "erro", texto: e?.message || "Não foi possível enviar o teste agora." });
     }
@@ -206,11 +228,35 @@ export default function NotificationSettings() {
                     </div>
                   )}
 
-                  {!cap?.instalado && (
-                    <div className="mb-4 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-warning-soft)] p-3 text-xs font-medium text-[var(--pp-warning-text)]">
-                      Instale o Pedido Prime para receber notificações.
+                  {guia.aviso && (
+                    <div data-testid="notif-aviso" className={`mb-3 rounded-xl border border-[var(--pp-border)] p-3 text-xs font-medium ${TOM_AVISO[guia.aviso.tipo]}`}>
+                      {guia.aviso.texto}
                     </div>
                   )}
+
+                  {guia.mostrarInstalar && (
+                    <div className="mb-3 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3">
+                      <p className="text-xs leading-relaxed text-[var(--pp-text-body)]">{instrucoesInstalacao(cap?.so, cap?.navegador)}</p>
+                      {temPrompt && (
+                        <button type="button" onClick={instalarApp} disabled={processando}
+                          className="mt-2 flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl btn-laranja bg-[var(--pp-primary-hover)] text-sm font-bold text-[#012E46] transition hover:bg-[var(--pp-primary)] disabled:opacity-40">
+                          <Download aria-hidden="true" size={15} /> Instalar o Pedido Prime
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <ol aria-label="Passo a passo" className="mb-3 grid gap-1.5">
+                    {guia.passos.map((p, i) => (
+                      <li key={p.id} className="flex items-center gap-2.5 text-xs">
+                        <span aria-hidden="true" className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold ${p.estado === "ok" ? "bg-[var(--pp-success-soft)] text-[var(--pp-success-text)]" : p.estado === "bloqueado" ? "bg-[var(--pp-danger-soft)] text-[var(--pp-danger)]" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`}>
+                          {p.estado === "ok" ? <Check size={12} /> : i + 1}
+                        </span>
+                        <span className="font-semibold text-[var(--pp-text)]">{p.titulo}</span>
+                        <span className="ml-auto text-[var(--pp-text-muted)]">{p.detalhe}</span>
+                      </li>
+                    ))}
+                  </ol>
 
                   {/* Status — só leitura */}
                   <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
@@ -230,16 +276,11 @@ export default function NotificationSettings() {
                       <span className="text-[var(--pp-text-muted)]">Service Worker</span>
                       <span className={`font-bold ${swAtivo ? "text-[var(--pp-success-text)]" : "text-[var(--pp-warning-text)]"}`}>{swAtivo ? "Ativo" : "Inativo"}</span>
                     </div>
-                    {permissao === "denied" && (
-                      <p className="mt-2 text-[11px] leading-relaxed text-[var(--pp-text-body)]">
-                        Bloqueado nas configurações do navegador/sistema. Para reativar: abra as permissões do site (ícone de cadeado na barra de endereço, ou Configurações → Notificações do aparelho) e permita notificações para o Pedido Prime.
-                      </p>
-                    )}
                   </div>
 
                   <div className="divide-y divide-[var(--pp-border)]">
                     <Linha titulo="Notificações do dispositivo" desc={inscrito ? "Ativas neste aparelho" : "Desativadas neste aparelho"}>
-                      <Toggle ligado={inscrito} onToggle={alternarPush} disabled={processando || !cap?.suportado} label="Notificações do dispositivo" />
+                      <Toggle ligado={inscrito} onToggle={alternarPush} disabled={processando || (!inscrito && !guia.podeAtivar)} label="Notificações do dispositivo" />
                     </Linha>
                     <Linha titulo="Alertas de novos pedidos" desc="Avisar quando um novo pedido chegar">
                       <Toggle ligado={!!prefs?.alertaNovoPedido} onToggle={() => salvarPref("alertaNovoPedido", !prefs?.alertaNovoPedido)} disabled={processando} label="Alertas de novos pedidos" />
@@ -247,10 +288,16 @@ export default function NotificationSettings() {
                     <Linha titulo="Alertas do Caixa" desc="Avisar quando um pedido aguardar pagamento">
                       <Toggle ligado={!!prefs?.alertaCaixa} onToggle={() => salvarPref("alertaCaixa", !prefs?.alertaCaixa)} disabled={processando} label="Alertas do Caixa" />
                     </Linha>
-                    <Linha titulo="Som das notificações" desc="Usa o som padrão do sistema/aparelho">
-                      <Toggle ligado={!!prefs?.som} onToggle={() => salvarPref("som", !prefs?.som)} disabled={processando} label="Som das notificações" />
+                    <Linha titulo="Som das notificações" desc="Som no aviso do aparelho e um toque dentro do sistema quando chega pedido">
+                      <div className="flex items-center gap-2">
+                        {prefs?.som && (
+                          <button type="button" onClick={() => tocarSomAlerta()} aria-label="Ouvir o som do alerta" title="Ouvir o som"
+                            className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--pp-border)] text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"><Volume2 aria-hidden="true" size={15} /></button>
+                        )}
+                        <Toggle ligado={!!prefs?.som} onToggle={() => salvarPref("som", !prefs?.som)} disabled={processando} label="Som das notificações" />
+                      </div>
                     </Linha>
-                    <Linha titulo="Alertas visuais dentro do sistema" desc="Mostrar o sino/badge enquanto o app está aberto">
+                    <Linha titulo="Alertas visuais dentro do sistema" desc="Aviso na tela, contador no sino e na aba enquanto o app está aberto">
                       <Toggle ligado={!!prefs?.alertasVisuais} onToggle={() => salvarPref("alertasVisuais", !prefs?.alertasVisuais)} disabled={processando} label="Alertas visuais dentro do sistema" />
                     </Linha>
                   </div>
@@ -290,6 +337,9 @@ export default function NotificationSettings() {
                   )}
                   {!inscrito && !processando && (
                     <p className="mt-2 text-center text-[11px] text-[var(--pp-text-muted)]">Ative as notificações do dispositivo para testar ou remover.</p>
+                  )}
+                  {permissao === "denied" && !processando && (
+                    <button type="button" onClick={recarregarStatus} className="mx-auto mt-2 block text-xs font-bold text-[var(--pp-primary-text)] underline">Verificar novamente</button>
                   )}
                 </>
               )}

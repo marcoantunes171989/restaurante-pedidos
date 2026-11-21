@@ -5,6 +5,7 @@ import App from './App.jsx'
 import LandingPage from './landing/LandingPage.jsx'
 import PwaExperienceProvider from './components/PwaExperienceProvider.jsx'
 import CardapioPublico from './CardapioPublico.jsx'
+import { solicitarNavegacaoInterna } from './lib/historicoNavegacao'
 
 // ══════════════════════════════════════════════════════════════
 //  SW Manager
@@ -104,6 +105,12 @@ async function iniciarSW(onAtivado) {
       if (!e.data) return
       if (e.data.type === 'SW_ATIVADO' || e.data.type === 'SW_UPDATED') {
         marcarAtualizacao()
+      }
+      // Clique numa notificação push: abre a tela certa sem recarregar o app.
+      if (e.data.type === 'NOTIFICACAO_CLICADA' && typeof e.data.rota === 'string' && e.data.rota.startsWith('/')) {
+        const noSistema = /^\/(login|app|sistema|admin|operacional)(\/|$)/.test(window.location.pathname)
+        if (noSistema) solicitarNavegacaoInterna(e.data.rota)
+        else window.location.assign(e.data.rota)
       }
     })
 

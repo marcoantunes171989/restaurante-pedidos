@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Bell, X, Check, ClipboardList, CreditCard } from "lucide-react";
 import { fetchNotificacoes, escutarNotificacoes, marcarNotificacaoLida, marcarTodasNotificacoesLidas } from "../lib/supabase";
-import { ouvirOutrasAbas, avisarOutrasAbas } from "../lib/notificacoes";
+import { ouvirOutrasAbas, avisarOutrasAbas, avaliarNovas, prefsLocais, carregarPreferencias, tocarSomAlerta, EVENTO_PREFS_NOTIF } from "../lib/notificacoes";
 import { useAnchoredPosition } from "../lib/useAnchoredPosition";
 import { useOutsideClick } from "../lib/useOutsideClick";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
@@ -64,22 +64,57 @@ export default function NotificationBell() {
   const botaoRef = useRef(null);
   const painelRef = useRef(null);
 
+  const [prefs, setPrefs] = useState(() => prefsLocais());
+  const [aviso, setAviso] = useState(null); // notificação nova mostrada como aviso na tela
+  const vistosRef = useRef(null); // ids já conhecidos (null = ainda não carregou a 1ª lista)
+  const prefsRef = useRef(prefs);
+  useEffect(() => { prefsRef.current = prefs; }, [prefs]);
+
   const naoLidas = useMemo(() => itens.filter((n) => !n.lida).length, [itens]);
   const { pos, ehDesktop } = useAnchoredPosition(botaoRef, aberto);
 
   useEffect(() => {
     let cancelado = false;
+    // Lista nova do servidor: o que for NÃO LIDO e ainda desconhecido (depois
+    // da 1ª carga) é um aviso novo → som + aviso na tela conforme a preferência.
+    const aplicarLista = (lista) => {
+      const alvo = avaliarNovas(vistosRef.current, lista);
+      vistosRef.current = alvo.vistos;
+      setItens(lista); setErro(null);
+      if (alvo.novas.length) {
+        const p = prefsRef.current;
+        if (p.som && document.visibilityState === "visible") tocarSomAlerta();
+        if (p.alertasVisuais) setAviso(alvo.novas[0]);
+      }
+    };
     fetchNotificacoes()
-      .then((lista) => { if (!cancelado) { setItens(lista); setErro(null); } })
+      .then((lista) => { if (!cancelado) aplicarLista(lista); })
       .catch((e) => { if (!cancelado) setErro(e?.message || "Não foi possível carregar as notificações."); })
       .finally(() => { if (!cancelado) setCarregando(false); });
 
-    const pararRealtime = escutarNotificacoes((lista) => { setItens(lista); setErro(null); });
+    const pararRealtime = escutarNotificacoes((lista) => { if (!cancelado) aplicarLista(lista); });
     const pararBroadcast = ouvirOutrasAbas((msg) => {
-      if (msg?.tipo === "atualizado") fetchNotificacoes().then(setItens).catch(() => {});
+      if (msg?.tipo === "atualizado") fetchNotificacoes().then((l) => { vistosRef.current = avaliarNovas(vistosRef.current, l).vistos; setItens(l); }).catch(() => {});
     });
-    return () => { cancelado = true; pararRealtime(); pararBroadcast(); };
+    carregarPreferencias().then((p) => { if (!cancelado) setPrefs(p); }).catch(() => {});
+    const onPrefs = (e) => { if (e.detail) setPrefs(e.detail); };
+    window.addEventListener(EVENTO_PREFS_NOTIF, onPrefs);
+    return () => { cancelado = true; pararRealtime(); pararBroadcast(); window.removeEventListener(EVENTO_PREFS_NOTIF, onPrefs); };
   }, []);
+
+  // Aviso some sozinho; contador no título da aba ("(2) Pedido Prime") ajuda
+  // quem está em outra aba/janela a perceber que chegou pedido.
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), 9000);
+    return () => clearTimeout(t);
+  }, [aviso]);
+  useEffect(() => {
+    if (!prefs.alertasVisuais || naoLidas === 0) return;
+    const original = document.title;
+    document.title = `(${naoLidas}) ${original}`;
+    return () => { document.title = original; };
+  }, [naoLidas, prefs.alertasVisuais]);
 
   useOutsideClick([botaoRef, painelRef], aberto, () => setAberto(false));
   useBodyScrollLock(aberto && !ehDesktop);
@@ -197,10 +232,28 @@ export default function NotificationBell() {
         className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--pp-border)] bg-[var(--pp-surface)] text-[var(--pp-text-body)] transition-colors duration-150 hover:bg-[var(--pp-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pp-primary)]"
       >
         <Bell aria-hidden="true" size={18} />
-        {naoLidas > 0 && <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-[var(--pp-surface)] bg-[var(--pp-danger)] px-1 text-[10px] font-bold leading-[16px] text-white">{naoLidas > 9 ? "9+" : naoLidas}</span>}
+        {naoLidas > 0 && <span className={`${prefs.alertasVisuais ? "animate-pulse " : ""}absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-[var(--pp-surface)] bg-[var(--pp-danger)] px-1 text-[10px] font-bold leading-[16px] text-white`}>{naoLidas > 9 ? "9+" : naoLidas}</span>}
       </button>
 
       {painel && createPortal(painel, document.body)}
+
+      {aviso && !aberto && createPortal(
+        <div role="status" aria-live="polite" data-testid="notif-aviso-toast"
+          className="fixed inset-x-3 top-3 z-[110] mx-auto flex max-w-md items-start gap-3 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-3.5 shadow-xl"
+          style={{ marginTop: "env(safe-area-inset-top)" }}>
+          <span aria-hidden="true" className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${(TIPO_CONFIG[aviso.tipo] || TIPO_PADRAO).tom}`}>
+            {(() => { const { Icone } = TIPO_CONFIG[aviso.tipo] || TIPO_PADRAO; return <Icone size={17} />; })()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block break-words text-sm font-bold text-[var(--pp-text)]">{aviso.titulo}</span>
+            <span className="mt-0.5 block break-words text-xs text-[var(--pp-text-body)]">{aviso.corpo}</span>
+            <button type="button" onClick={() => { const n = aviso; setAviso(null); abrirNotificacao(n); }}
+              className="mt-2 min-h-[32px] rounded-lg bg-[var(--pp-primary-hover)] px-3 text-xs font-bold text-[#012E46] hover:bg-[var(--pp-primary)]">Ver pedido</button>
+          </span>
+          <button type="button" onClick={() => setAviso(null)} aria-label="Dispensar aviso" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"><X aria-hidden="true" size={16} /></button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
