@@ -2,7 +2,10 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import VendasSemNotaFiscal from "./VendasSemNotaFiscal.jsx";
+
+// A emissão pelo caixa só liga com esta variável (build). Ligada AQUI, antes de carregar a tela: o teste não pode depender do .env.local
+// de quem roda (no GitHub a variável não existe e a emissão nem era tentada).
+vi.stubEnv("VITE_FISCAL_EMISSAO_PDV", "true");
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, el;
@@ -32,6 +35,7 @@ function banco({ documentos = [], reservas = [] } = {}) {
 }
 
 async function montar({ orders, documentos, reservas }) {
+  const { default: VendasSemNotaFiscal } = await import("./VendasSemNotaFiscal.jsx");
   const supabase = banco({ documentos, reservas });
   el = document.createElement("div"); document.body.appendChild(el); root = createRoot(el);
   await act(async () => root.render(<VendasSemNotaFiscal supabase={supabase} lojaInfo={{ id: 9, nome: "Burger Station" }} orders={orders} produtos={PRODUTOS} formasPagamento={FORMAS} ctxFiscal={CTX} />));
