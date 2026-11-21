@@ -84,12 +84,12 @@ export default function NotificationSettings() {
   async function instalarApp() {
     const r = await dispararPromptInstalacao();
     if (r === "accepted") setMensagem({ tipo: "ok", texto: "App instalado! Abra o Pedido Prime pelo ícone novo e ative as notificações por lá." });
-    await recarregarStatus();
+    await recarregarStatus(true);
   }
 
-  async function recarregarStatus() {
+  async function recarregarStatus(manterMensagem = false) {
     setCarregando(true);
-    setMensagem(null);
+    if (manterMensagem !== true) setMensagem(null);
     try {
       const capacidades = capacidadesPush();
       setCap(capacidades);
@@ -145,10 +145,12 @@ export default function NotificationSettings() {
           cancelada: "Permissão não concedida.",
           erro_assinatura: "Não foi possível concluir a assinatura agora. Tente novamente.",
         };
-        setMensagem({ tipo: "erro", texto: motivos[r.motivo] || "Não foi possível ativar agora." });
+        // Detalhe técnico (ex.: erro do navegador ou do banco) ajuda o suporte a achar a causa.
+        const detalhe = r.erro ? ` (${String(r.erro).slice(0, 160)})` : "";
+        setMensagem({ tipo: "erro", texto: (motivos[r.motivo] || "Não foi possível ativar agora.") + detalhe });
       }
     }
-    await recarregarStatus();
+    await recarregarStatus(true);
     setProcessando(false);
   }
 
@@ -182,7 +184,7 @@ export default function NotificationSettings() {
     await removerEsteDispositivo();
     setConfirmarRemocao(false);
     setMensagem({ tipo: "ok", texto: "Este aparelho foi removido das notificações." });
-    await recarregarStatus();
+    await recarregarStatus(true);
     setProcessando(false);
     setAcaoEmAndamento(null);
   }
@@ -339,7 +341,7 @@ export default function NotificationSettings() {
                     <p className="mt-2 text-center text-[11px] text-[var(--pp-text-muted)]">Ative as notificações do dispositivo para testar ou remover.</p>
                   )}
                   {permissao === "denied" && !processando && (
-                    <button type="button" onClick={recarregarStatus} className="mx-auto mt-2 block text-xs font-bold text-[var(--pp-primary-text)] underline">Verificar novamente</button>
+                    <button type="button" onClick={() => recarregarStatus()} className="mx-auto mt-2 block text-xs font-bold text-[var(--pp-primary-text)] underline">Verificar novamente</button>
                   )}
                 </>
               )}
