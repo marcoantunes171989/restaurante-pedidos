@@ -41,6 +41,7 @@ export const BLOCOS = [
     passos: [
       { id: "painel", titulo: "Acompanhe pelo Painel", texto: "Status geral, notas de hoje, notas com problema e alertas (certificado, contingência, IBPT).", tela: "painel-fiscal" },
       { id: "notas", titulo: "Notas Emitidas", texto: "Imprima, consulte na SEFAZ, corrija e reenvie notas rejeitadas, cancele, envie a carta de correção (NF-e) e transmita as de contingência.", tela: "notas-fiscais" },
+      { id: "vendas-sem-nota", titulo: "Venda paga sem nota", texto: "Se uma venda foi paga mas a nota não saiu (a tela ficou em Emitindo, a página recarregou…), abra Fiscal › Vendas sem nota, escolha a venda, confira taxa de serviço, desconto e forma de pagamento e emita a NFC-e. Não duplica: pedido que já tem nota nem aparece.", tela: "vendas-sem-nota" },
       { id: "cancelar-nfce", titulo: "Cancelar uma NFC-e", texto: "A NFC-e só pode ser cancelada em até 30 minutos da autorização (Ajuste SINIEF 19/16), com a mercadoria ainda não entregue. A tela mostra só as notas que ainda estão no prazo, com a contagem regressiva.", tela: "cancelamento-nfce" },
       { id: "xmls", titulo: "Baixar os XMLs", texto: "Pesquise os XMLs por período, chave de acesso ou qualquer campo do XML, selecione várias notas e exporte em um ZIP (um arquivo por nota) para o contador.", tela: "xmls-fiscais" },
       { id: "contingencia", titulo: "Se a SEFAZ cair", texto: "A NFC-e entra em contingência e o caixa reenvia sozinho; confira o prazo em Notas Emitidas.", tela: "notas-fiscais" },

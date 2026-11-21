@@ -183,7 +183,7 @@ describe("REL-02D — regra única de acesso da Cozinha", () => {
       "cupons", "crm", "fidelidade", "cardapioqr", "cardapioext",
     ]);
     // Telas fiscais saíram de Gestão para o grupo Fiscal, com os MESMOS ids (permissões intactas).
-    expect(ADMIN_FISCAL_ITENS.map((i) => i.id)).toEqual(["painel-fiscal", "notas-fiscais", "cancelamento-nfce", "xmls-fiscais", "dados-fiscais-empresa", "emissao-fiscal", "config-fiscal", "tributos-ibpt", "testes-fiscais", "fiscal", "como-funciona-fiscal"]);
+    expect(ADMIN_FISCAL_ITENS.map((i) => i.id)).toEqual(["painel-fiscal", "notas-fiscais", "vendas-sem-nota", "cancelamento-nfce", "xmls-fiscais", "dados-fiscais-empresa", "emissao-fiscal", "config-fiscal", "tributos-ibpt", "testes-fiscais", "fiscal", "como-funciona-fiscal"]);
   });
 
   it("decisão negada não autoriza atualização de setor", () => {

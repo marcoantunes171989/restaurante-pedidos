@@ -18,7 +18,7 @@ export const SECOES_ADMIN_RECONHECIDAS = Object.freeze([
   "dashboard", "copiloto", "relatorios",
   "mesas", "comandas-gestao", "comandas", "chamados", "setores",
   "setor-impressoras", "impressoes", "operacaomobile", "acessosop",
-  "products", "categorias", "painel-fiscal", "notas-fiscais", "cancelamento-nfce", "xmls-fiscais", "dados-fiscais-empresa", "emissao-fiscal", "tributos-ibpt", "testes-fiscais", "como-funciona-fiscal", "fiscal", "config-fiscal", "promocoes",
+  "products", "categorias", "painel-fiscal", "notas-fiscais", "vendas-sem-nota", "cancelamento-nfce", "xmls-fiscais", "dados-fiscais-empresa", "emissao-fiscal", "tributos-ibpt", "testes-fiscais", "como-funciona-fiscal", "fiscal", "config-fiscal", "promocoes",
   "cupons", "crm", "fidelidade", "cardapioqr", "cardapioext",
   "financeiro", "lancamentos", "contas-receber", "contas-pagar",
   "caixa", "pagamento",

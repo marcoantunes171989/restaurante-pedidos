@@ -14,6 +14,7 @@ import DadosEmpresaFiscal from "./components/admin/fiscal/DadosEmpresaFiscal.jsx
 import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
 import CancelamentoNfce from "./components/admin/fiscal/CancelamentoNfce.jsx";
 import XmlsFiscais from "./components/admin/fiscal/XmlsFiscais.jsx";
+import VendasSemNotaFiscal from "./components/admin/fiscal/VendasSemNotaFiscal.jsx";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
   excluirFiscalNcmLote, atualizarFiscalNcmLoteAtivo,
@@ -7667,6 +7668,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     { grupo: "Fiscal", itens: [
       { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
       { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
+      { id: "vendas-sem-nota", icon: <Receipt className="h-4 w-4" />, label: "Vendas sem nota" },
       { id: "cancelamento-nfce", icon: <SearchX className="h-4 w-4" />, label: "Cancelar NFC-e" },
       { id: "xmls-fiscais", icon: <Download className="h-4 w-4" />, label: "XMLs fiscais" },
       { id: "dados-fiscais-empresa", icon: <Store className="h-4 w-4" />, label: "Dados da Empresa" },
@@ -7868,6 +7870,12 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<ClipboardList className="h-4 w-4" />} titulo="Notas Emitidas" descricao={`Acompanhe as notas da ${lojaInfo?.nome || "sua loja"}: situação na SEFAZ, reenvio, correção, cancelamento e contingência.`} />
               <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={products} regrasLoja={lojaFiscalRegras} ctxFiscal={ctxFiscalAdmin} />
+            </main>
+          ))}
+          {ativo === "vendas-sem-nota" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<Receipt className="h-4 w-4" />} titulo="Vendas sem nota" descricao={`Vendas já pagas da ${lojaInfo?.nome || "sua loja"} que ficaram sem nota fiscal: emita a NFC-e delas.`} />
+              <VendasSemNotaFiscal supabase={supabase} lojaInfo={lojaInfo} orders={orders} produtos={products} formasPagamento={filtraLoja(formasPagamento)} ctxFiscal={ctxFiscalAdmin} />
             </main>
           ))}
           {ativo === "cancelamento-nfce" && (precisaEmpresa ? avisoEmpresa : (

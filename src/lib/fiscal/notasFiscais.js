@@ -127,6 +127,7 @@ export async function listarDocumentosFiscais(supabase, lojaId, { limite = 50, a
     chave: d.chave, protocolo: d.protocolo, cStat: d.cstat, xMotivo: d.xmotivo, valorTotal: Number(d.valor_total || 0),
     criadoEm: d.criado_em, dhAutorizacao: d.dh_autorizacao, cartasCorrecao: Number(d.cartas_correcao || 0), ultimoEvento: d.ultimo_evento || null,
     tpEmis: Number(d.tp_emis || 1),
+    pedidosIds: Array.isArray(d.pedidos_ids) ? d.pedidos_ids.map(String) : [],
     contingencia: d.contingencia ? { prazo: d.contingencia.prazo, vencida: !!d.contingencia.vencida, tentativas: Number(d.contingencia.tentativas || 0),
       numeroOrigem: d.contingencia.numero_origem ?? null, assinada: d.contingencia.assinada !== false, epecProtocolo: d.contingencia.epec_protocolo ?? null } : null,
     contingenciaNumero: d.contingencia_numero ?? null,
