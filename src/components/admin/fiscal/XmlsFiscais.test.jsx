@@ -34,6 +34,7 @@ function montar({ notas = NOTAS, total = notas.length, truncado = false } = {}) 
   container = document.createElement("div"); document.body.appendChild(container); root = createRoot(container);
   act(() => root.render(<XmlsFiscais supabase={{ rpc, auth: { getSession: async () => ({ data: { session: { access_token: "t" } } }) } }} lojaInfo={{ id: 9, nome: "Burger Station" }} />));
 }
+const escolherCanceladas = (v) => act(async () => { const e = q("xmls-canceladas"); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set.call(e, v); e.dispatchEvent(new Event("change", { bubbles: true })); });
 const pesquisar = async () => { await act(async () => { q("xmls-pesquisar").click(); }); await esperar(); };
 
 describe("Tela XMLs fiscais", () => {
@@ -68,11 +69,11 @@ describe("Tela XMLs fiscais", () => {
     expect(Object.keys(z)).toEqual(expect.arrayContaining([`NFCe/${CH1}-nfce.xml`, `NFCe/${CH2}-nfce.xml`, `eventos/${CH2}-evento-110111-1.xml`, "indice.csv"]));
     expect(Object.keys(z).some((k) => k.includes(CH3))).toBe(false);
   });
-  it("selecionar todas, desmarcar o evento e exportar todas", async () => {
+  it("selecionar todas, escolher canceladas sem o XML do evento e exportar todas", async () => {
     montar(); await pesquisar();
     await act(async () => { q("xmls-todas").click(); });
     expect(q("xmls-contagem").textContent).toContain("3 selecionada(s)");
-    await act(async () => { q("xmls-eventos").click(); });
+    await escolherCanceladas("sem_evento");
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     await act(async () => { q("xmls-exportar-todas").click(); }); await esperar(80);
     const z = unzipSync(new Uint8Array(await baixados[0].arrayBuffer()));
@@ -95,5 +96,37 @@ describe("Tela XMLs fiscais", () => {
     montar();
     await act(async () => { botao("Hoje").click(); });
     expect(q("xmls-de").value).toBe(q("xmls-ate").value);
+  });
+  it("Notas canceladas = Não incluir: a cancelada some da lista, da contagem e do ZIP", async () => {
+    montar(); await pesquisar();
+    expect(container.querySelectorAll('[data-testid="xmls-linha"]')).toHaveLength(3);
+    await escolherCanceladas("nao");
+    expect(container.querySelectorAll('[data-testid="xmls-linha"]')).toHaveLength(2);
+    expect(container.textContent).not.toContain("Cancelada");
+    expect(q("xmls-contagem").textContent).toContain("2 nota(s) encontrada(s)");
+    expect(q("xmls-contagem").textContent).toContain("1 cancelada(s) fora da lista");
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await act(async () => { q("xmls-exportar-todas").click(); }); await esperar(80);
+    expect(rpc).toHaveBeenCalledWith("app_fiscal_xml_lote", { p_ids: ["n1", "n3"] });
+    const z = unzipSync(new Uint8Array(await baixados[0].arrayBuffer()));
+    expect(Object.keys(z).some((k) => k.includes(CH2))).toBe(false);
+    expect(Object.keys(z).some((k) => k.startsWith("eventos/"))).toBe(false);
+  });
+  it("Notas canceladas = Somente canceladas: só a cancelada, com o XML do cancelamento", async () => {
+    montar(); await pesquisar();
+    await escolherCanceladas("so");
+    expect(container.querySelectorAll('[data-testid="xmls-linha"]')).toHaveLength(1);
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await act(async () => { q("xmls-exportar-todas").click(); }); await esperar(80);
+    expect(rpc).toHaveBeenCalledWith("app_fiscal_xml_lote", { p_ids: ["n2"] });
+    const z = unzipSync(new Uint8Array(await baixados[0].arrayBuffer()));
+    expect(Object.keys(z)).toEqual(expect.arrayContaining([`NFCe/${CH2}-nfce.xml`, `eventos/${CH2}-evento-110111-1.xml`]));
+  });
+  it("trocar para Não incluir tira da seleção a cancelada que estava marcada", async () => {
+    montar(); await pesquisar();
+    await act(async () => { q("xmls-todas").click(); });
+    expect(q("xmls-contagem").textContent).toContain("3 selecionada(s)");
+    await escolherCanceladas("nao");
+    expect(q("xmls-contagem").textContent).toContain("2 selecionada(s)");
   });
 });

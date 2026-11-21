@@ -7,7 +7,8 @@ import NotasFiscaisEmitidas from "./NotasFiscaisEmitidas";
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, container;
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); root = container = null; vi.restoreAllMocks(); });
-const esperar = (ms = 30) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+const expandirTodas = () => act(async () => { document.querySelectorAll('[data-testid="btn-expandir"][aria-expanded="false"]').forEach((b) => b.click()); });
+const esperar = async (ms = 30) => { await act(async () => { await new Promise((r) => setTimeout(r, ms)); }); await expandirTodas(); };
 const botao = (txt) => [...container.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === txt);
 
 const CHAVE = "3".repeat(44);

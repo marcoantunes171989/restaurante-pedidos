@@ -8,7 +8,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, container, chamadas;
 beforeEach(() => { chamadas = []; });
 afterEach(() => { if (root) act(() => root.unmount()); container?.remove(); root = container = null; });
-const esperar = (ms = 20) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+const expandirTodas = () => act(async () => { document.querySelectorAll('[data-testid="btn-expandir"][aria-expanded="false"]').forEach((b) => b.click()); });
+const esperar = async (ms = 20) => { await act(async () => { await new Promise((r) => setTimeout(r, ms)); }); await expandirTodas(); };
 const botao = (txt) => [...container.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === txt);
 
 const NOTA_COM_FALHA = { id: "d1", modelo: 65, serie: 1, numero: 1, ambiente: "homologacao", status: "erro", chave: "3".repeat(44), protocolo: null, cstat: null,

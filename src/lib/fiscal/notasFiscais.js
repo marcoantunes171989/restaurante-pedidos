@@ -84,6 +84,27 @@ export const FILTROS_NOTAS = [
   { id: "problema", rotulo: "Com problema" },
   { id: "contingencia", rotulo: "Contingência" },
 ];
+export const AMBIENTES_NOTAS = [
+  { id: "todos", rotulo: "Todos" },
+  { id: "producao", rotulo: "Produção" },
+  { id: "homologacao", rotulo: "Homologação" },
+];
+/** Notas do ambiente escolhido ("todos" não filtra). */
+export function filtrarPorAmbiente(notas = [], ambiente = "todos") {
+  return ambiente === "producao" || ambiente === "homologacao" ? notas.filter((n) => n.ambiente === ambiente) : notas;
+}
+
+export const POR_PAGINA_NOTAS = [10, 20, 30, 40, 50];
+/** Recorta a lista numa página (pagina começa em 1; fora do intervalo vira a última/primeira). */
+export function paginarNotas(lista = [], pagina = 1, porPagina = 10) {
+  const por = POR_PAGINA_NOTAS.includes(Number(porPagina)) ? Number(porPagina) : 10;
+  const total = lista.length;
+  const paginas = Math.max(1, Math.ceil(total / por));
+  const atual = Math.min(Math.max(1, Math.floor(Number(pagina)) || 1), paginas);
+  const ini = (atual - 1) * por;
+  return { itens: lista.slice(ini, ini + por), total, paginas, pagina: atual, porPagina: por, de: total ? ini + 1 : 0, ate: Math.min(ini + por, total) };
+}
+
 export function filtrarNotas(notas = [], filtro = "todas") {
   switch (filtro) {
     case "nfce": return notas.filter((n) => Number(n.modelo) === 65);

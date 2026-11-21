@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { atalhoDePeriodo, baixarBytes, baixarLote, buscarXmls, intervaloDoPeriodo, montarZip, nomeDoZip } from "../../../lib/fiscal/xmlExportacao";
+import { atalhoDePeriodo, baixarBytes, baixarLote, buscarXmls, intervaloDoPeriodo, montarZip, nomeDoZip, OPCOES_CANCELADAS, aplicarCanceladas } from "../../../lib/fiscal/xmlExportacao";
 import { baixarXml, nomeArquivoXml } from "../../../lib/fiscal/xmlNota";
 import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
 import XmlDaNota from "./XmlDaNota";
@@ -21,7 +21,7 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
   const [termo, setTermo] = useState("");
   const [estado, setEstado] = useState({ buscou: false, carregando: false, erro: "", notas: [], total: 0, truncado: false });
   const [marcadas, setMarcadas] = useState(() => new Set());
-  const [incluirEventos, setIncluirEventos] = useState(true);
+  const [canceladas, setCanceladas] = useState("com_evento"); // com_evento | sem_evento | nao | so
   const [exportando, setExportando] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [verId, setVerId] = useState(null);
@@ -37,10 +37,13 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
   }
   function atalho(id) { const p = atalhoDePeriodo(id); setDe(p.de); setAte(p.ate); }
 
-  const todasMarcadas = estado.notas.length > 0 && estado.notas.every((n) => marcadas.has(n.id));
+  const visiveis = useMemo(() => aplicarCanceladas(estado.notas, canceladas).notas, [estado.notas, canceladas]);
+  const incluirEventos = aplicarCanceladas(estado.notas, canceladas).incluirEventos;
+  const ocultas = estado.notas.length - visiveis.length;
+  const todasMarcadas = visiveis.length > 0 && visiveis.every((n) => marcadas.has(n.id));
   const alternar = (id) => setMarcadas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const alternarTodas = () => setMarcadas(todasMarcadas ? new Set() : new Set(estado.notas.map((n) => n.id)));
-  const selecionadas = useMemo(() => estado.notas.filter((n) => marcadas.has(n.id)), [estado.notas, marcadas]);
+  const alternarTodas = () => setMarcadas(todasMarcadas ? new Set() : new Set(visiveis.map((n) => n.id)));
+  const selecionadas = useMemo(() => visiveis.filter((n) => marcadas.has(n.id)), [visiveis, marcadas]);
 
   async function exportar(notas) {
     if (!notas.length) return;
@@ -96,20 +99,24 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
         <div className="mt-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[12px] font-semibold text-[var(--pp-text)]" data-testid="xmls-contagem">
-              {estado.total} nota(s) encontrada(s){estado.truncado ? ` · mostrando as ${estado.notas.length} mais recentes: refine o período ou a busca` : ""}
+              {estado.truncado && ocultas === 0 ? estado.total : visiveis.length} nota(s) encontrada(s){ocultas > 0 ? ` · ${ocultas} cancelada(s) fora da lista` : ""}{estado.truncado ? ` · mostrando as ${estado.notas.length} mais recentes: refine o período ou a busca` : ""}
               {selecionadas.length ? ` · ${selecionadas.length} selecionada(s)` : ""}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-1.5 text-[12px] text-[var(--pp-text-body)]"><input type="checkbox" checked={incluirEventos} onChange={(e) => setIncluirEventos(e.target.checked)} data-testid="xmls-eventos" />Incluir XML de cancelamento</label>
+              <label className="flex items-center gap-1.5 text-[12px] text-[var(--pp-text-body)]">Notas canceladas
+                <select value={canceladas} onChange={(e) => setCanceladas(e.target.value)} data-testid="xmls-canceladas" className={`${campo} min-h-9 py-0 text-[12px]`}>
+                  {OPCOES_CANCELADAS.map((o) => <option key={o.id} value={o.id}>{o.rotulo}</option>)}
+                </select>
+              </label>
               <button type="button" className={botao} disabled={!selecionadas.length || !!exportando} onClick={() => exportar(selecionadas)} data-testid="xmls-exportar-sel">
                 {exportando ? `Exportando ${exportando.feito}/${exportando.total}…` : `Exportar selecionadas (${selecionadas.length})`}
               </button>
-              <button type="button" className={botaoLeve} disabled={!estado.notas.length || !!exportando} onClick={() => exportar(estado.notas)} data-testid="xmls-exportar-todas">Exportar todas as {estado.notas.length}</button>
+              <button type="button" className={botaoLeve} disabled={!visiveis.length || !!exportando} onClick={() => exportar(visiveis)} data-testid="xmls-exportar-todas">Exportar todas as {visiveis.length}</button>
             </div>
           </div>
 
-          {estado.notas.length === 0 ? (
-            <p className="mt-3 rounded-xl border border-dashed border-[var(--pp-border)] p-4 text-center text-[13px] text-[var(--pp-text-muted)]" data-testid="xmls-vazio">Nenhum XML encontrado para esse período e essa busca.</p>
+          {visiveis.length === 0 ? (
+            <p className="mt-3 rounded-xl border border-dashed border-[var(--pp-border)] p-4 text-center text-[13px] text-[var(--pp-text-muted)]" data-testid="xmls-vazio">{estado.notas.length > 0 ? "Nenhuma nota com essa opção de canceladas. Troque o filtro \"Notas canceladas\"." : "Nenhum XML encontrado para esse período e essa busca."}</p>
           ) : (
             <div className="mt-2 overflow-x-auto rounded-lg border border-[var(--pp-border)]">
               <table className="w-full text-left text-[12px]" data-testid="xmls-tabela">
@@ -118,7 +125,7 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
                   <th className="px-2 py-1.5 font-semibold">Data</th><th className="px-2 py-1.5 font-semibold">Nota</th><th className="px-2 py-1.5 font-semibold">Chave de acesso</th><th className="px-2 py-1.5 font-semibold">Valor</th><th className="px-2 py-1.5 font-semibold">Situação</th><th className="px-2 py-1.5" />
                 </tr></thead>
                 <tbody>
-                  {estado.notas.map((n) => (
+                  {visiveis.map((n) => (
                     <FragmentoLinha key={n.id} n={n} marcada={marcadas.has(n.id)} onMarcar={() => alternar(n.id)} aberto={verId === n.id} onVer={() => setVerId((c) => (c === n.id ? null : n.id))} onBaixar={() => baixarUm(n)}
                       supabase={supabase} />
                   ))}

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
-import { intervaloDoPeriodo, atalhoDePeriodo, buscarXmls, baixarLote, montarZip, nomeDoZip } from "./xmlExportacao";
+import { intervaloDoPeriodo, atalhoDePeriodo, buscarXmls, baixarLote, montarZip, nomeDoZip, aplicarCanceladas, OPCOES_CANCELADAS } from "./xmlExportacao";
 
 const CHAVE = "35261144422195000133650010000000011234567890";
 const CHAVE55 = "35261144422195000133550010000000021234567891";
@@ -72,5 +72,29 @@ describe("ZIP", () => {
     expect(nomeDoZip({ de: "2026-11-01", ate: "2026-11-20", quantidade: 15 })).toBe("xml-fiscais-2026-11-01_a_2026-11-20-15notas.zip");
     expect(nomeDoZip({ de: "2026-11-20", ate: "2026-11-20", quantidade: 1 })).toBe("xml-fiscais-2026-11-20-1notas.zip");
     expect(nomeDoZip({ quantidade: 3 })).toBe("xml-fiscais-todos-3notas.zip");
+  });
+});
+
+describe("notas canceladas: o que entra na lista e no ZIP", () => {
+  const L = [{ id: "a", status: "autorizado" }, { id: "c", status: "cancelado" }, { id: "b", status: "autorizado" }];
+  it("incluir (com evento): todas as notas e o XML do cancelamento", () => {
+    expect(aplicarCanceladas(L, "com_evento")).toEqual({ notas: L, incluirEventos: true });
+  });
+  it("incluir só a nota: todas as notas, sem os arquivos de evento", () => {
+    expect(aplicarCanceladas(L, "sem_evento")).toEqual({ notas: L, incluirEventos: false });
+  });
+  it("não incluir: a cancelada sai da lista (e, portanto, do ZIP)", () => {
+    const r = aplicarCanceladas(L, "nao");
+    expect(r.notas.map((n) => n.id)).toEqual(["a", "b"]);
+    expect(r.incluirEventos).toBe(false);
+  });
+  it("somente canceladas: só elas, com o XML do cancelamento", () => {
+    const r = aplicarCanceladas(L, "so");
+    expect(r.notas.map((n) => n.id)).toEqual(["c"]);
+    expect(r.incluirEventos).toBe(true);
+  });
+  it("opção desconhecida age como incluir; opções de tela são as quatro", () => {
+    expect(aplicarCanceladas(L, "x").notas).toHaveLength(3);
+    expect(OPCOES_CANCELADAS.map((o) => o.id)).toEqual(["com_evento", "sem_evento", "nao", "so"]);
   });
 });

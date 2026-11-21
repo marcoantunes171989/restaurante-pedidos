@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { situacaoNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, filtrarNotas, FILTROS_NOTAS } from "./notasFiscais.js";
+import { situacaoNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, filtrarNotas, FILTROS_NOTAS, filtrarPorAmbiente, paginarNotas } from "./notasFiscais.js";
 
 describe("situacaoNota", () => {
   it("rótulos e tons em português simples", () => {
@@ -253,5 +253,32 @@ describe("inutilização e conferência (chamadas ao servidor)", () => {
     expect(linhaDoHistorico({ tipo: "INUTILIZADO", payload: { motivo: "teste de motivo ok", protocolo: "13526000027700001", cStat: 102 } }).texto).toMatch(/protocolo de inutilização 13526000027700001/);
     expect(linhaDoHistorico({ tipo: "NUMERO_NAO_USADO", payload: { motivo: "teste de motivo ok" } }).texto).toMatch(/sem protocolo/);
     expect(linhaDoHistorico({ tipo: "CONFERIDA_SEFAZ", payload: { conforme: false, divergencias: ["Protocolo diferente"] } })).toMatchObject({ falha: true });
+  });
+});
+
+describe("ambiente e paginação da lista de notas", () => {
+  const N = (i, ambiente) => ({ id: `n${i}`, ambiente, modelo: 65, numero: i });
+  const LISTA = [...Array.from({ length: 25 }, (_, i) => N(i + 1, i % 5 === 0 ? "producao" : "homologacao"))];
+  it("filtrarPorAmbiente: todos / produção / homologação", () => {
+    expect(filtrarPorAmbiente(LISTA, "todos")).toHaveLength(25);
+    expect(filtrarPorAmbiente(LISTA, "producao")).toHaveLength(5);
+    expect(filtrarPorAmbiente(LISTA, "homologacao")).toHaveLength(20);
+    expect(filtrarPorAmbiente(LISTA, "qualquer")).toHaveLength(25);
+  });
+  it("paginarNotas: 10 por página, última página parcial e intervalo mostrado", () => {
+    expect(paginarNotas(LISTA, 1, 10)).toMatchObject({ total: 25, paginas: 3, pagina: 1, de: 1, ate: 10 });
+    const ult = paginarNotas(LISTA, 3, 10);
+    expect(ult.itens).toHaveLength(5);
+    expect(ult).toMatchObject({ de: 21, ate: 25 });
+  });
+  it("opções 10/20/30/40/50; valor inválido volta para 10; página fora do intervalo é corrigida", () => {
+    for (const por of [10, 20, 30, 40, 50]) expect(paginarNotas(LISTA, 1, por).porPagina).toBe(por);
+    expect(paginarNotas(LISTA, 1, 15).porPagina).toBe(10);
+    expect(paginarNotas(LISTA, 99, 10).pagina).toBe(3);
+    expect(paginarNotas(LISTA, 0, 10).pagina).toBe(1);
+    expect(paginarNotas(LISTA, 1, 50)).toMatchObject({ paginas: 1, ate: 25 });
+  });
+  it("lista vazia: 1 página, sem intervalo", () => {
+    expect(paginarNotas([], 1, 10)).toMatchObject({ total: 0, paginas: 1, pagina: 1, de: 0, ate: 0, itens: [] });
   });
 });

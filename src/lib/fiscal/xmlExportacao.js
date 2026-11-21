@@ -56,6 +56,23 @@ export async function buscarXmls(supabase, { lojaId, de, ate, modelo = null, ter
   return { notas, total: Number(data?.total ?? notas.length), truncado: !!data?.truncado };
 }
 
+// O que fazer com as notas CANCELADAS ao listar e exportar. Antes havia só uma caixa "incluir XML de cancelamento", que mexia apenas
+// nos arquivos de evento dentro do ZIP e não mudava quais notas entravam: a nota cancelada sempre aparecia e sempre era exportada.
+export const OPCOES_CANCELADAS = [
+  { id: "com_evento", rotulo: "Incluir, com o XML do cancelamento" },
+  { id: "sem_evento", rotulo: "Incluir só a nota (sem o XML do cancelamento)" },
+  { id: "nao", rotulo: "Não incluir (só autorizadas)" },
+  { id: "so", rotulo: "Somente canceladas (com o XML do cancelamento)" },
+];
+/** @returns {{ notas:object[], incluirEventos:boolean }} a lista que vale para tela e ZIP e se os eventos de cancelamento entram. */
+export function aplicarCanceladas(notas = [], opcao = "com_evento") {
+  const cancelada = (n) => n.status === "cancelado";
+  if (opcao === "nao") return { notas: notas.filter((n) => !cancelada(n)), incluirEventos: false };
+  if (opcao === "so") return { notas: notas.filter(cancelada), incluirEventos: true };
+  if (opcao === "sem_evento") return { notas, incluirEventos: false };
+  return { notas, incluirEventos: true };
+}
+
 /** Busca os XMLs das notas pedidas, em lotes (o banco entrega no máximo 100 por chamada). */
 export async function baixarLote(supabase, ids, { onProgresso } = {}) {
   const todos = [];

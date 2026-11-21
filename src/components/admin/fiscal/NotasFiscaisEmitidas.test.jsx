@@ -21,7 +21,7 @@ function montar(documentosPorChamada) {
   act(() => root.render(<NotasFiscaisEmitidas supabase={{ rpc }} lojaInfo={{ id: 9, nome: "Burger Station" }} />));
   return rpc;
 }
-const passar = (ms) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+const passar = async (ms) => { await act(async () => { await vi.advanceTimersByTimeAsync(ms); }); await act(async () => { document.querySelectorAll('[data-testid="btn-expandir"][aria-expanded="false"]').forEach((b) => b.click()); }); };
 
 describe("Notas emitidas", () => {
   it("mostra a empresa consultada e, sem notas, orienta a conferir a empresa da venda", async () => {
