@@ -61,6 +61,12 @@ describe("Emissão: prontidão para produção e teste de conexão de produção
     expect(q("prontidao-conexao").dataset.ok).toBe("false");
     expect(lerTesteSalvo("9-producao")).toBeNull();
   });
+  it("cartão Ambiente de emissão no topo: mostra o ambiente da loja e a troca para produção", async () => {
+    await montar();
+    expect(q("ambiente-emissao").dataset.ambiente).toBe("homologacao");
+    expect(q("ambiente-atual").textContent).toBe("Homologação");
+    expect(q("trocar-producao")).not.toBeNull();
+  });
   it("o botão de teste de homologação continua testando homologação", async () => {
     await montar();
     await act(async () => { document.getElementById("emissao-testar-65").click(); });

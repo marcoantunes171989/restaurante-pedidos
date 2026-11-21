@@ -10,6 +10,7 @@ import { validarEmitenteFiscal } from "../../../lib/emitenteFiscalService";
 import { lerTesteSalvo, salvarTeste } from "../../../lib/fiscal/testeConexaoSalvo";
 import AssistenteAtivacaoFiscal from "./AssistenteAtivacaoFiscal";
 import ProntidaoProducao from "./ProntidaoProducao";
+import AmbienteEmissao from "./AmbienteEmissao";
 import { prontidaoProducao } from "../../../lib/fiscal/prontidaoProducao";
 
 // ════════════════════════════════════════════════════════════
@@ -221,6 +222,9 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     return { ok: true };
   }
 
+  // Troca rápida de ambiente (cartão "Ambiente de emissão"): a confirmação digitada é pedida no cartão; o banco ainda confere a trava da produção.
+  const trocarAmbiente = (destino) => (destino === "producao" ? ligarProducao() : ligarHomologacao());
+
   // Vindo do Painel Fiscal: depois de carregar, vai direto ao passo pendente (rola, destaca e põe o cursor).
   const focoFeito = useRef(false);
   useEffect(() => {
@@ -244,6 +248,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
 
   return (
     <div className="space-y-4" data-testid="emissao-fiscal-config">
+      <AmbienteEmissao nfceAmbiente={emitente?.nfceAmbiente} producao={producao} series={series} onTrocar={trocarAmbiente} />
       <AssistenteAtivacaoFiscal resultado={ativacao} onIr={irPara} onLigar={ligarHomologacao} producao={producao} onLigarProducao={ligarProducao} />
       <Aviso msg={msg.assist} />
       <ProntidaoProducao resultado={prontidao} />
