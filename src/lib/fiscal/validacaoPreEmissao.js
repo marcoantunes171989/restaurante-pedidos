@@ -90,7 +90,7 @@ export function problemasDoCertificado({ credenciais = null, documento = "", mod
  */
 export function problemasDosItens(itens = [], { crt = "", modelo = 65 } = {}) {
   const p = [];
-  const simples = ["1", "2"].includes(String(crt));
+  const simples = ["1", "2", "4"].includes(String(crt)); // 4 = MEI (Simples Nacional): usa CSOSN, igual ao gerador do XML
   for (const it of itens) {
     const f = it?.fiscal || {};
     const nome = it?.nome || "Item";

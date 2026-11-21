@@ -46,6 +46,10 @@ describe("certificado e CSC", () => {
 
 describe("itens", () => {
   it("produto correto: sem problemas", () => expect(problemasDosItens([ITEM], { crt: "1", modelo: 65 })).toEqual([]));
+  it("MEI (CRT 4) é Simples Nacional: confere CSOSN, não exige CST de ICMS", () => {
+    expect(problemasDosItens([ITEM], { crt: "4", modelo: 65 })).toEqual([]);
+    expect(codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, csosn: "" } }], { crt: "4", modelo: 65 }))).toContain("CSOSN");
+  });
   it("NCM curto, CFOP inválido ou não 5xxx na NFC-e, CSOSN/CST inválidos", () => {
     const c = codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, ncm: "2106", cfop: "6102", csosn: "999", cstPis: "", cstCofins: "77x" } }], { crt: "1", modelo: 65 }));
     expect(c).toEqual(expect.arrayContaining(["NCM", "CFOP_NFCE", "CSOSN", "CST_PIS", "CST_COFINS"]));
