@@ -4,7 +4,7 @@ import {
   buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
   consultarLiberacaoProducao,
 } from "../../../lib/fiscal/fiscalApi";
-import { situacaoCertificado, conferirMapaMeios, validarSerieForm } from "../../../lib/fiscal/emissaoConfig";
+import { situacaoCertificado, conferirMapaMeios, textoProblemasMeios, validarSerieForm } from "../../../lib/fiscal/emissaoConfig";
 import { passosAtivacao } from "../../../lib/fiscal/ativacaoFiscal";
 import { validarEmitenteFiscal } from "../../../lib/emitenteFiscalService";
 import { lerTesteSalvo, salvarTeste } from "../../../lib/fiscal/testeConexaoSalvo";
@@ -167,6 +167,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     const limpo = Object.fromEntries(Object.entries(mapa).filter(([, v]) => String(v || "").trim() !== "").map(([k, v]) => [k, String(v).trim()]));
     const c = conferirMapaMeios(formas, limpo);
     if (c.invalidos.length) return aviso("pag", "erro", `Use 2 dígitos no código de: ${c.invalidos.join(", ")}.`);
+    if (c.divergentes.length) return aviso("pag", "erro", `Código não combina com a forma: ${textoProblemasMeios(c)}.`);
     setEnviando("pag");
     try {
       await salvarConfigFiscalVenda(supabase, lojaId, { mapaMeios: limpo, taxaServicoTratamento: taxa || null });

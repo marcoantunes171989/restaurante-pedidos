@@ -18,18 +18,28 @@ export function situacaoCertificado(cred, agora = new Date()) {
 
 const ativa = (f) => f.active !== false && f.ativo !== false;
 
+// Código da NFC-e (tPag) que só uma forma pode ter: se o tipo da forma é sem ambiguidade, o código tem de combinar (a SEFAZ aceita código errado e a nota sai com a forma trocada).
+const CODIGO_DO_TIPO = { dinheiro: "01", cartao_credito: "03", cartao_debito: "04", pix: "17" };
+
+/** Texto único para tela: o que falta / está errado nos códigos de pagamento. */
+export function textoProblemasMeios(m) {
+  return [...m.semCodigo, ...m.invalidos, ...(m.divergentes || []).map((d) => `${d.nome} (está ${d.codigo}, o certo é ${d.esperado})`)].join(", ");
+}
+
 /** mapa: { [tipo] | ["id:<id>"]: "NN" } — o mesmo formato salvo na 175. */
 export function conferirMapaMeios(formas = [], mapa = {}) {
   const semCodigo = [];
   const invalidos = [];
+  const divergentes = [];
   for (const f of formas.filter(ativa)) {
     const cod = mapa?.[`id:${f.id}`] ?? mapa?.[f.tipo];
     // "Pontos" (programa de fidelidade) sem código fiscal é lançado como desconto incondicional na nota: não precisa de código.
     if ((cod == null || cod === "") && /pontos/i.test(String(f.nome ?? ""))) continue;
     if (cod == null || cod === "") semCodigo.push(f.nome);
     else if (!/^[0-9]{2}$/.test(String(cod))) invalidos.push(f.nome);
+    else if (CODIGO_DO_TIPO[f.tipo] && String(cod) !== CODIGO_DO_TIPO[f.tipo]) divergentes.push({ nome: f.nome, codigo: String(cod), esperado: CODIGO_DO_TIPO[f.tipo] });
   }
-  return { ok: semCodigo.length === 0 && invalidos.length === 0, semCodigo, invalidos };
+  return { ok: semCodigo.length === 0 && invalidos.length === 0 && divergentes.length === 0, semCodigo, invalidos, divergentes };
 }
 
 export function validarSerieForm({ modelo, ambiente, serie, proximoNumero } = {}) {
@@ -58,7 +68,7 @@ export function prontidaoEmissao({ emitente = null, credenciais = [], series = [
   ];
   if (emitente?.nfeHabilitada) itens.push({ id: "serie55", rotulo: "Série da NF-e em homologação", ok: temSerie(55), dica: "Cadastre a série da NF-e (separada da NFC-e)." });
   itens.push(
-    { id: "pagamentos", rotulo: "Código fiscal de cada forma de pagamento", ok: mapa.ok, dica: mapa.ok ? "" : `Faltam: ${[...mapa.semCodigo, ...mapa.invalidos].join(", ")}.` },
+    { id: "pagamentos", rotulo: "Código fiscal de cada forma de pagamento", ok: mapa.ok, dica: mapa.ok ? "" : `Corrija: ${textoProblemasMeios(mapa)}.` },
     { id: "taxa", rotulo: "Regra da taxa de serviço na nota", ok: ["outras_despesas", "fora_da_nota"].includes(config?.taxaServicoTratamento), dica: "Defina com o contador." },
   );
   return { pronto: itens.every((i) => i.ok), itens };

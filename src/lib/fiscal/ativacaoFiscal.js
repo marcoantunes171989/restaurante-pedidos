@@ -7,7 +7,7 @@
 
 import { pendenciasEmitenteNfce } from "../emitenteFiscalService.js";
 import { resolverFiscalProduto, pendenciasFiscais } from "../fiscalService.js";
-import { situacaoCertificado, conferirMapaMeios } from "./emissaoConfig.js";
+import { situacaoCertificado, conferirMapaMeios, textoProblemasMeios } from "./emissaoConfig.js";
 import { problemasDaEmpresa, problemasDoCertificado } from "./validacaoPreEmissao.js";
 
 const AMB = "homologacao";
@@ -74,7 +74,7 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
       detalhe: [nfce && !temSerie(65) ? "falta a série da NFC-e" : "", nfe && !temSerie(55) ? "falta a série da NF-e" : ""].filter(Boolean).join(" e ") || "Cadastradas." },
     { id: "pagamentos", titulo: "Pagamentos e taxa de serviço", alvo: "emissao-pag", acao: "Mapear pagamentos", destino: "Fiscal › Emissão › Pagamentos", foco: formaPendente ? `emissao-tpag-${formaPendente.id}` : "emissao-taxa",
       ok: mapa.ok && taxaOk,
-      detalhe: [!mapa.ok ? `Código fiscal faltando em: ${[...mapa.semCodigo, ...mapa.invalidos].join(", ")}` : "", !taxaOk ? "defina com o contador se a taxa de serviço entra na nota" : ""].filter(Boolean).join("; ") || "Configurado." },
+      detalhe: [!mapa.ok ? `Código fiscal a corrigir em: ${textoProblemasMeios(mapa)}` : "", !taxaOk ? "defina com o contador se a taxa de serviço entra na nota" : ""].filter(Boolean).join("; ") || "Configurado." },
     { id: "produtos", titulo: "Produtos com regra fiscal", alvo: "produtos",
       // Só falta o crédito do Simples (CSOSN 101)? Ele se informa em lote na mesma tela da Tributação.
       acao: semFiscal.length && semFiscal.every((x) => x.pendencias.every((t) => /Crédito do Simples/.test(t))) ? "Informar crédito do Simples" : "Corrigir produtos",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { situacaoCertificado, conferirMapaMeios, validarSerieForm, prontidaoEmissao } from "./emissaoConfig.js";
+import { situacaoCertificado, conferirMapaMeios, textoProblemasMeios, validarSerieForm, prontidaoEmissao } from "./emissaoConfig.js";
 
 const AGORA = new Date("2026-11-20T12:00:00Z");
 const cert = (fim) => ({ tipo: "certificado_a1", titular: "X:12345678000195", validadeFim: fim, cadastrado: true });
@@ -66,8 +66,22 @@ describe("prontidaoEmissao (lista do que falta para emitir em homologação)", (
 describe("conferirMapaMeios — Pontos não precisa de código (vira desconto)", () => {
   const formas = [{ id: 1, nome: "PIX", tipo: "pix" }, { id: 6, nome: "Pontos", tipo: "outro" }];
   it("Pontos sem código não é pendência; com código inválido ainda é", () => {
-    expect(conferirMapaMeios(formas, { "id:1": "17" })).toEqual({ ok: true, semCodigo: [], invalidos: [] });
+    expect(conferirMapaMeios(formas, { "id:1": "17" })).toEqual({ ok: true, semCodigo: [], invalidos: [], divergentes: [] });
     expect(conferirMapaMeios(formas, { "id:1": "17", "id:6": "1" }).invalidos).toEqual(["Pontos"]);
     expect(conferirMapaMeios(formas, { "id:6": "19" }).semCodigo).toEqual(["PIX"]);
+  });
+});
+
+describe("conferirMapaMeios — código combina com o tipo da forma", () => {
+  const FORMAS = [{ id: 22, nome: "Cartão de Crédito", tipo: "cartao_credito" }, { id: 23, nome: "Cartão de Débito", tipo: "cartao_debito" }, { id: 24, nome: "PIX", tipo: "pix" }];
+  it("débito com 02 (cheque) e PIX com 04 (débito) são apontados com o código certo", () => {
+    const r = conferirMapaMeios(FORMAS, { "id:22": "03", "id:23": "02", "id:24": "04" });
+    expect(r.ok).toBe(false);
+    expect(r.divergentes).toEqual([{ nome: "Cartão de Débito", codigo: "02", esperado: "04" }, { nome: "PIX", codigo: "04", esperado: "17" }]);
+    expect(textoProblemasMeios(r)).toMatch(/PIX \(está 04, o certo é 17\)/);
+  });
+  it("códigos certos passam; tipo ambíguo (outro) aceita qualquer código", () => {
+    expect(conferirMapaMeios(FORMAS, { "id:22": "03", "id:23": "04", "id:24": "17" }).ok).toBe(true);
+    expect(conferirMapaMeios([{ id: 1, nome: "Vale", tipo: "outro" }], { "id:1": "99" }).ok).toBe(true);
   });
 });

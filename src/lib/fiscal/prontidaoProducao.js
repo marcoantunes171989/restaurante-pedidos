@@ -9,7 +9,7 @@
 
 import { pendenciasEmitenteNfce } from "../emitenteFiscalService.js";
 import { resolverFiscalProduto } from "../fiscalService.js";
-import { situacaoCertificado, conferirMapaMeios } from "./emissaoConfig.js";
+import { situacaoCertificado, conferirMapaMeios, textoProblemasMeios } from "./emissaoConfig.js";
 import { problemasDosItens } from "./validacaoPreEmissao.js";
 
 const AMB = "producao";
@@ -68,7 +68,7 @@ export function prontidaoProducao({
     { id: "serie", rotulo: "Série da NFC-e em PRODUÇÃO (numeração que não colide com outro emissor)", ok: !!serie, bloqueia: true, dica: "Cadastre a série e o próximo número de produção em Séries e numeração. Use um número que nenhum outro sistema já tenha usado neste CNPJ." },
     { id: "csc", rotulo: "CSC de produção cadastrado (usado na contingência off-line)", ok: !!csc, bloqueia: true, dica: "Gere o CSC no portal da NFC-e da SEFAZ-SP e cadastre em CSC da NFC-e (ambiente Produção)." },
     { id: "homologacao", rotulo: "Pelo menos 1 NFC-e autorizada em homologação neste ambiente", ok: homologada && producao != null, bloqueia: true, dica: "Emita uma nota de teste em homologação aqui mesmo (a trava do banco confere neste banco)." },
-    { id: "pagamentos", rotulo: "Código fiscal de cada forma de pagamento (cartão = 03/04, PIX = 17…)", ok: mapa.ok, bloqueia: true, dica: mapa.ok ? "" : `Faltam: ${[...mapa.semCodigo, ...mapa.invalidos].join(", ")}.` },
+    { id: "pagamentos", rotulo: "Código fiscal de cada forma de pagamento (cartão = 03/04, PIX = 17…)", ok: mapa.ok, bloqueia: true, dica: mapa.ok ? "" : `Corrija: ${textoProblemasMeios(mapa)}.` },
     { id: "taxa", rotulo: "Regra da taxa de serviço na nota (confirmada com o contador)", ok: ["outras_despesas", "fora_da_nota"].includes(config?.taxaServicoTratamento), bloqueia: true, dica: "Defina em Pagamentos e taxa de serviço na nota." },
     { id: "produtos", rotulo: mei ? "Produtos prontos para MEI (NCM, CSOSN 102, CFOP 5102, PIS/COFINS)" : "Produtos com cadastro fiscal completo", ok: prods.length === 0, bloqueia: false,
       dica: prods.length ? `${prods.length} produto(s) com problema, por exemplo: ${prods.slice(0, 3).map((x) => `${x.nome} (${x.problemas[0]})`).join("; ")}.` : "" },
