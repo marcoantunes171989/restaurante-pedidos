@@ -99,3 +99,12 @@ describe("EPEC (110140) a partir da NF-e", () => {
     expect(() => detEpecDaNFe("<NFe><infNFe><ide><cUF>35</cUF><mod>55</mod><tpEmis>4</tpEmis><dhEmi>2026-11-17T12:31:00-03:00</dhEmi><tpNF>1</tpNF></ide><emit><IE>123456789012</IE><enderEmit><UF>SP</UF></enderEmit></emit><total><ICMSTot><vICMS>0.00</vICMS><vST>0.00</vST><vNF>30.00</vNF></ICMSTot></total></infNFe></NFe>")).toThrow(/destinatário/);
   });
 });
+
+describe("protocolo de autorização de 15 ou 17 dígitos (leiaute TProt)", () => {
+  it("o cancelamento aceita o protocolo de 17 dígitos que a SEFAZ-SP devolve", async () => {
+    const { detCancelamento } = await import("./eventos.js");
+    expect(detCancelamento({ nProt: "13526000027649606", xJust: "Cancelamento de teste da nota" })).toContain("<nProt>13526000027649606</nProt>");
+    expect(detCancelamento({ nProt: "135260000276496", xJust: "Cancelamento de teste da nota" })).toContain("<nProt>135260000276496</nProt>");
+    expect(() => detCancelamento({ nProt: "1352600002764960", xJust: "Cancelamento de teste da nota" })).toThrow(/15 ou 17/);
+  });
+});

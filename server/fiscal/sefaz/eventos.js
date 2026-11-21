@@ -27,7 +27,7 @@ function texto(valor, min, max, rotulo) {
   return esc(t);
 }
 function protocolo(nProt) {
-  if (!/^[0-9]{15}$/.test(String(nProt || ""))) throw new Error("Protocolo de autorização inválido (15 dígitos).");
+  if (!/^([0-9]{15}|[0-9]{17})$/.test(String(nProt || ""))) throw new Error("Protocolo de autorização inválido (15 ou 17 dígitos).");
   return nProt;
 }
 
