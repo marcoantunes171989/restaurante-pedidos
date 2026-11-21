@@ -1693,8 +1693,9 @@ export default function CashierPdv({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paletaAberta, ajusteModal, passo, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta, excluirPendente]);
+    // Sem lista de dependências de propósito: o atalho (F5 = fechar conta etc.) tem de enxergar SEMPRE o estado atual. Com a lista
+    // antiga ele usava um CPF/CNPJ velho (vazio) e a nota saía sem o documento do consumidor digitado no passo Fechar.
+  });
 
   const temConta = !!contaSel;
   const emiteNotaTela = nfceNaLoja || nfeNaLoja;

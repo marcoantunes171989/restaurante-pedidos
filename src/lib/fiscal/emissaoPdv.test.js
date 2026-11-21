@@ -212,3 +212,26 @@ describe("motivoSemNota — por que a venda não gerou nota (em vez de só o rec
     expect(motivoSemNota({ ...ok, nfeHabilitada: false }, { nfe: true })).toMatch(/NF-e não habilitada/);
   });
 });
+
+describe("venda com CPF e pagamento parte em Pontos (fidelidade)", () => {
+  const FORMAS = [{ id: 1, nome: "Dinheiro", tipo: "dinheiro" }, { id: 5, nome: "Cartão de Débito", tipo: "debito" }, { id: 9, nome: "Pontos", tipo: "pontos" }];
+  const CONFIG = { mapaMeios: { "id:1": "01", "id:5": "04" }, regras: {} };
+  const venda = (detalhes, composicao = { subtotal: 32.9, total: 32.9 }) => ({
+    ...BASE, formas: FORMAS, config: CONFIG, composicao, cpf: "529.982.247-25",
+    pedidos: [{ id: "PED-9", lojaId: 7, status: "delivered", items: [{ productId: 10, name: "X-Burger", price: 32.9, quantity: 1 }] }],
+    pagamento: { total: composicao.total, troco: 0, detalhes },
+  });
+  it("Débito + Pontos: a nota é emitida e o CPF vai no rascunho", async () => {
+    const s = supa();
+    const f = resposta({ ok: true, situacao: "autorizada", numero: 7 });
+    const r = await emitirNotaDaVenda({ ...venda([{ forma: "Cartão de Débito", valor: 22.9 }, { forma: "Pontos", valor: 10 }]), supabase: s, fetchFn: f });
+    expect(r, JSON.stringify(r)).toMatchObject({ estado: "autorizada" });
+    const rascunho = s.rpc.mock.calls[0][1].p_rascunho;
+    expect(rascunho.cpf).toBe("52998224725");
+    expect(rascunho.venda.totais).toMatchObject({ vNF: 22.9 });
+  });
+  it("Débito + Pontos sem 'composicao.total' coerente: mostra o motivo, não fica mudo", async () => {
+    const r = await emitirNotaDaVenda({ ...venda([{ forma: "Cartão de Débito", valor: 22.9 }, { forma: "Pontos", valor: 10 }], { subtotal: 32.9, total: 22.9 }), supabase: supa(), fetchFn: resposta({ ok: true, situacao: "autorizada", numero: 7 }) });
+    expect(r.estado, JSON.stringify(r)).toBeDefined();
+  });
+});

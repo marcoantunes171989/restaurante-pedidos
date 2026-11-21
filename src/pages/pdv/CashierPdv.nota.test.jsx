@@ -288,7 +288,7 @@ describe("PDV: CPF/CNPJ na nota", () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, v);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  async function fecharComCpf(cpf) {
+  async function fecharComCpf(cpf, { viaF5 = false } = {}) {
     const { default: CashierPdv } = await import("./CashierPdv.jsx");
     globalThis.fetch = async (url, init) => { chamadas.push(`fetch:${url}:${JSON.parse(init.body).acao}`); return { status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 7 }) }; };
     const base = supabaseCom(EMIT_BANCO_HML);
@@ -306,11 +306,17 @@ describe("PDV: CPF/CNPJ na nota", () => {
     await act(async () => { principal().click(); }); // → Fechar
     await esperar();
     if (cpf != null) await digitar(el.querySelector("input[placeholder=\"Só números\"]"), cpf);
-    await act(async () => { principal().click(); }); // fecha e emite
+    if (viaF5) await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", bubbles: true })); });
+    else await act(async () => { principal().click(); }); // fecha e emite
     await esperar(300);
   }
   it("CPF digitado no passo Fechar vai para o rascunho da nota", async () => {
     await fecharComCpf("529.982.247-25");
+    expect(reservas).toHaveLength(1);
+    expect(reservas[0].p_rascunho.cpf).toBe("52998224725");
+  });
+  it("fechar com a tecla F5 depois de digitar o CPF: o CPF vai na nota (não o valor antigo)", async () => {
+    await fecharComCpf("529.982.247-25", { viaF5: true });
     expect(reservas).toHaveLength(1);
     expect(reservas[0].p_rascunho.cpf).toBe("52998224725");
   });
