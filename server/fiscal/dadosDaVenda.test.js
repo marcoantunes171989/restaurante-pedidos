@@ -224,8 +224,8 @@ describe("pagamento em cartão (rejeição 391: grupo <card>)", () => {
     await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
     return { venda, nfe: enviados.map((x) => x.match(/<NFe[\s\S]*<\/NFe>/)?.[0]).find(Boolean) };
   };
-  it("débito (04) e crédito (03) levam <card><tpIntegra>2</tpIntegra></card> e passam no XSD", async () => {
-    for (const [forma, tipo, meio] of [["Cartão de Débito", "debito", "04"], ["Cartão de Crédito", "credito", "03"]]) {
+  it("débito (04), crédito (03) e PIX (17) levam <card><tpIntegra>2</tpIntegra></card> e passam no XSD", async () => {
+    for (const [forma, tipo, meio] of [["Cartão de Débito", "debito", "04"], ["Cartão de Crédito", "credito", "03"], ["PIX", "pix", "17"]]) {
       const { venda, nfe } = await emitirCom(forma, tipo, meio);
       expect(venda.pagamentos[0].meio, `${forma}: ${JSON.stringify(venda.pendencias)}`).toBe(meio);
       expect(nfe, forma).toContain(`<tPag>${meio}</tPag><vPag>44.00</vPag><card><tpIntegra>2</tpIntegra></card>`);
@@ -233,8 +233,7 @@ describe("pagamento em cartão (rejeição 391: grupo <card>)", () => {
       expect(v.valido, JSON.stringify(v)).toBe(true);
     }
   });
-  it("dinheiro (01) e PIX (17) não levam <card>", async () => {
+  it("dinheiro (01) não leva <card>", async () => {
     expect((await emitirCom("Dinheiro", "dinheiro", "01")).nfe).not.toContain("<card>");
-    expect((await emitirCom("PIX", "pix", "17")).nfe).not.toContain("<card>");
   });
 });
