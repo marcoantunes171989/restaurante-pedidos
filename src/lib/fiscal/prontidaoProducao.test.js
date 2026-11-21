@@ -71,3 +71,13 @@ describe("prontidão para PRODUÇÃO (MEI)", () => {
     expect(r).toMatchObject({ bloqueios: 0, avisos: 1, pronto: false });
   });
 });
+
+describe("faltas da NF-e não se confundem com as da NFC-e", () => {
+  it("só falta NF-e: o item da NFC-e fica ok e aparece um item próprio da NF-e com a saída", () => {
+    const r = prontidaoProducao(base({ producao: { faltas: ["Pelo menos 1 NF-e autorizada em homologação.", "Série da NF-e em produção."], liberada: false } }));
+    expect(r.itens.find((i) => i.id === "homologacao").ok).toBe(true);
+    const nfe = r.itens.find((i) => i.id === "nfe");
+    expect(nfe).toMatchObject({ ok: false, bloqueia: true });
+    expect(nfe.dica).toMatch(/desabilite a NF-e/);
+  });
+});

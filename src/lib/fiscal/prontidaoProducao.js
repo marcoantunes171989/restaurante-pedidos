@@ -55,10 +55,12 @@ export function prontidaoProducao({
   const serie = series.find((s) => Number(s.modelo) === 65 && s.ambiente === AMB && s.ativa);
   const mapa = conferirMapaMeios(formas, config?.mapaMeios || {});
   const faltasBanco = Array.isArray(producao?.faltas) ? producao.faltas : [];
-  const homologada = !faltasBanco.some((f) => /autorizada em homologa/i.test(f));
+  const homologada = !faltasBanco.some((f) => /NFC-e autorizada em homologa/i.test(f));
   const pendEmitente = emitente ? pendenciasEmitenteNfce(emitente, documentoLoja) : ["Cadastro fiscal da empresa"];
   const prods = produtosComProblemaDeProducao({ produtos, regrasLoja, ctxFiscal, crt });
   const mei = crt === "4";
+  // A trava também cobra a NF-e quando ela está habilitada: se a loja só emite NFC-e, a saída é desabilitar a NF-e.
+  const faltaNfe = faltasBanco.filter((f) => /NF-e/.test(f) && !/NFC-e/.test(f));
 
   const itens = [
     { id: "nfce", rotulo: "NFC-e habilitada no cadastro da empresa", ok: emitente?.nfceHabilitada === true, bloqueia: true, dica: "Habilite a NFC-e em Dados da Empresa." },
@@ -74,6 +76,7 @@ export function prontidaoProducao({
       dica: prods.length ? `${prods.length} produto(s) com problema, por exemplo: ${prods.slice(0, 3).map((x) => `${x.nome} (${x.problemas[0]})`).join("; ")}.` : "" },
     { id: "conexao", rotulo: "Teste de conexão com a SEFAZ de PRODUÇÃO feito com sucesso", ok: testeProducao?.ok === true, bloqueia: false, dica: "Use o botão Testar conexão (produção) na seção do certificado. É só uma consulta de status." },
   ];
+  if (faltaNfe.length) itens.splice(1, 0, { id: "nfe", rotulo: "NF-e habilitada exige série e nota de teste próprias", ok: false, bloqueia: true, dica: `${faltaNfe.join(" ")} Se a loja só emite NFC-e, desabilite a NF-e em Dados da Empresa.` });
   const bloqueios = itens.filter((i) => !i.ok && i.bloqueia).length;
   const avisos = itens.filter((i) => !i.ok && !i.bloqueia).length;
   return { pronto: bloqueios === 0 && avisos === 0, bloqueios, avisos, itens, produtosComProblema: prods, emProducao: producao?.emProducao === true };
