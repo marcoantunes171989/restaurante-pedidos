@@ -77,9 +77,11 @@ export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false } = {
 }
 
 /** UUID estável da venda: SHA-256 de loja + pedidos (ordenados). */
-export async function chaveIdempotenciaVenda(lojaId, pedidosIds = [], subtle = globalThis.crypto?.subtle) {
+export async function chaveIdempotenciaVenda(lojaId, pedidosIds = [], subtle = globalThis.crypto?.subtle, tentativa = 0) {
   if (!subtle) throw new Error("Navegador sem criptografia para gerar a chave da venda.");
-  const base = `pp-venda-fiscal:v1:${lojaId}:${[...pedidosIds].map(String).sort().join(",")}`;
+  // `tentativa` > 0: a nota anterior da venda foi DESCARTADA (número não usado); a venda ganha uma chave nova para emitir de novo.
+  // Tentativa 0 mantém exatamente a chave de sempre (nada muda para as notas existentes).
+  const base = `pp-venda-fiscal:v1:${lojaId}:${[...pedidosIds].map(String).sort().join(",")}${tentativa > 0 ? `:r${tentativa}` : ""}`;
   const h = new Uint8Array(await subtle.digest("SHA-256", new TextEncoder().encode(base)));
   h[6] = (h[6] & 0x0f) | 0x50; // versão 5 (derivado por hash)
   h[8] = (h[8] & 0x3f) | 0x80; // variante RFC 4122
@@ -126,7 +128,7 @@ export function dadosNotaContaOperacional({ pedido, subtotal, total, detalhes = 
  */
 export async function emitirNotaDaVenda({
   supabase, emitente, pedidos = [], produtos = [], composicao = {}, pagamento = {}, formas = [],
-  config = {}, ctxFiscal = {}, cpf = "", modelo = 65, destinatario = null, ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle,
+  config = {}, ctxFiscal = {}, cpf = "", modelo = 65, destinatario = null, ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle, tentativa = 0,
 } = {}) {
   const nfe = Number(modelo) === 55;
   const ambiente = ativo ? (nfe ? ambienteNfeDaLoja(emitente) : ambienteNfceDaLoja(emitente)) : null;
@@ -153,7 +155,7 @@ export async function emitirNotaDaVenda({
 
   let reserva;
   try {
-    const idempotencyKey = await chaveIdempotenciaVenda(venda.lojaId, venda.pedidosIds, subtle);
+    const idempotencyKey = await chaveIdempotenciaVenda(venda.lojaId, venda.pedidosIds, subtle, tentativa);
     reserva = await reservarDocumentoFiscal(supabase, {
       lojaId: venda.lojaId, modelo: nfe ? 55 : 65, ambiente, idempotencyKey,
       rascunho: { versao: 1, origem: "pdv", venda, cpf: nfe ? "" : normalizarDocumentoFiscal(cpf), ...(nfe ? { dest: destinatario } : {}) },

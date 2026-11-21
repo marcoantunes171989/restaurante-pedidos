@@ -199,6 +199,8 @@ function grupoIbsCbs(x, nItem) {
 // ── Documento ──────────────────────────────────────────────
 // Em HOMOLOGAÇÃO (tpAmb=2) a SEFAZ exige esta descrição no 1º item (rejeição 373): a nota é só de teste.
 export const XPROD_HOMOLOGACAO = "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
+// Em homologação, com CPF/CNPJ do destinatário na nota, a SEFAZ exige este nome (rejeição 598): NF-e e NFC-e.
+export const XNOME_DEST_HOMOLOGACAO = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
 
 /**
  * @param {object} d
@@ -269,7 +271,7 @@ export function montarXmlNFe(d = {}) {
     const enderDest = de ? g("enderDest", t("xLgr", de.xLgr, { texto: true, max: 60 }) + t("nro", de.nro, { texto: true, max: 60 }) + t("xCpl", de.xCpl, { texto: true, max: 60 }) +
       t("xBairro", de.xBairro, { texto: true, max: 60 }) + t("cMun", de.cMun) + t("xMun", de.xMun, { texto: true, max: 60 }) + t("UF", de.UF) +
       t("CEP", de.CEP ? somenteDig(de.CEP) : "") + t("cPais", "1058") + t("xPais", "Brasil") + t("fone", de.fone ? somenteDig(de.fone) : "")) : "";
-    destXml = g("dest", (ds.CNPJ ? t("CNPJ", ds.CNPJ) : t("CPF", somenteDig(ds.CPF))) + t("xNome", ds.xNome, { texto: true, max: 60 }) + enderDest +
+    destXml = g("dest", (ds.CNPJ ? t("CNPJ", ds.CNPJ) : t("CPF", somenteDig(ds.CPF))) + t("xNome", Number(ide.tpAmb) === 2 ? XNOME_DEST_HOMOLOGACAO : ds.xNome, { texto: true, max: 60 }) + enderDest +
       t("indIEDest", ds.indIEDest ?? "9") + t("IE", ds.IE ? somenteDig(ds.IE) : ""));
   } else if (mod === 55) {
     throw new Error("NF-e (55) exige destinatário.");

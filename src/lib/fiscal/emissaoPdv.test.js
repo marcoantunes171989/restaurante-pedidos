@@ -235,3 +235,14 @@ describe("venda com CPF e pagamento parte em Pontos (fidelidade)", () => {
     expect(r.estado, JSON.stringify(r)).toBeDefined();
   });
 });
+
+describe("chave de idempotência com tentativa (número descartado)", () => {
+  it("tentativa 0 mantém a chave de sempre; tentativa > 0 gera outra, estável", async () => {
+    const a = await chaveIdempotenciaVenda(9, ["P1", "P2"], subtle);
+    expect(await chaveIdempotenciaVenda(9, ["P2", "P1"], subtle, 0)).toBe(a);
+    const b = await chaveIdempotenciaVenda(9, ["P1", "P2"], subtle, 1);
+    expect(b).not.toBe(a);
+    expect(await chaveIdempotenciaVenda(9, ["P1", "P2"], subtle, 1)).toBe(b);
+    expect(await chaveIdempotenciaVenda(9, ["P1", "P2"], subtle, 2)).not.toBe(b);
+  });
+});

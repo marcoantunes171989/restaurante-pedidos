@@ -105,7 +105,7 @@ export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], p
       const d = dadosDaEmissao({ selecionadas, taxa, desconto, linhas });
       const n = await emitirNotaDaVenda({
         supabase, emitente: fiscal.emitente, pedidos: d.pedidos, produtos, composicao: d.composicao, pagamento: d.pagamento,
-        formas: formasPagamento, config: fiscal.config || {}, ctxFiscal, modelo: 65, cpf,
+        formas: formasPagamento, config: fiscal.config || {}, ctxFiscal, modelo: 65, cpf, tentativa: Math.max(0, ...selecionadas.map((v) => v.tentativa || 0)),
       });
       const existe = !!n.documentoId || ["autorizada", "contingencia"].includes(n.estado);
       setResultado({ ok: n.estado === "autorizada" || n.estado === "contingencia", texto: [n.titulo, n.detalhe].filter(Boolean).join(": ") + (existe && n.estado !== "autorizada" ? " A nota está em Notas emitidas." : "") });
@@ -143,7 +143,7 @@ export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], p
             <li key={v.id} className="flex flex-wrap items-center gap-3 px-3 py-2">
               <input type="checkbox" checked={sel.has(v.id)} onChange={() => alternar(v.id)} aria-label={`Selecionar ${v.id}`} className="h-4 w-4" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-bold text-[var(--pp-text)]">{v.mesa || "Pedido"} {v.comanda ? `· ${v.comanda}` : ""} <span className="font-normal text-[var(--pp-text-muted)]">· {v.id}</span></p>
+                <p className="truncate text-[13px] font-bold text-[var(--pp-text)]">{v.mesa || "Pedido"} {v.comanda ? `· ${v.comanda}` : ""} <span className="font-normal text-[var(--pp-text-muted)]">· {v.id}</span>{v.tentativa > 0 && <span className="ml-1 rounded-md bg-[#FEF3E2] px-1.5 py-0.5 text-[10px] font-bold text-[#8A5200]">número anterior descartado</span>}</p>
                 <p className="text-[12px] text-[var(--pp-text-muted)]">{dataHora(v.quando)} · {v.itens} item(ns){v.forma ? ` · pago em ${v.forma}` : ""}</p>
               </div>
               <span className="text-[13px] font-bold tabular-nums text-[var(--pp-text)]">{brl(v.subtotal)}</span>

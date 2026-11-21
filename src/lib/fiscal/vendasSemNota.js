@@ -14,11 +14,17 @@ const reais = (c) => Math.round(c) / 100;
 
 export const subtotalDoPedido = (o) => reais((o?.items || []).reduce((s, it) => s + centavos((Number(it.price) || 0) * (Number(it.quantity) || 0)), 0));
 
-/** ids de pedidos que já têm nota (qualquer situação). */
+/** ids de pedidos que já têm nota. Número DESCARTADO não conta: a venda volta a ficar sem nota e pode ser emitida de novo. */
 export function pedidosComNota(documentos = []) {
   const ids = new Set();
-  for (const d of documentos) for (const id of d?.pedidosIds || []) ids.add(String(id));
+  for (const d of documentos) { if (d?.status === "descartado") continue; for (const id of d?.pedidosIds || []) ids.add(String(id)); }
   return ids;
+}
+
+/** Quantas notas desta venda já foram descartadas (a próxima emissão usa uma chave nova: não reaproveita o número descartado). */
+export function tentativasDescartadas(documentos = [], pedidosIds = []) {
+  const alvo = new Set(pedidosIds.map(String));
+  return documentos.filter((d) => d?.status === "descartado" && (d.pedidosIds || []).some((id) => alvo.has(String(id)))).length;
 }
 
 /**
@@ -27,6 +33,7 @@ export function pedidosComNota(documentos = []) {
  */
 export function vendasSemNota({ orders = [], documentos = [], lojaId, desde = null } = {}) {
   const cobertos = pedidosComNota(documentos);
+  const descartes = (id) => tentativasDescartadas(documentos, [id]);
   const ini = desde ? new Date(desde).getTime() : null;
   return orders
     .filter((o) => o && (lojaId == null || o.lojaId == null || Number(o.lojaId) === Number(lojaId)))
@@ -36,7 +43,7 @@ export function vendasSemNota({ orders = [], documentos = [], lojaId, desde = nu
     .filter((o) => ini == null || !o.createdAtISO || new Date(o.createdAtISO).getTime() >= ini)
     .map((o) => ({
       id: String(o.id), pedido: o, mesa: o.table || "", comanda: o.command || "", quando: o.createdAtISO || null,
-      subtotal: subtotalDoPedido(o), itens: (o.items || []).reduce((s, it) => s + (Number(it.quantity) || 0), 0), forma: o.pagamentoForma || "",
+      tentativa: descartes(String(o.id)), subtotal: subtotalDoPedido(o), itens: (o.items || []).reduce((s, it) => s + (Number(it.quantity) || 0), 0), forma: o.pagamentoForma || "",
     }))
     .sort((a, b) => String(b.quando || "").localeCompare(String(a.quando || "")));
 }

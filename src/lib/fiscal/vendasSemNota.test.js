@@ -11,11 +11,11 @@ describe("vendas pagas sem nota", () => {
     const docs = [{ pedidosIds: ["E"], status: "autorizado" }];
     expect(vendasSemNota({ orders, documentos: docs, lojaId: 9 }).map((v) => v.id)).toEqual(["A"]);
   });
-  it("pedido que já tem QUALQUER nota (até rejeitada ou descartada) não aparece: a nota dele se resolve em Notas emitidas", () => {
+  it("pedido que já tem nota (autorizada, rejeitada…) não aparece: a nota dele se resolve em Notas emitidas; só o número descartado libera a venda", () => {
     const orders = [pedido("A"), pedido("B"), pedido("C")];
     const docs = [{ pedidosIds: ["A"], status: "rejeitado" }, { pedidosIds: ["B"], status: "descartado" }];
-    expect(vendasSemNota({ orders, documentos: docs, lojaId: 9 }).map((v) => v.id)).toEqual(["C"]);
-    expect([...pedidosComNota(docs)].sort()).toEqual(["A", "B"]);
+    expect(vendasSemNota({ orders, documentos: docs, lojaId: 9 }).map((v) => v.id).sort()).toEqual(["B", "C"]);
+    expect([...pedidosComNota(docs)].sort()).toEqual(["A"]);
   });
   it("filtra por período e ordena do mais novo para o mais antigo", () => {
     const orders = [pedido("A", { createdAtISO: "2026-11-10T10:00:00Z" }), pedido("B", { createdAtISO: "2026-11-20T10:00:00Z" }), pedido("C", { createdAtISO: "2026-11-21T10:00:00Z" })];
@@ -68,5 +68,15 @@ describe("totais e pagamentos da nota", () => {
     expect(d.pedidos).toHaveLength(2);
     expect(d.composicao).toMatchObject({ subtotal: 103.6, taxaServico: 10.36, total: 113.96 });
     expect(d.pagamento).toEqual({ total: 113.96, troco: 0, detalhes: [{ forma: "PIX", valor: 113.96 }] });
+  });
+});
+
+describe("número descartado libera a venda para emitir de novo", () => {
+  it("pedido cuja única nota foi descartada volta à lista, com a contagem de tentativas", () => {
+    const orders = [pedido("A"), pedido("B"), pedido("C")];
+    const docs = [{ pedidosIds: ["A"], status: "descartado" }, { pedidosIds: ["B"], status: "rejeitado" }, { pedidosIds: ["C"], status: "descartado" }, { pedidosIds: ["C"], status: "autorizado" }];
+    const v = vendasSemNota({ orders, documentos: docs, lojaId: 9 });
+    expect(v.map((x) => x.id)).toEqual(["A"]); // B tem nota rejeitada (resolve em Notas emitidas); C já tem nota autorizada
+    expect(v[0].tentativa).toBe(1);
   });
 });

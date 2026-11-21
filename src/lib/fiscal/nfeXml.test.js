@@ -113,7 +113,7 @@ describe("montarXmlNFe — NFC-e (65)", () => {
 describe("montarXmlNFe — variações", () => {
   it("consumidor com CPF na nota", () => {
     const { xml } = montarXmlNFe(base({ dest: { CPF: "12345678909" } }));
-    expect(xml).toContain("<dest><CPF>12345678909</CPF><indIEDest>9</indIEDest></dest>");
+    expect(xml).toContain("<dest><CPF>12345678909</CPF><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><indIEDest>9</indIEDest></dest>");
   });
   it("NF-e (55): DANFE retrato e destinatário com nome", () => {
     const ender = { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310-100" };
@@ -122,7 +122,7 @@ describe("montarXmlNFe — variações", () => {
     const { xml } = montarXmlNFe(b);
     expect(tag(xml, "mod")).toBe("55");
     expect(tag(xml, "tpImp")).toBe("1");
-    expect(xml).toContain("<dest><CNPJ>11222333000181</CNPJ><xNome>Empresa Cliente Ltda</xNome><enderDest><xLgr>Av Paulista</xLgr><nro>1000</nro><xBairro>Bela Vista</xBairro><cMun>3550308</cMun><xMun>São Paulo</xMun><UF>SP</UF><CEP>01310100</CEP><cPais>1058</cPais><xPais>Brasil</xPais></enderDest><indIEDest>1</indIEDest><IE>111222333444</IE></dest>");
+    expect(xml).toContain("<dest><CNPJ>11222333000181</CNPJ><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><enderDest><xLgr>Av Paulista</xLgr><nro>1000</nro><xBairro>Bela Vista</xBairro><cMun>3550308</cMun><xMun>São Paulo</xMun><UF>SP</UF><CEP>01310100</CEP><cPais>1058</cPais><xPais>Brasil</xPais></enderDest><indIEDest>1</indIEDest><IE>111222333444</IE></dest>");
   });
   it("NF-e (55) sem endereço do destinatário → erro (rejeição 726)", () => {
     const b = base({ dest: { CNPJ: "11222333000181", xNome: "Empresa Cliente Ltda", indIEDest: "9" } });
@@ -279,5 +279,33 @@ describe("campos de texto do emitente respeitam o tamanho do leiaute (60)", () =
     const { xml } = montarXmlNFe({ ...b, emit: { ...b.emit, xNome: "Razão ".repeat(20), ender: { ...b.emit.ender, xLgr: "Rua ".repeat(30) } } });
     expect(xml.match(/<emit>[\s\S]*?<xNome>([^<]*)<\/xNome>/)[1].length).toBeLessThanOrEqual(60);
     expect(xml.match(/<xLgr>([^<]*)<\/xLgr>/)[1].length).toBeLessThanOrEqual(60);
+  });
+});
+
+describe("nome do destinatário em homologação (rejeição 598)", async () => {
+  const { montarXmlNFe, XNOME_DEST_HOMOLOGACAO } = await import("./nfeXml.js");
+  const base = (tpAmb, dest) => ({
+    chave: "35261144422195000133650010000000051474534564",
+    ide: { cUF: "35", cNF: "47453456", natOp: "Venda de mercadoria", mod: 65, serie: 1, nNF: 5, dhEmi: "2026-11-21T02:10:25Z", tpAmb, cMunFG: "3518206" },
+    emit: { CNPJ: "44422195000133", xNome: "Empresa Teste", IE: "110042490114", CRT: "4", ender: { xLgr: "Rua A", nro: "1", xBairro: "Centro", cMun: "3518206", xMun: "Guararapes", UF: "SP", CEP: "16705424" } },
+    dest,
+    itens: [{ cProd: "1", xProd: "X-Burger", NCM: "21069090", CFOP: "5102", uCom: "UN", qCom: 1, vUnCom: 30, vProd: 30, icms: { grupo: "ICMSSN102", orig: "0", CSOSN: "102" }, pis: { grupo: "PISNT", CST: "04" }, cofins: { grupo: "COFINSNT", CST: "04" } }],
+    pag: { detPag: [{ tPag: "01", vPag: 30 }] },
+  });
+  it("homologação com CPF: o nome do destinatário é o texto padrão da SEFAZ (NFC-e)", () => {
+    const { xml } = montarXmlNFe(base(2, { CPF: "52998224725", indIEDest: "9" }));
+    expect(xml).toContain(`<dest><CPF>52998224725</CPF><xNome>${XNOME_DEST_HOMOLOGACAO}</xNome><indIEDest>9</indIEDest></dest>`);
+  });
+  it("homologação: mesmo que venha outro nome, vale o texto padrão (NF-e e NFC-e)", () => {
+    const { xml } = montarXmlNFe({ ...base(2, { CNPJ: "11222333000181", xNome: "Cliente Qualquer Ltda", indIEDest: "9" }) });
+    expect(xml).toContain(`<xNome>${XNOME_DEST_HOMOLOGACAO}</xNome>`);
+    expect(xml).not.toContain("Cliente Qualquer");
+  });
+  it("produção: a NFC-e leva só o CPF (sem inventar nome); o nome digitado vai como está", () => {
+    expect(montarXmlNFe(base(1, { CPF: "52998224725", indIEDest: "9" })).xml).toContain("<dest><CPF>52998224725</CPF><indIEDest>9</indIEDest></dest>");
+    expect(montarXmlNFe(base(1, { CNPJ: "11222333000181", xNome: "Cliente Ltda", indIEDest: "9" })).xml).toContain("<xNome>Cliente Ltda</xNome>");
+  });
+  it("o texto padrão cabe em 60 caracteres (limite do campo)", () => {
+    expect(XNOME_DEST_HOMOLOGACAO.length).toBeLessThanOrEqual(60);
   });
 });

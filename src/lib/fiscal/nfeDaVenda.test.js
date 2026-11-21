@@ -71,7 +71,7 @@ describe("dadosNFeDaVenda", () => {
   });
   it("CPF na nota vira destinatário", () => {
     const r = dadosNFeDaVenda({ ...BASE, venda: venda(), cpfConsumidor: "123.456.789-09" });
-    expect(montarXmlNFe(r.dados).xml).toContain("<dest><CPF>12345678909</CPF><indIEDest>9</indIEDest></dest>");
+    expect(montarXmlNFe(r.dados).xml).toContain("<dest><CPF>12345678909</CPF><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><indIEDest>9</indIEDest></dest>");
   });
   it("venda com pendências não gera nota", () => {
     const v = venda({ mapaMeios: {} });

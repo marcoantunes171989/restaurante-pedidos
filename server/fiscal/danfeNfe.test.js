@@ -45,7 +45,7 @@ describe("dadosDanfeNfe", () => {
     expect(r.ok, r.erro).toBe(true);
     const d = dadosDanfeNfe({ xml: PROC, fonte: "autorizada" });
     expect(d).toMatchObject({ numero: 42, serie: 1, tpNF: "1", homologacao: true, epec: null });
-    expect(d.destinatario).toMatchObject({ cnpj: "11222333000181", nome: "Empresa Cliente Ltda", ie: "111222333444" });
+    expect(d.destinatario).toMatchObject({ cnpj: "11222333000181", nome: "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL", ie: "111222333444" });
     expect(d.destinatario.ender).toMatchObject({ xLgr: "Av Paulista", UF: "SP", CEP: "01310100" });
     expect(d.itens[0]).toMatchObject({ cProd: "10", NCM: "21069090", CFOP: "5102", cst: "0102", csosn: true, qCom: 3, vProd: 135 });
     expect(d.totais.vNF).toBe(135);
@@ -67,7 +67,7 @@ describe("htmlDanfeNfe (A4 retrato)", () => {
     const h = htmlDanfeNfe(dadosDanfeNfe({ xml: PROC, fonte: "autorizada" }));
     for (const t of ["DANFE", "DOCUMENTO AUXILIAR DA NOTA FISCAL ELETRÔNICA", "Nº 000.000.042", "SÉRIE 001", "FOLHA 1/1",
       "PROTOCOLO DE AUTORIZAÇÃO DE USO", "135260000000042", "Natureza da operação", "Venda de mercadoria", "11.222.333/0001-81",
-      "Empresa Cliente Ltda", "Av Paulista, 1000", "01310-100", "Valor total da nota", "135,00", "O/CSOSN", "NCM/SH", "CFOP",
+      "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL", "Av Paulista, 1000", "01310-100", "Valor total da nota", "135,00", "O/CSOSN", "NCM/SH", "CFOP",
       "Alíq. ICMS", "9 - Sem Ocorrência de Transporte", "SEM VALOR FISCAL", "Fone: 1133334444", "<svg"]) expect(h).toContain(t);
     expect(h).toContain(r.chave.match(/.{4}/g).join(" "));
     expect(h).not.toContain(EXPRESSAO_EPEC);

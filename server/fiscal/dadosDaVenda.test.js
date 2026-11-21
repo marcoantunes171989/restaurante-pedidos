@@ -188,7 +188,7 @@ describe("NFC-e (65) com CPF/CNPJ do consumidor informado na emissão", () => {
   };
   it("CPF válido: o XML assinado leva <dest><CPF> com indIEDest 9 e passa no XSD", async () => {
     const nfe = await emitirComDoc("52998224725");
-    expect(nfe).toContain("<dest><CPF>52998224725</CPF><indIEDest>9</indIEDest></dest>");
+    expect(nfe).toContain("<dest><CPF>52998224725</CPF><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><indIEDest>9</indIEDest></dest>"); // homologação: a SEFAZ exige este nome (rejeição 598)
     const v = await validarNFeXsd(nfe);
     expect(v.valido, JSON.stringify(v)).toBe(true);
   });
@@ -197,7 +197,7 @@ describe("NFC-e (65) com CPF/CNPJ do consumidor informado na emissão", () => {
   });
   it("CNPJ do consumidor: <dest><CNPJ>", async () => {
     const nfe = await emitirComDoc("11222333000181");
-    expect(nfe).toContain("<dest><CNPJ>11222333000181</CNPJ><indIEDest>9</indIEDest></dest>");
+    expect(nfe).toContain("<dest><CNPJ>11222333000181</CNPJ><xNome>NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL</xNome><indIEDest>9</indIEDest></dest>");
     expect((await validarNFeXsd(nfe)).valido).toBe(true);
   });
   it("sem documento: a nota sai sem <dest> (consumidor não identificado)", async () => {
