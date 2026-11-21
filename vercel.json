@@ -44,7 +44,8 @@
   ],
   "functions": {
     "api/fiscal-emitir.js": {
-      "includeFiles": "server/fiscal/ibpt/**"
+      "includeFiles": "{server/fiscal/ibpt/**,server/fiscal/schemas/**,server/fiscal/sefaz/**,node_modules/xmllint-wasm/**}",
+      "maxDuration": 60
     }
   }
 }

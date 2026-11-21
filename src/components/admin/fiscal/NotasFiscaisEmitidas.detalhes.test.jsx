@@ -44,31 +44,43 @@ describe("Notas emitidas: nota com problema → detalhes, histórico e ações",
     expect(botao("Consultar na SEFAZ")).toBeTruthy();
     expect(botao("Detalhes e histórico")).toBeTruthy();
   });
-  it("Detalhes e histórico: explica a falha, mostra o log passo a passo e os dados da nota", async () => {
+  it("aba Detalhes: explica a falha e mostra os dados da nota", async () => {
     montar();
     await esperar();
     await act(async () => { botao("Detalhes e histórico").click(); });
     await esperar();
-    const painel = container.querySelector('[data-testid="detalhes-nota"]');
-    expect(painel).toBeTruthy();
+    expect(container.querySelector('[data-testid="painel-detalhes"]')).toBeTruthy();
     expect(container.querySelector('[data-testid="explicacao-nota"]').textContent).toMatch(/Falha técnica no envio.*NÃO chegou à SEFAZ.*Reenviar à SEFAZ/);
-    const itens = [...container.querySelectorAll('[data-testid="historico-lista"] li')].map((li) => li.textContent);
-    expect(itens).toHaveLength(3);
-    expect(itens[0]).toContain("Número reservado");
-    expect(itens[1]).toContain("Enviada à SEFAZ");
-    expect(itens[2]).toContain("Falha técnica no envio");
-    expect(itens[2]).toContain("ENOENT: arquivo ausente");
+    const painel = container.querySelector('[data-testid="detalhes-nota"]');
     expect(painel.textContent).toContain("3".repeat(44)); // chave de acesso
     expect(painel.textContent).toContain("Homologação");
-    expect(chamadas).toContain("rpc:app_fiscal_documento_historico");
   });
-  it("migration do histórico ainda não rodada: avisa com clareza e os dados atuais continuam visíveis", async () => {
+  it("aba Histórico: agrupa por tentativa de envio, com resultado, causa provável e o que fazer", async () => {
+    montar();
+    await esperar();
+    await act(async () => { botao("Detalhes e histórico").click(); });
+    await esperar();
+    await act(async () => { container.querySelector('[data-testid="aba-historico"]').click(); });
+    await esperar();
+    expect(chamadas).toContain("rpc:app_fiscal_documento_historico");
+    const cartoes = [...container.querySelectorAll('[data-testid="tentativa"]')];
+    expect(cartoes).toHaveLength(1);
+    expect(cartoes[0].getAttribute("data-resultado")).toBe("tecnica");
+    expect(cartoes[0].textContent).toContain("Tentativa 1");
+    expect(cartoes[0].textContent).toContain("Falha técnica antes de chegar à SEFAZ");
+    expect(container.querySelector('[data-testid="analise-tentativa"]').textContent).toMatch(/Causa provável.*O que fazer/);
+    expect(container.querySelector('[data-testid="preparo-tentativa"]').textContent).toContain("Número reservado");
+    expect(container.querySelector('[data-testid="detalhes-tecnicos"]').textContent).toContain("ENOENT: arquivo ausente");
+    expect(container.querySelector('[data-testid="historico-resumo"]').textContent).toContain("1 tentativa(s) de envio · 1 falha(s) técnica(s)");
+  });
+  it("migration do histórico ainda não rodada: avisa com clareza e a aba Detalhes continua com os dados atuais", async () => {
     montar({ historico: { data: null, error: { code: "PGRST202", message: "Could not find the function" } } });
     await esperar();
     await act(async () => { botao("Detalhes e histórico").click(); });
     await esperar();
-    expect(container.querySelector('[data-testid="historico-erro"]').textContent).toMatch(/migration 191/);
     expect(container.querySelector('[data-testid="explicacao-nota"]')).toBeTruthy();
+    await act(async () => { container.querySelector('[data-testid="aba-historico"]').click(); });
+    expect(container.querySelector('[data-testid="historico-erro"]').textContent).toMatch(/migration 191/);
   });
   it("Reenviar à SEFAZ: pede a emissão da MESMA nota ao servidor e recarrega a lista", async () => {
     const rpc = montar();

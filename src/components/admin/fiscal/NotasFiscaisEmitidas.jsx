@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import DetalhesNotaFiscal from "./DetalhesNotaFiscal";
+import XmlDaNota from "./XmlDaNota";
+import ManutencaoFiscal from "./ManutencaoFiscal";
+import { podeManutencao } from "../../../lib/fiscal/manutencaoCampos";
+import { nfceForaDoPrazo } from "../../../lib/fiscal/prazoCancelamento";
+import { baixarXml, buscarXmlDaNota, nomeArquivoXml } from "../../../lib/fiscal/xmlNota";
 import { FILTROS_NOTAS, filtrarNotas, situacaoDaNota, acoesDaNota, validarTextoEvento, listarDocumentosFiscais, pedirEventoFiscal, resumoContingencia, textoPrazo, buscarVendaDaNota, refazerNota, descartarNota } from "../../../lib/fiscal/notasFiscais";
 import { refazerFiscalDaVenda } from "../../../lib/fiscal/vendaFiscal";
 import { emitirReservada } from "../../../lib/fiscal/emissaoPdv";
@@ -89,7 +94,9 @@ function mensagemDoResultado(acao, r) {
   if (r.situacao === "rejeitada") return { ok: false, texto: `A SEFAZ recusou: ${r.xMotivo || "motivo não informado"}.` };
   if (r.code === "FALHA_APOS_ENVIO") return { ok: false, sugerir: "consultar", texto: `Falha técnica depois do envio: a SEFAZ PODE ter recebido a nota. Clique em Consultar na SEFAZ antes de reenviar. (${r.detalhe || "erro interno"})` };
   if (r.code === "FALHA_ENVIO") return { ok: false, texto: `Falha técnica no sistema (a nota NÃO chegou à SEFAZ): ${r.detalhe || "erro interno"}. Abra Detalhes e histórico e copie o diagnóstico.` };
-  return { ok: false, texto: r.situacao === "indisponivel" ? "A SEFAZ continua fora do ar. A nota segue guardada." : (r.xMotivo || r.erro || "Não foi possível enviar.") };
+  const base = r.situacao === "indisponivel" ? "A SEFAZ continua fora do ar. A nota segue guardada." : (r.xMotivo || r.erro || "Não foi possível enviar.");
+  // Falhas de validação do servidor (ex.: XML fora do padrão) trazem o campo exato: mostra para dar para corrigir o cadastro.
+  return { ok: false, texto: r.detalhe && r.situacao !== "indisponivel" ? `${base} (${r.detalhe})` : base };
 }
 
 function AvisoContingencia({ resumo, supabase, onConcluido }) {
@@ -158,6 +165,8 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
   const [ocupado, setOcupado] = useState(null); // nota com envio/consulta em andamento
   const [avisos, setAvisos] = useState({}); // id → { ok, texto }
   const [filtro, setFiltro] = useState("todas");
+  const [manutId, setManutId] = useState(null); // nota com a tela de Manutenção fiscal aberta
+  const [xmlId, setXmlId] = useState(null); // nota com o painel "XML" aberto
   const [detalhesId, setDetalhesId] = useState(null); // nota com o painel "Detalhes e histórico" aberto
   const [tentativas, setTentativas] = useState({}); // id → ações feitas nesta tela (quando, o quê, resultado): o "log" imediato, antes da migration 191
   const anotar = (id, acao, ok, texto) => setTentativas((m) => ({ ...m, [id]: [...(m[id] || []), { quando: new Date().toISOString(), acao, ok, texto }] }));
@@ -246,6 +255,14 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
     const r = await imprimirNotaFiscal({ documentoId: nota.id, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
     if (!r.ok) setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: r.erro } }));
   }
+  // Download direto, sem abrir o painel: busca o XML guardado e salva o arquivo.
+  async function baixarDireto(nota) {
+    const r = await buscarXmlDaNota({ documentoId: nota.id, buscar: (corpo) => postarApiFiscal(supabase, corpo) });
+    if (!r.ok) { setAvisos((v) => ({ ...v, [nota.id]: { ok: false, texto: r.erro } })); return; }
+    const arq = nomeArquivoXml(r);
+    baixarXml(r.xml, arq);
+    setAvisos((v) => ({ ...v, [nota.id]: { ok: true, texto: `XML baixado: ${arq}` } }));
+  }
   const resumo = resumoContingencia(notas);
 
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
@@ -324,13 +341,20 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                     {a.refazer && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => corrigirEEmitir(n)}>{ocupado === n.id ? "Enviando…" : "Corrigir e emitir de novo"}</button>}
                     {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}>Descartar número</button>}
                     {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}>{n.modelo === 55 ? "Imprimir DANFE" : "Imprimir NFC-e"}</button>}
+                    {podeManutencao(n) && <button type="button" className={botaoLeve} aria-expanded={manutId === n.id} onClick={() => setManutId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-manutencao">{manutId === n.id ? "Fechar manutenção" : "Manutenção fiscal"}</button>}
+                    {a.imprimir && <button type="button" className={botaoLeve} onClick={() => baixarDireto(n)} data-testid="btn-baixar-xml">Baixar XML</button>}
+                    {a.imprimir && <button type="button" className={botaoLeve} aria-expanded={xmlId === n.id} onClick={() => setXmlId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-ver-xml">{xmlId === n.id ? "Ocultar XML" : "Ver / pesquisar XML"}</button>}
                     {a.enviar && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "enviar")}>{ocupado === n.id ? "Enviando…" : "Enviar agora"}</button>}
                     {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}>{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
-                    {a.cancelar && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}>Cancelar nota</button>}
+                    {a.cancelar && !(Number(n.modelo) === 65 && !n.contingenciaNumero && Number(n.tpEmis || 1) === 1 && nfceForaDoPrazo(n)) && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}>Cancelar nota</button>}
+                    {a.cancelar && Number(n.modelo) === 65 && !n.contingenciaNumero && Number(n.tpEmis || 1) === 1 && nfceForaDoPrazo(n) && <span className="self-center text-[11px] text-[var(--pp-text-muted)]" data-testid="canc-expirado">Prazo de cancelamento da NFC-e (30 min) encerrado.</span>}
                     {a.cce && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cce" })}>Carta de correção</button>}
                     <button type="button" className={botaoLeve} aria-expanded={detalhesId === n.id} onClick={() => setDetalhesId((cur) => (cur === n.id ? null : n.id))}>{detalhesId === n.id ? "Ocultar detalhes" : "Detalhes e histórico"}</button>
                   </div>
                 )}
+                {manutId === n.id && <ManutencaoFiscal nota={n} supabase={supabase} buscar={(corpo) => postarApiFiscal(supabase, corpo)} mensagemEmissao={(r) => mensagemDoResultado("emitir", r)}
+                  onConcluido={({ ok, texto }) => { setAvisos((v) => ({ ...v, [n.id]: { ok, texto } })); recarregar(); }} onFechar={() => setManutId(null)} />}
+                {xmlId === n.id && <XmlDaNota nota={n} buscar={(corpo) => postarApiFiscal(supabase, corpo)} onFechar={() => setXmlId(null)} />}
                 {detalhesId === n.id && <DetalhesNotaFiscal nota={n} supabase={supabase} tentativas={tentativas[n.id] || []} onFechar={() => setDetalhesId(null)} />}
                 {aberto?.id === n.id && aberto.acao === "descartar" && <PainelDescartar nota={n} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
                 {aberto?.id === n.id && aberto.acao !== "descartar" && <PainelEvento nota={n} acao={aberto.acao} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}

@@ -4,6 +4,7 @@
 //  pela /api/fiscal-emitir). E7: contingência off-line da NFC-e (tpEmis 9)
 //  e NF-e pela SVC (tpEmis 6/7, sem prazo: é on-line) ou EPEC (tpEmis 4, 168 h).
 // ════════════════════════════════════════════════════════════
+import { agruparTentativas } from "./historicoTentativas.js";
 
 import { chamarApiFiscal } from "./fiscalApi.js";
 
@@ -169,6 +170,7 @@ export async function pedirEventoFiscal(supabase, corpo, opts = {}) {
 const TIPOS_EVENTO = {
   RESERVADO: "Número reservado", RESERVA: "Número reservado", SEFAZ_ENVIADO: "Enviada à SEFAZ", SEFAZ_AUTORIZADO: "Autorizada pela SEFAZ",
   SEFAZ_REJEITADO: "Rejeitada pela SEFAZ", SEFAZ_ERRO: "Erro no envio", DESCARTADO: "Descartada", CANCELADO: "Cancelada",
+  MANUTENCAO_FISCAL: "Manutenção fiscal", DH_EMISSAO_RENOVADA: "Data de emissão renovada",
 };
 export function rotuloEvento(e) {
   if (e?.payload?.falhaInterna) return "Falha técnica no envio";
@@ -180,6 +182,14 @@ export function rotuloEvento(e) {
 export function linhaDoHistorico(e) {
   const p = e?.payload || {};
   const partes = [];
+  if (e?.tipo === "MANUTENCAO_FISCAL") {
+    // Log da manutenção: quem, motivo e cada campo alterado (de → para). A data é a do próprio evento.
+    const quem = p.usuario?.nome || p.usuario?.email || "usuário não identificado";
+    partes.push(`por ${quem}`, `motivo: ${p.motivo || "—"}`);
+    const alt = Array.isArray(p.alteracoes) ? p.alteracoes : [];
+    if (alt.length) partes.push(`alterações: ${alt.map((a) => `${a.campo}: "${a.de}" → "${a.para}"`).join("; ")}`);
+    return { id: e?.id, quando: e?.criado_em || e?.criadoEm || null, titulo: rotuloEvento(e), mudanca: "", texto: partes.join(" · "), falha: false, bruto: e };
+  }
   if (p.cStat != null && p.cStat !== "") partes.push(`código ${p.cStat}`);
   if (p.xMotivo) partes.push(String(p.xMotivo));
   else if (p.detalhe) partes.push(String(p.detalhe));
@@ -187,7 +197,7 @@ export function linhaDoHistorico(e) {
   return {
     id: e?.id, quando: e?.criado_em || e?.criadoEm || null, titulo: rotuloEvento(e),
     mudanca: e?.status_anterior && e?.status_novo && e.status_anterior !== e.status_novo ? `${situacaoNota(e.status_anterior).rotulo} → ${situacaoNota(e.status_novo).rotulo}` : "",
-    texto: partes.join(" · "), falha: !!p.falhaInterna || e?.status_novo === "erro" || e?.status_novo === "rejeitado",
+    texto: partes.join(" · "), falha: !!p.falhaInterna || e?.status_novo === "erro" || e?.status_novo === "rejeitado", bruto: e,
   };
 }
 
@@ -245,6 +255,7 @@ export function explicarNota(doc) {
 
 /** Texto para copiar e colar no suporte: tudo o que a pessoa precisa mandar, sem segredos. */
 export function textoDiagnostico(doc, historico = [], tentativas = []) {
+  const grupo = agruparTentativas(historico.map((h) => h.bruto).filter(Boolean));
   const l = [
     `${doc?.modelo === 65 ? "NFC-e" : "NF-e"} nº ${doc?.numero} · série ${doc?.serie} · ${doc?.ambiente === "homologacao" ? "homologação" : "produção"}`,
     `Situação: ${situacaoDaNota(doc).rotulo} (${doc?.status})${doc?.cStat != null ? ` · código ${doc.cStat}` : ""}`,
@@ -257,6 +268,15 @@ export function textoDiagnostico(doc, historico = [], tentativas = []) {
   if (historico.length) {
     l.push("Histórico:");
     for (const h of historico) l.push(`- ${h.quando || ""} ${h.titulo}${h.mudanca ? ` (${h.mudanca})` : ""}${h.texto ? `: ${h.texto}` : ""}`);
+  }
+  if (grupo.tentativas.length) {
+    // Por tentativa de envio: resultado, causa provável e o que fazer (para o suporte técnico ler de uma vez).
+    l.push("Tentativas de envio:");
+    for (const t of grupo.tentativas) {
+      l.push(`- ${t.consulta ? "Consulta" : `Tentativa ${t.numero}`} (${t.inicio || "—"}): ${t.resultado.titulo}${t.resultado.xMotivo ? ` — ${t.resultado.xMotivo}` : ""}`);
+      l.push(`    Causa: ${t.analise.causa} | O que fazer: ${t.analise.acao}`);
+      for (const m of t.manutencoes) l.push(`    Manutenção antes: por ${m.payload?.usuario?.nome || m.payload?.usuario?.email || "?"} em ${m.criado_em} — ${m.payload?.motivo || ""}`);
+    }
   }
   if (tentativas.length) {
     l.push("Ações feitas nesta tela:");

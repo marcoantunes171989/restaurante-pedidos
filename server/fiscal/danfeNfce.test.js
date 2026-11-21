@@ -8,7 +8,7 @@ import { montarXmlNFe } from "../../src/lib/fiscal/nfeXml.js";
 import { htmlDanfeNfce } from "../../src/lib/fiscal/danfeNfceHtml.js";
 
 const EMIT = {
-  razaoSocial: "Hamburgueria Teste & Cia Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "123456789012", crt: "1",
+  razaoSocial: "Hamburgueria Teste & Cia Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "110042490114", crt: "1",
   logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", cep: "01001000",
 };
 const REGRA = { id: 50, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" };

@@ -9,7 +9,7 @@ import { htmlDanfeNfe, EXPRESSAO_EPEC } from "../../src/lib/fiscal/danfeNfeHtml.
 import { dvCode128c, modulosCode128c, svgCode128c } from "../../src/lib/fiscal/code128c.js";
 
 const EMIT = {
-  razaoSocial: "Hamburgueria Teste Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "123456789012", crt: "1",
+  razaoSocial: "Hamburgueria Teste Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "110042490114", crt: "1",
   logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", cep: "01001000", telefoneFiscal: "1133334444",
 };
 const REGRA = { id: 50, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { textoFiscal, dec, dataHoraFiscal, montarXmlNFe, LEIAUTE } from "./nfeXml.js";
+import { textoFiscal, descricaoProdutoFiscal, dec, dataHoraFiscal, montarXmlNFe, LEIAUTE } from "./nfeXml.js";
 
 // Padrões copiados do XSD oficial (PL 010h v1.03, tiposBasico_v4.00.xsd).
 const P = {
@@ -158,7 +158,7 @@ describe("montarXmlNFe — variações", () => {
   it("escapa caracteres especiais do XML", () => {
     const b = base();
     b.itens[0] = { ...b.itens[0], xProd: 'Porção "Fritas" & <Molho>' };
-    const { xml } = montarXmlNFe(b);
+    const { xml } = montarXmlNFe({ ...b, ide: { ...b.ide, tpAmb: 1 } }); // produção: descrição real do produto
     // Forma canônica C14N: aspas literais no texto; & < > escapados.
     expect(xml).toContain('<xProd>Porção "Fritas" &amp; &lt;Molho&gt;</xProd>');
   });
@@ -225,5 +225,59 @@ describe("montarXmlNFe — recusas (nunca gera XML inválido em silêncio)", () 
   });
   it("código de pagamento fora do formato", () => {
     expect(erro(base({ pag: { detPag: [{ tPag: "PIX", vPag: 50 }] } }))).toMatch(/tPag/);
+  });
+});
+
+describe("montarXmlNFe — descrição do 1º item em homologação (rejeição 373)", () => {
+  it("tpAmb=2: só o 1º item sai com a descrição oficial de teste; os demais mantêm a própria", () => {
+    const b = base();
+    const { xml } = montarXmlNFe({ ...b, itens: [b.itens[0], { ...b.itens[0], cProd: "2", xProd: "Batata" }], pag: { detPag: [{ tPag: "01", vPag: 60 }] } });
+    const descs = [...xml.matchAll(/<xProd>([^<]*)<\/xProd>/g)].map((m) => m[1]);
+    expect(descs[0]).toBe("NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL");
+    expect(descs[1]).toBe("Batata");
+  });
+  it("tpAmb=1 (produção): descrição real do produto", () => {
+    const b = base();
+    const { xml } = montarXmlNFe({ ...b, ide: { ...b.ide, tpAmb: 1 } });
+    expect(xml).not.toContain("HOMOLOGACAO - SEM VALOR FISCAL</xProd>");
+  });
+});
+
+describe("descrição do produto (xProd) sempre válida para a SEFAZ", () => {
+  it("aspas, travessões e reticências tipográficos viram os simples; emoji e símbolos saem; espaços normalizados", () => {
+    expect(descricaoProdutoFiscal("  X-Burger “Duplo” – 180g…  🍔 ™  ")).toBe('X-Burger "Duplo" - 180g...');
+    expect(descricaoProdutoFiscal("Pão\n  de\tqueijo")).toBe("Pão de queijo");
+    expect(descricaoProdutoFiscal("Açaí 500ml (Café)")).toBe("Açaí 500ml (Café)"); // acentos do Latin-1 ficam
+  });
+  it("letras fora do Latin-1 perdem o acento em vez de sumir", () => {
+    expect(descricaoProdutoFiscal("Gőzölgő Ł")).toBe("Gozölgo L");
+  });
+  it("corta em 120 caracteres sem deixar espaço na ponta", () => {
+    const r = descricaoProdutoFiscal(`${"a".repeat(119)} bbbbbb`);
+    expect(r.length).toBeLessThanOrEqual(120);
+    expect(r.endsWith(" ")).toBe(false);
+  });
+  it("sem nada aproveitável: vazio, e a nota recusa com mensagem clara", () => {
+    expect(descricaoProdutoFiscal("🍔🍟")).toBe("");
+    const b = base();
+    b.itens[0] = { ...b.itens[0], xProd: "🍔" };
+    expect(() => montarXmlNFe({ ...b, ide: { ...b.ide, tpAmb: 1 } })).toThrow(/descrição vazia/);
+  });
+  it("no XML o xProd nunca passa de 120 e não leva caracteres inválidos", () => {
+    const b = base();
+    b.itens[0] = { ...b.itens[0], xProd: `“${"Hambúrguer artesanal ".repeat(12)}”` };
+    const { xml } = montarXmlNFe({ ...b, ide: { ...b.ide, tpAmb: 1 } });
+    const x = xml.match(/<xProd>([^<]*)<\/xProd>/)[1];
+    expect(x.length).toBeLessThanOrEqual(120 + 10); // escapes (&quot; não é usado; & < > podem alongar)
+    expect(x).not.toMatch(/[“”]/);
+  });
+});
+
+describe("campos de texto do emitente respeitam o tamanho do leiaute (60)", () => {
+  it("razão social e logradouro longos são cortados em 60 em vez de a SEFAZ rejeitar o schema", () => {
+    const b = base();
+    const { xml } = montarXmlNFe({ ...b, emit: { ...b.emit, xNome: "Razão ".repeat(20), ender: { ...b.emit.ender, xLgr: "Rua ".repeat(30) } } });
+    expect(xml.match(/<emit>[\s\S]*?<xNome>([^<]*)<\/xNome>/)[1].length).toBeLessThanOrEqual(60);
+    expect(xml.match(/<xLgr>([^<]*)<\/xLgr>/)[1].length).toBeLessThanOrEqual(60);
   });
 });

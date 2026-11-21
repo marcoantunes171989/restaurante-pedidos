@@ -1,0 +1,28 @@
+Telas que gravam/leem tabela DIRETO, sem função do banco, e que a permissão do HML bloqueia (16/11/2026).
+No PROD funcionam hoje (permissão antiga). Se o PROD receber a permissão do HML (decisão C17), quebram lá também.
+Fonte: src/lib/supabase.js (commit 2848209) x permissões do usuário logado no HML.
+
+fiscal_regra                select fetchFiscalRegras, insert inserirFiscalRegra, update atualizarFiscalRegra, update publicarFiscalRegraVersao, update inativarFiscalRegra, delete excluirFiscalRegra
+fiscal_regra_versao         select fetchFiscalRegraVersoes, insert inserirFiscalRegra, update atualizarFiscalRegraVersao, update publicarFiscalRegraVersao, select novaVersaoFiscalRegra, insert prox
+loja_fiscal_nfce            select fetchNfceEmitidas
+tab_assinaturas             select fetchAssinaturas, upsert salvarAssinatura
+tab_auditoria               update marcarAuditoriaAnalisada, select fetchAuditoria, insert registrarAuditoria
+tab_caixa_mov               select fetchMovimentosCaixa, insert registrarMovimentoCaixa
+tab_estoque_mov             select fetchMovimentosEstoque
+tab_fidelidade_recompensas  select fetchFidelidadeRecompensas, insert inserirRecompensa, delete excluirRecompensa, update atualizarRecompensa
+tab_fidelidade_regras       select fetchFidelidadeRegras, select salvarFidelidadeRegra, insert salvarFidelidadeRegra
+tab_fiscal_icms             select fetchFiscalIcms, insert inserirFiscalIcms, update atualizarFiscalIcms
+tab_fiscal_lote_log         insert inserirFiscalLoteLog, select fetchFiscalLoteLog, update marcarFiscalLoteLogRevertido
+tab_fiscal_ncm              select fetchFiscalNcm, insert inserirFiscalNcm, insert inserirFiscalNcmLote, update atualizarFiscalNcm, delete excluirFiscalNcmLote, update atualizarFiscalNcmLoteAtivo, delete excluirFiscalNcm
+tab_fiscal_perfis           select fetchFiscalPerfis, insert inserirFiscalPerfil, update atualizarFiscalPerfil
+tab_formas_pagamento        insert inserirFormaPagamento, update atualizarFormaPagamento, delete excluirFormaPagamento
+tab_lancamentos             select fetchLancamentos, insert inserirLancamento, update atualizarLancamento, delete excluirLancamento
+tab_licenca_historico       insert registrarLicencaHistorico
+tab_modulos                 select fetchModulos
+tab_notificacao_prefs       select fetchPreferenciasNotificacao, upsert salvarPreferenciasNotificacao
+tab_notificacoes            select fetchNotificacoes, update marcarNotificacaoLida, update marcarTodasNotificacoesLidas
+tab_pagamentos              insert registrarPagamento
+tab_plano_modulos           select fetchPlanoModulos
+tab_planos                  select fetchPlanos
+tab_push_subscriptions      upsert upsertPushSubscription, update desativarPushSubscription, delete removerPushSubscription, select fetchPushSubscriptionAtual
+tab_usuarios                select cadastrarEmpresa, insert inserirUsuario, update atualizarUsuario, update atualizarUsuariosPorLoja

@@ -12,8 +12,8 @@
 import { formatCurrency } from "./pdvHelpers";
 
 /** Versão da documentação — acompanha a versão da tela do PDV. */
-export const PDV_DOC_VERSAO = "2026.08.11";
-export const PDV_DOC_ATUALIZADO_EM = "06/08/2026";
+export const PDV_DOC_VERSAO = "2026.11.20";
+export const PDV_DOC_ATUALIZADO_EM = "20/11/2026";
 
 const IMG = "/ajuda/pdv";
 
@@ -57,7 +57,8 @@ export function secoesDocumentacao(ctx = {}) {
             ["Coluna esquerda", "A conta: produtos e totais (subtotal, taxa, acréscimo, desconto, cupom). Rola quando a lista cresce."],
             ["Centro", "O canal ativo — mesas, delivery, comandas, clientes ou pedidos."],
             ["Coluna direita", "Pagamento com topo fixo; recebimentos, ajustes e cupom rolam sem deslocar o teclado."],
-            ["Rodapé", "Ações (pré-conta, comprovante, cozinha, transferir, separar, observações, histórico) e Fechar conta."],
+            ["Passos da conta", "Produtos → Pagamento → Fechar: o PDV mostra em que passo você está e o que fazer agora."],
+            ["Barra inferior", "Uma frase diz o próximo passo e há UMA ação principal (Receber, Continuar, Fechar conta e imprimir NFC-e). Mais funções (*) abre todas as demais."],
           ],
         },
         { tipo: "imagem", src: `${IMG}/visao-geral.png`, legenda: "Tela do PDV: conta à esquerda, canal ao centro e pagamento à direita." },
@@ -260,7 +261,7 @@ export function secoesDocumentacao(ctx = {}) {
             "Escolha a forma de pagamento na coluna da direita.",
             "Digite o valor recebido no teclado — ou toque em Valor total para lançar de uma vez tudo o que falta.",
             "Toque em OK (verde). O valor entra na lista de Recebimentos e o painel passa a cobrar só o restante.",
-            "Com a conta quitada, o botão Fechar conta acende no rodapé.",
+            "Com a conta quitada, o botão Continuar para fechar acende na barra inferior; no passo Fechar, confira e feche (a NFC-e sai e imprime sozinha).",
           ],
         },
         {
@@ -582,6 +583,28 @@ export function secoesDocumentacao(ctx = {}) {
     },
 
     {
+      id: "funcoes",
+      titulo: "Funções e códigos (tecla *)",
+      resumo: "Todas as funções do PDV em uma lista, com código de 2 dígitos.",
+      blocos: [
+        { tipo: "p", texto: "Aperte * (ou F12, ou Ctrl+K, ou o botão Mais funções) para abrir a lista. Digite o código completo e a função abre sozinha; ou digite parte do nome; ou use as setas e Enter. Funções que dependem de uma conta aparecem esmaecidas até você escolher uma conta." },
+        {
+          tipo: "tabela",
+          cabecalho: ["Código", "Função"],
+          linhas: [
+            ["01–06", "Conta: incluir produto, buscar, transferir, separar, observações, histórico"],
+            ["10–16", "Pagamento: dividir (10), desconto (11), acréscimo (12), cupom (14), pontos (15), registrar valor parcial (16)"],
+            ["20–22", "Cliente e nota: identificar cliente, CPF/CNPJ na nota, NF-e para empresa"],
+            ["30–33", "Impressão: pré-conta, comprovante, cupom da cozinha, reimprimir última NFC-e"],
+            ["40–42", "Fiscal: notas emitidas, cancelar NFC-e (até 30 min), XMLs fiscais"],
+            ["50–52", "Caixa: fechar conta, resumo do turno, voltar às mesas"],
+            ["90–91", "Ajuda: central de ajuda e lista de atalhos"],
+          ],
+        },
+      ],
+    },
+
+    {
       id: "atalhos",
       titulo: "Atalhos de teclado",
       resumo: "Para quem opera no balcão com teclado.",
@@ -590,11 +613,12 @@ export function secoesDocumentacao(ctx = {}) {
           tipo: "tabela",
           cabecalho: ["Tecla", "Ação"],
           linhas: [
+            ["* (asterisco), F12 ou Ctrl+K", "Abrir a lista de funções: digite o código (ex.: 11) ou o nome e aperte Enter"],
             ["F1", "Abrir / fechar a Central de Ajuda"],
             ["F2", "Ir para a busca"],
             ["F3", "Voltar para o canal Mesa"],
             ["F4", "Imprimir a pré-conta"],
-            ["F5", "Fechar a conta"],
+            ["F5", "Avançar para o próximo passo / fechar a conta"],
             ["F6", "Registrar o valor digitado (mesmo que OK)"],
             ["Esc", "Fechar o modal ou a ajuda aberta"],
           ],

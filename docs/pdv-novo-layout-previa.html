@@ -1,0 +1,328 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Novo PDV Pedido Prime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: duas áreas só (escolher a conta à esquerda, conta/pagamento à direita) + barra de ação única embaixo + paleta de funções por tecla (*). */
+:root{
+  --bg:#F4F6F8; --surface:#FFFFFF; --ink:#0E2B3B; --muted:#5E7382; --line:#E1E7EC; --soft:#EEF2F5;
+  --brand:#012E46; --brand-ink:#FFFFFF; --accent:#F38525; --accent-soft:#FEF1E3;
+  --ok:#1F7A3D; --ok-soft:#E6F4EA; --warn:#B45309; --warn-soft:#FEF3E2; --danger:#C81E4A; --danger-soft:#FDECEF;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1A24; --surface:#112634; --ink:#E8F0F5; --muted:#9DB3C1; --line:#22394A; --soft:#173142;
+  --brand:#E8F0F5; --brand-ink:#0B1A24; --accent:#F59A45; --accent-soft:#3A2A18;
+  --ok:#5BC47F; --ok-soft:#14301F; --warn:#F2A354; --warn-soft:#38270F; --danger:#F27A97; --danger-soft:#3A1822; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1A24; --surface:#112634; --ink:#E8F0F5; --muted:#9DB3C1; --line:#22394A; --soft:#173142;
+  --brand:#E8F0F5; --brand-ink:#0B1A24; --accent:#F59A45; --accent-soft:#3A2A18;
+  --ok:#5BC47F; --ok-soft:#14301F; --warn:#F2A354; --warn-soft:#38270F; --danger:#F27A97; --danger-soft:#3A1822; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.abas{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.abas button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-weight:600;font-size:13px}
+.abas button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.abas .nota{margin-left:auto;color:var(--muted);font-size:12px}
+/* Janela do PDV */
+.pdv{background:var(--bg);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:grid;grid-template-rows:auto auto 1fr auto;min-height:640px}
+.topo{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+.logo{font-weight:800;letter-spacing:-.2px;font-size:15px;display:flex;align-items:center;gap:8px}
+.logo i{width:28px;height:28px;border-radius:8px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-style:normal;font-size:12px}
+.canais{display:flex;background:var(--soft);border-radius:10px;padding:3px;gap:2px}
+.canais button{border:0;background:transparent;padding:7px 14px;border-radius:8px;font-weight:600;font-size:13px;color:var(--muted)}
+.canais button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.busca{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 10px}
+.busca input{border:0;background:transparent;color:inherit;font:inherit;padding:9px 0;width:100%;outline:none}
+kbd{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;background:var(--soft);border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)}
+.dot{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.btn-funcoes{border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--ink);border-radius:10px;padding:8px 12px;font-weight:700;font-size:13px;display:flex;gap:8px;align-items:center}
+.faixa{display:flex;gap:18px;flex-wrap:wrap;padding:7px 14px;font-size:12px;color:var(--muted);background:var(--surface);border-bottom:1px solid var(--line)}
+.faixa b{color:var(--ink);font-variant-numeric:tabular-nums}
+.faixa button{margin-left:auto;border:0;background:transparent;color:var(--muted);text-decoration:underline;font-size:12px}
+.corpo{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.95fr);gap:12px;padding:12px;min-height:0}
+@media (max-width:860px){.corpo{grid-template-columns:1fr}}
+.painel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.painel h2{margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.leg{display:flex;gap:12px;font-size:12px;color:var(--muted);font-weight:500}
+.leg span{display:inline-flex;gap:5px;align-items:center}
+.mesas{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.mesa{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:3px;min-height:74px}
+.mesa b{font-size:15px}.mesa small{font-size:12px;color:var(--muted)}
+.mesa.livre{border-color:var(--ok-soft);background:var(--ok-soft)} .mesa.livre .dot{color:var(--ok)}
+.mesa.ocupada{border-color:var(--accent);background:var(--accent-soft)} .mesa.ocupada .dot{color:var(--accent)}
+.mesa.pagar{border-color:var(--warn);background:var(--warn-soft)} .mesa.pagar .dot{color:var(--warn)}
+.mesa[aria-pressed="true"]{box-shadow:0 0 0 3px var(--brand)}
+.mesa .l1{display:flex;justify-content:space-between;align-items:center}
+/* Painel da conta */
+.passos{display:flex;gap:6px}
+.passo{flex:1;border-radius:10px;background:var(--soft);padding:8px 10px;font-size:12px;font-weight:600;color:var(--muted);display:flex;gap:8px;align-items:center;border:0}
+.passo i{width:20px;height:20px;border-radius:50%;background:var(--line);color:var(--ink);display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:800}
+.passo[aria-current="step"]{background:var(--brand);color:var(--brand-ink)} .passo[aria-current="step"] i{background:var(--accent);color:#fff}
+.passo.feito i{background:var(--ok);color:#fff}
+.cab-conta{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.cab-conta b{font-size:16px}.cab-conta small{color:var(--muted);font-size:12px;display:block}
+.link{border:0;background:transparent;color:var(--brand);font-weight:700;font-size:12px;text-decoration:underline;padding:0}
+.itens{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.item{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.item .q{display:flex;align-items:center;gap:6px}
+.q button{width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:700}
+.vazio{padding:18px;text-align:center;color:var(--muted);font-size:13px;border:1.5px dashed var(--line);border-radius:12px}
+.add{width:100%;margin:10px 0;border:1.5px dashed var(--accent);background:var(--accent-soft);border-radius:12px;padding:11px;font-weight:700;display:flex;justify-content:center;gap:8px}
+.totais{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted)}
+.totais div{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:10px;color:var(--ink)}
+.total span{font-weight:600}.total b{font-size:28px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.formas{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.forma{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 6px;font-weight:700;font-size:13px;display:flex;flex-direction:column;gap:4px;align-items:center}
+.forma[aria-pressed="true"]{border-color:var(--brand);background:var(--soft);box-shadow:0 0 0 2px var(--brand)}
+.valor{display:flex;justify-content:space-between;align-items:center;background:var(--soft);border-radius:12px;padding:10px 14px}
+.valor small{color:var(--muted);font-weight:600}.valor b{font-size:24px;font-variant-numeric:tabular-nums}
+.teclado{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.teclado button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:11px 0;font-weight:700;font-size:16px}
+.teclado .ok{background:var(--ok);color:#fff;border-color:var(--ok);grid-row:span 2}
+.recebidos{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.recebidos div{display:flex;justify-content:space-between;background:var(--soft);border-radius:10px;padding:8px 12px}
+.falta{display:flex;justify-content:space-between;font-weight:700;font-size:14px}
+.falta.ok{color:var(--ok)} .falta.pend{color:var(--warn)}
+.resumo{display:flex;flex-direction:column;gap:8px;font-size:14px}
+.resumo .linha{display:flex;justify-content:space-between;gap:8px}
+.cx{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px}
+.cx input[type=text]{border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;border-radius:8px;padding:7px 10px;flex:1;min-width:0}
+/* Barra de ação */
+.acao{display:flex;gap:10px;align-items:center;padding:10px 14px;background:var(--surface);border-top:1px solid var(--line);flex-wrap:wrap}
+.guia{flex:1;min-width:200px;font-size:13px;color:var(--muted)} .guia b{color:var(--ink)}
+.primario{border:0;background:var(--accent);color:#1A1209;font-weight:800;font-size:16px;border-radius:12px;padding:14px 22px;min-width:260px;display:flex;justify-content:center;gap:10px;align-items:center}
+.primario:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+.primario.verde{background:var(--ok);color:#fff}
+.sec{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:13px 16px;font-weight:700;font-size:13px;display:flex;gap:8px;align-items:center}
+/* Paleta de funções */
+.veu{position:fixed;inset:0;background:rgba(5,15,22,.55);display:grid;place-items:start center;padding:6vh 12px;z-index:20}
+.paleta{width:min(760px,100%);max-height:84vh;background:var(--surface);border-radius:16px;border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden}
+.paleta header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.paleta header p{margin:0;font-size:12px;color:var(--muted)}
+.entrada{display:flex;align-items:center;gap:10px;border:2px solid var(--brand);border-radius:12px;padding:0 12px}
+.entrada input{border:0;background:transparent;color:inherit;font:inherit;font-size:18px;font-weight:600;padding:12px 0;width:100%;outline:none}
+.lista{overflow:auto;padding:6px 8px 10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px}
+@media (max-width:640px){.lista{grid-template-columns:1fr}}
+.grupo{grid-column:1/-1;font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);font-weight:700;padding:12px 8px 4px}
+.fn{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;text-align:left;border:0;background:transparent;border-radius:10px;padding:8px;min-width:0}
+.fn:hover,.fn[aria-selected="true"]{background:var(--soft)}
+.fn .cod{width:34px;height:28px;border-radius:8px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:800;font-size:13px;font-variant-numeric:tabular-nums}
+.fn .nm{font-weight:600;font-size:14px;min-width:0}.fn .nm small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.tag{font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--warn);text-transform:uppercase;letter-spacing:.4px}
+.paleta footer{padding:9px 16px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--brand);color:var(--brand-ink);padding:11px 18px;border-radius:12px;font-weight:600;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.3);z-index:30;max-width:92vw}
+/* Mapa de funções */
+.doc{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.doc h2{margin:0;font-size:18px}.doc p{margin:0;color:var(--muted);font-size:14px;max-width:75ch}
+.tab{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+td:first-child{font-weight:600}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:no-preference){.passo,.mesa,.fn{transition:background .12s,box-shadow .12s}}
+</style>
+
+<div class="wrap">
+  <div class="abas" role="tablist" aria-label="Seções da prévia">
+    <button type="button" id="aba-pdv" aria-pressed="true">Novo PDV (interativo)</button>
+    <button type="button" id="aba-mapa" aria-pressed="false">Onde foi cada função</button>
+    <span class="nota">Prévia para aprovação. O PDV real só muda depois do seu OK.</span>
+  </div>
+
+  <section id="vista-pdv" class="pdv" aria-label="Prévia do novo PDV">
+    <div class="topo">
+      <div class="logo"><i>PP</i> Burger Station</div>
+      <div class="canais" role="group" aria-label="Canal de atendimento" id="canais"></div>
+      <label class="busca"><span aria-hidden="true">&#128269;</span><input id="busca" type="search" placeholder="Buscar mesa, comanda, cliente ou pedido" aria-label="Buscar conta"><kbd>F2</kbd></label>
+      <span class="chip ok" title="Nota fiscal em homologação"><span class="dot"></span>NFC-e pronta</span>
+      <span class="chip"><span class="dot"></span>Cozinha: 2 na fila</span>
+      <button type="button" class="btn-funcoes" id="abrir-funcoes" aria-haspopup="dialog">Funções <kbd>*</kbd></button>
+    </div>
+    <div class="faixa" id="faixa">
+      <span>Turno aberto <b>20/11 · 21:34</b></span><span>Faturamento <b>R$ 748,99</b></span><span>Ticket médio <b>R$ 57,61</b></span><span>Mesas livres <b>23</b></span>
+      <button type="button" id="mais-turno">ver resumo do turno</button>
+    </div>
+    <div class="corpo">
+      <section class="painel" aria-labelledby="t-esq">
+        <h2 id="t-esq"><span id="titulo-esq">Escolha a mesa</span>
+          <span class="leg"><span><i class="dot" style="color:var(--ok)"></i>Livre</span><span><i class="dot" style="color:var(--accent)"></i>Ocupada</span><span><i class="dot" style="color:var(--warn)"></i>Pagar</span></span></h2>
+        <div class="mesas" id="mesas"></div>
+      </section>
+      <section class="painel" aria-labelledby="t-dir">
+        <div class="passos" id="passos"></div>
+        <div class="cab-conta"><div><b id="t-dir">Nenhuma conta</b><small id="sub-conta">Escolha uma mesa ao lado</small></div><button type="button" class="link" id="cliente-btn">Identificar cliente</button></div>
+        <div id="area"></div>
+      </section>
+    </div>
+    <div class="acao">
+      <div class="guia" id="guia"></div>
+      <button type="button" class="sec" id="acao-sec">Mais funções <kbd>*</kbd></button>
+      <button type="button" class="primario" id="acao-prim">Escolha uma conta</button>
+    </div>
+  </section>
+
+  <section id="vista-mapa" class="doc" hidden>
+    <h2>Onde foi parar cada função do PDV atual</h2>
+    <p>Nada deixou de existir. O que ficava em botões espalhados agora vive em dois lugares: o fluxo da conta (3 passos) e a paleta de funções, aberta pela tecla <kbd>*</kbd> (ou <kbd>F12</kbd>). Cada função tem um código de 2 dígitos: digite o código e Enter.</p>
+    <div class="tab"><table id="tabela-mapa"></table></div>
+  </section>
+</div>
+
+<div class="veu" id="veu" hidden>
+  <div class="paleta" role="dialog" aria-modal="true" aria-labelledby="pal-tit">
+    <header>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><strong id="pal-tit" style="font-size:16px">Funções do PDV</strong><button type="button" class="link" id="fechar-pal">Fechar <kbd>Esc</kbd></button></div>
+      <div class="entrada"><span aria-hidden="true" style="font-weight:800;color:var(--muted)">#</span><input id="pal-in" type="text" inputmode="text" autocomplete="off" placeholder="Digite o código (ex.: 11) ou o nome da função" aria-label="Código ou nome da função"></div>
+      <p>Setas para escolher, <kbd>Enter</kbd> executa. Digitando o código completo, a função abre sozinha.</p>
+    </header>
+    <div class="lista" id="pal-lista" role="listbox" aria-label="Funções"></div>
+    <footer><span><kbd>F1</kbd> Ajuda</span><span><kbd>F2</kbd> Buscar</span><span><kbd>F3</kbd> Mesas</span><span><kbd>F4</kbd> Pré-conta</span><span><kbd>F5</kbd> Fechar conta</span><span><kbd>F6</kbd> Registrar valor</span></footer>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+  var brl=function(v){return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})};
+  var $=function(id){return document.getElementById(id)};
+  var CARDAPIO=[{n:'X-Bacon',p:28.9},{n:'Batata Frita',p:18.9},{n:'Coca Cola Lata 350ml',p:7},{n:'Smash Duplo',p:32.9},{n:'Suco de Laranja',p:8}];
+  var CANAIS=['Mesa','Delivery','Comanda','Cliente','Pedido'];
+  var FORMAS=['Dinheiro','Crédito','Débito','PIX','Pontos','Vale'];
+  var mesas=[];for(var i=1;i<=16;i++){mesas.push({n:i,st:i===4?'ocupada':i===7?'pagar':i===9?'ocupada':'livre',lug:[4,8,4,4,5,6,'Livre',8,4,12,'Livre',8,8,6,'Livre',4][i-1]})}
+  var contas={4:{itens:[{n:'X-Bacon',p:28.9,q:1},{n:'Coca Cola Lata 350ml',p:7,q:1}],cliente:'Teste Acompanhamento',ocupado:'há 11 min'},7:{itens:[{n:'Smash Duplo',p:32.9,q:2}],cliente:'',ocupado:'há 42 min'},9:{itens:[{n:'Batata Frita',p:18.9,q:1}],cliente:'',ocupado:'há 3 min'}};
+  var S={canal:0,mesa:4,passo:0,forma:'Dinheiro',buf:'',rec:[],desc:0,acr:0,taxa:true,cpf:false,cpfNum:'',fechada:null};
+
+  function conta(){return S.mesa?contas[S.mesa]:null}
+  function sub(){var c=conta();return c?c.itens.reduce(function(s,i){return s+i.p*i.q},0):0}
+  function taxaV(){return S.taxa?sub()*0.10:0}
+  function total(){return Math.max(0,sub()+taxaV()+S.acr-S.desc)}
+  function pago(){return S.rec.reduce(function(s,r){return s+r.v},0)}
+  function resta(){return Math.max(0,total()-pago())}
+  function toast(t){var e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){e.hidden=true},2600)}
+
+  function canais(){$('canais').innerHTML=CANAIS.map(function(c,i){return '<button type="button" aria-pressed="'+(S.canal===i)+'" data-c="'+i+'">'+c+'</button>'}).join('');
+    [].forEach.call($('canais').children,function(b){b.onclick=function(){S.canal=+b.dataset.c;render();toast('Canal: '+CANAIS[S.canal]+' (nesta prévia só a visão Mesa é demonstrada)')}})}
+  function lista(){$('titulo-esq').textContent=['Escolha a mesa','Entregas e retiradas','Escolha a comanda','Escolha o cliente','Escolha o pedido'][S.canal];
+    $('mesas').innerHTML=mesas.map(function(m){var tx=m.st==='livre'?'Livre':m.st==='ocupada'?'Ocupada':'Aguardando pagamento';
+      return '<button type="button" class="mesa '+m.st+'" data-m="'+m.n+'" aria-pressed="'+(S.mesa===m.n)+'"><span class="l1"><b>Mesa '+String(m.n).padStart(2,'0')+'</b><i class="dot"></i></span><small>'+tx+'</small><small>'+(typeof m.lug==='number'?m.lug+' lugares':'Livre')+'</small></button>'}).join('');
+    [].forEach.call($('mesas').children,function(b){b.onclick=function(){var n=+b.dataset.m;if(!contas[n]){contas[n]={itens:[],cliente:'',ocupado:'agora'};mesas[n-1].st='ocupada'}S.mesa=n;S.passo=0;S.rec=[];S.desc=0;S.acr=0;S.buf='';S.fechada=null;render()}})}
+  function passos(){var nomes=['Produtos','Pagamento','Fechar'];$('passos').innerHTML=nomes.map(function(n,i){return '<button type="button" class="passo'+(i<S.passo?' feito':'')+'" '+(i===S.passo?'aria-current="step"':'')+' data-p="'+i+'"><i>'+(i<S.passo?'&#10003;':i+1)+'</i>'+n+'</button>'}).join('');
+    [].forEach.call($('passos').children,function(b){b.onclick=function(){if(!conta())return;var p=+b.dataset.p;if(p>0&&!conta().itens.length){toast('Inclua um produto antes de receber');return}S.passo=p;render()}})}
+  function area(){var c=conta(),h='';
+    if(S.fechada){$('t-dir').textContent='Conta fechada';$('sub-conta').textContent='Mesa '+String(S.fechada.mesa).padStart(2,'0')+' liberada';
+      $('area').innerHTML='<div class="resumo"><div class="cx" style="background:var(--ok-soft);border-color:var(--ok)"><span style="font-size:22px">&#10003;</span><div><b>NFC-e nº '+S.fechada.nf+' autorizada</b><div style="color:var(--muted);font-size:12px">Imprimindo o cupom agora (sem clicar de novo)</div></div></div><div class="linha"><span>Total pago</span><b>'+brl(S.fechada.tot)+'</b></div><div class="linha"><span>Troco</span><b>'+brl(S.fechada.troco)+'</b></div><button type="button" class="link" id="nova">Atender outra mesa</button></div>';$('nova').onclick=function(){S.fechada=null;S.mesa=null;render()};return}
+    if(!c){$('t-dir').textContent='Nenhuma conta';$('sub-conta').textContent='Escolha uma mesa ao lado';$('area').innerHTML='<div class="vazio">Toque em uma mesa para começar.<br>Mesa livre abre uma conta nova.</div>';return}
+    $('t-dir').textContent='Mesa '+String(S.mesa).padStart(2,'0');$('sub-conta').textContent=(c.cliente?c.cliente+' · ':'')+'aberta '+c.ocupado;$('cliente-btn').textContent=c.cliente?'Trocar cliente':'Identificar cliente';
+    if(S.passo===0){
+      h+='<div class="itens">'+(c.itens.length?c.itens.map(function(it,i){return '<div class="item"><span>'+it.n+'</span><span class="q"><button type="button" data-d="'+i+'" aria-label="Diminuir">&minus;</button><b>'+it.q+'</b><button type="button" data-u="'+i+'" aria-label="Aumentar">+</button></span><b>'+brl(it.p*it.q)+'</b></div>'}).join(''):'<div class="vazio">Conta vazia.</div>')+'</div>';
+      h+='<button type="button" class="add" id="add">+ Incluir produto <kbd>01</kbd></button>';
+      h+='<div class="totais"><div><span>Subtotal</span><span>'+brl(sub())+'</span></div>'+(S.taxa?'<div><span>Taxa de serviço 10%</span><span>'+brl(taxaV())+'</span></div>':'')+(S.acr?'<div><span>Acréscimo</span><span>'+brl(S.acr)+'</span></div>':'')+(S.desc?'<div><span>Desconto</span><span>&minus; '+brl(S.desc)+'</span></div>':'')+'</div>';
+      h+='<div class="total"><span>Total</span><b>'+brl(total())+'</b></div>';
+    } else if(S.passo===1){
+      h+='<div class="valor"><small>Falta receber</small><b>'+brl(resta())+'</b></div>';
+      h+='<div class="formas" id="formas">'+FORMAS.map(function(f){return '<button type="button" class="forma" aria-pressed="'+(S.forma===f)+'" data-f="'+f+'">'+f+'</button>'}).join('')+'</div>';
+      h+='<div class="valor"><small>Valor em '+S.forma+'</small><b>'+(S.buf?brl(+S.buf/100):brl(resta()))+'</b></div>';
+      h+='<div class="teclado" id="tec">'+['1','2','3','&#9003;','4','5','6','OK','7','8','9','0','00','C'].map(function(k,i){return '<button type="button" '+(k==='OK'?'class="ok" ':'')+'data-k="'+k+'">'+k+'</button>'}).join('')+'</div>';
+      h+='<div class="recebidos">'+S.rec.map(function(r){return '<div><span>'+r.f+'</span><b>'+brl(r.v)+'</b></div>'}).join('')+'</div>';
+      h+='<div class="falta '+(resta()===0?'ok':'pend')+'"><span>'+(resta()===0?'Pagamento completo':'Falta '+brl(resta()))+'</span><span>Total '+brl(total())+'</span></div>';
+    } else {
+      var tr=Math.max(0,pago()-total());
+      h+='<div class="resumo"><div class="linha"><span>Total da conta</span><b>'+brl(total())+'</b></div><div class="linha"><span>Recebido ('+S.rec.map(function(r){return r.f}).join(' + ')+')</span><b>'+brl(pago())+'</b></div><div class="linha"><span>Troco</span><b>'+brl(tr)+'</b></div>';
+      h+='<label class="cx"><input type="checkbox" id="cpf-ck" '+(S.cpf?'checked':'')+'> CPF/CNPJ na nota <input type="text" id="cpf-n" placeholder="000.000.000-00" value="'+S.cpfNum+'" '+(S.cpf?'':'disabled')+'></label>';
+      h+='<div class="cx" style="background:var(--soft)"><span>&#128424;</span><div><b>NFC-e sai sozinha</b><div style="color:var(--muted);font-size:12px">Ao fechar, a nota é emitida e o cupom imprime na hora.</div></div></div></div>';
+    }
+    $('area').innerHTML=h;
+    if(S.passo===0){var a=$('add');a.onclick=function(){abrirPal('01')};
+      [].forEach.call($('area').querySelectorAll('[data-d]'),function(b){b.onclick=function(){var it=c.itens[+b.dataset.d];it.q--;if(it.q<=0)c.itens.splice(+b.dataset.d,1);render()}});
+      [].forEach.call($('area').querySelectorAll('[data-u]'),function(b){b.onclick=function(){c.itens[+b.dataset.u].q++;render()}})}
+    if(S.passo===1){[].forEach.call($('formas').children,function(b){b.onclick=function(){S.forma=b.dataset.f;render()}});
+      [].forEach.call($('tec').children,function(b){b.onclick=function(){tecla(b.dataset.k)}})}
+    if(S.passo===2){$('cpf-ck').onchange=function(){S.cpf=this.checked;render()};if($('cpf-n'))$('cpf-n').oninput=function(){S.cpfNum=this.value}}
+  }
+  function tecla(k){if(k==='C'){S.buf=''}else if(k==='&#9003;'){S.buf=S.buf.slice(0,-1)}else if(k==='OK'){registrar();return}else{S.buf+=k}render()}
+  function registrar(){var v=S.buf?+S.buf/100:resta();if(v<=0){toast('Nada a receber');return}S.rec.push({f:S.forma,v:v});S.buf='';render()}
+  function guia(){var c=conta(),g=$('guia'),p=$('acao-prim');
+    if(S.fechada){g.innerHTML='<b>Pronto.</b> Escolha a próxima mesa.';p.textContent='Atender outra mesa';p.disabled=false;p.className='primario';p.onclick=function(){S.fechada=null;S.mesa=null;render()};return}
+    if(!c){g.innerHTML='<b>Passo 1:</b> toque em uma mesa para abrir ou continuar a conta.';p.textContent='Escolha uma conta';p.disabled=true;p.className='primario';return}
+    if(S.passo===0){g.innerHTML='<b>Passo 1 de 3:</b> confira os produtos. Precisa de algo mais? Aperte <kbd>*</kbd>.';p.textContent='Receber '+brl(total());p.disabled=!c.itens.length;p.className='primario';p.onclick=function(){S.passo=1;render()};return}
+    if(S.passo===1){var ok=resta()===0;g.innerHTML=ok?'<b>Passo 2 de 3:</b> pagamento completo.':'<b>Passo 2 de 3:</b> escolha a forma, digite o valor e toque em <b>OK</b>. Falta '+brl(resta())+'.';
+      p.textContent=ok?'Continuar para fechar':'Falta '+brl(resta());p.disabled=!ok;p.className='primario'+(ok?' verde':'');p.onclick=function(){S.passo=2;render()};return}
+    g.innerHTML='<b>Passo 3 de 3:</b> confira e feche. A NFC-e imprime sozinha.';p.textContent='Fechar conta e imprimir NFC-e';p.disabled=false;p.className='primario verde';p.onclick=fechar}
+  function fechar(){var tr=Math.max(0,pago()-total());S.fechada={mesa:S.mesa,nf:12+Math.floor(Math.random()*8),tot:total(),troco:tr};delete contas[S.mesa];mesas[S.mesa-1].st='livre';S.rec=[];S.buf='';S.desc=0;S.acr=0;S.passo=0;render();toast('NFC-e autorizada. Imprimindo o cupom…')}
+  function render(){canais();lista();passos();area();guia()}
+
+  /* Funções (paleta) */
+  var FUNCOES=[
+    {g:'Conta',c:'01',n:'Incluir produto',d:'Escolher no cardápio e somar na conta',run:function(){var it=CARDAPIO[Math.floor(Math.random()*CARDAPIO.length)];if(!conta()){toast('Escolha uma mesa primeiro');return}var ex=conta().itens.filter(function(x){return x.n===it.n})[0];if(ex)ex.q++;else conta().itens.push({n:it.n,p:it.p,q:1});S.passo=0;render();toast('Incluído: '+it.n)}},
+    {g:'Conta',c:'02',n:'Buscar conta',k:'F2',d:'Mesa, comanda, cliente ou pedido',run:function(){$('busca').focus()}},
+    {g:'Conta',c:'03',n:'Transferir mesa',d:'Passar a conta para outra mesa',run:function(){toast('Abriria: escolher a mesa de destino')}},
+    {g:'Conta',c:'04',n:'Separar itens',d:'Tirar itens para uma conta nova',run:function(){toast('Abriria: marcar os itens a separar')}},
+    {g:'Conta',c:'05',n:'Observações da conta',d:'Anotações internas da mesa',run:function(){toast('Abriria: caixa de observações')}},
+    {g:'Conta',c:'06',n:'Histórico da conta',d:'O que foi lançado e por quem',run:function(){toast('Abriria: linha do tempo da conta')}},
+    {g:'Pagamento',c:'10',n:'Dividir pagamento',d:'Por pessoa, percentual ou produto',run:function(){if(!conta())return toast('Escolha uma mesa primeiro');S.passo=1;render();toast('Abriria: dividir a conta')}},
+    {g:'Pagamento',c:'11',n:'Desconto',d:'Aplicar desconto (10% nesta prévia)',run:function(){if(!conta())return toast('Escolha uma mesa primeiro');S.desc=+(sub()*0.1).toFixed(2);render();toast('Desconto de 10% aplicado')}},
+    {g:'Pagamento',c:'12',n:'Acréscimo',d:'Somar valor extra (R$ 5,00 nesta prévia)',run:function(){if(!conta())return toast('Escolha uma mesa primeiro');S.acr=5;render();toast('Acréscimo de R$ 5,00 aplicado')}},
+    {g:'Pagamento',c:'13',n:'Taxa de serviço',d:'Aplicar ou remover os 10%',run:function(){S.taxa=!S.taxa;render();toast(S.taxa?'Taxa de serviço aplicada':'Taxa de serviço removida')}},
+    {g:'Pagamento',c:'14',n:'Cupom de desconto',d:'Validar o código do cupom',run:function(){toast('Abriria: digitar o código do cupom')}},
+    {g:'Pagamento',c:'15',n:'Pagar com pontos',d:'Usar o saldo do cliente',run:function(){S.forma='Pontos';S.passo=1;render();toast('Forma: Pontos')}},
+    {g:'Pagamento',c:'16',n:'Registrar valor parcial',k:'F6',d:'Mesmo que o OK do teclado',run:function(){if(S.passo===1)registrar();else toast('Disponível no passo Pagamento')}},
+    {g:'Cliente e nota',c:'20',n:'Identificar cliente',d:'Cadastrar na hora e acumular pontos',run:function(){toast('Abriria: telefone e nome do cliente')}},
+    {g:'Cliente e nota',c:'21',n:'CPF/CNPJ na nota',d:'Informar documento na NFC-e',run:function(){S.cpf=true;S.passo=Math.max(S.passo,2);render();toast('Informe o documento no passo Fechar')}},
+    {g:'Cliente e nota',c:'22',n:'NF-e para empresa',d:'Emitir nota modelo 55 com destinatário',run:function(){toast('Abriria: dados do destinatário (NF-e)')}},
+    {g:'Impressão',c:'30',n:'Pré-conta',k:'F4',d:'Conferência para o cliente, sem valor fiscal',run:function(){toast('Imprimindo a pré-conta…')}},
+    {g:'Impressão',c:'31',n:'Comprovante',d:'Completo ou simplificado',run:function(){toast('Imprimindo o comprovante…')}},
+    {g:'Impressão',c:'32',n:'Cupom da cozinha',d:'Reenviar produção por setor',run:function(){toast('Reenviando para a cozinha…')}},
+    {g:'Impressão',c:'33',n:'Reimprimir última NFC-e',novo:1,d:'Segunda via do último cupom fiscal',run:function(){toast('Reimprimindo a última NFC-e…')}},
+    {g:'Fiscal',c:'40',n:'Notas emitidas',d:'Situação, reenvio e histórico das notas',run:function(){toast('Abriria: Notas emitidas')}},
+    {g:'Fiscal',c:'41',n:'Cancelar NFC-e (até 30 min)',novo:1,d:'Só aparecem as notas ainda no prazo legal',run:function(){toast('Abriria: Cancelar NFC-e')}},
+    {g:'Fiscal',c:'42',n:'XMLs fiscais',novo:1,d:'Pesquisar e baixar XML por período',run:function(){toast('Abriria: XMLs fiscais')}},
+    {g:'Caixa',c:'50',n:'Fechar conta',k:'F5',d:'Confirmar, emitir NFC-e e imprimir',run:function(){if(!conta())return toast('Escolha uma mesa primeiro');if(resta()>0){S.passo=1;render();return toast('Falta receber '+brl(resta()))}S.passo=2;render()}},
+    {g:'Caixa',c:'51',n:'Resumo do turno',d:'Faturamento, formas, aberto × pago',run:function(){toast('Abriria: resumo e análise do turno')}},
+    {g:'Caixa',c:'52',n:'Trocar turno / fechar caixa',d:'Abrir, conferir e fechar o turno',run:function(){toast('Abriria: menu do turno')}},
+    {g:'Ajuda',c:'90',n:'Central de ajuda',k:'F1',d:'Manual do PDV e PDF para imprimir',run:function(){toast('Abriria: Central de ajuda')}},
+    {g:'Ajuda',c:'91',n:'Lista de atalhos',d:'Todas as teclas numa folha',run:function(){toast('Abriria: lista de atalhos')}}
+  ];
+  var sel=0,visiveis=[];
+  function norm(s){return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+  function pal(){var q=norm($('pal-in').value.trim());
+    visiveis=FUNCOES.filter(function(f){return !q||f.c.indexOf(q)===0||norm(f.n).indexOf(q)>=0||norm(f.d).indexOf(q)>=0});
+    if(sel>=visiveis.length)sel=0;var h='',ult='';
+    visiveis.forEach(function(f,i){if(f.g!==ult){h+='<div class="grupo">'+f.g+'</div>';ult=f.g}
+      h+='<button type="button" class="fn" role="option" aria-selected="'+(i===sel)+'" data-i="'+i+'"><span class="cod">'+f.c+'</span><span class="nm">'+f.n+'<small>'+f.d+(f.k?' · tecla '+f.k:'')+'</small></span>'+(f.novo?'<span class="tag">novo</span>':'<span></span>')+'</button>'});
+    $('pal-lista').innerHTML=h||'<div class="vazio" style="grid-column:1/-1;margin:8px">Nenhuma função com esse código ou nome.</div>';
+    [].forEach.call($('pal-lista').querySelectorAll('.fn'),function(b){b.onclick=function(){exec(visiveis[+b.dataset.i])}});
+    var a=$('pal-lista').querySelector('[aria-selected="true"]');if(a&&a.scrollIntoView)a.scrollIntoView({block:'nearest'})}
+  function exec(f){if(!f)return;fecharPal();f.run()}
+  function abrirPal(cod){$('veu').hidden=false;$('pal-in').value=cod||'';sel=0;pal();setTimeout(function(){$('pal-in').focus()},0)}
+  function fecharPal(){$('veu').hidden=true}
+  $('pal-in').addEventListener('input',function(){sel=0;pal();var v=this.value.trim();if(/^\d{2}$/.test(v)){var f=FUNCOES.filter(function(x){return x.c===v})[0];if(f)setTimeout(function(){if($('pal-in').value.trim()===v)exec(f)},260)}});
+  $('pal-in').addEventListener('keydown',function(e){if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(visiveis.length-1,sel+1);pal()}else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(0,sel-1);pal()}else if(e.key==='Enter'){e.preventDefault();exec(visiveis[sel])}});
+  $('fechar-pal').onclick=fecharPal;$('veu').addEventListener('mousedown',function(e){if(e.target===$('veu'))fecharPal()});
+  $('abrir-funcoes').onclick=function(){abrirPal('')};$('acao-sec').onclick=function(){abrirPal('')};
+  document.addEventListener('keydown',function(e){
+    if(!$('veu').hidden){if(e.key==='Escape'){fecharPal()}return}
+    var t=e.target&&e.target.tagName;var digitando=t==='INPUT'||t==='TEXTAREA'||t==='SELECT';
+    if(e.key==='F12'||(e.ctrlKey&&e.key.toLowerCase()==='k')||(!digitando&&e.key==='*')){e.preventDefault();abrirPal('');return}
+    if(e.key==='F2'){e.preventDefault();$('busca').focus()}else if(e.key==='F3'){e.preventDefault();S.canal=0;render()}else if(e.key==='F4'){e.preventDefault();toast('Imprimindo a pré-conta…')}else if(e.key==='F5'){e.preventDefault();FUNCOES.filter(function(x){return x.c==='50'})[0].run()}else if(e.key==='F6'){e.preventDefault();if(S.passo===1)registrar()}else if(e.key==='F1'){e.preventDefault();toast('Abriria: Central de ajuda')}
+    else if(S.passo===1&&!digitando&&/^[0-9]$/.test(e.key)){S.buf+=e.key;render()}else if(S.passo===1&&!digitando&&e.key==='Enter'){registrar()}
+  });
+  $('mais-turno').onclick=function(){toast('Abriria: resumo e análise financeira do turno')};
+  $('cliente-btn').onclick=function(){toast('Abriria: identificar cliente (telefone e nome)')};
+  $('busca').addEventListener('keydown',function(e){if(e.key==='Enter'){var q=norm(this.value);var m=mesas.filter(function(x){return String(x.n)===q.replace(/\D/g,'')})[0];if(m){S.mesa=m.n;if(!contas[m.n]){contas[m.n]={itens:[],cliente:'',ocupado:'agora'};m.st='ocupada'}S.passo=0;render();this.blur()}else toast('Nada encontrado para "'+this.value+'"')}});
+
+  /* Abas e mapa */
+  var MAPA=[['Canais Mesa, Delivery, Comanda, Cliente, Pedido','Barra superior (seletor único)','Igual ao atual, em um só controle'],['Busca global','Barra superior · F2 · código 02','Mesma busca'],['Ajuda (?)','Código 90 · F1','Mesma Central de Ajuda'],['Notificações, tema, operador, sair','Menu do operador (canto superior)','Mesmas funções, agrupadas'],['Aviso de nota rejeitada / status da NFC-e','Selo "NFC-e pronta" na barra; detalhe em 40','Só aparece o que precisa de atenção'],['Resumo do turno e KPIs (mesas, cozinha, financeiro)','Faixa fina "Turno" + código 51','Resumo completo sob demanda'],['Mapa de mesas e cores de status','Painel esquerdo','Mesmos 3 status'],['Dados da conta: cliente, tempo, itens','Painel direito, passo 1 Produtos','Igual, sem blocos extras'],['Incluir produto','Botão no passo 1 e código 01','Mesmo cardápio'],['Quantidade +/−, excluir item','Linha do item (passo 1)','Igual'],['Subtotal, taxa, acréscimo, desconto, cupom, total','Totais no passo 1; ajustes em 11, 12, 13, 14','Ajustes saem da tela principal'],['Formas de pagamento, valor, teclado, OK','Passo 2 Pagamento','Teclado só aparece ao receber'],['Pagar em várias formas / pagamento parcial','Passo 2 · F6 · código 16','Igual'],['Dividir a conta','Código 10','Mesma divisão (pessoa, %, produto)'],['Pontos do cliente / pagar com pontos','Códigos 20 e 15','Igual'],['CPF/CNPJ e NF-e na nota','Passo 3 Fechar · códigos 21 e 22','Mesma validação'],['Transferir, Separar, Observações, Histórico','Códigos 03, 04, 05, 06','Saíram do rodapé'],['Pré-conta, Comprovante, Cozinha','Códigos 30, 31, 32 · F4','Saíram do rodapé'],['Fechar conta e confirmação','Botão principal (passo 3) · F5 · código 50','NFC-e emitida e impressa na hora'],['Impressão do cupom NFC-e','Automática ao fechar; 33 reimprime','Novo: reimpressão rápida'],['Cancelar NFC-e, Notas emitidas, XMLs','Códigos 41, 40, 42','Novos atalhos para telas que já existem']];
+  $('tabela-mapa').innerHTML='<thead><tr><th>Função atual</th><th>Onde fica no novo PDV</th><th>O que muda</th></tr></thead><tbody>'+MAPA.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>'}).join('')+'</tbody>';
+  function aba(m){$('vista-pdv').hidden=m;$('vista-mapa').hidden=!m;$('aba-pdv').setAttribute('aria-pressed',String(!m));$('aba-mapa').setAttribute('aria-pressed',String(m))}
+  $('aba-pdv').onclick=function(){aba(false)};$('aba-mapa').onclick=function(){aba(true)};
+  render();
+})();
+</script>

@@ -5,7 +5,7 @@ import { emissaoPdvAtivaPorEnv, ambienteNfceDaLoja, chaveIdempotenciaVenda, emit
 
 const subtle = webcrypto.subtle;
 const REGRA = { id: 50, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" };
-const EMIT = { nfceHabilitada: true, nfceAmbiente: "homologacao" };
+const EMIT = { razaoSocial: "Burger Teste Ltda", inscricaoEstadual: "110042490114", crt: "1", cep: "01001000", logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", nfceSerie: 1, nfceHabilitada: true, nfceAmbiente: "homologacao" };
 const BASE = {
   emitente: EMIT, ativo: true, subtle,
   pedidos: [{ id: "PED-1", lojaId: 7, status: "delivered", items: [{ productId: 10, name: "X-Burger", price: 30, quantity: 1 }] }],
@@ -131,7 +131,7 @@ describe("CPF/CNPJ na nota e NF-e (E8 parte 3)", () => {
 });
 
 describe("emitirNotaDaVenda — NF-e", () => {
-  const EMIT55 = { nfceHabilitada: true, nfeHabilitada: true, nfceAmbiente: "homologacao" };
+  const EMIT55 = { ...EMIT, nfeHabilitada: true };
   const dest = dadosDaNotaNoCaixa(NFE_OK, { nfeDisponivel: true }).destinatario;
   it("reserva modelo 55 com o destinatário no rascunho", async () => {
     const s = supa({ documento_id: "d1", modelo: 55, serie: 1, numero: 9, ambiente: "homologacao", status: "reservado" });

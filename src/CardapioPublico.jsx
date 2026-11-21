@@ -2501,8 +2501,18 @@ export default function CardapioPublico() {
 
           {meusPedidos.length === 0 ? (
             <div className="py-10 text-center">
-              <p className="text-sm text-[var(--client-text-secondary)]">Nenhum pedido para acompanhar ainda.</p>
-              <p className="mt-1 text-xs text-[var(--client-text-muted)]">Seus pedidos aparecerão aqui assim que forem enviados.</p>
+              {pedidosOffline ? (
+                // A consulta falhou (rede ou permissão): não dizer que "não há pedido" — o pedido pode existir e só não foi possível consultar.
+                <div role="alert" data-testid="acompanhamento-indisponivel">
+                  <p className="flex items-center justify-center gap-2 text-sm font-bold text-[var(--client-warning)]"><CkIconWifiOff width={15} height={15} className="shrink-0" /> Não foi possível consultar seus pedidos agora.</p>
+                  <p className="mt-1 text-xs text-[var(--client-text-muted)]">Seu pedido pode já ter sido enviado. Estamos tentando de novo automaticamente; se persistir, fale com o estabelecimento.</p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-[var(--client-text-secondary)]">Nenhum pedido para acompanhar ainda.</p>
+                  <p className="mt-1 text-xs text-[var(--client-text-muted)]">Seus pedidos aparecerão aqui assim que forem enviados.</p>
+                </>
+              )}
               <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-2.5 text-sm font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">Voltar ao cardápio</button>
             </div>
           ) : (

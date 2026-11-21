@@ -13,7 +13,7 @@ import {
   EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja,
 } from "../lib/fiscal/emissaoPdv";
 import PdvNotaFiscalCampos from "./pdv/PdvNotaFiscalCampos";
-import { imprimirNotaFiscal as imprimirDanfe } from "../lib/fiscal/imprimirNota";
+import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../lib/fiscal/imprimirNota";
 
 // Categoria só é usada para o badge/filtro visual — nunca decide o que a
 // conta PODE fazer (pagar antecipado é sempre permitido, como já era).
@@ -119,8 +119,8 @@ export default function CentralDoCaixa({
   }, [formasPagamento]);
 
   // E8: NFC-e da venda em segundo plano — nunca trava nem desfaz o pagamento.
-  function emitirNotaDaConta(o, dadosNota, notaCx = { modelo: 65, cpf: "", destinatario: null }) {
-    if (!supabase) return;
+  function emitirNotaDaConta(o, dadosNota, notaCx = { modelo: 65, cpf: "", destinatario: null }, janela = null) {
+    if (!supabase) { fecharJanelaDeImpressao(janela); return; }
     const rotulo = String(o.table || "Conta").split(" · ")[0];
     const marca = `${o.id}-${Date.now()}`;
     const atualizar = (nota) => setNotaAviso((cur) => (cur && cur.marca === marca ? { ...cur, nota } : cur));
@@ -129,8 +129,15 @@ export default function CentralDoCaixa({
       supabase, emitente: emitenteFiscal, ...dadosNota, produtos, formas: formasPagamento,
       config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
     })
-      .then((n) => (n?.estado === "fora" ? setNotaAviso((cur) => (cur && cur.marca === marca ? null : cur)) : atualizar(n)))
-      .catch(() => atualizar({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }));
+      .then((n) => {
+        if (n?.estado === "fora") setNotaAviso((cur) => (cur && cur.marca === marca ? null : cur)); else atualizar(n);
+        // Autorizada (ou em contingência): imprime a NFC-e na hora, na janela aberta no clique de pagar. Outro resultado: fecha a janela.
+        if (janela && n?.documentoId && ["autorizada", "contingencia"].includes(n.estado)) {
+          imprimirDanfe({ documentoId: n.documentoId, janela, buscar: (corpo) => postarApiFiscal(supabase, corpo) })
+            .then((r) => { if (!r.ok) atualizar({ ...n, detalhe: r.erro }); });
+        } else fecharJanelaDeImpressao(janela);
+      })
+      .catch(() => { atualizar({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }); fecharJanelaDeImpressao(janela); });
   }
 
   async function imprimirNota(nota) {
@@ -161,16 +168,21 @@ export default function CentralDoCaixa({
     if (pagandoIdsRef.current.has(o.id)) return; // trava contra clique duplo antes do re-render
     pagandoIdsRef.current.add(o.id);
     setPagando(o.id);
+    // NFC-e: abre a janela de impressão AGORA (no clique, senão o navegador bloqueia); ela imprime sozinha quando a SEFAZ autorizar.
+    const janelaNota = nfceNaLoja && notaCx.modelo === 65 ? abrirJanelaDeImpressao() : null;
+    let janelaEmUso = false;
     try {
       const detalhes = linhas.map((l) => ({ forma: l.forma, valor: Number(l.valor) || 0 }));
       const dadosNota = dadosNotaContaOperacional({ pedido: o, subtotal: subtotalDe ? subtotalDe(o) : total, total, detalhes });
       const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao }, { manterStatus: true, somenteId: o.id });
-      // Só emite se a baixa aconteceu (recusa — sem permissão, já pago — não devolve objeto).
-      if (baixa && typeof baixa === "object" && !baixa.erro) {
-        emitirNotaDaConta(o, dadosNota, notaCx);
+      // Só emite se o pagamento foi gravado (recusa — sem permissão, já pago — não devolve objeto). Falha só em estoque/histórico não impede a NFC-e.
+      if (baixa && typeof baixa === "object" && (!baixa.erro || baixa.pagamentoGravado === true)) {
+        janelaEmUso = true;
+        emitirNotaDaConta(o, dadosNota, notaCx, janelaNota);
         setContaCheckout((cur) => (cur && cur.id === o.id ? null : cur));
       }
     } catch { /* feedback já tratado no backend */ }
+    if (!janelaEmUso) fecharJanelaDeImpressao(janelaNota); // pagamento recusado ou sem nota: não deixa janela em branco
     pagandoIdsRef.current.delete(o.id);
     setPagando(null);
     setConfirmacao(null);

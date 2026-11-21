@@ -36,32 +36,36 @@ function supabaseCom(emitenteNoBanco) {
     },
   };
 }
-const EMIT_BANCO_HML = { id: 1, loja_id: 9, nfce_habilitada: true, nfe_habilitada: false, nfce_ambiente: "homologacao", crt: "1", uf: "SP" };
+const EMIT_BANCO_HML = { id: 1, loja_id: 9, nfce_habilitada: true, nfe_habilitada: false, nfce_ambiente: "homologacao", crt: "1", uf: "SP", razao_social: "Burger Teste Ltda", inscricao_estadual: "110042490114", cep: "01001000", logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigo_municipio_ibge: "3550308", nfce_serie: 1 };
 
-async function fecharConta({ emitenteFiscal, supabase }) {
+async function fecharConta({ emitenteFiscal, supabase, fetchFn, baixaRetorno }) {
   const { default: CashierPdv } = await import("./CashierPdv.jsx");
-  globalThis.fetch = async (url, init) => { chamadas.push(`fetch:${url}:${JSON.parse(init.body).acao}`); return { status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 7 }) }; };
+  globalThis.fetch = fetchFn || (async (url, init) => { chamadas.push(`fetch:${url}:${JSON.parse(init.body).acao}`); return { status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 7 }) }; });
   el = document.createElement("div"); document.body.appendChild(el);
   root = createRoot(el);
   const baixas = [];
   await act(async () => root.render(<CashierPdv orders={ORDERS} formasPagamento={[{ id: 1, nome: "Dinheiro", tipo: "dinheiro", active: true }, { id: 4, nome: "PIX", tipo: "pix", active: true }]}
     lojaInfo={{ id: 9, nome: "Burger Station" }} currentUser={{ id: 1, name: "Admin", role: "admin", accessIds: ["cashier", "admin"] }} caixaAberto={{ id: 1 }}
     products={PRODUTOS} emitenteFiscal={emitenteFiscal} ctxFiscal={CTX} configFiscalVenda={CONFIG} supabase={supabase}
-    baixarComandas={async (...a) => { baixas.push(a); return { alertas: [] }; }} />));
+    baixarComandas={async (...a) => { baixas.push(a); return baixaRetorno === undefined ? { alertas: [] } : baixaRetorno === "recusada" ? undefined : baixaRetorno; }} />));
   await esperar(50);
   const btn = (txt) => [...el.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === txt);
+  if (!btn("OK")) await act(async () => { el.querySelector("[data-testid=\"acao-principal\"]").click(); }); // passo 1 → Pagamento
   for (const k of ["5", "6", "9", "8", "OK"]) await act(async () => { btn(k).click(); }); // R$ 56,98 em dinheiro (51,80 + 10% de serviço)
   await esperar();
-  await act(async () => { [...el.querySelectorAll("button")].filter((b) => (b.textContent || "").trim() === "Fechar conta")[0].click(); });
+  await act(async () => { el.querySelector("[data-testid=\"acao-principal\"]").click(); });
   await esperar();
-  await act(async () => { [...el.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "Confirmar").click(); });
+  await act(async () => { el.querySelector("[data-testid=\"acao-principal\"]").click(); });
   await esperar(300);
   return { baixas, tela: el.textContent.replace(/\s+/g, " ") };
 }
 
+// Cadastro fiscal completo da empresa (o caixa confere tudo antes de reservar o número da nota).
+const EMIT_COMPLETO = { razaoSocial: "Burger Teste Ltda", inscricaoEstadual: "110042490114", crt: "1", cep: "01001000", logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", nfceSerie: 1 };
+
 describe("PDV: fechar a conta e a NFC-e", () => {
   it("empresa em homologação: grava a venda, reserva o número e pede a emissão ao servidor; tela mostra a nota autorizada", async () => {
-    const emit = { lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" };
+    const emit = { ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" };
     const { baixas, tela } = await fecharConta({ emitenteFiscal: emit, supabase: supabaseCom(EMIT_BANCO_HML) });
     expect(baixas).toHaveLength(1);
     expect(chamadas).toContain("rpc:app_fiscal_reservar_documento");
@@ -112,7 +116,7 @@ describe("PDV: a nota só sai no fechamento, com o valor total coberto (conta di
     const props = {
       formasPagamento: [{ id: 1, nome: "Dinheiro", tipo: "dinheiro", active: true }, { id: 4, nome: "PIX", tipo: "pix", active: true }],
       lojaInfo: { id: 9, nome: "Burger Station" }, currentUser: { id: 1, name: "Admin", role: "admin", accessIds: ["cashier", "admin"] }, caixaAberto: { id: 1 },
-      products: PRODUTOS, emitenteFiscal: { lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" }, ctxFiscal: CTX, configFiscalVenda: CONFIG,
+      products: PRODUTOS, emitenteFiscal: { ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" }, ctxFiscal: CTX, configFiscalVenda: CONFIG,
       supabase: bancoCapturando(), baixarComandas: async (...a) => { baixas.push(a); return { alertas: [] }; },
     };
     await act(async () => root.render(<CashierPdv orders={orders} {...props} />));
@@ -121,8 +125,8 @@ describe("PDV: a nota só sai no fechamento, com o valor total coberto (conta di
   }
   const botao = (txt) => [...el.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === txt);
   const digitar = async (txt) => { for (const k of txt) await act(async () => { botao(k).click(); }); };
-  const receber = async (forma, centavos) => { await act(async () => { botao(forma).click(); }); await digitar(centavos); await act(async () => { botao("OK").click(); }); await esperar(); };
-  const fecharConta = () => [...el.querySelectorAll("button")].filter((b) => (b.textContent || "").trim() === "Fechar conta")[0];
+  const receber = async (forma, centavos) => { if (!botao("OK")) await act(async () => { fecharConta().click(); }); await act(async () => { botao(forma).click(); }); await digitar(centavos); await act(async () => { botao("OK").click(); }); await esperar(); };
+  const fecharConta = () => el.querySelector("[data-testid=\"acao-principal\"]");
 
   it("pagando em DUAS formas: com só a 1ª parcela o botão não fecha e nada é gravado nem emitido; com o total coberto, fecha e emite UMA nota com as duas formas", async () => {
     const { baixas } = await montar();
@@ -140,7 +144,7 @@ describe("PDV: a nota só sai no fechamento, com o valor total coberto (conta di
     expect(reservas).toHaveLength(0);
     await act(async () => { fecharConta().click(); });
     await esperar();
-    await act(async () => { botao("Confirmar").click(); });
+    await act(async () => { fecharConta().click(); });
     await esperar(300);
 
     expect(baixas).toHaveLength(1);
@@ -167,7 +171,7 @@ describe("PDV: a nota só sai no fechamento, com o valor total coberto (conta di
       const { baixas } = await montar(orders);
       await receber("PIX", centavos);
       await act(async () => { fecharConta().click(); }); await esperar();
-      await act(async () => { botao("Confirmar").click(); }); await esperar(300);
+      await act(async () => { fecharConta().click(); }); await esperar(300);
       expect(baixas).toHaveLength(1);
       act(() => root.unmount()); el.remove(); root = el = null;
     };
@@ -176,5 +180,66 @@ describe("PDV: a nota só sai no fechamento, com o valor total coberto (conta di
     expect(reservas).toHaveLength(2);
     expect(reservas.map((r) => r.p_rascunho.venda.totais.vNF)).toEqual([28.49, 56.98]);
     expect(new Set(reservas.map((r) => r.p_idempotency_key)).size).toBe(2); // nunca a mesma nota duas vezes
+  });
+});
+
+// NFC-e: a janela de impressão abre no clique de pagar e a nota imprime SOZINHA assim que a SEFAZ autoriza.
+vi.mock("qrcode", () => ({ default: { toDataURL: async () => "data:image/png;base64,AAAA" } }));
+describe("PDV: impressão imediata da NFC-e", () => {
+  const DANFE = { numero: 7, serie: 1, chave: "3".repeat(44), urlChave: "https://www.nfce.fazenda.sp.gov.br/consulta", dhEmi: "2026-11-20T15:00:00Z", homologacao: true, qrCode: "https://qr", emitente: { cnpj: "44422195000133", nome: "Burger Station", endereco: "Rua A, 1" },
+    itens: [{ cProd: "45", xProd: "X-Salada", qCom: 2, uCom: "UN", vUnCom: 25.9, vProd: 51.8 }], totais: { qtdItens: 1, vProd: 51.8, vNF: 56.98 }, pagamentos: [{ tPag: "01", vPag: 56.98 }], troco: 0, protocolo: { nProt: "135", dhRecbto: "2026-11-20T15:00:05Z" }, consumidor: null };
+  let janela, abertas;
+  beforeEach(() => {
+    abertas = 0;
+    janela = { escritos: [], closed: false, document: { write(h) { janela.escritos.push(h); }, open() {}, close() {} }, close() { janela.closed = true; } };
+    vi.spyOn(window, "open").mockImplementation(() => { abertas += 1; return janela; });
+  });
+  const resposta = (emissao) => async (url, init) => {
+    const b = JSON.parse(init.body); chamadas.push(`fetch:${url}:${b.acao}`);
+    if (b.acao === "danfe") return { status: 200, json: async () => ({ ok: true, modelo: 65, danfe: DANFE }) };
+    return { status: 200, json: async () => emissao };
+  };
+  const emit = () => ({ ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" });
+
+  it("autorizada: abre UMA janela no clique e imprime o cupom da NFC-e na hora, sem o operador clicar de novo", async () => {
+    await fecharConta({ emitenteFiscal: emit(), supabase: supabaseCom(EMIT_BANCO_HML), fetchFn: resposta({ ok: true, situacao: "autorizada", numero: 7 }) });
+    expect(abertas).toBe(1);
+    expect(chamadas).toContain("fetch:/api/fiscal-emitir:danfe");
+    const html = janela.escritos.join("");
+    expect(html).toContain("Emitindo a nota fiscal");
+    expect(html).toContain("Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica");
+    expect(html).toContain("window.print()"); // imprime assim que a janela carrega
+    expect(html).toContain("QR Code da NFC-e");
+    expect(janela.closed).toBe(false);
+  });
+  it("rejeitada pela SEFAZ: não imprime nada e a janela em branco é fechada (o aviso na tela explica o motivo)", async () => {
+    const { tela } = await fecharConta({ emitenteFiscal: emit(), supabase: supabaseCom(EMIT_BANCO_HML), fetchFn: resposta({ ok: false, situacao: "rejeitada", cStat: 373, xMotivo: "Rejeição: teste" }) });
+    expect(abertas).toBe(1);
+    expect(chamadas).not.toContain("fetch:/api/fiscal-emitir:danfe");
+    expect(janela.closed).toBe(true);
+    expect(tela).toContain("rejeitada");
+  });
+  it("loja sem emissão ligada: nem abre a janela", async () => {
+    await fecharConta({ emitenteFiscal: { lojaId: 9, nfceHabilitada: true, nfceAmbiente: "simulacao" }, supabase: supabaseCom({ ...EMIT_BANCO_HML, nfce_ambiente: "simulacao" }) });
+    expect(abertas).toBe(0);
+  });
+});
+
+// A NFC-e depende do PAGAMENTO gravado, não do estoque/histórico: falha nessas etapas não pode deixar a venda sem nota.
+describe("PDV: NFC-e quando a baixa da venda tem falha parcial", () => {
+  const emit = () => ({ ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" });
+  it("estoque/histórico falhou mas os pedidos já constam como PAGOS: a NFC-e é emitida mesmo assim", async () => {
+    await fecharConta({ emitenteFiscal: emit(), supabase: supabaseCom(EMIT_BANCO_HML), baixaRetorno: { alertas: [], erro: true, pagamentoGravado: true } });
+    expect(chamadas).toContain("rpc:app_fiscal_reservar_documento");
+    expect(chamadas).toContain("fetch:/api/fiscal-emitir:emitir");
+  });
+  it("pagamento NÃO gravado (erro antes de marcar como pago): nenhum número de nota é reservado", async () => {
+    await fecharConta({ emitenteFiscal: emit(), supabase: supabaseCom(EMIT_BANCO_HML), baixaRetorno: { alertas: [], erro: true } });
+    expect(chamadas).not.toContain("rpc:app_fiscal_reservar_documento");
+  });
+  it("pagamento recusado (sem permissão / já pago: sem retorno): não reserva número nem emite", async () => {
+    await fecharConta({ emitenteFiscal: emit(), supabase: supabaseCom(EMIT_BANCO_HML), baixaRetorno: "recusada" });
+    expect(chamadas).not.toContain("rpc:app_fiscal_reservar_documento");
+    expect(chamadas).not.toContain("fetch:/api/fiscal-emitir:emitir");
   });
 });

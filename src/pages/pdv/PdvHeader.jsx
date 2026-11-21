@@ -18,6 +18,7 @@ export default function PdvHeader({
   temaClaro = true,
   onToggleTema,
   onAbrirAjuda,
+  onFuncoes,
   onSair,
 }) {
   return (
@@ -86,6 +87,17 @@ export default function PdvHeader({
         </form>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {typeof onFuncoes === "function" && (
+            <button
+              type="button"
+              onClick={onFuncoes}
+              data-testid="btn-funcoes"
+              title="Funções do PDV (tecla *, F12 ou Ctrl+K)"
+              className="flex h-9 items-center gap-2 rounded-lg border border-[#F38525] bg-[#FEF1E3] px-3 text-[12px] font-black text-[#012E46] transition hover:brightness-95"
+            >
+              Funções <kbd className="rounded border border-[#F38525]/50 bg-white px-1.5 text-[10px]">*</kbd>
+            </button>
+          )}
           {typeof onAbrirAjuda === "function" && (
             <button
               type="button"

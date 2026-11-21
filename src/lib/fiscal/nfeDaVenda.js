@@ -9,7 +9,11 @@
 // ════════════════════════════════════════════════════════════
 
 import { tributosAproximados } from "./ibpt.js";
-import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual } from "../emitenteFiscalService.js";
+import { validarAntesDeEmitir } from "./validacaoPreEmissao.js";
+import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual, normalizarInscricaoEstadual } from "../emitenteFiscalService.js";
+
+// Cadastros antigos podem ter máscara (CEP 01001-000, IBGE, telefone): o leiaute só aceita números.
+const apenasDigitos = (v) => String(v ?? "").replace(/\D/g, "");
 
 // ── Chave de acesso (44) — NF-e e NFC-e ───────────────────
 // DV módulo 11 com pesos 2..9; cada posição vale (código ASCII − 48), o que
@@ -145,6 +149,9 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   // A série não entra aqui: vem da reserva de numeração (parâmetro `serie`).
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
+  // Conferência completa ANTES de montar: tudo que a SEFAZ rejeitaria por dado nosso (CNPJ, IE, IBGE, NCM, CFOP, CST, destinatário…).
+  const pre = validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor });
+  if (!pre.ok) return falha(`Dados fiscais com problema: ${pre.texto}`);
   const simples = crt !== "3";
   const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
   if (avisoIe) avisos.push(avisoIe);
@@ -307,10 +314,10 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
 
   const dados = {
     chave,
-    ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], idDest: interestadual ? "2" : "1", cMunFG: e.codigoMunicipioIbge, cDV: chave.slice(-1), indPres: "1", indFinal: "1" },
+    ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], idDest: interestadual ? "2" : "1", cMunFG: apenasDigitos(e.codigoMunicipioIbge), cDV: chave.slice(-1), indPres: "1", indFinal: "1" },
     emit: {
-      CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: e.inscricaoEstadual, CRT: crt,
-      ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: e.codigoMunicipioIbge, xMun: e.municipio, UF: e.uf, CEP: e.cep, fone: e.telefoneFiscal },
+      CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: normalizarInscricaoEstadual(e.inscricaoEstadual), CRT: crt,
+      ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: apenasDigitos(e.codigoMunicipioIbge), xMun: e.municipio, UF: e.uf, CEP: apenasDigitos(e.cep), fone: apenasDigitos(e.telefoneFiscal) },
     },
     dest: dest.dest,
     itens,

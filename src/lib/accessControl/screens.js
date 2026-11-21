@@ -30,6 +30,8 @@ const LABELS_ADMIN = {
   cardapioext: "Cardápio Externo",
   "painel-fiscal": "Painel Fiscal",
   "notas-fiscais": "Notas Emitidas",
+  "cancelamento-nfce": "Cancelar NFC-e",
+  "xmls-fiscais": "XMLs fiscais",
   "dados-fiscais-empresa": "Dados da Empresa (Fiscal)",
   fiscal: "Cadastros Fiscais",
   "emissao-fiscal": "Emissão Fiscal",

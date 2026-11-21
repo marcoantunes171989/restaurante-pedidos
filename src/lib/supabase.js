@@ -1643,18 +1643,31 @@ export async function rpcStatusMesa({ lojaId, mesaNumero, mesaId = null }) {
     return { existe: !!data.existe, ativa: !!data.ativa, ocupada: !!data.ocupada, numero: data.numero ?? null, nome: data.nome ?? '' }
   } catch { return null }
 }
+// Acompanhamento público dos pedidos (migration 195): RPC nova, enxuta e com tenant validado. As antigas (pub_pedidos_comanda/pub_pedidos_cliente)
+// foram fechadas para anon pelas migrations de endurecimento ("permission denied for function"): só servem de reserva quando a nova ainda não
+// existe no banco (PGRST202/42883), para não quebrar ambientes onde a 195 ainda não foi aplicada.
+const funcaoAusente = (e) => !!e && (e.code === 'PGRST202' || e.code === '42883' || /could not find the function|does not exist/i.test(String(e.message || '')))
+async function acompanharPedidos({ lojaId, telefone = null, comanda = null }, legado) {
+  const { data, error } = await supabase.rpc('pub_acompanhar_pedidos', { p_loja_id: lojaId, p_telefone: telefone, p_comanda: comanda })
+  if (!error) return (Array.isArray(data) ? data : []).map(dbParaPedido)
+  if (!funcaoAusente(error)) throw error
+  return legado()
+}
+// Propagam erro de rede/RPC (diferente de "sem pedidos ainda", que é lista vazia) — quem chama usa isso pra detectar perda de conexão em
+// tempo real (ver pedidosOffline em CardapioPublico.jsx).
 export async function rpcPedidosComanda({ lojaId, comanda }) {
-  const { data, error } = await supabase.rpc('pub_pedidos_comanda', { p_loja_id: lojaId, p_comanda: comanda })
-  // Propaga erro de rede/RPC (diferente de "sem pedidos ainda", que é !error
-  // com data vazio) — quem chama usa isso pra detectar perda de conexão em
-  // tempo real (ver pedidosOffline em CardapioPublico.jsx).
-  if (error) throw error
-  return (data || []).map(dbParaPedido)
+  return acompanharPedidos({ lojaId, comanda }, async () => {
+    const { data, error } = await supabase.rpc('pub_pedidos_comanda', { p_loja_id: lojaId, p_comanda: comanda })
+    if (error) throw error
+    return (data || []).map(dbParaPedido)
+  })
 }
 export async function rpcPedidosCliente({ lojaId, telefone }) {
-  const { data, error } = await supabase.rpc('pub_pedidos_cliente', { p_loja_id: lojaId, p_telefone: telefone })
-  if (error) throw error
-  return (data || []).map(dbParaPedido)
+  return acompanharPedidos({ lojaId, telefone }, async () => {
+    const { data, error } = await supabase.rpc('pub_pedidos_cliente', { p_loja_id: lojaId, p_telefone: telefone })
+    if (error) throw error
+    return (data || []).map(dbParaPedido)
+  })
 }
 export async function rpcSolicitarContaPublico({ lojaId, comanda, usarPontos = false }) {
   // Overload com intenção de pagar com pontos (migration 073). Se o overload

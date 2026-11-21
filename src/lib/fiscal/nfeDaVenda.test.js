@@ -5,7 +5,7 @@ import { montarXmlNFe } from "./nfeXml.js";
 import { digitoVerificadorChave } from "../nfceService.js";
 
 const EMIT = {
-  razaoSocial: "Hamburgueria Teste Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "123456789012", crt: "1",
+  razaoSocial: "Hamburgueria Teste Ltda", nomeFantasia: "Burger Teste", inscricaoEstadual: "110042490114", crt: "1",
   logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", cep: "01001000",
 };
 const REGRA = { id: 50, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" };
@@ -342,10 +342,10 @@ describe("CSOSN 900 e ST (201/202/203)", () => {
 });
 
 describe("aviso da IE do emitente na nota", () => {
-  it("IE de SP que não confere gera aviso, mas NÃO bloqueia a nota", () => {
-    const r = dadosNFeDaVenda({ ...BASE, venda: venda() }); // EMIT.inscricaoEstadual = 123456789012 (não confere)
-    expect(r.ok, r.erro).toBe(true);
-    expect(r.avisos.some((a) => /Inscrição Estadual não confere/.test(a) || /dígito verificador da Inscrição Estadual/.test(a))).toBe(true);
+  it("IE de SP que não confere BLOQUEIA a nota (a SEFAZ rejeitaria com 'IE do emitente inválida') e diz como corrigir", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), emitente: { ...EMIT, inscricaoEstadual: "123456789012" } });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/Inscrição Estadual não passa na conferência.*Dados da Empresa/);
   });
   it("IE de SP válida: sem esse aviso", () => {
     const r = dadosNFeDaVenda({ ...BASE, venda: venda(), emitente: { ...EMIT, inscricaoEstadual: "110042490114" } });
@@ -363,5 +363,14 @@ describe("tPag 99 (Outros) leva a descrição do meio de pagamento (xPag)", () =
     expect(montarXmlNFe(outro.dados).xml).toContain("<tPag>99</tPag><xPag>Vale Combustível Interno</xPag>");
     const pix = dadosNFeDaVenda({ ...BASE, venda: mk("17", "PIX") });
     expect(pix.dados.pag.detPag[0].xPag).toBeUndefined();
+  });
+});
+
+describe("cadastro do emitente com máscara (cadastros antigos)", () => {
+  it("IE, CEP e IBGE saem só com números no XML (o leiaute não aceita pontuação)", () => {
+    const r = dadosNFeDaVenda({ ...BASE, venda: venda(), emitente: { ...EMIT, inscricaoEstadual: "110.042.490.114", cep: "01001-000", codigoMunicipioIbge: "3550308" } });
+    expect(r.ok, r.erro).toBe(true);
+    expect(r.dados.emit.IE).toBe("110042490114");
+    expect(r.dados.emit.ender.CEP).toBe("01001000");
   });
 });

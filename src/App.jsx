@@ -5,12 +5,15 @@ import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js"
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
 import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import { produtosSemFiscal } from "./lib/fiscal/ativacaoFiscal.js";
+import { descricaoProdutoFiscal } from "./lib/fiscal/nfeXml.js";
 import { patchVinculosFiscais, percentualCreditoSimples, fiscalComCredito } from "./lib/fiscal/produtoFiscalPatch.js";
 import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
 import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
 import ComoFuncionaFiscal from "./components/admin/fiscal/ComoFuncionaFiscal.jsx";
 import DadosEmpresaFiscal from "./components/admin/fiscal/DadosEmpresaFiscal.jsx";
 import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
+import CancelamentoNfce from "./components/admin/fiscal/CancelamentoNfce.jsx";
+import XmlsFiscais from "./components/admin/fiscal/XmlsFiscais.jsx";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
   excluirFiscalNcmLote, atualizarFiscalNcmLoteAtivo,
@@ -2525,10 +2528,12 @@ export default function RestaurantePedidoApp() {
       })();
       setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
       let alertasEstoque = [];
+      let pagamentoGravado = false; // os pedidos já constam como PAGOS no banco (o que a nota fiscal exige), mesmo que estoque/histórico falhem depois
       let falhaGravacao = null; // erro real ao gravar a venda no banco (antes só ia para o console e a tela dizia "sucesso")
       if (dbReady) {
         try {
           await Promise.all(alvo.map((o) => marcarPagoPedido(o.id, formaLabel || null, manterStatus ? null : "entregue")));
+          pagamentoGravado = true;
           const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
           alertasEstoque = r?.alertas || [];
           if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
@@ -2581,7 +2586,7 @@ export default function RestaurantePedidoApp() {
       }
       if (falhaGravacao) {
         notify("error", `⚠️ A venda não foi totalmente gravada: ${falhaGravacao?.message || "erro ao registrar o pagamento ou baixar o estoque"}. Confira o pedido e o estoque antes de repetir.`);
-        return { alertas: alertasEstoque, erro: true };
+        return { alertas: alertasEstoque, erro: true, pagamentoGravado };
       }
       notify("success", manterStatus ? "✅ Pagamento registrado · aguardando retirada do produto." : `✅ Pagamento finalizado! ${comandas.length} comanda(s) baixada(s), estoque atualizado.`);
       return { alertas: alertasEstoque };
@@ -7659,6 +7664,8 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     { grupo: "Fiscal", itens: [
       { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
       { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
+      { id: "cancelamento-nfce", icon: <SearchX className="h-4 w-4" />, label: "Cancelar NFC-e" },
+      { id: "xmls-fiscais", icon: <Download className="h-4 w-4" />, label: "XMLs fiscais" },
       { id: "dados-fiscais-empresa", icon: <Store className="h-4 w-4" />, label: "Dados da Empresa" },
       { id: "emissao-fiscal", icon: <LockKeyhole className="h-4 w-4" />, label: "Emissão" },
       { id: "config-fiscal", icon: <Receipt className="h-4 w-4" />, label: "Tributação" },
@@ -7858,6 +7865,18 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<ClipboardList className="h-4 w-4" />} titulo="Notas Emitidas" descricao={`Acompanhe as notas da ${lojaInfo?.nome || "sua loja"}: situação na SEFAZ, reenvio, correção, cancelamento e contingência.`} />
               <NotasFiscaisEmitidas supabase={supabase} lojaInfo={lojaInfo} produtos={products} regrasLoja={lojaFiscalRegras} ctxFiscal={ctxFiscalAdmin} />
+            </main>
+          ))}
+          {ativo === "cancelamento-nfce" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<SearchX className="h-4 w-4" />} titulo="Cancelar NFC-e" descricao={`Só aparecem as NFC-e da ${lojaInfo?.nome || "sua loja"} que ainda estão dentro do prazo legal de cancelamento.`} />
+              <CancelamentoNfce supabase={supabase} lojaInfo={lojaInfo} />
+            </main>
+          ))}
+          {ativo === "xmls-fiscais" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<Download className="h-4 w-4" />} titulo="XMLs fiscais" descricao={`Pesquise e baixe os XMLs das notas da ${lojaInfo?.nome || "sua loja"} por período, chave de acesso ou qualquer campo do XML.`} />
+              <XmlsFiscais supabase={supabase} lojaInfo={lojaInfo} />
             </main>
           ))}
           {ativo === "dados-fiscais-empresa" && (precisaEmpresa ? avisoEmpresa : (
@@ -24042,7 +24061,15 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
           {aba === "geral" && (<>
             {secao("ℹ️", "Informações principais", "Nome, categoria e descrição do produto.", <>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div><label className={PP_LBL}>Nome do produto *</label><input autoFocus value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: X-Salada" className={PP_INP} /></div>
+                <div><label className={PP_LBL}>Nome do produto *</label><input autoFocus value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: X-Salada" className={PP_INP} />
+                  {(() => {
+                    // A nota fiscal só aceita texto no padrão da SEFAZ (até 120 caracteres, sem emoji/aspas especiais): o sistema ajusta sozinho na emissão.
+                    const nf = descricaoProdutoFiscal(f.name);
+                    const nome = String(f.name || "").trim();
+                    if (!nome || nf === nome) return null;
+                    return <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]" data-testid="nome-na-nota">{nf ? <>Na nota fiscal sairá: <b className="text-[var(--pp-text)]">{nf}</b> (ajustado ao padrão da SEFAZ; o cardápio mantém o nome acima).</> : <span className="font-semibold text-[#C81E4A]">Este nome não tem texto válido para a nota fiscal: use letras ou números.</span>}</p>;
+                  })()}
+                </div>
                 <div><label className={PP_LBL}>Tempo de preparo *</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="" disabled>Selecione...</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
               </div>
               <div className="mt-3"><label className={PP_LBL}>Categoria *</label>

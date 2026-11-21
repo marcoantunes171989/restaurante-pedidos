@@ -10,6 +10,7 @@ import { credencialDoCofre } from "./credencialCofre.js";
 import { montarAssinadaNormal } from "./nfeAssinada.js";
 import { statusServico, emitirNaSefaz } from "./sefaz/emissor.js";
 import { processarEvento } from "./eventoService.js";
+import { processarManutencao } from "./manutencaoService.js";
 import { processarContingencia, transmitirContingencia } from "./contingenciaService.js";
 import { dadosDaNota } from "./dadosDaVenda.js";
 import { dadosDanfeNfce } from "./danfeNfce.js";
@@ -31,7 +32,7 @@ const MENSAGENS = {
   VENDA_DIVERGENTE: "A venda não bate com os pedidos pagos (itens, valores ou loja). A nota não foi enviada.",
   VENDA_NAO_PAGA: "Há pedido desta venda ainda não pago. A nota não foi enviada.",
   SEM_EMITENTE: "Complete o cadastro fiscal da loja (CNPJ e endereço) antes de emitir.",
-  SEM_XML: "Esta nota ainda não tem XML para imprimir (não foi autorizada nem emitida em contingência).",
+  SEM_XML: "Esta nota ainda não tem XML (só existe depois de autorizada ou emitida em contingência).",
   SEM_AUTORIZACAO: "Esta NF-e ainda não foi autorizada (nem tem EPEC registrado): não pode ser impressa.",
   FALHA_ENVIO: "Falha técnica ao enviar: a nota NÃO chegou à SEFAZ. Em Notas emitidas use Reenviar (o número é mantido).",
   FALHA_APOS_ENVIO: "Falha técnica depois do envio: a SEFAZ pode ter recebido a nota. Em Notas emitidas use Consultar na SEFAZ antes de reenviar.",
@@ -49,6 +50,8 @@ export async function processarEmissao(body = {}, deps) {
   // Eventos (E6) na mesma rota — o projeto está no limite de funções da Vercel.
   if (["cancelar", "substituir", "cce"].includes(acao)) return processarEvento(body, deps);
   const conexao = { ca: deps.ca, timeoutMs: deps.timeoutMs, enviar: deps.enviar, endereco: deps.endereco };
+  // Manutenção fiscal (193): corrige campos de nota ainda não autorizada, registra no log e, se pedido, retransmite.
+  if (["manutencao_abrir", "manutencao_salvar"].includes(acao)) return processarManutencao(body, deps, (b) => processarEmissao(b, deps));
   // Contingência off-line da NFC-e (E7).
   if (["contingencia", "transmitir_contingencia", "pendentes_contingencia", "consultar"].includes(acao)) return processarContingencia(body, deps, conexao);
 
@@ -67,6 +70,18 @@ export async function processarEmissao(body = {}, deps) {
     } catch {
       return falha("UF_NAO_SUPORTADA");
     }
+  }
+
+  // XML da nota (consulta e download): só leitura do que já está guardado. Quem consulta: quem opera o caixa OU administra a loja
+  // (super admin vale nos dois). Não devolve certificado nem segredo: o XML autorizado é o documento fiscal do próprio estabelecimento.
+  if (acao === "xml") {
+    const r = await deps.paraDanfe(String(body.documentoId || ""));
+    if (!r) return falha("NAO_ENCONTRADO");
+    const lojaId = r.documento?.loja_id ?? r.loja_id;
+    if (!(await deps.podeEmitir(lojaId)) && !(await deps.podeConfigurar(lojaId))) return falha("FORBIDDEN");
+    if (!r.ok || !r.xml) return falha("SEM_XML");
+    const d = r.documento || {};
+    return { ok: true, xml: String(r.xml), fonte: r.fonte || null, modelo: Number(d.modelo), serie: d.serie ?? null, numero: d.numero ?? null, chave: d.chave || null, ambiente: d.ambiente || null, protocolo: d.protocolo || null };
   }
 
   // DANFE (E8 parte 2): dados para imprimir, tirados do XML guardado.
@@ -99,7 +114,28 @@ export async function processarEmissao(body = {}, deps) {
   // E8: venda do caixa → o servidor monta e grava os dados (uma vez).
   const prep = await dadosDaNota(doc, deps, deps.agora ? deps.agora() : new Date());
   if (prep.code) return falha(prep.code, prep.detalhe ? { detalhe: prep.detalhe } : {});
-  const dados = prep.dados;
+  let dados = prep.dados;
+  let dhRenovadoSemGravar = false;
+  // Reenvio: a data-hora de emissão fica gravada desde a 1ª tentativa e a SEFAZ rejeita NFC-e emitida há mais de poucos minutos
+  // (704 "Data-Hora de emissão atrasada"). Antes de transmitir de novo uma nota que a SEFAZ NÃO aceitou (reservada/rejeitada/erro),
+  // renova a data-hora. Não mexe em nota "enviada" (a SEFAZ pode ter recebido: o conteúdo assinado tem de ser o mesmo) nem se o mês
+  // da chave mudar (a chave carrega AAMM).
+  if (doc.status !== "enviado" && dados?.ide?.dhEmi) {
+    const agora = deps.agora ? deps.agora() : new Date();
+    const aamm = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "2-digit", month: "2-digit" }).formatToParts(agora);
+    const ano = aamm.find((p) => p.type === "year")?.value;
+    const mes = aamm.find((p) => p.type === "month")?.value;
+    const velha = agora.getTime() - new Date(dados.ide.dhEmi).getTime() > 2 * 60 * 1000;
+    if (velha && String(dados.chave || "").slice(2, 6) === `${ano}${mes}`) {
+      const dhEmi = agora.toISOString();
+      // Grava ANTES de transmitir: se a resposta se perder, a consulta recompõe o mesmo XML (mesmo DigestValue) que foi enviado.
+      // Se a gravação falhar (ex.: migration 192 ainda não aplicada), transmite mesmo assim: sem a renovação a nota seria rejeitada (704).
+      let gravou;
+      try { gravou = !!(await deps.renovarDhEmissao?.({ documentoId: doc.id, dhEmi }))?.ok; } catch { gravou = false; }
+      dados = { ...dados, ide: { ...dados.ide, dhEmi } };
+      dhRenovadoSemGravar = !gravou;
+    }
+  }
   if (Number(dados.ide.nNF) !== Number(doc.numero) || Number(dados.ide.serie) !== Number(doc.serie) ||
       Number(dados.ide.mod) !== Number(doc.modelo) || Number(dados.ide.tpAmb) !== (doc.ambiente === "producao" ? 1 : 2)) {
     return falha("DADOS_DIVERGENTES");
@@ -118,7 +154,7 @@ export async function processarEmissao(body = {}, deps) {
 
   // Marca "enviado" ANTES de transmitir: se o servidor cair no meio, a nota
   // fica identificada como possivelmente transmitida (consultar antes).
-  await deps.registrar({ documentoId: doc.id, status: "enviado", chave, xMotivo: "Enviando à SEFAZ" });
+  await deps.registrar({ documentoId: doc.id, status: "enviado", chave, xMotivo: "Enviando à SEFAZ", ...(dhRenovadoSemGravar ? { payload: { dhEmiRenovadoSemGravar: true, dhEmi: dados.ide.dhEmi } } : {}) });
 
   const idLote = String(Date.now()).slice(-15);
   let r;

@@ -1,0 +1,6 @@
+notify:success:Dinheiro · R$ 56,98 recebido. Conta quitada.
+APÓS TECLADO: 
+BOTÕES APÓS FECHAR CONTA: Pré-conta | Comprovante | Cozinha | Mais | Transferir | Separar | Pré-conta | Comprovante | Cozinha | Observações | Histórico | Fechar conta | Cancelar | Confirmar
+achou confirmar: true
+BAIXAS: 1 · CHAMADAS: rpc:app_fiscal_listar_documentos, rpc:app_fiscal_credenciais_resumo, rpc:app_fiscal_reservar_documento, fetch:/api/fiscal-emitir:emitir
+TELA: MesaDeliveryComandaClientePedidoBuscar contaAAdminOperadorResumo do turno · 20/11 08:550 livres0 ocup.1 pend.R$ 0,00Cozinha · 0 receb. · 0 preparo · 0 pronto · 1 retirado1Turno20/11 · 08:55MesaDisponíveis0Ocupadas0StatuscozinhaRecebido0Em preparo0Pronto0Retirado1Aguard. pagto1FinanceiroFinalizados0FaturamentoR$ 0,00Ticket médioR$ 0,00ContaMesaPagarR$ 56,98Externo · Consumo no localOcupadaEntregue1h 55min na mesa · 07:00Cliente:Não identificadoIncluirC1Produtos1 item Incluir produto2xX-SaladaR$ 25,90 un.2R$ 51,80SubtotalR$ 51,80Taxa 10%R$ 5,18AcréscimoR$ 0,00DescontoR$ 0,00CupomR$ 0,00Total geralR$ 56,98Pedido #P1 · ajuste R$ 5,18Mesas0DisponívelOcupadaAguardando pagamentoNenhuma mesa cadastr

@@ -43,6 +43,7 @@ export default function PdvPaymentPanel({
   pontosGanhar = 0,
   fidelidadeAtiva = false,
   mensagemCliente = null,
+  modoLimpo = false,
   onSelecionarForma,
   onRemoverPagamento,
   onDividir,
@@ -269,6 +270,17 @@ export default function PdvPaymentPanel({
           )}
         </div>
 
+        {modoLimpo && (descontoManual > 0 || acrescimo > 0 || descontoCupom > 0 || taxaRemovida) && (
+          <div className="flex flex-wrap gap-1 border-b border-[var(--pp-border)] px-2.5 py-1.5" data-testid="ajustes-aplicados">
+            {descontoManual > 0 && <span className="rounded-md bg-[#FDECEF] px-1.5 py-0.5 text-[10px] font-black text-[#C81E4A]">Desconto −{formatCurrency(descontoManual)}</span>}
+            {acrescimo > 0 && <span className="rounded-md bg-[#E6F4EA] px-1.5 py-0.5 text-[10px] font-black text-[#1F7A3D]">Acréscimo +{formatCurrency(acrescimo)}</span>}
+            {descontoCupom > 0 && <span className="rounded-md bg-[#E6F4EA] px-1.5 py-0.5 text-[10px] font-black text-[#1F7A3D]">Cupom {cupomAplicado?.codigo || ""} −{formatCurrency(descontoCupom)}</span>}
+            {taxaRemovida && <span className="rounded-md bg-[var(--pp-bg)] px-1.5 py-0.5 text-[10px] font-black text-[var(--pp-text-body)]">Taxa de serviço removida</span>}
+            <span className="text-[10px] text-[var(--pp-text-muted)]">Altere em Funções (<b>*</b>)</span>
+          </div>
+        )}
+        {!modoLimpo && (
+        <>
         <div className="space-y-1 border-b border-[var(--pp-border)] px-2.5 py-1.5">
           <div className="grid grid-cols-2 gap-1">
             <label className="min-w-0">
@@ -384,6 +396,8 @@ export default function PdvPaymentPanel({
             {cupomLegenda?.texto || "\u00a0"}
           </p>
         </div>
+        </>
+        )}
 
         {/* Falta/Troco à direita — subtotal, taxa, desconto, acréscimo e recebido ficam na coluna da conta */}
         <div className="space-y-0.5 px-2.5 py-1.5">

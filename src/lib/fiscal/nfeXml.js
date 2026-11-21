@@ -23,18 +23,51 @@ export const LEIAUTE = Object.freeze({
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;" };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ESC[c]);
 
+// Caracteres "tipográficos" que teclado/Word/WhatsApp inserem e que não existem no padrão (Latin-1) da nota: viram o equivalente simples.
+// (Códigos Unicode em número, para o arquivo não ter caracteres invisíveis.)
+const faixa = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+const SUBSTITUICOES = new Map([
+  ...[0x201C, 0x201D, 0x201E, 0x201F, 0x2033, 0xAB, 0xBB].map((c) => [c, '"']),
+  ...[0x2018, 0x2019, 0x201A, 0x201B, 0x2032, 0xB4, 0x60].map((c) => [c, "'"]),
+  ...[...faixa(0x2010, 0x2015), 0x2212].map((c) => [c, "-"]),
+  [0x2026, "..."],
+  ...[0x2022, 0x25CF, 0x25AA, 0x2023].map((c) => [c, "-"]),
+  [0x2122, ""], [0x20AC, "EUR"], [0xD7, "x"], [0x2715, "x"],
+  ...[0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0xFE0F].map((c) => [c, ""]),
+  // Letras sem decomposição de acento
+  [0x141, "L"], [0x142, "l"], [0x110, "D"], [0x111, "d"], [0x152, "OE"], [0x153, "oe"], [0x1E9E, "SS"],
+]);
+
 /**
  * Texto no formato TString do leiaute: só caracteres de espaço (0x20) a
- * ÿ (0xFF), sem espaços nas pontas nem repetidos. Emojis e outros fora do
- * Latin-1 são removidos.
+ * ÿ (0xFF), sem espaços nas pontas nem repetidos, sem quebras de linha.
+ * Aspas/travessões/reticências "bonitos" viram os simples; letras fora do
+ * Latin-1 perdem o acento (ex.: ő → o); emojis e símbolos são removidos.
+ * `max` corta no tamanho do campo (o leiaute rejeita texto maior).
  */
-export function textoFiscal(v) {
-  return String(v ?? "")
-    .replace(/[\t\r\n]+/g, " ")
-    .replace(/[^\u0020-\u007E\u00A0-\u00FF]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+export function textoFiscal(v, max = 0) {
+  let r = "";
+  for (const ch of String(v ?? "").normalize("NFC")) {
+    const c = ch.codePointAt(0);
+    if (SUBSTITUICOES.has(c)) { r += SUBSTITUICOES.get(c); continue; }
+    if (c === 9 || c === 10 || c === 13) { r += " "; continue; }
+    if ((c >= 0x20 && c <= 0x7E) || (c >= 0xA0 && c <= 0xFF)) { r += ch; continue; }
+    if (c > 0xFF) {
+      // Sem acento: ő → o. O que continuar fora do padrão (emoji, símbolo) é descartado.
+      for (const base of ch.normalize("NFKD")) {
+        const b = base.codePointAt(0);
+        if ((b >= 0x20 && b <= 0x7E) || (b >= 0xA0 && b <= 0xFF)) r += base;
+      }
+    }
+  }
+  r = r.replace(/\s+/g, " ").trim();
+  if (max > 0 && r.length > max) r = r.slice(0, max).trim();
+  return r;
 }
+
+/** Descrição do produto (xProd): 1 a 120 caracteres válidos para NFC-e e NF-e. Vazio se não sobrar nada. */
+export const XPROD_MAX = 120;
+export const descricaoProdutoFiscal = (v) => textoFiscal(v, XPROD_MAX);
 
 /** Número com `casas` decimais (ponto), sem notação científica. */
 export function dec(v, casas = 2) {
@@ -68,9 +101,9 @@ export function dataHoraFiscal(data, fuso = "-03:00") {
 
 // ── Montagem de tags ───────────────────────────────────────
 // t("x", valor) → <x>valor</x>; omitido quando valor é null/undefined/"".
-function t(nome, valor, { texto = false } = {}) {
+function t(nome, valor, { texto = false, max = 0 } = {}) {
   if (valor === null || valor === undefined || valor === "") return "";
-  const v = texto ? textoFiscal(valor) : String(valor);
+  const v = texto ? textoFiscal(valor, max) : String(valor);
   if (v === "") return "";
   return `<${nome}>${esc(v)}</${nome}>`;
 }
@@ -164,6 +197,9 @@ function grupoIbsCbs(x, nItem) {
 }
 
 // ── Documento ──────────────────────────────────────────────
+// Em HOMOLOGAÇÃO (tpAmb=2) a SEFAZ exige esta descrição no 1º item (rejeição 373): a nota é só de teste.
+export const XPROD_HOMOLOGACAO = "NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL";
+
 /**
  * @param {object} d
  * @param {string} d.chave   44 posições (o Id é "NFe"+chave)
@@ -217,9 +253,9 @@ export function montarXmlNFe(d = {}) {
   exigir(["1", "2", "3", "4"].includes(String(e.CRT)), "CRT do emitente inválido.");
   exigir(/^[0-9]{8}$/.test(somenteDig(en.CEP)), "CEP do emitente inválido.");
   const emitXml = g("emit",
-    (e.CNPJ ? t("CNPJ", e.CNPJ) : t("CPF", e.CPF)) + t("xNome", e.xNome, { texto: true }) + t("xFant", e.xFant, { texto: true }) +
-    g("enderEmit", t("xLgr", en.xLgr, { texto: true }) + t("nro", en.nro, { texto: true }) + t("xCpl", en.xCpl, { texto: true }) +
-      t("xBairro", en.xBairro, { texto: true }) + t("cMun", en.cMun) + t("xMun", en.xMun, { texto: true }) + t("UF", en.UF) +
+    (e.CNPJ ? t("CNPJ", e.CNPJ) : t("CPF", e.CPF)) + t("xNome", e.xNome, { texto: true, max: 60 }) + t("xFant", e.xFant, { texto: true, max: 60 }) +
+    g("enderEmit", t("xLgr", en.xLgr, { texto: true, max: 60 }) + t("nro", en.nro, { texto: true, max: 60 }) + t("xCpl", en.xCpl, { texto: true, max: 60 }) +
+      t("xBairro", en.xBairro, { texto: true, max: 60 }) + t("cMun", en.cMun) + t("xMun", en.xMun, { texto: true, max: 60 }) + t("UF", en.UF) +
       t("CEP", somenteDig(en.CEP)) + t("cPais", "1058") + t("xPais", "Brasil") + t("fone", en.fone ? somenteDig(en.fone) : "")) +
     t("IE", e.IE) + t("CRT", e.CRT));
 
@@ -230,10 +266,10 @@ export function montarXmlNFe(d = {}) {
     // NF-e (55): nome e endereço obrigatórios (MOC 7.0 Anexo I, rejeição 726).
     if (mod === 55) exigir(ds.xNome && ds.ender, "NF-e (55) exige nome e endereço do destinatário.");
     const de = ds.ender;
-    const enderDest = de ? g("enderDest", t("xLgr", de.xLgr, { texto: true }) + t("nro", de.nro, { texto: true }) + t("xCpl", de.xCpl, { texto: true }) +
-      t("xBairro", de.xBairro, { texto: true }) + t("cMun", de.cMun) + t("xMun", de.xMun, { texto: true }) + t("UF", de.UF) +
+    const enderDest = de ? g("enderDest", t("xLgr", de.xLgr, { texto: true, max: 60 }) + t("nro", de.nro, { texto: true, max: 60 }) + t("xCpl", de.xCpl, { texto: true, max: 60 }) +
+      t("xBairro", de.xBairro, { texto: true, max: 60 }) + t("cMun", de.cMun) + t("xMun", de.xMun, { texto: true, max: 60 }) + t("UF", de.UF) +
       t("CEP", de.CEP ? somenteDig(de.CEP) : "") + t("cPais", "1058") + t("xPais", "Brasil") + t("fone", de.fone ? somenteDig(de.fone) : "")) : "";
-    destXml = g("dest", (ds.CNPJ ? t("CNPJ", ds.CNPJ) : t("CPF", somenteDig(ds.CPF))) + t("xNome", ds.xNome, { texto: true }) + enderDest +
+    destXml = g("dest", (ds.CNPJ ? t("CNPJ", ds.CNPJ) : t("CPF", somenteDig(ds.CPF))) + t("xNome", ds.xNome, { texto: true, max: 60 }) + enderDest +
       t("indIEDest", ds.indIEDest ?? "9") + t("IE", ds.IE ? somenteDig(ds.IE) : ""));
   } else if (mod === 55) {
     throw new Error("NF-e (55) exige destinatário.");
@@ -247,13 +283,13 @@ export function montarXmlNFe(d = {}) {
     const n = i + 1;
     exigir(/^[0-9]{2}$|^[0-9]{8}$/.test(String(it.NCM)), `Item ${n}: NCM inválido (8 dígitos).`);
     exigir(/^[123567][0-9]{3}$/.test(String(it.CFOP)), `Item ${n}: CFOP inválido.`);
-    exigir(textoFiscal(it.xProd) !== "", `Item ${n}: descrição vazia.`);
+    exigir(descricaoProdutoFiscal(it.xProd) !== "", `Item ${n}: descrição vazia.`);
     const vProd = Number(it.vProd);
     exigir(vProd > 0, `Item ${n}: valor do produto deve ser maior que zero.`);
     const qCom = dec(it.qCom, 4);
     const vUn = decUnit(it.vUnCom);
     const cEAN = it.cEAN || "SEM GTIN";
-    const prod = t("cProd", it.cProd, { texto: true }) + t("cEAN", cEAN) + t("xProd", it.xProd, { texto: true }) + t("NCM", it.NCM) +
+    const prod = t("cProd", it.cProd, { texto: true }) + t("cEAN", cEAN) + t("xProd", i === 0 && Number(ide.tpAmb) === 2 ? XPROD_HOMOLOGACAO : it.xProd, { texto: true, max: XPROD_MAX }) + t("NCM", it.NCM) +
       t("CEST", it.CEST) + t("CFOP", it.CFOP) + t("uCom", it.uCom, { texto: true }) + t("qCom", qCom) + t("vUnCom", vUn) +
       t("vProd", dec(vProd)) + t("cEANTrib", it.cEANTrib || cEAN) + t("uTrib", it.uTrib || it.uCom, { texto: true }) +
       t("qTrib", dec(it.qTrib ?? it.qCom, 4)) + t("vUnTrib", decUnit(it.vUnTrib ?? it.vUnCom)) +

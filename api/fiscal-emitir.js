@@ -8,6 +8,8 @@
 //   { acao: "contingencia", documentoId, xJust }  → NFC-e off-line (tpEmis 9) da venda que falhou
 //   { acao: "transmitir_contingencia", documentoId } → envia a nota off-line
 //   { acao: "pendentes_contingencia", lojaId }    → fila de notas off-line
+//   { acao: "xml", documentoId }                  → XML guardado (consulta/download)
+//   { acao: "manutencao_abrir"|"manutencao_salvar", documentoId, motivo, alteracoes, transmitir } → manutenção fiscal (admin da loja)
 //
 //  Permissões conferidas no banco com o TOKEN DO USUÁRIO:
 //   status, cancelar, substituir, cce → app_fiscal_pode_configurar (admin da loja / super)
@@ -116,6 +118,14 @@ export function criarDeps(token) {
       return r?.ok || r?.code === "SEM_XML" ? r : null;
     },
     salvarDados: (p) => doServidor("app_fiscal_documento_salvar_dados", { p_documento_id: p.documentoId, p_chave: p.chave, p_dados: p.dados }),
+    // 193: manutenção fiscal. O usuário logado vem do banco com o TOKEN dele; a gravação (com log) é só do servidor.
+    usuarioAtual: async () => { try { return await rpc("app_fiscal_usuario_atual", {}, token); } catch { return null; } },
+    salvarManutencao: (p) => doServidor("app_fiscal_documento_manutencao_salvar", {
+      p_documento_id: p.documentoId, p_dados: p.dados, p_usuario_id: p.usuario?.id ?? null, p_usuario_nome: p.usuario?.nome ?? null,
+      p_usuario_email: p.usuario?.email ?? null, p_motivo: p.motivo, p_alteracoes: p.alteracoes,
+    }),
+    // 192: grava a data-hora de emissão renovada no reenvio (a consulta posterior recompõe o MESMO XML transmitido).
+    renovarDhEmissao: (p) => doServidor("app_fiscal_documento_renovar_dh_emissao", { p_documento_id: p.documentoId, p_dh_emi: p.dhEmi }),
     pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),
     timeoutMs: 30000,
     // Cadeia ICP-Brasil das SEFAZ (ausente do armazenamento padrão do Node).

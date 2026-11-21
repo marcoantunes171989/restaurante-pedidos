@@ -8,6 +8,7 @@
 import { pendenciasEmitenteNfce } from "../emitenteFiscalService.js";
 import { resolverFiscalProduto, pendenciasFiscais } from "../fiscalService.js";
 import { situacaoCertificado, conferirMapaMeios } from "./emissaoConfig.js";
+import { problemasDaEmpresa, problemasDoCertificado } from "./validacaoPreEmissao.js";
 
 const AMB = "homologacao";
 
@@ -40,8 +41,11 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
   const e = emitente || {};
   const nfce = e.nfceHabilitada === true, nfe = e.nfeHabilitada === true;
   const pendEmit = pendenciasEmitenteNfce(e, documentoLoja);
+  // Além de preenchido, o dado precisa estar CORRETO (CNPJ, IE, IBGE × UF…): é o que a SEFAZ confere em toda nota.
+  const errosEmpresa = (nfce || nfe) && pendEmit.length === 0 ? problemasDaEmpresa(e, documentoLoja) : [];
   const cert = credenciais.find((c) => c.tipo === "certificado_a1") || null;
   const sc = situacaoCertificado(cert, agora);
+  const certOutroCnpj = problemasDoCertificado({ credenciais, documento: documentoLoja, modelo: 55, agora }).find((x) => x.codigo === "CERT_OUTRO_CNPJ") || null;
   const cscHom = credenciais.some((c) => c.tipo === "csc" && c.ambiente === AMB && c.cadastrado !== false);
   const temSerie = (m) => series.some((s) => Number(s.modelo) === m && s.ambiente === AMB && s.ativa);
   const mapa = conferirMapaMeios(formas, config?.mapaMeios || {});
@@ -56,11 +60,12 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
 
   const passos = [
     { id: "empresa", titulo: "Dados fiscais da empresa", alvo: "empresa", acao: "Completar dados", destino: "Fiscal › Dados da Empresa",
-      ok: (nfce || nfe) && pendEmit.length === 0,
+      ok: (nfce || nfe) && pendEmit.length === 0 && errosEmpresa.length === 0,
       detalhe: !(nfce || nfe) ? "Marque NFC-e (e NF-e, se usar) como habilitada no cadastro fiscal da empresa."
-        : pendEmit.length ? `Falta: ${pendEmit.join(", ")}.` : "Completo." },
+        : pendEmit.length ? `Falta: ${pendEmit.join(", ")}.` : errosEmpresa.length ? errosEmpresa.map((x) => x.msg).join(" ") : "Completo e conferido." },
     { id: "certificado", titulo: "Certificado digital A1", alvo: "emissao-cert", acao: "Enviar certificado", destino: "Fiscal › Emissão › Certificado", foco: "emissao-pfx",
-      ok: sc.estado === "ok" || sc.estado === "vencendo", detalhe: sc.texto },
+      ok: (sc.estado === "ok" || sc.estado === "vencendo") && !certOutroCnpj,
+      detalhe: certOutroCnpj ? certOutroCnpj.msg : sc.texto },
     { id: "csc", titulo: "CSC da NFC-e (homologação)", alvo: "emissao-csc", acao: "Cadastrar CSC", destino: "Fiscal › Emissão › CSC da NFC-e", foco: "emissao-csc-id",
       ok: !nfce || cscHom,
       detalhe: !nfce ? "Não se aplica (loja sem NFC-e)." : cscHom ? "Guardado no cofre." : "Cadastre o ID e o código CSC que a SEFAZ forneceu (usado na contingência da NFC-e)." },

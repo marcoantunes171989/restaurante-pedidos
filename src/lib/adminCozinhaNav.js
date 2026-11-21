@@ -49,6 +49,8 @@ export const ADMIN_GESTAO_ITENS = [
 export const ADMIN_FISCAL_ITENS = [
   { id: "painel-fiscal", label: "Painel Fiscal" },
   { id: "notas-fiscais", label: "Notas Emitidas" },
+  { id: "cancelamento-nfce", label: "Cancelar NFC-e" },
+  { id: "xmls-fiscais", label: "XMLs fiscais" },
   { id: "dados-fiscais-empresa", label: "Dados da Empresa" },
   { id: "emissao-fiscal", label: "Emissão" },
   { id: "config-fiscal", label: "Tributação" },

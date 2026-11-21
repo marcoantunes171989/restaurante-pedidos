@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconCheck, IconImpressora, IconSpinner } from "../../components/PrimeIcons";
+import { IconCheck, IconImpressora } from "../../components/PrimeIcons";
 import PdvHeader from "./PdvHeader";
 import PdvStatsBar from "./PdvStatsBar";
 import PdvMobileNav from "./PdvMobileNav";
@@ -8,7 +8,13 @@ import PdvMesasGrid from "./PdvMesasGrid";
 import PdvCanalGrid from "./PdvCanalGrid";
 import PdvDeliveryStrip from "./PdvDeliveryStrip";
 import PdvPaymentPanel from "./PdvPaymentPanel";
-import PdvActionBar from "./PdvActionBar";
+import PdvPaletaFuncoes from "./PdvPaletaFuncoes";
+import { catalogoFuncoes, teclaAbrePaleta } from "./pdvFuncoes";
+import PdvPassos from "./PdvPassos";
+import PdvPassoFechar from "./PdvPassoFechar";
+import PdvBarraAcao from "./PdvBarraAcao";
+import PdvModalAjuste from "./PdvModalAjuste";
+import PdvFaixaTurno from "./PdvFaixaTurno";
 import PdvStatusBar from "./PdvStatusBar";
 import { useVersaoApp } from "../../lib/useVersaoApp";
 import ModalDividirConta from "./PdvDividirConta";
@@ -47,12 +53,11 @@ import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
 import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, motivoSemNota, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "../../lib/fiscal/fiscalApi";
-import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
 import { listarDocumentosFiscais } from "../../lib/fiscal/notasFiscais";
 import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
-import { imprimirNotaFiscal as imprimirDanfe } from "../../lib/fiscal/imprimirNota";
+import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../../lib/fiscal/imprimirNota";
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
 import { cobraTaxaServico } from "../../lib/taxaServico";
 import {
@@ -164,7 +169,12 @@ export default function CashierPdv({
   const [cupomStatusUi, setCupomStatusUi] = useState({ status: "vazio" });
   const [avisoCliente, setAvisoCliente] = useState(null);
   const [ajudaAberta, setAjudaAberta] = useState(false);
-  const [confirmarFinalizacao, setConfirmarFinalizacao] = useState(false);
+  // Novo layout: paleta de funções (*), passo da conta (Produtos → Pagamento → Fechar), modal de ajuste (desconto/acréscimo/cupom) e resumo do turno.
+  const [paletaAberta, setPaletaAberta] = useState(false);
+  const [ajusteModal, setAjusteModal] = useState(null); // null | desconto | acrescimo | cupom
+  const [turnoAberto, setTurnoAberto] = useState(false);
+  const [ultimaNota, setUltimaNota] = useState(null); // { documentoId, numero } da última NFC-e emitida nesta sessão (função 33: reimprimir)
+  const [passoState, setPassoState] = useState({ key: null, passo: 0 }); // o passo é por conta: ao trocar de conta volta ao 1º
   const [processando, setProcessando] = useState(false);
   const [sucesso, setSucesso] = useState(null);
   const [bloqueioProdutos, setBloqueioProdutos] = useState({});
@@ -978,7 +988,11 @@ export default function CashierPdv({
     setBufferEntrada("");
   }
 
-  function abrirConfirmacao() {
+  const passo = contaSel && passoState.key === contaSel.key ? passoState.passo : 0;
+  const setPasso = (n) => setPassoState({ key: contaSel?.key ?? null, passo: n });
+
+  // F5 / função 50: com o total coberto leva ao passo Fechar; já no passo Fechar, fecha a conta (emite e imprime a NFC-e).
+  function acionarFechar() {
     if (processandoRef.current) return;
     if (!contaSel) {
       notify("error", "Selecione uma conta para fechar.");
@@ -986,11 +1000,12 @@ export default function CashierPdv({
     }
     if (!podeFechar) {
       notify("error", `Ainda faltam ${formatCurrency(restanteSel)}. Registre o recebimento no teclado (OK).`);
+      setPasso(1);
       return;
     }
-    setConfirmarFinalizacao(true);
+    if (passo !== 2) { setPasso(2); return; }
+    confirmarEFinalizar();
   }
-
   async function confirmarEFinalizar() {
     if (processandoRef.current || !contaSel) return;
     const valorPago = recebidoEfetivo;
@@ -1006,6 +1021,10 @@ export default function CashierPdv({
     }
     processandoRef.current = true;
     setProcessando(true);
+    // NFC-e: a janela de impressão abre AGORA (no clique, senão o navegador bloqueia) e imprime sozinha quando a SEFAZ autorizar.
+    const janelaNota = nfceNaLoja && notaCx.modelo === 65 ? abrirJanelaDeImpressao() : null;
+    if (nfceNaLoja && notaCx.modelo === 65 && !janelaNota) notify("error", "Permita pop-ups para a NFC-e imprimir sozinha. Use o botão Imprimir nota fiscal ao final.");
+    let janelaNotaEmUso = false;
     const contaKey = contaSel.key;
     const mesaFechada = contaSel.mesa;
     try {
@@ -1069,9 +1088,12 @@ export default function CashierPdv({
           if (e) { emitenteVenda = e; configVenda = configVendaParaSelo(c); } // pagamentos mapeados depois de abrir o caixa também valem
         } catch { /* segue com o que tem */ }
       }
-      const emiteNota = !baixa?.erro && EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteDe(emitenteVenda);
+      // A nota sai sempre que o PAGAMENTO foi gravado (os pedidos constam como pagos): falha só em estoque/histórico/caixa não pode impedir a NFC-e.
+      // Pagamento recusado (sem retorno) ou não gravado: nada de nota (nenhum número é reservado).
+      const vendaGravada = !!baixa && typeof baixa === "object" && (!baixa.erro || baixa.pagamentoGravado === true);
+      const emiteNota = vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteDe(emitenteVenda);
       // Emissão ligada no sistema mas esta venda não gerou nota: diz o motivo (antes ficava só o recibo antigo, em silêncio).
-      const motivoSem = !emiteNota && !baixa?.erro && EMISSAO_FISCAL_PDV_ATIVA && !!supabase ? motivoSemNota(emitenteVenda, { nfe: ehNfe }) : null;
+      const motivoSem = !emiteNota && vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && !!supabase ? motivoSemNota(emitenteVenda, { nfe: ehNfe }) : null;
       setSucesso({
         ...info,
         notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : motivoSem ? { estado: "desligada", titulo: "Nota fiscal não emitida", detalhe: motivoSem } : null,
@@ -1091,17 +1113,23 @@ export default function CashierPdv({
       });
       if (emiteNota) {
         const atualizarNota = (n) => setSucesso((cur) => (cur && cur.codigo === codigoPagamento ? { ...cur, notaFiscal: n } : cur));
+        janelaNotaEmUso = true;
         emitirNotaDaVenda({
           supabase, emitente: emitenteVenda, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
           pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
           config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
         }).then((n) => {
           atualizarNota(n);
+          if (n.documentoId && ["autorizada", "contingencia"].includes(n.estado)) setUltimaNota({ documentoId: n.documentoId, numero: n.numero ?? null });
           auditar("nota_fiscal_venda", "comanda", null, { mesa: mesaFechada, estado: n.estado, numero: n.numero ?? null });
-        }).catch(() => atualizarNota({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }));
+          // Autorizada (ou em contingência): imprime a NFC-e na hora. Qualquer outro resultado fecha a janela e o aviso explica o motivo.
+          if (janelaNota && n.documentoId && ["autorizada", "contingencia"].includes(n.estado)) {
+            imprimirDanfe({ documentoId: n.documentoId, janela: janelaNota, buscar: (corpo) => postarApiFiscal(supabase, corpo) })
+              .then((r) => { if (!r.ok) notify("error", r.erro); else auditar("imprimir_nota_fiscal", "comanda", null, { numero: n.numero ?? null, automatico: true }); });
+          } else fecharJanelaDeImpressao(janelaNota);
+        }).catch(() => { atualizarNota({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "Veja em Notas emitidas." }); fecharJanelaDeImpressao(janelaNota); });
       }
       setNotaCaixa(NOTA_VAZIA);
-      setConfirmarFinalizacao(false);
       setBufferEntrada("");
       setFormaSelecionada(null);
       setAvisoCliente(null);
@@ -1143,6 +1171,7 @@ export default function CashierPdv({
         });
       }
     } finally {
+      if (!janelaNotaEmUso) fecharJanelaDeImpressao(janelaNota); // venda não emitiu nota (erro, recusa, loja sem emissão): não deixa janela em branco
       processandoRef.current = false;
       setProcessando(false);
     }
@@ -1558,6 +1587,13 @@ export default function CashierPdv({
 
   useEffect(() => {
     function onKey(e) {
+      // Paleta de funções: * (teclado numérico), F12 ou Ctrl+K. Com ela ou o modal de ajuste abertos, as demais teclas são deles.
+      if (teclaAbrePaleta(e)) {
+        e.preventDefault();
+        if (!paletaAberta && !ajudaAberta && !modal && !ajusteModal && !sucesso && !excluirPendente) setPaletaAberta(true);
+        return;
+      }
+      if (paletaAberta || ajusteModal) return;
       if (e.key === "F1") {
         e.preventDefault();
         setAjudaAberta((a) => !a);
@@ -1571,10 +1607,9 @@ export default function CashierPdv({
         if (e.key === "Escape") setExcluirPendente(null);
         return;
       }
-      if (modal || confirmarFinalizacao || sucesso) {
+      if (modal || sucesso) {
         if (e.key === "Escape") {
           setModal(null);
-          setConfirmarFinalizacao(false);
           setSucesso(null);
         }
         return;
@@ -1588,9 +1623,9 @@ export default function CashierPdv({
       } else if (e.key === "F4" && contaSel) {
         e.preventDefault();
         imprimirPreConta();
-      } else if (e.key === "F5" && podeFechar) {
+      } else if (e.key === "F5" && contaSel) {
         e.preventDefault();
-        abrirConfirmacao();
+        acionarFechar();
       } else if (e.key === "F6") {
         e.preventDefault();
         registrarPagamentoParcial();
@@ -1599,9 +1634,48 @@ export default function CashierPdv({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmarFinalizacao, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta, excluirPendente]);
+  }, [paletaAberta, ajusteModal, passo, sucesso, contaSel, podeFechar, restanteSel, bufferEntrada, modal, ajudaAberta, excluirPendente]);
 
   const temConta = !!contaSel;
+  const emiteNotaTela = nfceNaLoja || nfeNaLoja;
+  const abrirAdmin = (rota) => window.open(rota, "_blank", "noopener");
+  const funcoesPdv = catalogoFuncoes({
+    e: {
+      temConta, externo: !!contaSel?.externo, contaMulti: !!contaSel?.multiPagamento, temItensParaSeparar: itensParaSeparar.length > 0,
+      semRestante: restanteSel <= 0.001, taxaRemovida, semTaxa: !(taxaPct > 0), semPontos: !fidAtiva || !formasComPontos.some((f) => f.pontos),
+      emiteNota: emiteNotaTela, nfeDisponivel: nfeNaLoja, temUltimaNota: !!ultimaNota,
+    },
+    a: {
+      incluirProduto: () => setModal("incluir"),
+      buscar: () => document.getElementById("pdv-busca-global")?.focus(),
+      transferir: () => setModal("transferir"),
+      separar: () => setModal("separar"),
+      observacoes: () => setModal("observacoes"),
+      historico: () => setModal("historico"),
+      dividir: () => { setPasso(1); setModal("dividir"); },
+      desconto: () => setAjusteModal("desconto"),
+      acrescimo: () => setAjusteModal("acrescimo"),
+      alternarTaxa: () => patchAjuste({ taxaRemovida: !taxaRemovida }),
+      cupom: () => setAjusteModal("cupom"),
+      pontos: () => { setPasso(1); const f = formasComPontos.find((x) => x.pontos); if (f) selecionarForma(f); },
+      registrarParcial: () => { setPasso(1); registrarPagamentoParcial(); },
+      identificarCliente: () => setModal("identificar"),
+      cpfNaNota: () => { if (podeFechar) setPasso(2); else notify("error", "Receba o valor total primeiro: o CPF na nota é informado no passo Fechar."); },
+      nfe: () => { if (podeFechar) setPasso(2); else notify("error", "Receba o valor total primeiro: a NF-e é informada no passo Fechar."); },
+      preConta: imprimirPreConta,
+      comprovante: emitirComprovanteMesa,
+      cozinha: imprimirCuponsCozinha,
+      reimprimirNfce: () => imprimirNotaFiscal({ documentoId: ultimaNota?.documentoId, numero: ultimaNota?.numero }),
+      notasEmitidas: () => abrirAdmin("/admin/notas-fiscais"),
+      cancelarNfce: () => abrirAdmin("/admin/cancelamento-nfce"),
+      xmls: () => abrirAdmin("/admin/xmls-fiscais"),
+      fecharConta: acionarFechar,
+      resumoTurno: () => setTurnoAberto(true),
+      mesas: () => trocarCanal("mesa"),
+      ajuda: () => setAjudaAberta(true),
+      atalhos: () => setAjudaAberta(true),
+    },
+  });
   const selecionadoCanalKey = canal === "cliente"
     ? cardsCliente.find((c) => c.contaKey === contaSel?.key)?.key
     : canal === "comanda"
@@ -1643,25 +1717,37 @@ export default function CashierPdv({
         temaClaro={temaClaro}
         onToggleTema={() => setTemaClaro((t) => !t)}
         onAbrirAjuda={() => setAjudaAberta(true)}
+        onFuncoes={() => setPaletaAberta(true)}
         onSair={onSair}
       />
 
-      <AvisoFiscalPdv alertas={alertasFiscaisPdv} />
-
-      <PdvStatsBar
+      <PdvFaixaTurno
         agora={agora}
-        cozinha={statusCozinha}
-        mesasDisponiveis={mesasDisponiveis}
-        mesasOcupadas={mesasOcupadas}
-        totalMesas={mesasPainel.length}
-        pagamentoPendente={pagamentoPendente}
-        pagamentoFinalizado={pagamentoFinalizado}
         faturamentoDia={faturamentoDia}
         ticketMedio={ticketMedio}
-        contasAbertas={contasAbertas}
-        pagosHoje={pagosHoje}
-        taxaPct={taxaPct}
-      />
+        mesasDisponiveis={mesasDisponiveis}
+        pagamentoPendente={pagamentoPendente}
+        nfceAtiva={nfceNaLoja || nfeNaLoja}
+        alertasFiscais={alertasFiscaisPdv.length}
+        aberta={turnoAberto}
+        onAlternar={() => setTurnoAberto((v) => !v)}
+      >
+        <AvisoFiscalPdv alertas={alertasFiscaisPdv} />
+        <PdvStatsBar
+          agora={agora}
+          cozinha={statusCozinha}
+          mesasDisponiveis={mesasDisponiveis}
+          mesasOcupadas={mesasOcupadas}
+          totalMesas={mesasPainel.length}
+          pagamentoPendente={pagamentoPendente}
+          pagamentoFinalizado={pagamentoFinalizado}
+          faturamentoDia={faturamentoDia}
+          ticketMedio={ticketMedio}
+          contasAbertas={contasAbertas}
+          pagosHoje={pagosHoje}
+          taxaPct={taxaPct}
+        />
+      </PdvFaixaTurno>
 
       <PdvMobileNav
         ativo={painelMobile}
@@ -1671,32 +1757,7 @@ export default function CashierPdv({
       />
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Conta / produtos — aba mobile + coluna desktop */}
-        <PdvMesaDetail
-          conta={contaSel}
-          pedidos={pedidosSel}
-          subtotal={subtotalSel}
-          taxasDescontos={taxasSel}
-          total={totalCobrar > 0 ? totalCobrar : totalSel}
-          taxaServico={taxaValorSel}
-          taxaPct={taxaPct}
-          taxaRemovida={taxaRemovida}
-          acrescimo={acrescimoSel}
-          descontoManual={descontoManualSel}
-          descontoCupom={descontoCupom}
-          cupomCodigo={cupomSel?.codigo || ""}
-          recebido={recebidoEfetivo}
-          agora={agora}
-          mesaLivre={mesaLivreSel}
-          onEditarCliente={temConta && !contaSel?.multiPagamento ? () => setModal("cliente") : undefined}
-          onIncluirProduto={temConta && !contaSel?.multiPagamento ? () => setModal("incluir") : undefined}
-          onAlterarQtd={contaSel?.multiPagamento ? undefined : alterarQtdItem}
-          onRemoverItem={contaSel?.multiPagamento ? undefined : removerItem}
-          produtosBloqueados={produtosBloqueados}
-          className={`${painelMobile === "conta" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-b lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-b-0 lg:border-r xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
-        />
-
-        {/* Centro — canal Mesa / Delivery / Comanda / Cliente / Pedido */}
+        {/* Esquerda — escolher a conta: Mesa / Delivery / Comanda / Cliente / Pedido */}
         <main
           className={`${painelMobile === "salao" ? "flex" : "hidden"} min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--pp-surface)] p-2 sm:p-2.5 lg:flex lg:p-3`}
         >
@@ -1755,70 +1816,131 @@ export default function CashierPdv({
           )}
         </main>
 
-        {/* Pagamento — aba mobile + coluna direita desktop */}
-        <PdvPaymentPanel
-          totalConta={totalSel}
-          totalCobrar={totalCobrar}
-          subtotal={subtotalSel}
-          taxaServico={taxaValorSel}
-          taxaPct={taxaPct}
-          taxaRemovida={taxaRemovida}
-          acrescimo={acrescimoSel}
-          descontoManual={descontoManualSel}
-          descontoCupom={descontoCupom}
-          cupomAplicado={cupomSel}
-          recebido={recebidoEfetivo}
-          restante={restanteSel}
-          troco={trocoSel}
-          pagamentos={pagamentosSel}
-          formasPagamento={formasComPontos}
-          formaSelecionada={formaAtual}
-          permiteTroco={trocoLiberado && !formaEhPontos}
-          cliente={contaSel ? { nome: contaSel.cliente, telefone: contaSel.telefone } : null}
-          saldoPontos={saldoPontos}
-          pontosGanhar={pontosGanhar}
-          fidelidadeAtiva={fidAtiva}
-          mensagemCliente={avisoCliente || (contaSel && !clienteIdentificado
-            ? { texto: "Cliente não identificado — sem pontos nesta compra", tom: "text-[var(--pp-text-muted)]" }
-            : null)}
-          onSelecionarForma={selecionarForma}
-          onRemoverPagamento={removerPagamentoParcial}
-          onDividir={() => setModal("dividir")}
-          onIdentificarCliente={temConta ? () => setModal("identificar") : undefined}
-          onAplicarCupom={aplicarCupom}
-          onRemoverCupom={removerCupom}
-          onPrevalidarCupom={prevalidarCupomDigitado}
-          cupomLegenda={cupomLegenda}
-          onAlterarAcrescimo={(v) => patchAjuste({ acrescimo: Math.max(0, Number(v) || 0) })}
-          onAlterarDescontoManual={(v) => patchAjuste({ desconto: Math.max(0, Number(v) || 0) })}
-          onToggleTaxaServico={() => patchAjuste({ taxaRemovida: !taxaRemovida })}
-          cupomProcessando={cupomProcessando}
-          dividirDesabilitado={!contaSel || restanteSel <= 0.001}
-          onDigito={tecladoDigito}
-          onLimpar={tecladoLimpar}
-          onApagar={tecladoApagar}
-          onValorTotal={lancarValorTotal}
-          onConfirmar={registrarPagamentoParcial}
-          confirmarDesabilitado={!contaSel || totalCobrar <= 0 || restanteSel <= 0.001}
-          bufferEntrada={bufferEntrada}
-          seloFiscal={seloFiscal}
-          className={`${painelMobile === "pagamento" ? "flex min-h-0 flex-1" : "hidden"} min-w-0 overflow-hidden border-t lg:flex lg:w-[214px] lg:max-w-[214px] lg:shrink-0 lg:border-l lg:border-t-0 xl:w-[248px] xl:max-w-[248px] 2xl:w-[280px] 2xl:max-w-[280px]`}
-        />
+        {/* Direita — a conta em 3 passos: Produtos → Pagamento → Fechar */}
+        <section
+          aria-label="Conta"
+          data-testid="painel-conta"
+          className={`${painelMobile === "salao" ? "hidden" : "flex min-h-0 flex-1"} min-w-0 flex-col overflow-hidden border-t border-[var(--pp-border)] bg-[var(--pp-surface)] lg:flex lg:w-[360px] lg:flex-none lg:border-l lg:border-t-0 xl:w-[420px]`}
+        >
+          <div className="shrink-0 border-b border-[var(--pp-border)] p-2">
+            <PdvPassos
+              passo={passo}
+              onPasso={setPasso}
+              desabilitado={!temConta}
+              maxPasso={!temConta || !pedidosSel.some((o) => (o.items || []).length > 0) ? 0 : podeFechar ? 2 : 1}
+            />
+          </div>
+          {passo === 0 && (
+            <PdvMesaDetail
+              conta={contaSel}
+              pedidos={pedidosSel}
+              subtotal={subtotalSel}
+              taxasDescontos={taxasSel}
+              total={totalCobrar > 0 ? totalCobrar : totalSel}
+              taxaServico={taxaValorSel}
+              taxaPct={taxaPct}
+              taxaRemovida={taxaRemovida}
+              acrescimo={acrescimoSel}
+              descontoManual={descontoManualSel}
+              descontoCupom={descontoCupom}
+              cupomCodigo={cupomSel?.codigo || ""}
+              recebido={recebidoEfetivo}
+              agora={agora}
+              mesaLivre={mesaLivreSel}
+              onEditarCliente={temConta && !contaSel?.multiPagamento ? () => setModal("cliente") : undefined}
+              onIncluirProduto={temConta && !contaSel?.multiPagamento ? () => setModal("incluir") : undefined}
+              onAlterarQtd={contaSel?.multiPagamento ? undefined : alterarQtdItem}
+              onRemoverItem={contaSel?.multiPagamento ? undefined : removerItem}
+              produtosBloqueados={produtosBloqueados}
+              className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            />
+          )}
+          {passo === 1 && (
+            <PdvPaymentPanel
+              totalConta={totalSel}
+              totalCobrar={totalCobrar}
+              subtotal={subtotalSel}
+              taxaServico={taxaValorSel}
+              taxaPct={taxaPct}
+              taxaRemovida={taxaRemovida}
+              acrescimo={acrescimoSel}
+              descontoManual={descontoManualSel}
+              descontoCupom={descontoCupom}
+              cupomAplicado={cupomSel}
+              recebido={recebidoEfetivo}
+              restante={restanteSel}
+              troco={trocoSel}
+              pagamentos={pagamentosSel}
+              formasPagamento={formasComPontos}
+              formaSelecionada={formaAtual}
+              permiteTroco={trocoLiberado && !formaEhPontos}
+              cliente={contaSel ? { nome: contaSel.cliente, telefone: contaSel.telefone } : null}
+              saldoPontos={saldoPontos}
+              pontosGanhar={pontosGanhar}
+              fidelidadeAtiva={fidAtiva}
+              mensagemCliente={avisoCliente || (contaSel && !clienteIdentificado
+                ? { texto: "Cliente não identificado — sem pontos nesta compra", tom: "text-[var(--pp-text-muted)]" }
+                : null)}
+              onSelecionarForma={selecionarForma}
+              onRemoverPagamento={removerPagamentoParcial}
+              onDividir={() => setModal("dividir")}
+              onIdentificarCliente={temConta ? () => setModal("identificar") : undefined}
+              onAplicarCupom={aplicarCupom}
+              onRemoverCupom={removerCupom}
+              onPrevalidarCupom={prevalidarCupomDigitado}
+              cupomLegenda={cupomLegenda}
+              onAlterarAcrescimo={(v) => patchAjuste({ acrescimo: Math.max(0, Number(v) || 0) })}
+              onAlterarDescontoManual={(v) => patchAjuste({ desconto: Math.max(0, Number(v) || 0) })}
+              onToggleTaxaServico={() => patchAjuste({ taxaRemovida: !taxaRemovida })}
+              cupomProcessando={cupomProcessando}
+              dividirDesabilitado={!contaSel || restanteSel <= 0.001}
+              onDigito={tecladoDigito}
+              onLimpar={tecladoLimpar}
+              onApagar={tecladoApagar}
+              onValorTotal={lancarValorTotal}
+              onConfirmar={registrarPagamentoParcial}
+              confirmarDesabilitado={!contaSel || totalCobrar <= 0 || restanteSel <= 0.001}
+              bufferEntrada={bufferEntrada}
+              seloFiscal={seloFiscal}
+              modoLimpo
+              className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+            />
+          )}
+          {passo === 2 && (
+            <PdvPassoFechar
+              conta={contaSel}
+              subtotal={subtotalSel}
+              taxaPct={taxaPct}
+              taxaRemovida={taxaRemovida}
+              taxaValor={taxaValorSel}
+              acrescimo={acrescimoSel}
+              descontoManual={descontoManualSel}
+              descontoCupom={descontoCupom}
+              cupomCodigo={cupomSel?.codigo || ""}
+              total={totalCobrar}
+              pagamentos={pagamentosSel}
+              recebido={recebidoEfetivo}
+              troco={trocoSel}
+              pontosGanhar={pontosGanhar}
+              mostraNota={nfceNaLoja || nfeNaLoja}
+              notaCaixa={notaCaixa}
+              onNotaChange={setNotaCaixa}
+              nfeDisponivel={nfeNaLoja}
+              emiteNota={nfceNaLoja}
+            />
+          )}
+        </section>
       </div>
 
-      <PdvActionBar
-        onFecharConta={abrirConfirmacao}
-        podeFechar={podeFechar}
+      <PdvBarraAcao
+        estado={{
+          temConta, passo, temItens: pedidosSel.some((o) => (o.items || []).length > 0), restante: restanteSel, podeFechar,
+          total: totalCobrar > 0 ? totalCobrar : totalSel, emiteNota: nfceNaLoja,
+        }}
         fechando={processando}
-        onTransferir={temConta && !contaSel.externo ? () => setModal("transferir") : undefined}
-        onSeparar={temConta && !contaSel.externo && itensParaSeparar.length > 0 ? () => setModal("separar") : undefined}
-        onImprimir={temConta ? imprimirPreConta : undefined}
-        onComprovante={temConta ? emitirComprovanteMesa : undefined}
-        onCozinha={temConta ? imprimirCuponsCozinha : undefined}
-        onObservacoes={temConta ? () => setModal("observacoes") : undefined}
-        onHistorico={temConta ? () => setModal("historico") : undefined}
+        onFuncoes={() => setPaletaAberta(true)}
+        onAcao={(a) => { if (a === "receber") setPasso(1); else if (a === "continuar") setPasso(2); else if (a === "fechar") confirmarEFinalizar(); }}
       />
-
       <PdvStatusBar conexaoOk={conexaoOk} agora={agora} versao={versaoApp.rodando} />
 
       {modal === "incluir" && (
@@ -1952,56 +2074,22 @@ export default function CashierPdv({
         />
       )}
 
-      {confirmarFinalizacao && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div role="dialog" aria-modal="true" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
-            <h2 className="text-lg font-black text-[var(--pp-text)]">Confirmar fechamento</h2>
-            <p className="mt-1 text-sm text-[var(--pp-text-body)]">
-              {contaSel?.mesa} · {contaSel?.comandas?.join(", ")}
-            </p>
-            <div className="mt-4 space-y-1.5 text-sm">
-              <div className="flex justify-between"><span>Subtotal</span><strong>{formatCurrency(subtotalSel)}</strong></div>
-              {taxaPct > 0 && (
-                <div className={`flex justify-between ${taxaRemovida ? "text-[#012E46]" : ""}`}>
-                  <span>{taxaRemovida ? `Taxa ${taxaPct}% (removida)` : `Taxa ${taxaPct}%`}</span>
-                  <strong>{formatCurrency(taxaValorSel)}</strong>
-                </div>
-              )}
-              {acrescimoSel > 0 && (
-                <div className="flex justify-between text-[#1F7A3D]"><span>Acréscimo</span><strong>+{formatCurrency(acrescimoSel)}</strong></div>
-              )}
-              {descontoManualSel > 0 && (
-                <div className="flex justify-between text-[var(--pp-danger)]"><span>Desconto</span><strong>−{formatCurrency(descontoManualSel)}</strong></div>
-              )}
-              {descontoCupom > 0 && (
-                <div className="flex justify-between text-[#1F7A3D]"><span>Cupom {cupomSel?.codigo}</span><strong>−{formatCurrency(descontoCupom)}</strong></div>
-              )}
-              <div className="flex justify-between"><span>Total a pagar</span><strong>{formatCurrency(totalCobrar)}</strong></div>
-              {pagamentosSel.map((p) => (
-                <div key={p.id} className="flex justify-between text-[var(--pp-text-body)]">
-                  <span>{p.forma}</span><strong>{formatCurrency(p.valor)}</strong>
-                </div>
-              ))}
-              <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5"><span>Recebido</span><strong>{formatCurrency(recebidoEfetivo)}</strong></div>
-              {trocoSel > 0 && (
-                <div className="flex justify-between text-[var(--pp-primary-text)]"><span>Troco</span><strong>{formatCurrency(trocoSel)}</strong></div>
-              )}
-              {pontosGanhar > 0 && (
-                <div className="flex justify-between text-[#1F7A3D]"><span>Pontos ao cliente</span><strong>{pontosGanhar}</strong></div>
-              )}
-            </div>
-            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={setNotaCaixa} nfeDisponivel={nfeNaLoja} />}
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setConfirmarFinalizacao(false)} className="min-h-11 rounded-2xl border border-[var(--pp-border)] text-sm font-black text-[var(--pp-text-body)]">
-                Cancelar
-              </button>
-              <button type="button" onClick={confirmarEFinalizar} disabled={processando} className="btn-verde flex min-h-11 items-center justify-center gap-2 rounded-2xl text-sm font-black text-white disabled:opacity-60">
-                {processando ? <IconSpinner /> : <IconCheck width={16} height={16} />}
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
+      <PdvPaletaFuncoes
+        aberta={paletaAberta}
+        funcoes={funcoesPdv}
+        onFechar={() => setPaletaAberta(false)}
+        onExecutar={(f) => { setPaletaAberta(false); f.executar(); }}
+        onBloqueada={(txt) => notify("error", txt)}
+      />
+      {ajusteModal && (
+        <PdvModalAjuste
+          tipo={ajusteModal}
+          valorAtual={ajusteModal === "desconto" ? descontoManualSel : ajusteModal === "acrescimo" ? acrescimoSel : 0}
+          processando={cupomProcessando}
+          onConfirmar={(v) => { if (ajusteModal === "cupom") aplicarCupom(v, () => setAjusteModal(null)); else { patchAjuste(ajusteModal === "desconto" ? { desconto: v } : { acrescimo: v }); setAjusteModal(null); } }}
+          onRemover={() => { patchAjuste(ajusteModal === "desconto" ? { desconto: 0 } : { acrescimo: 0 }); setAjusteModal(null); }}
+          onFechar={() => setAjusteModal(null)}
+        />
       )}
 
       {sucesso && (

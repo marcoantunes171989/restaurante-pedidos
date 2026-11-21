@@ -19,6 +19,7 @@ import { montarVendaFiscal, composicaoDaConta } from "./vendaFiscal.js";
 import { reservarDocumentoFiscal } from "./fiscalApi.js";
 import { montarDestinatario } from "./nfeDaVenda.js";
 import { normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
+import { validarAntesDeEmitir } from "./validacaoPreEmissao.js";
 
 export function emissaoPdvAtivaPorEnv(env) {
   return String(env?.VITE_FISCAL_EMISSAO_PDV ?? "").trim().toLowerCase() === "true";
@@ -146,6 +147,10 @@ export async function emitirNotaDaVenda({
     return { estado: "pendente", titulo: "Nota fiscal não emitida: venda com pendência", detalhe: lista.slice(0, 3).join(" ") };
   }
 
+  // Confere os dados fiscais ANTES de gastar um número de nota: se algo estiver errado, a nota não é reservada e a tela diz o que corrigir.
+  const pre = validarAntesDeEmitir({ emitente, modelo: nfe ? 55 : 65, ambiente, venda, destinatario, cpfConsumidor: nfe ? "" : cpf });
+  if (!pre.ok) return { estado: "pendente", titulo: "Nota fiscal não emitida: dados fiscais com problema", detalhe: pre.texto };
+
   let reserva;
   try {
     const idempotencyKey = await chaveIdempotenciaVenda(venda.lojaId, venda.pedidosIds, subtle);
@@ -189,6 +194,6 @@ export async function emitirReservada({ documentoId, numero, nfe = false, postar
     if (c.ok) return { estado: "contingencia", titulo: `NFC-e nº ${c.numero} em contingência`, numero: c.numero, detalhe: "SEFAZ fora do ar: a nota vale e será enviada depois.", documentoId: c.documentoId };
     return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: c.erro || "SEFAZ fora do ar e a contingência falhou. Veja em Notas emitidas.", documentoId };
   }
-  const motivo = [r.erro || r.xMotivo, ["FALHA_ENVIO", "FALHA_APOS_ENVIO"].includes(r.code) ? r.detalhe : ""].filter(Boolean).join(" — ");
+  const motivo = [r.erro || r.xMotivo, r.detalhe || ""].filter(Boolean).join(" — ");
   return { estado: "erro", titulo: "Nota fiscal pendente", detalhe: motivo || "Não foi possível emitir agora. Veja em Notas emitidas.", documentoId };
 }

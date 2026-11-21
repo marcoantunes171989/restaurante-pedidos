@@ -3,7 +3,7 @@ import { passosAtivacao, produtosSemFiscal } from "./ativacaoFiscal.js";
 
 const AGORA = new Date("2026-11-16T12:00:00Z");
 const EMIT = {
-  razaoSocial: "Burger Ltda", inscricaoEstadual: "123456789012", crt: "1", cep: "01001000", logradouro: "Rua A", numero: "1",
+  razaoSocial: "Burger Ltda", inscricaoEstadual: "110042490114", crt: "1", cep: "01001000", logradouro: "Rua A", numero: "1",
   bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", nfceSerie: 1,
   nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "simulacao",
 };
@@ -129,5 +129,19 @@ describe("produtos vinculados pela Atualização em lote contam como prontos", (
   it("passosAtivacao repassa o contexto: o passo de produtos fecha", () => {
     const r = passosAtivacao({ ...TUDO, produtos: [produto], regrasLoja: [], ctxFiscal: cadastros });
     expect(passo(r, "produtos").ok).toBe(true);
+  });
+});
+
+describe("passosAtivacao: dado preenchido mas ERRADO também trava o passo (evita rejeição da SEFAZ)", () => {
+  it("IE de SP com dígito errado: passo da empresa fica pendente e diz o motivo", () => {
+    const r = passosAtivacao({ ...TUDO, emitente: { ...EMIT, inscricaoEstadual: "123456789012" } });
+    expect(passo(r, "empresa").ok).toBe(false);
+    expect(passo(r, "empresa").detalhe).toMatch(/Inscrição Estadual não passa na conferência/);
+  });
+  it("certificado de outro CNPJ: passo do certificado fica pendente", () => {
+    const cred = [{ tipo: "certificado_a1", validadeFim: "2027-11-16T00:00:00Z", cadastrado: true, documentoTitular: "99888777000166" }, ...TUDO.credenciais.slice(1)];
+    const r = passosAtivacao({ ...TUDO, credenciais: cred });
+    expect(passo(r, "certificado").ok).toBe(false);
+    expect(passo(r, "certificado").detalhe).toMatch(/outro CNPJ/);
   });
 });
