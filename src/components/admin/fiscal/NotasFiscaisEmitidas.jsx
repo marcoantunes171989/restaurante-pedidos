@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import DetalhesNotaFiscal from "./DetalhesNotaFiscal";
 import XmlDaNota from "./XmlDaNota";
+import ChaveAcessoNota from "./ChaveAcessoNota";
 import ManutencaoFiscal from "./ManutencaoFiscal";
 import { podeManutencao } from "../../../lib/fiscal/manutencaoCampos";
 import { nfceForaDoPrazo } from "../../../lib/fiscal/prazoCancelamento";
@@ -330,6 +331,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                 <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">
                   {data(n.dhAutorizacao || n.criadoEm)}{n.protocolo ? ` · protocolo ${n.protocolo}` : ""}{n.cartasCorrecao ? ` · ${n.cartasCorrecao} correção(ões)` : ""}
                 </p>
+                <ChaveAcessoNota nota={n} />
                 {(n.status === "rejeitado" || n.status === "erro") && n.xMotivo && <p className={`mt-0.5 text-[12px] ${n.contingenciaNumero && Number(n.cStat) === 217 ? "text-[var(--pp-text-muted)]" : "text-[#C81E4A]"}`}>{n.xMotivo}</p>}
                 {n.ultimoEvento?.status === "rejeitado" && <p className="mt-0.5 text-[12px] text-[#B45309]">Último pedido recusado pela SEFAZ: {n.ultimoEvento.xmotivo}</p>}
                 {[6, 7].includes(n.tpEmis) && n.contingencia && !n.contingencia.prazo && !["autorizado", "cancelado"].includes(n.status) && (
