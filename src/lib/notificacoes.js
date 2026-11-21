@@ -9,7 +9,7 @@
 //  nunca fala com nenhum serviço de push diretamente.
 // ════════════════════════════════════════════════════════════
 import {
-  upsertPushSubscription, desativarPushSubscription, removerPushSubscription,
+  upsertPushSubscription, atualizarLojaPushSubscription, desativarPushSubscription, removerPushSubscription,
   fetchPreferenciasNotificacao, salvarPreferenciasNotificacao,
 } from "./supabase";
 import { detectarPlataforma, ehStandalone } from "./pwaDetection";
@@ -85,9 +85,10 @@ export async function obterAssinaturaAtual() {
   } catch { return null; }
 }
 
-function subscriptionParaLinha(sub, plataforma) {
+function subscriptionParaLinha(sub, plataforma, lojaId = null) {
   const json = sub.toJSON();
   return {
+    lojaId,
     endpoint: sub.endpoint,
     p256dh: json.keys?.p256dh || "",
     authChave: json.keys?.auth || "",
@@ -98,7 +99,7 @@ function subscriptionParaLinha(sub, plataforma) {
 
 /** Só deve ser chamada a partir de um clique real do usuário (gesture) —
  * nunca automaticamente ao carregar a tela. Retorna { ok, motivo }. */
-export async function ativarNotificacoes() {
+export async function ativarNotificacoes(lojaId = null) {
   const cap = capacidadesPush();
   if (cap.instalacaoObrigatoria && !cap.instalado) return { ok: false, motivo: "nao_instalado" };
   if (!cap.suportado) return { ok: false, motivo: "sem_suporte" };
@@ -117,11 +118,24 @@ export async function ativarNotificacoes() {
       });
     }
     const plataforma = (navigator.userAgent || "").slice(0, 180);
-    await upsertPushSubscription(subscriptionParaLinha(sub, plataforma));
+    await upsertPushSubscription(subscriptionParaLinha(sub, plataforma, lojaId));
     return { ok: true };
   } catch (e) {
     return { ok: false, motivo: "erro_assinatura", erro: e?.message || String(e) };
   }
+}
+
+/** Mantém a loja em foco do aparelho em dia (chamada quando a loja muda).
+ * Não faz nada se este aparelho não está registrado. Nunca lança. */
+export async function sincronizarLojaDoAparelho(lojaId) {
+  if (lojaId == null) return false;
+  try {
+    if (permissaoAtual() !== "granted") return false;
+    const sub = await obterAssinaturaAtual();
+    if (!sub) return false;
+    await atualizarLojaPushSubscription(sub.endpoint, lojaId);
+    return true;
+  } catch { return false; }
 }
 
 export async function desativarNotificacoes() {

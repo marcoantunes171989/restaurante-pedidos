@@ -23,6 +23,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import webpush from "npm:web-push@3.6.7";
 import { montarMensagemPedido } from "./mensagem.js";
+import { escolherDestinatarios } from "./destinatarios.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -41,21 +42,8 @@ const json = (body: unknown, status = 200) =>
 // Cliente com service role — só usado NESTA função (nunca no frontend).
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-// ── Mesma derivação de acesso operacional do front (acessosOperacionais,
-//    src/App.jsx) — replicada aqui porque a Edge Function decide os
-//    destinatários no servidor, sem confiar em nada vindo do cliente. ──
-const OP_MODULOS = ["op_pedidos", "op_cozinha", "op_bar", "op_caixa"] as const;
-function acessosOperacionais(idsAcesso: string[] | null | undefined, superAdmin: boolean) {
-  const ids = idsAcesso || [];
-  const has = (id: string) => ids.includes(id);
-  const total = !!superAdmin || has("admin") || OP_MODULOS.every(has);
-  if (total) return { pedidos: true, cozinha: true, bar: true, caixa: true };
-  const temOpEspecifico = has("op_managed") || OP_MODULOS.some(has);
-  if (temOpEspecifico) return { pedidos: has("op_pedidos"), cozinha: has("op_cozinha"), bar: has("op_bar"), caixa: has("op_caixa") };
-  // Legado: quem tinha "kitchen" via Pedidos/Cozinha/Bar; "cashier" via Caixa.
-  return { pedidos: has("kitchen"), cozinha: has("kitchen"), bar: has("kitchen"), caixa: has("cashier") };
-}
-
+// A decisão de quem recebe (e a derivação de acesso operacional, igual à do
+// front) fica em destinatarios.js — o servidor decide, sem confiar no cliente.
 async function validarWebhook(req: Request): Promise<boolean> {
   const recebido = req.headers.get("x-webhook-secret");
   if (!recebido) return false;
@@ -155,18 +143,40 @@ Deno.serve(async (req) => {
     const { evento, pedido_id: pedidoId, loja_id: lojaId, new_record: novo } = body || {};
     if (!evento || !pedidoId || !lojaId) return json({ ok: true, ignorado: "payload incompleto" });
 
-    // Recarrega os usuários ativos da loja e filtra por permissão real.
-    const { data: usuarios } = await admin
+    // Usuários ativos da loja + administradores gerais logados (sessão ativa)
+    // com esta loja em foco. A regra de quem recebe está em destinatarios.js.
+    const { data: usuariosLoja } = await admin
       .from("tab_usuarios")
       .select("id, ids_acesso, super_admin, ativo")
       .eq("loja_id", lojaId)
       .eq("ativo", true);
 
-    const destinatarios = (usuarios || []).filter((u) => {
-      const p = acessosOperacionais(u.ids_acesso, !!u.super_admin);
-      return evento === "caixa_aguardando" ? p.caixa : (p.pedidos || p.cozinha || p.bar || p.caixa);
-    });
-    if (destinatarios.length === 0) return json({ ok: true, destinatarios: 0 });
+    // Administrador geral não tem loja fixa: cada aparelho dele registra a loja
+    // em foco (tab_push_subscriptions.loja_id, mantida pelo app) — recebe quem
+    // tem aparelho ATIVO apontando para esta loja.
+    const { data: aparelhosDaLoja } = await admin
+      .from("tab_push_subscriptions")
+      .select("usuario_id")
+      .eq("ativo", true)
+      .eq("loja_id", lojaId);
+    const idsEmFoco = [...new Set((aparelhosDaLoja || []).map((s: { usuario_id: number }) => s.usuario_id))];
+    const { data: superAdminsEmFoco } = idsEmFoco.length
+      ? await admin.from("tab_usuarios").select("id, ids_acesso, super_admin, ativo").in("id", idsEmFoco).eq("super_admin", true).eq("ativo", true)
+      : { data: [] };
+
+    const todos = [...(usuariosLoja || []), ...(superAdminsEmFoco || [])];
+    if (todos.length === 0) return json({ ok: true, destinatarios: 0 });
+
+    // Preferências por usuário (linha ausente = tudo ligado por padrão).
+    const { data: prefsRows } = await admin
+      .from("tab_notificacao_prefs")
+      .select("usuario_id, push_ativo, alerta_novo_pedido, alerta_caixa, som")
+      .in("usuario_id", todos.map((d) => d.id));
+    const prefsPorUsuario = new Map((prefsRows || []).map((p) => [p.usuario_id, p]));
+
+    const elegiveis = escolherDestinatarios({ evento, usuariosLoja: usuariosLoja || [], superAdminsEmFoco: superAdminsEmFoco || [], prefs: prefsRows || [] });
+    const destinatarios = todos;
+    if (elegiveis.length === 0) return json({ ok: true, destinatarios: destinatarios.length, elegiveis: 0 });
 
     const numero = novo?.criado_em ? await numeroDoPedidoNoDia(lojaId, novo.criado_em) : "";
     const eventId = `${evento}:${pedidoId}`;
@@ -174,21 +184,6 @@ Deno.serve(async (req) => {
     const { data: loja } = await admin.from("tab_lojas").select("nome").eq("id", lojaId).maybeSingle();
     // Loja + tipo + mesa/cliente + itens + valor (ver mensagem.js).
     const { titulo, corpo } = montarMensagemPedido({ evento, pedido: novo, lojaNome: loja?.nome, numero });
-
-    // Preferências por usuário (linha ausente = tudo ligado por padrão).
-    const { data: prefsRows } = await admin
-      .from("tab_notificacao_prefs")
-      .select("usuario_id, push_ativo, alerta_novo_pedido, alerta_caixa, som")
-      .in("usuario_id", destinatarios.map((d) => d.id));
-    const prefsPorUsuario = new Map((prefsRows || []).map((p) => [p.usuario_id, p]));
-
-    const elegiveis = destinatarios.filter((d) => {
-      const p = prefsPorUsuario.get(d.id);
-      if (!p) return true; // sem preferência salva ainda → padrão ligado
-      if (p.push_ativo === false) return false;
-      return evento === "caixa_aguardando" ? p.alerta_caixa !== false : p.alerta_novo_pedido !== false;
-    });
-    if (elegiveis.length === 0) return json({ ok: true, destinatarios: destinatarios.length, elegiveis: 0 });
 
     // Insere 1 notificação por destinatário — ON CONFLICT (event_id,
     // usuario_id) DO NOTHING garante idempotência mesmo se o pg_net

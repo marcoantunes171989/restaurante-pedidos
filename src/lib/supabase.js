@@ -3802,10 +3802,19 @@ export async function marcarTodasNotificacoesLidas() {
   if (error) throw error;
 }
 
-export async function upsertPushSubscription({ endpoint, p256dh, authChave, plataforma, deviceId }) {
-  const { error } = await supabase.from('tab_push_subscriptions').upsert([{
+export async function upsertPushSubscription({ endpoint, p256dh, authChave, plataforma, deviceId, lojaId = null }) {
+  const linha = {
     endpoint, p256dh, auth_chave: authChave, plataforma, device_id: deviceId, ativo: true, last_seen_at: new Date().toISOString(),
-  }], { onConflict: 'endpoint' });
+  };
+  // Loja em foco deste aparelho (administrador geral não tem loja fixa no cadastro).
+  // Sem lojaId, o default/trigger do banco usa a loja do cadastro do usuário.
+  if (lojaId != null) linha.loja_id = lojaId;
+  const { error } = await supabase.from('tab_push_subscriptions').upsert([linha], { onConflict: 'endpoint' });
+  if (error) throw error;
+}
+// Atualiza a loja em foco do aparelho já registrado (troca de empresa do admin geral).
+export async function atualizarLojaPushSubscription(endpoint, lojaId) {
+  const { error } = await supabase.from('tab_push_subscriptions').update({ loja_id: lojaId }).eq('endpoint', endpoint);
   if (error) throw error;
 }
 export async function desativarPushSubscription(endpoint) {

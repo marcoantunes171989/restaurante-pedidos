@@ -70,7 +70,7 @@ export default function OperationalHeader({
           {comNotificacoes && (
             <>
               <NotificationBell />
-              <NotificationSettings />
+              <NotificationSettings lojaId={lojaInfo?.id ?? null} />
               <span aria-hidden="true" className="mx-0.5 h-6 w-px bg-[var(--pp-border)]" />
             </>
           )}

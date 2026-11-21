@@ -5,7 +5,7 @@ import {
   capacidadesPush, permissaoAtual, swEstaAtivo, obterAssinaturaAtual,
   ativarNotificacoes, desativarNotificacoes, removerEsteDispositivo,
   carregarPreferencias, atualizarPreferencias,
-  avaliarAtivacao, instrucoesInstalacao, tocarSomAlerta,
+  avaliarAtivacao, instrucoesInstalacao, tocarSomAlerta, sincronizarLojaDoAparelho,
 } from "../lib/notificacoes";
 import { temPromptInstalacao, ouvirPromptInstalacao, dispararPromptInstalacao } from "../lib/pwaInstallBridge";
 import { fetchPushSubscriptionAtual, enviarNotificacaoTeste } from "../lib/supabase";
@@ -58,7 +58,7 @@ const TEXTO_PERMISSAO = {
 // também, pelos mesmos motivos estruturais do NotificationBell.jsx:
 // consistência entre os dois painéis e imunidade a qualquer mudança
 // futura no header que crie um stacking context.
-export default function NotificationSettings() {
+export default function NotificationSettings({ lojaId = null }) {
   const [aberto, setAberto] = useState(false);
   const [cap, setCap] = useState(null);
   const [permissao, setPermissao] = useState("default");
@@ -79,6 +79,9 @@ export default function NotificationSettings() {
   const painelRef = useRef(null);
   useFocusTrap(painelRef, aberto);
   useEffect(() => ouvirPromptInstalacao(setTemPrompt), []);
+  // Mantém a loja em foco do aparelho em dia: o administrador geral troca de
+  // empresa e os pedidos passam a chegar na empresa em que ele está logado.
+  useEffect(() => { sincronizarLojaDoAparelho(lojaId); }, [lojaId]);
   const guia = avaliarAtivacao({ cap, permissao, inscrito });
 
   async function instalarApp() {
@@ -133,7 +136,7 @@ export default function NotificationSettings() {
       const r = await desativarNotificacoes();
       setMensagem(r.ok ? { tipo: "ok", texto: "Notificações desativadas neste aparelho." } : { tipo: "erro", texto: "Não foi possível desativar agora." });
     } else {
-      const r = await ativarNotificacoes();
+      const r = await ativarNotificacoes(lojaId);
       if (r.ok) {
         setMensagem({ tipo: "ok", texto: "Notificações ativadas neste aparelho." });
       } else {
