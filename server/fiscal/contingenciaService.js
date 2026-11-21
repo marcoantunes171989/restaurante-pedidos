@@ -43,6 +43,7 @@ const MENSAGENS = {
   SEM_SERIE: "A série da nota não foi encontrada.",
   NAO_ASSINADA: "A nota em contingência ainda não foi gerada.",
   XML_INVALIDO: "A nota tem dados fora do padrão oficial.",
+  FALHA_REGISTRO: "A SEFAZ respondeu, mas o resultado não foi gravado no sistema. Use Consultar na SEFAZ depois de corrigir (a nota NÃO é reenviada em duplicidade).",
   SEM_CHAVE: "Esta nota nunca foi enviada à SEFAZ: não há o que consultar.",
   XML_NAO_CONFERE: "A SEFAZ autorizou esta nota, mas o XML guardado não confere. Fale com o suporte antes de qualquer ação.",
 };
@@ -210,11 +211,12 @@ export async function transmitirContingencia(body, deps, conexao) {
   const idLote = String(Date.now()).slice(-15);
   const r = await emitirNaSefaz({ uf, modelo, ambiente: c.ambiente, autorizador, pfx: cred.pfx, senha: cred.senha, nfeAssinada: c.xml_assinado, chNFe: c.chave, idLote, ...conexao });
   const mapa = { autorizada: "autorizado", rejeitada: "rejeitado", indisponivel: "erro", incerta: "enviado" };
-  await deps.registrar({
+  const gravado = await deps.registrar({
     documentoId: c.id, status: mapa[r.situacao] || "erro", chave: c.chave, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
     protocolo: r.nProt || null, dhAutorizacao: r.dhRecbto || null, xml: r.situacao === "autorizada" ? r.procNFe : null,
     payload: { consultou: !!r.consultou, contingencia: true, ...(autorizador ? { autorizador } : {}) },
   });
+  if (gravado && gravado.ok === false) return falha("FALHA_REGISTRO", { detalhe: String(gravado.code || gravado.erro || "").slice(0, 80), situacao: r.situacao, protocolo: r.nProt || null, numero: c.numero, serie: c.serie, chave: c.chave });
   return {
     ok: r.situacao === "autorizada", situacao: r.situacao, numero: c.numero, serie: c.serie, chave: c.chave,
     protocolo: r.nProt || null, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
@@ -247,11 +249,12 @@ async function consultarPendente(body, deps, conexao) {
     if (!nfeAssinada || tagDe(nfeAssinada, "DigestValue") !== tagDe(q.protNFeXml, "digVal")) {
       return { ...falha("XML_NAO_CONFERE"), situacao: "autorizada", protocolo: q.nProt || null, ...base };
     }
-    await deps.registrar({
+    const gravado = await deps.registrar({
       documentoId: doc.id, status: "autorizado", chave: doc.chave, cStat: q.cStat ?? null, xMotivo: q.xMotivo || null,
       protocolo: q.nProt, dhAutorizacao: q.dhRecbto || null, xml: montarProcNFe({ nfeAssinada, protNFeXml: q.protNFeXml }),
       payload: { consulta: true },
     });
+    if (gravado && gravado.ok === false) return { ...falha("FALHA_REGISTRO", { detalhe: String(gravado.code || gravado.erro || "").slice(0, 80) }), situacao: "autorizada", protocolo: q.nProt || null, ...base };
     return { ok: true, situacao: "autorizada", protocolo: q.nProt, deveCancelar: !!doc.contingencia_documento_id, ...base };
   }
   if (q.situacao === "nao_encontrada") {

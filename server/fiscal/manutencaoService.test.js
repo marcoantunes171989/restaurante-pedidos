@@ -118,3 +118,12 @@ describe("manutenção fiscal: gravar e transmitir novamente", () => {
     expect(r.emissao).toMatchObject({ ok: false, situacao: "rejeitada", cStat: 373 });
   });
 });
+
+describe("resultado da SEFAZ que o banco recusa", () => {
+  it("não diz 'autorizada' quando o registro falha: devolve FALHA_REGISTRO com o código do banco", async () => {
+    const d = deps();
+    d.registrar = vi.fn(async (p) => (p.status === "autorizado" ? { ok: false, code: "XML_OBRIGATORIO" } : { ok: true }));
+    const r = await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(r).toMatchObject({ ok: false, code: "FALHA_REGISTRO", detalhe: "XML_OBRIGATORIO", podeConsultar: true });
+  });
+});

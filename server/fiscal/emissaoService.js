@@ -37,6 +37,7 @@ const MENSAGENS = {
   FALHA_ENVIO: "Falha técnica ao enviar: a nota NÃO chegou à SEFAZ. Em Notas emitidas use Reenviar (o número é mantido).",
   FALHA_APOS_ENVIO: "Falha técnica depois do envio: a SEFAZ pode ter recebido a nota. Em Notas emitidas use Consultar na SEFAZ antes de reenviar.",
   EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota de contingência é a que vale. Esta numeração só será consultada.",
+  FALHA_REGISTRO: "A SEFAZ respondeu, mas o resultado não foi gravado no sistema. Use Consultar na SEFAZ depois de corrigir (a nota NÃO é reenviada em duplicidade).",
 };
 // Texto do erro técnico que vai para a tela: sem caminhos de arquivo do servidor (ex.: /var/task/...), só o que ajuda a diagnosticar.
 const limparDetalhe = (msg) => String(msg || "").replace(/\s+/g, " ").replace(/(?:[A-Za-z]:[\\/]|\/)(?:[\w.@-]+[\\/])+([\w.@-]+)/g, "…/$1").slice(0, 300);
@@ -178,11 +179,15 @@ export async function processarEmissao(body = {}, deps) {
   }
 
   const mapa = { autorizada: "autorizado", rejeitada: "rejeitado", indisponivel: "erro", incerta: "enviado" };
-  await deps.registrar({
+  const gravado = await deps.registrar({
     documentoId: doc.id, status: mapa[r.situacao] || "erro", chave, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
     protocolo: r.nProt || null, dhAutorizacao: r.dhRecbto || null, xml: r.situacao === "autorizada" ? r.procNFe : null,
     payload: { consultou: !!r.consultou },
   });
+  // O banco recusou o resultado (ex.: protocolo/XML inválido): não diz "autorizada" sem ter gravado.
+  if (gravado && gravado.ok === false) {
+    return falha("FALHA_REGISTRO", { detalhe: String(gravado.code || gravado.erro || "").slice(0, 80), situacao: r.situacao, cStat: r.cStat ?? null, protocolo: r.nProt || null, numero: doc.numero, serie: doc.serie, chave, podeConsultar: true });
+  }
   return {
     ok: r.situacao === "autorizada", situacao: r.situacao, numero: doc.numero, serie: doc.serie, chave,
     protocolo: r.nProt || null, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
