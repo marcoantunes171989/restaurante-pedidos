@@ -204,3 +204,37 @@ describe("NFC-e (65) com CPF/CNPJ do consumidor informado na emissão", () => {
     expect(await emitirComDoc("")).not.toContain("<dest>");
   });
 });
+
+describe("pagamento em cartão (rejeição 391: grupo <card>)", () => {
+  const emitirCom = async (forma, tipo, meio) => {
+    const venda = montarVendaFiscal({
+      pedidos: [{ id: "PED-1", lojaId: 7, status: "delivered", items: ITENS }],
+      produtos: [{ id: 10, name: "X-Burger", lojaId: 7, lojaFiscalRegraId: 50 }, { id: 11, name: "Refri Lata", lojaId: 7, lojaFiscalRegraId: 50 }],
+      ctxFiscal: { lojaFiscalRegras: [REGRA] }, formas: [{ id: 5, nome: forma, tipo }], mapaMeios: { [tipo]: meio },
+      pagamento: { total: 44, troco: 0, detalhes: [{ forma, valor: 44 }] },
+    });
+    const doc = { ...DOC, rascunho: { versao: 1, venda, cpf: "" } };
+    const enviados = [];
+    const d = {
+      ...deps(), podeEmitir: vi.fn().mockResolvedValue(true), ufDaLoja: vi.fn().mockResolvedValue("SP"),
+      segredoCertificado: vi.fn().mockResolvedValue({ pfx: PFX_B64, senha: "teste-pedido-prime" }), documento: vi.fn().mockResolvedValue(doc),
+      registrar: vi.fn().mockResolvedValue({ ok: true }), agora: () => AGORA,
+      enviar: vi.fn(async ({ dados }) => { enviados.push(String(dados)); return { ok: false, erro: "SEFAZ fora do ar" }; }),
+    };
+    await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    return { venda, nfe: enviados.map((x) => x.match(/<NFe[\s\S]*<\/NFe>/)?.[0]).find(Boolean) };
+  };
+  it("débito (04) e crédito (03) levam <card><tpIntegra>2</tpIntegra></card> e passam no XSD", async () => {
+    for (const [forma, tipo, meio] of [["Cartão de Débito", "debito", "04"], ["Cartão de Crédito", "credito", "03"]]) {
+      const { venda, nfe } = await emitirCom(forma, tipo, meio);
+      expect(venda.pagamentos[0].meio, `${forma}: ${JSON.stringify(venda.pendencias)}`).toBe(meio);
+      expect(nfe, forma).toContain(`<tPag>${meio}</tPag><vPag>44.00</vPag><card><tpIntegra>2</tpIntegra></card>`);
+      const v = await validarNFeXsd(nfe);
+      expect(v.valido, JSON.stringify(v)).toBe(true);
+    }
+  });
+  it("dinheiro (01) e PIX (17) não levam <card>", async () => {
+    expect((await emitirCom("Dinheiro", "dinheiro", "01")).nfe).not.toContain("<card>");
+    expect((await emitirCom("PIX", "pix", "17")).nfe).not.toContain("<card>");
+  });
+});

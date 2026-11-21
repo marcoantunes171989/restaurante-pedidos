@@ -284,6 +284,9 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     tPag: p.meio,
     ...(String(p.meio) === "99" ? { xPag: String(p.forma || "Outros").replace(/\s+/g, " ").trim().slice(0, 60).padEnd(2, " ") } : {}),
     vPag: p.valor,
+    // Cartão de crédito (03) ou débito (04): a SEFAZ exige o grupo <card> (rejeição 391). tpIntegra 2 = pagamento NÃO integrado ao sistema
+    // (maquininha separada); bandeira, CNPJ da credenciadora e autorização são opcionais e o caixa ainda não os informa.
+    ...(["03", "04"].includes(String(p.meio)) ? { card: { tpIntegra: "2" } } : {}),
   }));
   const dh = dhEmi || new Date().toISOString();
   const d = new Date(dh);
