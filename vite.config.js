@@ -87,6 +87,14 @@ export default defineConfig(({ mode }) => {
       VITE_SUPABASE_URL: 'https://pedido-prime-test.invalid',
       VITE_SUPABASE_ANON_KEY: 'pedido-prime-test-anon-key',
     },
+    // Corrida de teste (já existia): um componente termina uma chamada assíncrona DEPOIS de o jsdom ser desmontado e o React tenta ler
+    // `window` ("window is not defined", origem react-dom). Não é falha do teste nem do produto, mas derrubava de forma INTERMITENTE o
+    // `npm test` do workflow de produção (todos os testes passavam e o processo saía com erro). Só esse erro exato é ignorado.
+    onUnhandledError(error) {
+      const msg = String(error?.message || '')
+      const stack = String(error?.stack || '')
+      if (error?.name === 'ReferenceError' && /window is not defined/.test(msg) && /react-dom/.test(stack)) return false
+    },
   },
   }
 })
