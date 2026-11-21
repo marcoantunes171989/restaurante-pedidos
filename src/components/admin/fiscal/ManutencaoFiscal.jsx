@@ -15,7 +15,8 @@ function Celula({ cel, valor, erro, mudou, onMudar }) {
   if (!cel.editavel) return <div className={`${base} border-transparent bg-[var(--pp-bg)] text-[var(--pp-text-muted)]`} title="Campo travado: altere pelo pedido ou cadastro" data-travado="true">{String(cel.valor ?? "") || "—"}</div>;
   const cor = erro ? "border-[#C81E4A] bg-[#FDECEF]" : mudou ? "border-[#F38525] bg-[#FEF3E2]" : "border-[var(--pp-border)] bg-white focus:border-[#012E46]";
   const comum = { value: valor, onChange: (e) => onMudar(cel.caminho, e.target.value), "aria-label": `${cel.grupo} ${cel.rotulo}`, "data-caminho": cel.caminho, title: erro || cel.rotulo, className: `${base} ${cor}` };
-  return cel.opcoes ? <select {...comum}>{cel.opcoes.map((o) => <option key={o} value={o}>{o}</option>)}</select> : <input type="text" {...comum} />;
+  // Valor atual fora da lista (ex.: CSOSN vazio): mostra "— escolher —" em vez de fingir que a 1ª opção já está gravada.
+  return cel.opcoes ? <select {...comum}>{!cel.opcoes.includes(valor) && <option value={valor}>{valor === "" ? "— escolher —" : valor}</option>}{cel.opcoes.map((o) => <option key={o} value={o}>{o}</option>)}</select> : <input type="text" {...comum} />;
 }
 
 export default function ManutencaoFiscal({ nota, buscar, supabase, mensagemEmissao, onConcluido, onFechar }) {
