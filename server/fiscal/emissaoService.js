@@ -39,7 +39,8 @@ const MENSAGENS = {
   FALHA_ENVIO: "Falha técnica ao enviar: a nota NÃO chegou à SEFAZ. Em Notas emitidas use Reenviar (o número é mantido).",
   FALHA_APOS_ENVIO: "Falha técnica depois do envio: a SEFAZ pode ter recebido a nota. Em Notas emitidas use Consultar na SEFAZ antes de reenviar.",
   EM_CONTINGENCIA: "Esta venda já foi para a contingência: a nota de contingência é a que vale. Esta numeração só será consultada.",
-  FALHA_REGISTRO: "A SEFAZ respondeu, mas o resultado não foi gravado no sistema. Use Consultar na SEFAZ depois de corrigir (a nota NÃO é reenviada em duplicidade).",
+  PRIMEIRA_NOTA_LIMITE: "Proteção da 1ª nota real: nesta loja a primeira NFC-e de produção só pode ter valor pequeno (teste). A venda continua paga e aparece em Vendas sem nota; emita uma venda de valor baixo primeiro.",
+  FALHA_REGISTRO:"A SEFAZ respondeu, mas o resultado não foi gravado no sistema. Use Consultar na SEFAZ depois de corrigir (a nota NÃO é reenviada em duplicidade).",
 };
 // Texto do erro técnico que vai para a tela: sem caminhos de arquivo do servidor (ex.: /var/task/...), só o que ajuda a diagnosticar.
 const limparDetalhe = (msg) => String(msg || "").replace(/\s+/g, " ").replace(/(?:[A-Za-z]:[\\/]|\/)(?:[\w.@-]+[\\/])+([\w.@-]+)/g, "…/$1").slice(0, 300);
@@ -150,6 +151,15 @@ export async function processarEmissao(body = {}, deps) {
   const uf = await deps.ufDaLoja(doc.loja_id);
   const c = await credencial(deps, doc.loja_id);
   if (c.erro) return falha(c.erro);
+
+  // Proteção da 1ª nota real (produção, NFC-e): em SP número queimado não se recupera, então a primeira nota da loja tem teto de valor.
+  // Falha aberta: se a consulta não responder, não bloqueia a venda (a trava principal é a do banco, migration 186).
+  if (doc.ambiente === "producao" && Number(doc.modelo) === 65 && deps.primeiraNotaProducao) {
+    const limite = Number(deps.limitePrimeiraNota ?? 30);
+    let primeira;
+    try { primeira = (await deps.primeiraNotaProducao(doc.loja_id)) === true; } catch { primeira = false; }
+    if (primeira && Number(doc.valor_total) > limite) return falha("PRIMEIRA_NOTA_LIMITE", { limite });
+  }
 
   let assinado;
   const chave = dados.chave;

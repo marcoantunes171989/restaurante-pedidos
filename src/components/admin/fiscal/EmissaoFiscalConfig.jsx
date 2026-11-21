@@ -9,6 +9,8 @@ import { passosAtivacao } from "../../../lib/fiscal/ativacaoFiscal";
 import { validarEmitenteFiscal } from "../../../lib/emitenteFiscalService";
 import { lerTesteSalvo, salvarTeste } from "../../../lib/fiscal/testeConexaoSalvo";
 import AssistenteAtivacaoFiscal from "./AssistenteAtivacaoFiscal";
+import ProntidaoProducao from "./ProntidaoProducao";
+import { prontidaoProducao } from "../../../lib/fiscal/prontidaoProducao";
 
 // ════════════════════════════════════════════════════════════
 //  Aba "Emissão" da Configuração Fiscal (Etapa E4 parte 3).
@@ -49,6 +51,8 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
   // Último teste de conexão (E9). Fica guardado no navegador por 12 h para não sumir ao recarregar a página.
   const [teste, setTeste] = useState(() => lerTesteSalvo(lojaId));
   const [producao, setProducao] = useState(null); // E10: liberação da produção (186)
+  // Teste de conexão com a SEFAZ de PRODUÇÃO (só consulta o status; não gera nota). Guardado à parte do de homologação.
+  const [testeProd, setTesteProd] = useState(() => lerTesteSalvo(`${lojaId}-producao`));
 
   const formas = formasPagamento.filter((f) => f.active !== false && (f.nome || "").trim());
 
@@ -100,7 +104,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     setEnviando("cert");
     try {
       const r = await enviarCredencialFiscal(supabase, { acao: "certificado", lojaId, pfxBase64: await arquivoParaBase64(arquivo), senha });
-      setSenha(""); setArquivo(null); setTeste(null); salvarTeste(lojaId, { ok: false }); // certificado novo: o teste anterior deixa de valer
+      setSenha(""); setArquivo(null); setTeste(null); salvarTeste(lojaId, { ok: false }); setTesteProd(null); salvarTeste(`${lojaId}-producao`, { ok: false }); // certificado novo: o teste anterior deixa de valer
       aviso("cert", "ok", `Certificado de ${r.titular} guardado no cofre. Válido por mais ${r.diasRestantes} dias.`);
       await carregar();
     } catch (err) {
@@ -110,17 +114,18 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     }
   }
 
-  async function testarConexao(modelo) {
-    setEnviando(`teste${modelo}`);
+  async function testarConexao(modelo, ambiente = "homologacao") {
+    const prod = ambiente === "producao";
+    setEnviando(`teste${prod ? "P" : ""}${modelo}`);
     try {
-      const r = await testarConexaoSefaz(supabase, { lojaId, modelo, ambiente: "homologacao" });
-      aviso("teste", "ok", `SEFAZ ${modelo === 65 ? "NFC-e" : "NF-e"} (homologação): ${r.xMotivo || "em operação"}${r.cStat ? ` (código ${r.cStat})` : ""}.`);
-      setTeste({ ok: true, modelo });
-      salvarTeste(lojaId, { ok: true, modelo });
+      const r = await testarConexaoSefaz(supabase, { lojaId, modelo, ambiente });
+      aviso("teste", "ok", `SEFAZ ${modelo === 65 ? "NFC-e" : "NF-e"} (${prod ? "PRODUÇÃO" : "homologação"}): ${r.xMotivo || "em operação"}${r.cStat ? ` (código ${r.cStat})` : ""}.`);
+      if (prod) { setTesteProd({ ok: true, modelo }); salvarTeste(`${lojaId}-producao`, { ok: true, modelo }); }
+      else { setTeste({ ok: true, modelo }); salvarTeste(lojaId, { ok: true, modelo }); }
     } catch (err) {
-      aviso("teste", "erro", err.message);
-      setTeste({ ok: false, modelo, texto: err.message });
-      salvarTeste(lojaId, { ok: false });
+      aviso("teste", "erro", `${prod ? "Produção: " : ""}${err.message}`);
+      if (prod) { setTesteProd({ ok: false, modelo, texto: err.message }); salvarTeste(`${lojaId}-producao`, { ok: false }); }
+      else { setTeste({ ok: false, modelo, texto: err.message }); salvarTeste(lojaId, { ok: false }); }
     } finally {
       setEnviando("");
     }
@@ -232,6 +237,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
 
   const cert = credenciais.find((c) => c.tipo === "certificado_a1") || null;
   const sc = situacaoCertificado(cert);
+  const prontidao = prontidaoProducao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, ctxFiscal, producao, testeProducao: testeProd });
   const ativacao = passosAtivacao({ emitente, documentoLoja: lojaInfo?.documento || "", credenciais, series, formas, config, produtos, regrasLoja, ctxFiscal, teste });
   const cscDe = (amb) => credenciais.find((c) => c.tipo === "csc" && c.ambiente === amb);
 
@@ -239,6 +245,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     <div className="space-y-4" data-testid="emissao-fiscal-config">
       <AssistenteAtivacaoFiscal resultado={ativacao} onIr={irPara} onLigar={ligarHomologacao} producao={producao} onLigarProducao={ligarProducao} />
       <Aviso msg={msg.assist} />
+      <ProntidaoProducao resultado={prontidao} />
 
       <section className={cartao} aria-labelledby="emissao-cert">
         <h3 id="emissao-cert" className="text-[15px] font-bold text-[var(--pp-text)]">Certificado digital A1</h3>
@@ -262,6 +269,13 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
             <span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Testar conexão com a SEFAZ (homologação):</span>
             <button id="emissao-testar-65" type="button" onClick={() => testarConexao(65)} disabled={!!enviando} className={botao}>{enviando === "teste65" ? "Testando…" : "NFC-e"}</button>
             {emitente?.nfeHabilitada && <button id="emissao-testar-55" type="button" onClick={() => testarConexao(55)} disabled={!!enviando} className={botao}>{enviando === "teste55" ? "Testando…" : "NF-e"}</button>}
+          </div>
+        )}
+        {cert && emitente?.nfceHabilitada && (
+          <div className="mt-2 flex flex-wrap items-center gap-2" data-testid="teste-producao">
+            <span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Testar conexão com a SEFAZ de PRODUÇÃO:</span>
+            <button id="emissao-testar-prod-65" type="button" onClick={() => testarConexao(65, "producao")} disabled={!!enviando} className={botao}>{enviando === "testeP65" ? "Testando…" : "NFC-e (produção)"}</button>
+            <span className="text-[12px] text-[var(--pp-text-muted)]">Só consulta se o serviço está no ar com o seu certificado. Não gera nota nem número.</span>
           </div>
         )}
         <Aviso msg={msg.teste} />

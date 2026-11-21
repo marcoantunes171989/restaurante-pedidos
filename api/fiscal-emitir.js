@@ -135,6 +135,9 @@ export function criarDeps(token) {
       p_documento_id: p.documentoId, p_conforme: !!p.conforme, p_cstat: p.cStat ?? null, p_xmotivo: p.xMotivo ?? null, p_protocolo: p.protocolo ?? null,
       p_dh_recbto: p.dhRecbto ?? null, p_dig_val: p.digVal ?? null, p_situacao: p.situacaoSefaz ?? null, p_divergencias: p.divergencias ?? [],
     }),
+    // 199: a loja ainda não tem NFC-e de produção autorizada? (proteção da 1ª nota real)
+    primeiraNotaProducao: (lojaId) => doServidor("app_fiscal_producao_primeira_nota", { p_loja_id: lojaId }),
+    limitePrimeiraNota: Number(process.env.FISCAL_PRIMEIRA_NOTA_LIMITE) > 0 ? Number(process.env.FISCAL_PRIMEIRA_NOTA_LIMITE) : 30,
     // 192: grava a data-hora de emissão renovada no reenvio (a consulta posterior recompõe o MESMO XML transmitido).
     renovarDhEmissao: (p) => doServidor("app_fiscal_documento_renovar_dh_emissao", { p_documento_id: p.documentoId, p_dh_emi: p.dhEmi }),
     pendentes: (lojaId) => doServidor("app_fiscal_contingencia_pendentes", { p_loja_id: lojaId, p_limite: 50 }),

@@ -105,6 +105,10 @@ export function problemasDosItens(itens = [], { crt = "", modelo = 65 } = {}) {
     else if (Number(modelo) === 65 && !cfop.startsWith("5")) add("CFOP_NFCE", `CFOP ${cfop} não serve para NFC-e (venda ao consumidor dentro do estado: 5.xxx).`);
     // MEI (CRT 4) emitindo NFC-e: a SEFAZ só aceita o CFOP 5102 (NT 2024.001, rejeição 337). Barra ANTES de reservar número.
     if (String(crt) === "4" && Number(modelo) === 65 && /^[1-7]\d{3}$/.test(cfop) && cfop !== "5102") add("CFOP_MEI", `CFOP ${cfop} não é aceito para MEI na NFC-e: use 5102 (a SEFAZ rejeitaria com 337).`);
+    // MEI só usa CSOSN 102, 103, 300, 400 ou 500: o 101 (crédito do Simples), 201/202/203 (ST) e 900 (outros) não existem para MEI.
+    if (String(crt) === "4" && CSOSN_VALIDOS.has(String(f.csosn ?? "").trim()) && !["102", "103", "300", "400", "500"].includes(String(f.csosn).trim())) {
+      add("CSOSN_MEI", `CSOSN ${String(f.csosn).trim()} não vale para MEI: use 102 (tributada sem crédito), 103, 300, 400 ou 500.`);
+    }
     if (simples) {
       if (!CSOSN_VALIDOS.has(String(f.csosn ?? "").trim())) add("CSOSN", `CSOSN ${f.csosn || "(vazio)"} inválido para empresa do Simples Nacional (aceitos: ${[...CSOSN_VALIDOS].join(", ")}).`);
     } else if (!CST_ICMS_VALIDOS.has(String(f.cstIcms ?? "").trim())) add("CST_ICMS", `CST de ICMS "${f.cstIcms || ""}" inválido.`);

@@ -52,6 +52,8 @@ export const BLOCOS = [
     resumo: "Só depois de a homologação funcionar. O banco confere as condições; nenhum caminho burla.",
     passos: [
       { id: "requisitos", titulo: "O que é exigido", texto: "Certificado válido no cofre, pelo menos uma nota autorizada em homologação para cada documento habilitado, série de produção e, na NFC-e, o CSC de produção.", tela: "emissao-fiscal" },
+      { id: "prontidao", titulo: "Conferir a prontidão", texto: "Em Emissão, o cartão Prontidão para PRODUÇÃO lista o que falta (cadastro, certificado, série e CSC de produção, pagamentos, produtos para MEI) e o botão Testar conexão (produção) consulta só o status da SEFAZ de produção.", tela: "emissao-fiscal" },
+      { id: "primeira-nota", titulo: "Primeira nota real", texto: "A primeira NFC-e de produção de cada loja tem teto de valor (R$ 30 por padrão): em SP número queimado não se recupera. Venda acima disso continua paga e aparece em Vendas sem nota; faça antes uma venda de valor baixo.", tela: "vendas-sem-nota" },
       { id: "ligar-prod", titulo: "Ligar em produção", texto: "Em Emissão, confirme digitando PRODUÇÃO. A partir daí as notas têm valor fiscal: combine antes com o contador.", tela: "emissao-fiscal" },
     ],
   },

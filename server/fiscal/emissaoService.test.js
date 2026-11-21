@@ -104,3 +104,39 @@ describe("processarEmissao — emitir", () => {
     expect(await processarEmissao({ acao: "emitir", documentoId: "d1" }, d)).toMatchObject({ code: "DADOS_DIVERGENTES" });
   });
 });
+
+describe("processarEmissao — proteção da 1ª nota real (produção)", () => {
+  const DOC_PROD = (valor) => ({ id: "d1", loja_id: 7, modelo: 65, serie: 1, numero: 7, ambiente: "producao", status: "reservado", chave: null, valor_total: valor, rascunho: { dados: { ...DADOS, ide: { ...DADOS.ide, tpAmb: 1 } } } });
+  const prod = (valor, extra = {}) => deps({ documento: vi.fn().mockResolvedValue(DOC_PROD(valor)), primeiraNotaProducao: vi.fn().mockResolvedValue(true), ...extra });
+  it("1ª nota de produção acima do limite: recusa ANTES de gastar número (nada é gravado nem enviado)", async () => {
+    const d = prod(52.8);
+    const r = await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(r).toMatchObject({ ok: false, code: "PRIMEIRA_NOTA_LIMITE", limite: 30 });
+    expect(d.registrar).not.toHaveBeenCalled();
+    expect(d.enviar).not.toHaveBeenCalled();
+  });
+  it("1ª nota de produção dentro do limite: segue para a SEFAZ", async () => {
+    const d = prod(30);
+    await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(d.registrar).toHaveBeenCalled();
+    expect(d.registrar.mock.calls[0][0]).toMatchObject({ status: "enviado" });
+  });
+  it("loja que já tem nota real autorizada: sem limite", async () => {
+    const d = prod(500, { primeiraNotaProducao: vi.fn().mockResolvedValue(false) });
+    const r = await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(r.code).not.toBe("PRIMEIRA_NOTA_LIMITE");
+    expect(d.registrar).toHaveBeenCalled();
+  });
+  it("limite configurável e consulta que falha não bloqueia a venda (falha aberta)", async () => {
+    const d1 = prod(60, { limitePrimeiraNota: 100 });
+    expect((await processarEmissao({ acao: "emitir", documentoId: "d1" }, d1)).code).not.toBe("PRIMEIRA_NOTA_LIMITE");
+    const d2 = prod(500, { primeiraNotaProducao: vi.fn().mockRejectedValue(new Error("rpc fora")) });
+    expect((await processarEmissao({ acao: "emitir", documentoId: "d1" }, d2)).code).not.toBe("PRIMEIRA_NOTA_LIMITE");
+  });
+  it("homologação nunca tem o limite", async () => {
+    const d = deps({ primeiraNotaProducao: vi.fn().mockResolvedValue(true), documento: vi.fn().mockResolvedValue({ id: "d1", loja_id: 7, modelo: 65, serie: 1, numero: 7, ambiente: "homologacao", status: "reservado", valor_total: 999, rascunho: { dados: DADOS } }) });
+    const r = await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(r).toMatchObject({ ok: true, situacao: "autorizada" });
+    expect(d.primeiraNotaProducao).not.toHaveBeenCalled();
+  });
+});

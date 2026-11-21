@@ -13,7 +13,6 @@ afterEach(() => { act(() => root?.unmount()); el?.remove(); root = el = null; })
 const esperar = (ms = 40) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 const q = (id) => el.querySelector(`[data-testid="${id}"]`);
 
-const EMITENTE = { razaoSocial: "Burger Teste Ltda", inscricaoEstadual: "110042490114", crt: "4", cep: "01001000", logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigoMunicipioIbge: "3550308", uf: "SP", nfceSerie: 1, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" };
 const EMIT_BANCO = { id: 1, loja_id: 9, nfce_habilitada: true, nfe_habilitada: false, nfce_ambiente: "homologacao", crt: "4", uf: "SP", razao_social: "Burger Teste Ltda", inscricao_estadual: "110042490114", cep: "01001000", logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigo_municipio_ibge: "3550308", nfce_serie: 1 };
 const agoraISO = () => new Date().toISOString();
 const PEDIDO = (id, extra = {}) => ({ id, lojaId: 9, table: "Mesa 01", command: "C1", status: "delivered", paymentStatus: "paid", createdAtISO: agoraISO(), pagamentoForma: "PIX", items: [{ productId: 45, name: "X-Salada", price: 26.4, quantity: 2 }], ...extra });
