@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { buscarHistoricoDocumento, conferirNotaSefaz, explicarNota, linhaDoHistorico, textoDiagnostico } from "../../../lib/fiscal/notasFiscais";
+import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
+import { buscarXmlDaNota, consumidorDoXml, mascaraDocumentoFiscal } from "../../../lib/fiscal/xmlNota";
 import { agruparTentativas, camposTecnicos, categoriaDoEvento, fraseDaTentativa, resumoDasTentativas } from "../../../lib/fiscal/historicoTentativas";
 
 // Painel "Detalhes e histórico" de uma nota. Duas abas:
@@ -104,6 +106,8 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
   const [copiado, setCopiado] = useState("");
   const [versao, setVersao] = useState(0); // sobe depois de uma conferência: recarrega o histórico
   const [conf, setConf] = useState({ ocupado: false, ok: null, texto: "" });
+  // Consumidor (CPF/CNPJ) que realmente foi no XML da nota: undefined = carregando, null = não identificado.
+  const [consumidor, setConsumidor] = useState(undefined);
   const explicacao = explicarNota(nota);
 
   useEffect(() => {
@@ -113,6 +117,15 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
       .catch((e) => { if (vivo) setHist({ carregando: false, linhas: [], erro: e.message, pendente: e.code === "MIGRACAO_PENDENTE" }); });
     return () => { vivo = false; };
   }, [supabase, nota.id, nota.status, nota.cStat, versao]);
+
+  useEffect(() => {
+    let vivo = true;
+    if (!["autorizado", "cancelado"].includes(nota.status)) return undefined;
+    buscarXmlDaNota({ documentoId: nota.id, buscar: (corpo) => postarApiFiscal(supabase, corpo) })
+      .then((r) => { if (vivo) setConsumidor(r.ok ? consumidorDoXml(r.xml) : undefined); })
+      .catch(() => { if (vivo) setConsumidor(undefined); });
+    return () => { vivo = false; };
+  }, [supabase, nota.id, nota.status]);
 
   const brutos = useMemo(() => hist.linhas.map((l) => l.bruto).filter(Boolean), [hist.linhas]);
   const linhasPorId = useMemo(() => new Map(hist.linhas.map((l) => [l.id, l])), [hist.linhas]);
@@ -146,6 +159,7 @@ export default function DetalhesNotaFiscal({ nota, supabase, tentativas = [], on
     ["Motivo / resposta", nota.xMotivo || "—"],
     ["Chave de acesso", nota.chave || "ainda não gerada"],
     ["Protocolo", nota.protocolo || "—"],
+    ...(["autorizado", "cancelado"].includes(nota.status) ? [["CPF/CNPJ do consumidor na nota", consumidor === undefined ? "consultando o XML…" : consumidor ? `${consumidor.tipo} ${mascaraDocumentoFiscal(consumidor.documento)} (consta no XML enviado à SEFAZ)` : "não identificado (a nota saiu sem CPF/CNPJ)"]] : []),
     ["Ambiente", nota.ambiente === "homologacao" ? "Homologação (teste, sem valor fiscal)" : "Produção"],
     ["Tipo de emissão", Number(nota.tpEmis || 1) === 1 ? "Normal" : `Contingência (${nota.tpEmis})`],
     ["Criada em", dataHora(nota.criadoEm)],

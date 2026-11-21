@@ -84,3 +84,22 @@ describe("exibição e download", () => {
     vi.useRealTimers();
   });
 });
+
+describe("consumidor identificado no XML", async () => {
+  const { consumidorDoXml, mascaraDocumentoFiscal } = await import("./xmlNota.js");
+  it("lê o CPF do grupo <dest>", () => {
+    expect(consumidorDoXml("<infNFe><emit><CNPJ>44422195000133</CNPJ></emit><dest><CPF>52998224725</CPF><indIEDest>9</indIEDest></dest></infNFe>")).toEqual({ tipo: "CPF", documento: "52998224725" });
+  });
+  it("lê o CNPJ do grupo <dest> e não confunde com o CNPJ do emitente", () => {
+    expect(consumidorDoXml("<emit><CNPJ>44422195000133</CNPJ></emit><dest><CNPJ>11222333000181</CNPJ><indIEDest>9</indIEDest></dest>")).toEqual({ tipo: "CNPJ", documento: "11222333000181" });
+  });
+  it("sem <dest>: consumidor não identificado (null), mesmo com CNPJ do emitente", () => {
+    expect(consumidorDoXml("<infNFe><emit><CNPJ>44422195000133</CNPJ></emit></infNFe>")).toBeNull();
+    expect(consumidorDoXml("")).toBeNull();
+  });
+  it("máscara de CPF e CNPJ", () => {
+    expect(mascaraDocumentoFiscal("52998224725")).toBe("529.982.247-25");
+    expect(mascaraDocumentoFiscal("11222333000181")).toBe("11.222.333/0001-81");
+    expect(mascaraDocumentoFiscal("ABC")).toBe("ABC");
+  });
+});

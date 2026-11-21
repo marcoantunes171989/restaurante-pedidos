@@ -72,6 +72,18 @@ describe("Vendas sem nota fiscal (tela)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(q("resultado-emissao").textContent).toMatch(/NFC-e nº 4 autorizada/);
   });
+  it("CPF/CNPJ digitado vai para o rascunho da nota (e daí para o XML)", async () => {
+    const reservas = [];
+    globalThis.fetch = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 4 }) }));
+    await montar({ orders: [PEDIDO("PED-A")], documentos: [], reservas });
+    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-A"]').click(); });
+    await act(async () => { q("btn-abrir-emissao").click(); });
+    await digitar(el.querySelector('input[placeholder="Só números"]'), "529.982.247-25");
+    await act(async () => { q("btn-emitir-venda").click(); });
+    await esperar(300);
+    expect(reservas).toHaveLength(1);
+    expect(reservas[0].p_rascunho.cpf).toBe("52998224725");
+  });
   it("entrega (sem taxa de serviço): o total da nota é o subtotal, R$ 52,80", async () => {
     await montar({ orders: [PEDIDO("PED-E", { table: "Externo · Entrega" })], documentos: [] });
     await act(async () => { el.querySelector('input[aria-label="Selecionar PED-E"]').click(); });

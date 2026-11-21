@@ -172,3 +172,35 @@ describe("dadosDaNota em modo permissivo (Manutenção fiscal)", () => {
     expect(montarXmlNFe({ ...r.dados, itens: r.dados.itens.map((it) => ({ ...it, icms: { ...it.icms, CSOSN: "102" } })) }).xml).toContain("<CSOSN>102</CSOSN>");
   });
 });
+
+describe("NFC-e (65) com CPF/CNPJ do consumidor informado na emissão", () => {
+  const emitirComDoc = async (cpf) => {
+    const docCpf = { ...DOC, rascunho: { versao: 1, venda: VENDA, cpf } };
+    const enviados = [];
+    const d = {
+      ...deps(), podeEmitir: vi.fn().mockResolvedValue(true), ufDaLoja: vi.fn().mockResolvedValue("SP"),
+      segredoCertificado: vi.fn().mockResolvedValue({ pfx: PFX_B64, senha: "teste-pedido-prime" }), documento: vi.fn().mockResolvedValue(docCpf),
+      registrar: vi.fn().mockResolvedValue({ ok: true }), agora: () => AGORA,
+      enviar: vi.fn(async ({ dados }) => { enviados.push(String(dados)); return { ok: false, erro: "SEFAZ fora do ar" }; }),
+    };
+    await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    return enviados.map((x) => x.match(/<NFe[\s\S]*<\/NFe>/)?.[0]).find(Boolean);
+  };
+  it("CPF válido: o XML assinado leva <dest><CPF> com indIEDest 9 e passa no XSD", async () => {
+    const nfe = await emitirComDoc("52998224725");
+    expect(nfe).toContain("<dest><CPF>52998224725</CPF><indIEDest>9</indIEDest></dest>");
+    const v = await validarNFeXsd(nfe);
+    expect(v.valido, JSON.stringify(v)).toBe(true);
+  });
+  it("CPF digitado com pontos e traço também chega ao XML", async () => {
+    expect(await emitirComDoc("529.982.247-25")).toContain("<CPF>52998224725</CPF>");
+  });
+  it("CNPJ do consumidor: <dest><CNPJ>", async () => {
+    const nfe = await emitirComDoc("11222333000181");
+    expect(nfe).toContain("<dest><CNPJ>11222333000181</CNPJ><indIEDest>9</indIEDest></dest>");
+    expect((await validarNFeXsd(nfe)).valido).toBe(true);
+  });
+  it("sem documento: a nota sai sem <dest> (consumidor não identificado)", async () => {
+    expect(await emitirComDoc("")).not.toContain("<dest>");
+  });
+});

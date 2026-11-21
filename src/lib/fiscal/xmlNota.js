@@ -10,6 +10,26 @@ export async function buscarXmlDaNota({ documentoId, buscar }) {
   return r;
 }
 
+/**
+ * Quem está identificado na nota (grupo <dest>): CPF ou CNPJ do consumidor. Lido do próprio XML guardado, então mostra o que
+ * REALMENTE foi enviado à SEFAZ. Sem <dest>, a nota é de consumidor não identificado.
+ * @returns {{ tipo:'CPF'|'CNPJ', documento:string }|null}
+ */
+export function consumidorDoXml(xml) {
+  const d = /<dest>([\s\S]*?)<\/dest>/.exec(String(xml || ""));
+  if (!d) return null;
+  const doc = /<(CPF|CNPJ)>([^<]+)<\/\1>/.exec(d[1]);
+  return doc ? { tipo: doc[1], documento: doc[2].trim() } : null;
+}
+
+/** 52998224725 → 529.982.247-25 · 11222333000181 → 11.222.333/0001-81 (outro formato volta como veio). */
+export function mascaraDocumentoFiscal(doc) {
+  const d = String(doc ?? "");
+  if (/^\d{11}$/.test(d)) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (/^\d{14}$/.test(d)) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return d;
+}
+
 /** Nome do arquivo: a chave de acesso (padrão que contadores e sistemas contábeis reconhecem) ou modelo-série-número. */
 export function nomeArquivoXml({ chave, modelo, serie, numero } = {}) {
   const c = String(chave || "").replace(/[^0-9A-Za-z]/g, "");

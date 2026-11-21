@@ -278,3 +278,52 @@ describe("PDV: venda sem nota fiscal (recuperação)", () => {
     expect(JSON.parse(localStorage.getItem("pp.vendasSemNota.v1") || "[]")).toHaveLength(0);
   });
 });
+
+// CPF/CNPJ informado no passo "Fechar" tem de chegar ao rascunho da nota (e daí ao XML).
+describe("PDV: CPF/CNPJ na nota", () => {
+  let reservas;
+  beforeEach(() => { reservas = []; try { localStorage.clear(); } catch { /* sem storage */ } });
+  const emit = () => ({ ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" });
+  const digitar = async (input, v) => act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, v);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  async function fecharComCpf(cpf) {
+    const { default: CashierPdv } = await import("./CashierPdv.jsx");
+    globalThis.fetch = async (url, init) => { chamadas.push(`fetch:${url}:${JSON.parse(init.body).acao}`); return { status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 7 }) }; };
+    const base = supabaseCom(EMIT_BANCO_HML);
+    const supabase = { ...base, rpc: async (nome, p) => { if (nome === "app_fiscal_reservar_documento") reservas.push(p); return base.rpc(nome, p); } };
+    el = document.createElement("div"); document.body.appendChild(el); root = createRoot(el);
+    await act(async () => root.render(<CashierPdv orders={ORDERS} formasPagamento={[{ id: 1, nome: "Dinheiro", tipo: "dinheiro", active: true }, { id: 4, nome: "PIX", tipo: "pix", active: true }]}
+      lojaInfo={{ id: 9, nome: "Burger Station" }} currentUser={{ id: 1, name: "Admin", role: "admin", accessIds: ["cashier", "admin"] }} caixaAberto={{ id: 1 }}
+      products={PRODUTOS} emitenteFiscal={emit()} ctxFiscal={CTX} configFiscalVenda={CONFIG} supabase={supabase} baixarComandas={async () => ({ alertas: [] })} />));
+    await esperar(50);
+    const btn = (txt) => [...el.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === txt);
+    const principal = () => el.querySelector("[data-testid=\"acao-principal\"]");
+    await act(async () => { principal().click(); }); // → Pagamento
+    for (const k of ["5", "6", "9", "8", "OK"]) await act(async () => { btn(k).click(); });
+    await esperar();
+    await act(async () => { principal().click(); }); // → Fechar
+    await esperar();
+    if (cpf != null) await digitar(el.querySelector("input[placeholder=\"Só números\"]"), cpf);
+    await act(async () => { principal().click(); }); // fecha e emite
+    await esperar(300);
+  }
+  it("CPF digitado no passo Fechar vai para o rascunho da nota", async () => {
+    await fecharComCpf("529.982.247-25");
+    expect(reservas).toHaveLength(1);
+    expect(reservas[0].p_rascunho.cpf).toBe("52998224725");
+  });
+  it("CNPJ digitado também", async () => {
+    await fecharComCpf("11222333000181");
+    expect(reservas[0].p_rascunho.cpf).toBe("11222333000181");
+  });
+  it("sem documento: rascunho sem CPF", async () => {
+    await fecharComCpf(null);
+    expect(reservas[0].p_rascunho.cpf).toBe("");
+  });
+  it("documento inválido: não fecha e avisa (nada é reservado)", async () => {
+    await fecharComCpf("12345678900");
+    expect(reservas).toHaveLength(0);
+  });
+});
