@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { listarDocumentosFiscais } from "../../../lib/fiscal/notasFiscais";
 import { buscarConfigFiscalVenda, buscarEmitenteFiscal, configVendaParaSelo } from "../../../lib/fiscal/fiscalApi";
 import { emitirNotaDaVenda } from "../../../lib/fiscal/emissaoPdv";
-import { conferirPagamentos, dadosDaEmissao, pagamentoSugerido, taxaSugerida, totaisDaEmissao, vendasSemNota } from "../../../lib/fiscal/vendasSemNota";
+import { conferirPagamentos, dadosDaEmissao, pagamentoSugerido, taxaSugeridaDasVendas, totaisDaEmissao, vendasSemNota } from "../../../lib/fiscal/vendasSemNota";
 import { lerConfigTaxaServico } from "../../../pages/pdv/pdvHelpers";
 
 // Tela "Vendas sem nota": pedidos JÁ PAGOS da loja que não aparecem em nenhuma nota fiscal (a emissão pelo caixa foi interrompida, a loja só
@@ -18,7 +18,7 @@ const PERIODOS = [{ dias: 1, rotulo: "Hoje" }, { dias: 7, rotulo: "7 dias" }, { 
 
 function PainelEmissao({ selecionadas, formas, cfgTaxa, ocupado, resultado, onEmitir, onFechar }) {
   const subtotal = useMemo(() => Math.round(selecionadas.reduce((s, v) => s + Math.round(v.subtotal * 100), 0)) / 100, [selecionadas]);
-  const [taxa, setTaxa] = useState(() => String(taxaSugerida(subtotal, cfgTaxa)).replace(".", ","));
+  const [taxa, setTaxa] = useState(() => String(taxaSugeridaDasVendas(selecionadas, cfgTaxa)).replace(".", ","));
   const [desconto, setDesconto] = useState("0");
   const [cpf, setCpf] = useState("");
   const inicial = pagamentoSugerido(selecionadas, formas);

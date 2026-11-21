@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conferirPagamentos, dadosDaEmissao, pagamentoSugerido, pedidosComNota, subtotalDoPedido, taxaSugerida, totaisDaEmissao, vendasSemNota } from "./vendasSemNota.js";
+import { conferirPagamentos, dadosDaEmissao, pagamentoSugerido, pedidosComNota, subtotalDoPedido, taxaSugerida, taxaSugeridaDasVendas, totaisDaEmissao, vendasSemNota } from "./vendasSemNota.js";
 
 const pedido = (id, extra = {}) => ({ id, lojaId: 9, status: "delivered", paymentStatus: "paid", table: "Mesa 01", command: "C1", createdAtISO: "2026-11-21T01:00:00Z", pagamentoForma: "PIX", items: [{ productId: 1, name: "X-Salada", price: 25.9, quantity: 2 }], ...extra });
 
@@ -39,6 +39,15 @@ describe("totais e pagamentos da nota", () => {
     expect(taxaSugerida(52.8, { enabled: true, percent: 10, chargingRule: "sempre" })).toBe(5.28);
     expect(taxaSugerida(52.8, { enabled: false, percent: 10 })).toBe(0);
     expect(taxaSugerida(52.8, { enabled: true, percent: 10, chargingRule: "nao_cobrar" })).toBe(0);
+  });
+  it("entrega e retirada do cardápio externo NÃO têm taxa de serviço; consumo no local tem", () => {
+    const cfg = { enabled: true, percent: 10, chargingRule: "opcional" };
+    const local = { mesa: "Mesa 01", subtotal: 52.8 }, entrega = { mesa: "Externo · Entrega", subtotal: 52.8 }, retirada = { mesa: "Externo · Retirada", subtotal: 20 }, noLocal = { mesa: "Externo · Consumo no local", subtotal: 10 };
+    expect(taxaSugeridaDasVendas([entrega], cfg)).toBe(0);
+    expect(taxaSugeridaDasVendas([retirada], cfg)).toBe(0);
+    expect(taxaSugeridaDasVendas([local], cfg)).toBe(5.28);
+    expect(taxaSugeridaDasVendas([noLocal], cfg)).toBe(1);
+    expect(taxaSugeridaDasVendas([local, entrega], cfg)).toBe(5.28);
   });
   it("as formas de pagamento têm de somar exatamente o total", () => {
     expect(conferirPagamentos(58.08, [{ forma: "PIX", valor: 58.08 }])).toMatchObject({ ok: true, diferenca: 0 });

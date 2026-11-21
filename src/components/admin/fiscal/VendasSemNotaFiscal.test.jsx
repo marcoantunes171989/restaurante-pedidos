@@ -72,6 +72,13 @@ describe("Vendas sem nota fiscal (tela)", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(q("resultado-emissao").textContent).toMatch(/NFC-e nº 4 autorizada/);
   });
+  it("entrega (sem taxa de serviço): o total da nota é o subtotal, R$ 52,80", async () => {
+    await montar({ orders: [PEDIDO("PED-E", { table: "Externo · Entrega" })], documentos: [] });
+    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-E"]').click(); });
+    await act(async () => { q("btn-abrir-emissao").click(); });
+    expect(q("total-nota").textContent).toContain("52,80");
+    expect(q("campo-taxa").value).toBe("0");
+  });
   it("pagamento que não fecha o total bloqueia a emissão e diz quanto falta", async () => {
     await montar({ orders: [PEDIDO("PED-A")], documentos: [] });
     await act(async () => { el.querySelector('input[aria-label="Selecionar PED-A"]').click(); });

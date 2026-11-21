@@ -6,6 +6,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { composicaoDaConta } from "./vendaFiscal.js";
+import { cobraTaxaServico } from "../taxaServico.js";
 
 const CANCELADO = new Set(["cancelled", "cancelado", "canceled"]);
 const centavos = (v) => Math.round((Number(v) || 0) * 100);
@@ -51,6 +52,11 @@ export function taxaSugerida(subtotal, cfg = {}) {
   const liga = cfg?.enabled !== false && cfg?.chargingRule !== "nao_cobrar";
   const pct = Number(cfg?.percent);
   return liga && pct > 0 ? reais(Math.round(centavos(subtotal) * pct / 100)) : 0;
+}
+
+/** Taxa sugerida para um conjunto de vendas: só entra a de consumo no local (entrega e retirada do cardápio externo não têm taxa). */
+export function taxaSugeridaDasVendas(vendas = [], cfg = {}) {
+  return reais(vendas.reduce((s, v) => s + (cobraTaxaServico(v.mesa) ? centavos(taxaSugerida(v.subtotal, cfg)) : 0), 0));
 }
 
 /** As formas de pagamento têm de somar EXATAMENTE o total da nota. */
