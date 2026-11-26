@@ -1165,6 +1165,8 @@ export default function CashierPdv({
         externo: !!contaSel.externo,
         itens: pedidosSel.flatMap((o) => o.items || []),
         tipoEntrega: /entreg/i.test(contaSel.mesa || "") ? "entrega" : "retirada",
+        // Comprovante de entrega: vale o endereço conferido pelo operador na nota; sem ele, o informado no pedido.
+        endereco: enderecoEmLinha(notaCx.entrega ? notaCx.destinatario?.ender : enderecoDoPedido),
       });
       if (emiteNota) {
         const atualizarNota = (n) => setSucesso((cur) => (cur && cur.codigo === codigoPagamento ? { ...cur, notaFiscal: n } : cur));
@@ -1315,6 +1317,7 @@ export default function CashierPdv({
         htmlComprovanteEntregaRetirada({
           ...ctx,
           tipo: /entreg/i.test(contaSel.mesa || "") ? "entrega" : "retirada",
+          endereco: enderecoEmLinha(enderecoDoPedido),
           codigoRastreio: ctx.comanda || ctx.pedidoNumero,
           realizadoISO: ctx.aberturaISO,
           formaPagamento: "Aguardando pagamento",
@@ -1405,6 +1408,7 @@ export default function CashierPdv({
       html = htmlComprovanteEntregaRetirada({
         ...base,
         tipo: dados.tipoEntrega === "entrega" ? "entrega" : "retirada",
+        endereco: dados.endereco || "",
         codigoRastreio: base.comanda || base.pedidoNumero,
         realizadoISO: base.aberturaISO,
         formaPagamento: (dados.detalhes || []).map((d) => d.forma).join(" + ") || "—",

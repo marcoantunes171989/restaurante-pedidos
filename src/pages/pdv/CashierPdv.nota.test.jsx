@@ -279,6 +279,67 @@ describe("PDV: venda sem nota fiscal (recuperação)", () => {
   });
 });
 
+// Endereço de entrega (migration 207): aparece no comprovante impresso depois do pagamento.
+describe("PDV: comprovante de entrega com o endereço", () => {
+  const ENDERECO = { CEP: "01310100", xLgr: "Avenida Paulista", nro: "1000", xCpl: "", xBairro: "Bela Vista", xMun: "São Paulo", UF: "SP", cMun: "3550308" };
+  const ENTREGA = [{ ...ORDERS[0], table: "Externo · Entrega", command: "EXT-000001", customer: "Maria Teste" }];
+  let impresso;
+  beforeEach(() => {
+    impresso = "";
+    // spyOn (e não atribuição): um bloco anterior deixa window.open espionado, e atribuir por cima não troca a espiã.
+    vi.spyOn(window, "open").mockImplementation(() => ({ document: { open() {}, write(s) { impresso += s; }, close() {} }, close() {}, focus() {}, print() {} }));
+    try { localStorage.clear(); } catch { /* sem storage */ }
+  });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  async function fecharEImprimir({ numeroNaNota = null } = {}) {
+    const { default: CashierPdv } = await import("./CashierPdv.jsx");
+    globalThis.fetch = async () => ({ status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 7 }) });
+    const base = supabaseCom(EMIT_BANCO_HML);
+    const supabase = { ...base, rpc: async (nome, p) => (nome === "app_pedido_endereco_entrega" ? { data: { ok: true, enderecos: [{ pedido_id: "P1", endereco: ENDERECO }] }, error: null } : base.rpc(nome, p)) };
+    el = document.createElement("div"); document.body.appendChild(el); root = createRoot(el);
+    await act(async () => root.render(<CashierPdv orders={ENTREGA} formasPagamento={[{ id: 1, nome: "Dinheiro", tipo: "dinheiro", active: true }]}
+      lojaInfo={{ id: 9, nome: "Burger Station" }} currentUser={{ id: 1, name: "Admin", role: "admin", accessIds: ["cashier", "admin"] }} caixaAberto={{ id: 1 }}
+      products={PRODUTOS} emitenteFiscal={{ ...EMIT_COMPLETO, lojaId: 9, nfceHabilitada: true, nfeHabilitada: false, nfceAmbiente: "homologacao" }} ctxFiscal={CTX}
+      configFiscalVenda={{ ...CONFIG, entregaNfce: { ativo: true } }} supabase={supabase} baixarComandas={async () => ({ alertas: [] })} />));
+    await esperar(50);
+    const btn = (txt) => [...el.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === txt);
+    const principal = () => el.querySelector("[data-testid=\"acao-principal\"]");
+    const campo = (titulo) => [...el.querySelectorAll("label")].find((l) => l.querySelector("span")?.textContent === titulo)?.querySelector("input");
+    const digitar = async (input, v) => act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, v);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { principal().click(); }); // → Pagamento
+    for (const k of ["5", "1", "8", "0", "OK"]) await act(async () => { btn(k).click(); }); // entrega não tem taxa de serviço
+    await esperar();
+    await act(async () => { principal().click(); }); // → Fechar
+    await esperar();
+    if (numeroNaNota) {
+      await act(async () => { [...el.querySelectorAll("label")].find((l) => l.textContent.includes("Entrega a domicílio")).querySelector("input").click(); });
+      expect(campo("Rua").value).toBe("Avenida Paulista"); // veio do pedido
+      await digitar(el.querySelector("input[placeholder=\"Só números\"]"), "529.982.247-25");
+      await digitar(campo("Número"), numeroNaNota);
+    }
+    await act(async () => { principal().click(); }); // fecha
+    await esperar(300);
+    impresso = "";
+    const imprimir = [...document.querySelectorAll("button")].find((b) => (b.textContent || "").trim() === "Imprimir retirada / entrega");
+    await act(async () => { imprimir.click(); });
+  }
+
+  it("sem endereço na nota: imprime o informado no pedido", async () => {
+    await fecharEImprimir();
+    expect(impresso).toContain("COMPROVANTE DE ENTREGA");
+    expect(impresso).toContain("Avenida Paulista, 1000 · Bela Vista · São Paulo - SP · CEP 01310100");
+  });
+  it("operador corrigiu o endereço na nota: imprime o corrigido", async () => {
+    await fecharEImprimir({ numeroNaNota: "2000" });
+    expect(impresso).toContain("Avenida Paulista, 2000");
+    expect(impresso).not.toContain("Avenida Paulista, 1000");
+  });
+});
+
 // CPF/CNPJ informado no passo "Fechar" tem de chegar ao rascunho da nota (e daí ao XML).
 describe("PDV: CPF/CNPJ na nota", () => {
   let reservas;

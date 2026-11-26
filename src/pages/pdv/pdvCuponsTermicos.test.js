@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agruparItensPorSetor,
   htmlComprovanteCompletoPagamento,
+  htmlComprovanteEntregaRetirada,
   htmlCupomClienteSimplificado,
   linhasModificadores,
   setorDoItemCupom,
@@ -76,6 +77,16 @@ describe("pdvCuponsTermicos", () => {
     expect(html).toMatch(/CUPOM DO CLIENTE/);
     expect(html).toMatch(/PRIME10/);
     expect(html).toMatch(/NÃO FISCAL/i);
+  });
+
+  it("comprovante de entrega imprime o endereço (escapado); o de retirada, não", () => {
+    const ctx = { lojaInfo: { nome: "Burger Station" }, pedidoNumero: "7351", endereco: "Avenida Paulista, 1000 · <b>Bela Vista</b>", itens: [] };
+    const entrega = htmlComprovanteEntregaRetirada({ ...ctx, tipo: "entrega" });
+    expect(entrega).toMatch(/COMPROVANTE DE ENTREGA/);
+    expect(entrega).toContain("Endereço");
+    expect(entrega).toContain("Avenida Paulista, 1000 · &lt;b&gt;Bela Vista&lt;/b&gt;");
+    expect(htmlComprovanteEntregaRetirada({ ...ctx, tipo: "retirada" })).not.toContain("Avenida Paulista");
+    expect(htmlComprovanteEntregaRetirada({ ...ctx, tipo: "entrega", endereco: "" })).not.toContain("Endereço");
   });
 
   it("comprovante completo lista pagamentos e controle interno", () => {
