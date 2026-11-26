@@ -42,7 +42,7 @@ const MAPA = { dinheiro: "01", pix: "17", cartao_credito: "03" };
 
 const DEST_NFE = { documento: "11.222.333/0001-81", nome: "Empresa Cliente Ltda", ie: "111.222.333.444",
   ender: { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310-100", fone: "(11) 3333-4444" } };
-async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "1", modelo = 65, cpf = "", itens, destNfe = DEST_NFE, ibpt = null } = {}) {
+async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "1", modelo = 65, cpf = "", itens, destNfe = DEST_NFE, ibpt = null, ibsCbsSn = null } = {}) {
   const venda = montarVendaFiscal({
     pedidos: [{ id: "P1", lojaId: 7, status: "delivered", items: itens || [
       { productId: 10, name: "X-Burger Duplo", price: 32.9, quantity: 2 },
@@ -54,7 +54,7 @@ async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "
   });
   expect(venda.pendencias).toEqual([]);
   const r = dadosNFeDaVenda({ venda, emitente: { ...EMIT, crt }, documento: "12345678000195", modelo, serie: 1, numero: 123, ambiente: "homologacao", dhEmi: "2026-11-15T15:30:00Z", cpfConsumidor: cpf,
-    destinatario: modelo === 55 ? destNfe : null, ibpt,
+    destinatario: modelo === 55 ? destNfe : null, ibpt, ibsCbsSn,
     permitirInterestadual: true }); // o XSD também precisa valer para o caminho interestadual, hoje desligado por padrão
   expect(r.ok, r.erro).toBe(true);
   const { xml } = montarXmlNFe(r.dados);
@@ -93,6 +93,15 @@ describe("XML gerado × XSD oficial", () => {
     const regras = REGRAS_SN.map((x) => (x.id === 51 ? { ...x, csosn: "500" } : x));
     for (const modelo of [65, 55]) {
       const r = await notaValida({ regras, modelo, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
+      expect(r.erros).toEqual([]);
+      expect(r.valido).toBe(true);
+    }
+  });
+  it("Simples com IBS/CBS ligado (cAtivSN, gTribSN e totais) é válido no XSD, nos dois modelos", async () => {
+    // Códigos e alíquotas de TESTE (formato do leiaute), não regra fiscal.
+    const ibsCbsSn = { ativo: true, inicio: "2027-03-01", cst: "000", cClassTrib: "000001", cAtivSN: "01", pIBSSN: "0.1", pCBSSN: "0.9" };
+    for (const modelo of [65, 55]) {
+      const r = await notaValida({ modelo, ibsCbsSn, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
       expect(r.erros).toEqual([]);
       expect(r.valido).toBe(true);
     }

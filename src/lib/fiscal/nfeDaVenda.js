@@ -10,6 +10,7 @@
 
 import { tributosAproximados } from "./ibpt.js";
 import { validarAntesDeEmitir, problemaNfeForaDaUf } from "./validacaoPreEmissao.js";
+import { aplicaIbsCbsSn, pendenciasIbsCbsSn, itemComIbsCbsSn, INICIO_PADRAO } from "./ibsCbsSimples.js";
 import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual, normalizarInscricaoEstadual } from "../emitenteFiscalService.js";
 
 // Cadastros antigos podem ter máscara (CEP 01001-000, IBGE, telefone): o leiaute só aceita números.
@@ -136,7 +137,7 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false, ibsCbsSn = null } = {}) {
   // `permissivo`: SÓ para a Manutenção fiscal. Monta os dados mesmo com pendência de cadastro (CSOSN vazio etc.) para a pessoa corrigir
   // no editor; a conferência completa (XML + XSD) continua obrigatória ao gravar e ao transmitir.
   const avisos = [];
@@ -154,7 +155,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   // Conferência completa ANTES de montar: tudo que a SEFAZ rejeitaria por dado nosso (CNPJ, IE, IBGE, NCM, CFOP, CST, destinatário…).
-  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual });
+  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual, ibsCbsSn, agora: dhEmi ? new Date(dhEmi) : agora });
   if (!pre.ok) return falha(`Dados fiscais com problema: ${pre.texto}`);
   const simples = crt !== "3";
   const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
@@ -245,6 +246,14 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
       uCom, qCom: it.quantidade, vUnCom: it.valorUnitario, vProd: it.valorBruto,
       vDesc: it.vDesc, vOutro: it.vOutro, icms, pis, cofins,
     });
+  }
+  // IBS/CBS do Simples (CRT 1): parâmetros da loja, desligados por padrão (ver ibsCbsSimples.js). A ordem dos itens é a da venda.
+  if (aplicaIbsCbsSn({ config: ibsCbsSn, crt, ambiente, data: dhEmi || agora })) {
+    const faltaSn = pendenciasIbsCbsSn(ibsCbsSn);
+    if (!faltaSn.length) itens.forEach((x, i) => { itens[i] = itemComIbsCbsSn(x, ibsCbsSn, venda.itens[i]?.fiscal); });
+    else avisos.push(`IBS/CBS do Simples ligado, mas incompleto: falta ${faltaSn.join(", ")}.`); // só chega aqui na manutenção
+  } else if (crt === "1" && new Date(dhEmi || agora).getTime() >= Date.parse(`${INICIO_PADRAO}T00:00:00-03:00`)) {
+    avisos.push("IBS/CBS do Simples Nacional não está ligado para esta loja: confira a obrigatoriedade com o contador (Fiscal › Emissão).");
   }
   if (origemPadrao) avisos.push("Origem da mercadoria (orig) = 0 (nacional) nos itens sem origem cadastrada: conferir no cadastro do produto.");
   if (unidadePadrao) avisos.push("Unidade comercial = UN nos itens sem unidade cadastrada: conferir no cadastro do produto.");

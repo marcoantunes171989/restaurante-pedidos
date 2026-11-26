@@ -74,6 +74,8 @@ export async function dadosDaNota(doc, deps, agora = new Date(), { permissivo = 
     destinatario: doc.rascunho?.dest || null,
     // Tributos aproximados (Lei 12.741) pela tabela IBPT da UF da loja, se existir.
     ibpt: await (deps.tabelaIbpt || tabelaIbpt)(emitente.dados?.uf),
+    // IBS/CBS do Simples: parâmetros da loja lidos do banco (migration 205); sem a função no banco, fica desligado.
+    ibsCbsSn: deps.ibsCbsSn ? await deps.ibsCbsSn(doc.loja_id) : null,
     permissivo,
   });
   if (!r.ok) return { code: "XML_INVALIDO", detalhe: String(r.erro || "").slice(0, 200) };

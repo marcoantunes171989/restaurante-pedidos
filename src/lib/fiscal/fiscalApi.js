@@ -19,6 +19,7 @@ const MENSAGENS = {
   NUMERO_INVALIDO: "Número inválido (1 a 999.999.999).",
   MAPA_INVALIDO: "Cada forma de pagamento precisa de um código de 2 dígitos.",
   TAXA_INVALIDA: "Escolha se a taxa de serviço entra na nota (outras despesas) ou fica fora.",
+  IBSCBS_INVALIDO: "Confira os campos do IBS/CBS: CST com 3 números, cClassTrib com 6 e alíquotas em percentual.",
   CHAVE_IDEMPOTENCIA_OBRIGATORIA: "Venda sem identificador único para a nota.",
   VALOR_INVALIDO: "Valor ou quantidade inválidos.",
   STATUS_NAO_PERMITE: "Este documento não pode mais ser descartado.",
@@ -85,7 +86,8 @@ export async function buscarConfigFiscalVenda(supabase, lojaId) {
   if (lojaId == null) return vazio;
   try {
     const d = await chamar(supabase, "app_fiscal_config_venda", { p_loja_id: lojaId });
-    return { mapaMeios: d.mapa_meios && typeof d.mapa_meios === "object" ? d.mapa_meios : {}, taxaServicoTratamento: d.taxa_servico_tratamento ?? null };
+    return { mapaMeios: d.mapa_meios && typeof d.mapa_meios === "object" ? d.mapa_meios : {}, taxaServicoTratamento: d.taxa_servico_tratamento ?? null,
+      ...(d.ibscbs_sn ? { ibsCbsSn: d.ibscbs_sn } : {}) };
   } catch {
     return vazio;
   }
@@ -93,7 +95,13 @@ export async function buscarConfigFiscalVenda(supabase, lojaId) {
 
 /** Formato que o selo/rascunho fiscal espera (seloFiscalDaConta.config). */
 export function configVendaParaSelo(c) {
-  return { mapaMeios: c?.mapaMeios || {}, regras: c?.taxaServicoTratamento ? { taxaServico: c.taxaServicoTratamento } : {} };
+  return { mapaMeios: c?.mapaMeios || {}, regras: c?.taxaServicoTratamento ? { taxaServico: c.taxaServicoTratamento } : {}, ...(c?.ibsCbsSn ? { ibsCbsSn: c.ibsCbsSn } : {}) };
+}
+
+/** IBS/CBS do Simples da loja (migration 205). `config` no formato de normalizarIbsCbsSn. */
+export async function salvarIbsCbsSn(supabase, lojaId, config) {
+  await chamar(supabase, "app_fiscal_salvar_ibscbs_sn", { p_loja_id: lojaId, p_config: config });
+  return true;
 }
 
 export async function salvarConfigFiscalVenda(supabase, lojaId, { mapaMeios = {}, taxaServicoTratamento = null } = {}) {

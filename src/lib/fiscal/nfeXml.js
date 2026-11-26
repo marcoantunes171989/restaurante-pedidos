@@ -187,6 +187,13 @@ function grupoIbsCbs(x, nItem) {
   if (!x) return "";
   exigir(/^\d{3}$/.test(String(x.CST)), `Item ${nItem}: CST de IBS/CBS deve ter 3 dígitos.`);
   exigir(/^\d{6}$/.test(String(x.cClassTrib)), `Item ${nItem}: cClassTrib deve ter 6 dígitos.`);
+  // Simples Nacional sem regime regular (NT 2026.005): só o detalhamento gTribSN, sem gIBSCBS.
+  if (x.sn) {
+    const s = x.sn;
+    return g("IBSCBS", t("CST", x.CST) + t("cClassTrib", x.cClassTrib) + g("gTribSN",
+      g("gIBSSN", t("pIBSSN", dec(s.pIBSSN, 4)) + t("vIBSSN", dec(s.vIBSSN))) +
+      g("gCBSSN", t("pCBSSN", dec(s.pCBSSN, 4)) + t("vCBSSN", dec(s.vCBSSN)))));
+  }
   const vIBS = Number(x.vIBSUF || 0) + Number(x.vIBSMun || 0);
   const corpo = t("vBC", dec(x.vBC)) +
     g("gIBSUF", t("pIBSUF", dec(x.pIBSUF, 2)) + t("vIBSUF", dec(x.vIBSUF))) +
@@ -280,6 +287,8 @@ export function montarXmlNFe(d = {}) {
   // Itens + totais
   const tot = { vBC: 0, vICMS: 0, vProd: 0, vDesc: 0, vOutro: 0, vPIS: 0, vCOFINS: 0, vBCIBSCBS: 0, vIBSUF: 0, vIBSMun: 0, vCBS: 0, vTotTrib: 0 };
   let temIbsCbs = false;
+  let temIbsCbsRegular = false;
+  const totSn = { tem: false, vIBSSN: 0, vCBSSN: 0 };
   let temTotTribGeral = false;
   const detXml = itens.map((it, i) => {
     const n = i + 1;
@@ -296,7 +305,7 @@ export function montarXmlNFe(d = {}) {
       t("vProd", dec(vProd)) + t("cEANTrib", it.cEANTrib || cEAN) + t("uTrib", it.uTrib || it.uCom, { texto: true }) +
       t("qTrib", dec(it.qTrib ?? it.qCom, 4)) + t("vUnTrib", decUnit(it.vUnTrib ?? it.vUnCom)) +
       (Number(it.vDesc) > 0 ? t("vDesc", dec(it.vDesc)) : "") + (Number(it.vOutro) > 0 ? t("vOutro", dec(it.vOutro)) : "") +
-      t("indTot", "1");
+      t("indTot", "1") + t("cAtivSN", it.cAtivSN);
     const temTotTrib = it.vTotTrib != null && it.vTotTrib !== "";
     if (temTotTrib) exigir(Number(it.vTotTrib) >= 0, `Item ${n}: valor aproximado dos tributos inválido.`);
     const imposto = (temTotTrib ? t("vTotTrib", dec(it.vTotTrib)) : "") + g("ICMS", grupoIcms(it.icms, n)) + grupoPisCofins("PIS", it.pis, n) + grupoPisCofins("COFINS", it.cofins, n) + grupoIbsCbs(it.ibscbs, n);
@@ -307,8 +316,13 @@ export function montarXmlNFe(d = {}) {
     if (it.cofins?.v) tot.vCOFINS += Number(it.cofins.v);
     if (it.ibscbs) {
       temIbsCbs = true;
-      tot.vBCIBSCBS += Number(it.ibscbs.vBC || 0); tot.vIBSUF += Number(it.ibscbs.vIBSUF || 0);
-      tot.vIBSMun += Number(it.ibscbs.vIBSMun || 0); tot.vCBS += Number(it.ibscbs.vCBS || 0);
+      if (it.ibscbs.sn) {
+        totSn.tem = true; totSn.vIBSSN += Number(it.ibscbs.sn.vIBSSN || 0); totSn.vCBSSN += Number(it.ibscbs.sn.vCBSSN || 0);
+      } else {
+        temIbsCbsRegular = true;
+        tot.vBCIBSCBS += Number(it.ibscbs.vBC || 0); tot.vIBSUF += Number(it.ibscbs.vIBSUF || 0);
+        tot.vIBSMun += Number(it.ibscbs.vIBSMun || 0); tot.vCBS += Number(it.ibscbs.vCBS || 0);
+      }
     }
     return g("det", g("prod", prod) + g("imposto", imposto), ` nItem="${n}"`);
   }).join("");
@@ -323,10 +337,11 @@ export function montarXmlNFe(d = {}) {
     t("vPIS", dec(tot.vPIS)) + t("vCOFINS", dec(tot.vCOFINS)) + t("vOutro", dec(tot.vOutro)) + t("vNF", dec(vNF)) + (temTotTribGeral ? t("vTotTrib", dec(tot.vTotTrib)) : ""));
   const ibsTot = temIbsCbs ? g("IBSCBSTot",
     t("vBCIBSCBS", dec(tot.vBCIBSCBS)) +
-    g("gIBS", g("gIBSUF", t("vDif", "0.00") + t("vDevTrib", "0.00") + t("vIBSUF", dec(tot.vIBSUF))) +
+    (temIbsCbsRegular ? g("gIBS", g("gIBSUF", t("vDif", "0.00") + t("vDevTrib", "0.00") + t("vIBSUF", dec(tot.vIBSUF))) +
       g("gIBSMun", t("vDif", "0.00") + t("vDevTrib", "0.00") + t("vIBSMun", dec(tot.vIBSMun))) +
       t("vIBS", dec(tot.vIBSUF + tot.vIBSMun)) + t("vCredPres", "0.00") + t("vCredPresCondSus", "0.00")) +
-    g("gCBS", t("vDif", "0.00") + t("vDevTrib", "0.00") + t("vCBS", dec(tot.vCBS)) + t("vCredPres", "0.00") + t("vCredPresCondSus", "0.00"))) : "";
+    g("gCBS", t("vDif", "0.00") + t("vDevTrib", "0.00") + t("vCBS", dec(tot.vCBS)) + t("vCredPres", "0.00") + t("vCredPresCondSus", "0.00")) : "") +
+    (totSn.tem ? g("gTribSN", t("vIBSSN", dec(totSn.vIBSSN)) + t("vCBSSN", dec(totSn.vCBSSN))) : "")) : "";
   const totalXml = g("total", icmsTot + ibsTot);
 
   // Pagamento

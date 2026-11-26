@@ -11,6 +11,7 @@ import { pendenciasEmitenteNfce } from "../emitenteFiscalService.js";
 import { resolverFiscalProduto } from "../fiscalService.js";
 import { situacaoCertificado, conferirMapaMeios, textoProblemasMeios } from "./emissaoConfig.js";
 import { problemasDosItens } from "./validacaoPreEmissao.js";
+import { normalizarIbsCbsSn, pendenciasIbsCbsSn } from "./ibsCbsSimples.js";
 
 const AMB = "producao";
 
@@ -86,6 +87,13 @@ export function prontidaoProducao({
       { id: "serie-nfe", rotulo: "Série da NF-e em PRODUÇÃO (numeração que não colide com outro emissor)", ok: series.some((s) => Number(s.modelo) === 55 && s.ambiente === AMB && s.ativa), bloqueia: true, dica: "Cadastre a série e o próximo número da NF-e em produção em Séries e numeração. Se a loja só emite NFC-e, desabilite a NF-e em Dados da Empresa." },
       { id: "conexao-nfe", rotulo: "Teste de conexão da NF-e com a SEFAZ de PRODUÇÃO feito com sucesso", ok: testeProducaoNfe?.ok === true, bloqueia: false, dica: "Use o botão NF-e (produção) na seção do certificado. É só uma consulta de status." },
     );
+  }
+  // Simples (CRT 1): aviso enquanto os parâmetros do IBS/CBS não estiverem ligados e completos.
+  if (crt === "1") {
+    const sn = normalizarIbsCbsSn(config?.ibsCbsSn);
+    const falta = pendenciasIbsCbsSn(sn);
+    itens.push({ id: "ibscbs-sn", rotulo: "IBS/CBS do Simples Nacional configurado", ok: sn.ativo && falta.length === 0, bloqueia: false,
+      dica: `Preencha e ligue em IBS/CBS do Simples Nacional (início previsto: ${sn.inicio.split("-").reverse().join("/")}). Confirme os códigos e as alíquotas com o contador.` });
   }
   const bloqueios = itens.filter((i) => !i.ok && i.bloqueia).length;
   const avisos = itens.filter((i) => !i.ok && !i.bloqueia).length;

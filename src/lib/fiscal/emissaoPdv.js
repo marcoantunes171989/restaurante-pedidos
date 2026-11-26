@@ -152,7 +152,7 @@ export async function emitirNotaDaVenda({
   }
 
   // Confere os dados fiscais ANTES de gastar um número de nota: se algo estiver errado, a nota não é reservada e a tela diz o que corrigir.
-  const pre = validarAntesDeEmitir({ emitente, modelo: nfe ? 55 : 65, ambiente, venda, destinatario, cpfConsumidor: nfe ? "" : cpf });
+  const pre = validarAntesDeEmitir({ emitente, modelo: nfe ? 55 : 65, ambiente, venda, destinatario, cpfConsumidor: nfe ? "" : cpf, ibsCbsSn: config?.ibsCbsSn });
   if (!pre.ok) return { estado: "pendente", titulo: "Nota fiscal não emitida: dados fiscais com problema", detalhe: pre.texto };
 
   let reserva;

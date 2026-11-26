@@ -135,8 +135,13 @@ export function resolverFiscalProduto(produto, ctx = {}) {
   const uComProd = fisProd ? siglaUnidade(fisProd.unidadeComercial) : "";
   const uTribProd = fisProd ? siglaUnidade(fisProd.unidadeTributavel) : "";
   const creditoProd = fisProd ? num(fisProd.creditoSnAliquota) : 0;
+  // CST e cClassTrib de IBS/CBS informados no produto (quando no formato) valem sobre o padrão da loja (Simples, NT 2026.005).
+  const cstIbsProd = fisProd ? soCodigo(fisProd.cstIbsCbs) : "";
+  const classProd = fisProd ? soCodigo(fisProd.cClassTrib) : "";
   const comOrigem = (r) => ({
     ...r,
+    ...(/^\d{3}$/.test(cstIbsProd) ? { cstIbsCbs: cstIbsProd } : {}),
+    ...(/^\d{6}$/.test(classProd) ? { cClassTrib: classProd } : {}),
     ...(creditoProd > 0 ? { creditoSnAliquota: creditoProd } : {}),
     ...(/^[0-8]$/.test(origemProd) ? { origemMercadoria: origemProd } : {}),
     ...(uComProd ? { unidadeComercial: uComProd } : {}),

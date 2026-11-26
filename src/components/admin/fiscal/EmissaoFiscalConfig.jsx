@@ -10,6 +10,7 @@ import { validarEmitenteFiscal } from "../../../lib/emitenteFiscalService";
 import { lerTesteSalvo, salvarTeste } from "../../../lib/fiscal/testeConexaoSalvo";
 import AssistenteAtivacaoFiscal from "./AssistenteAtivacaoFiscal";
 import ProntidaoProducao from "./ProntidaoProducao";
+import IbsCbsSimplesConfig from "./IbsCbsSimplesConfig";
 import AmbienteEmissao from "./AmbienteEmissao";
 import { prontidaoProducao } from "../../../lib/fiscal/prontidaoProducao";
 
@@ -406,6 +407,8 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
         </form>
         <Aviso msg={msg.pag} />
       </section>
+
+      {String(emitente?.crt || "") === "1" && <IbsCbsSimplesConfig key={lojaId} supabase={supabase} lojaId={lojaId} config={config?.ibsCbsSn} onSalvo={carregar} />}
     </div>
   );
 }

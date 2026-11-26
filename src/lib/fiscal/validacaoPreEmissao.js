@@ -11,6 +11,7 @@ import {
   codigoMunicipioIbgeValido, inscricaoEstadualValida, ieSpConfere, normalizarInscricaoEstadual,
 } from "../emitenteFiscalService.js";
 import { descricaoProdutoFiscal } from "./nfeXml.js";
+import { aplicaIbsCbsSn, pendenciasIbsCbsSn } from "./ibsCbsSimples.js";
 
 const ONDE_EMPRESA = "Fiscal › Dados da Empresa";
 const ONDE_PRODUTO = "Fiscal › Tributação › Produtos";
@@ -197,7 +198,9 @@ export function problemaNfeForaDaUf(ufDestinatario, ufEmitente) {
  * Tudo junto. Devolve { ok, problemas, texto }: `texto` é a mensagem pronta para a tela.
  * Sem `documento` (o caixa não tem o CNPJ da loja; o servidor confere de novo com ele) a conferência do CNPJ é pulada.
  */
-export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false } = {}) {
+export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false, ibsCbsSn = null } = {}) {
+  // IBS/CBS do Simples ligado e incompleto: barra antes de reservar número.
+  const faltaSn = aplicaIbsCbsSn({ config: ibsCbsSn, crt: emitente?.crt, ambiente, data: agora }) ? pendenciasIbsCbsSn(ibsCbsSn) : [];
   const foraDaUf = Number(modelo) === 55 && !permitirInterestadual ? problemaNfeForaDaUf(destinatario?.ender?.UF, emitente?.uf) : null;
   const problemas = [
     ...problemasDaEmpresa(emitente, documento, { confereDocumento }),
@@ -205,6 +208,7 @@ export function validarAntesDeEmitir({ emitente, documento = "", confereDocument
     ...problemasDosItens(venda?.itens || [], { crt: emitente?.crt, modelo }),
     ...problemasDaVenda({ modelo, cpfConsumidor, destinatario, valorTotal: venda?.totais?.vNF }),
     ...(foraDaUf ? [{ codigo: "DEST_FORA_UF", msg: foraDaUf, onde: "Caixa" }] : []),
+    ...(faltaSn.length ? [{ codigo: "IBSCBS_SN", msg: `IBS/CBS do Simples incompleto: falta ${faltaSn.join(", ")}.`, onde: "Fiscal › Emissão › IBS/CBS do Simples" }] : []),
   ];
   const vistos = new Set();
   const unicos = problemas.filter((x) => { const k = `${x.codigo}|${x.msg}`; if (vistos.has(k)) return false; vistos.add(k); return true; });
