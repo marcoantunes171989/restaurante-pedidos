@@ -64,6 +64,13 @@ describe("aplicar alterações", () => {
     expect(nova([{ caminho: "itens.0.pis.CST", valor: "06" }]).dados.itens[0].pis).toEqual({ grupo: "PISNT", CST: "06" });
     expect(nova([{ caminho: "itens.0.pis.CST", valor: "49" }]).erros[0]).toMatch(/mesmo grupo/);
   });
+  it("MEI na NFC-e: CSOSN 500 e CFOP diferente de 5102 não podem ser escolhidos", () => {
+    const mei = { ...DADOS, emit: { ...DADOS.emit, CRT: "4" } };
+    expect(aplicarAlteracoes(mei, [{ caminho: "itens.0.icms.CSOSN", valor: "500" }]).erros).toHaveLength(1);
+    expect(aplicarAlteracoes(mei, [{ caminho: "itens.0.icms.CSOSN", valor: "300" }]).erros).toEqual([]);
+    expect(aplicarAlteracoes(mei, [{ caminho: "itens.0.CFOP", valor: "5405" }]).erros[0]).toMatch(/5102/);
+    expect(celulasDaNota(mei).find((x) => x.caminho === "itens.0.icms.CSOSN").opcoes).toEqual(["102", "300"]);
+  });
   it("unidade acompanha a tributável quando eram iguais", () => {
     expect(nova([{ caminho: "itens.0.uCom", valor: "kg" }]).dados.itens[0]).toMatchObject({ uCom: "KG", uTrib: "KG" });
   });

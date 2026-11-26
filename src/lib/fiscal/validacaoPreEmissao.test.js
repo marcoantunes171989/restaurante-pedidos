@@ -51,6 +51,27 @@ describe("itens", () => {
     expect(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, cfop: "5102" } }], { crt: "4", modelo: 65 })).toEqual([]);
     expect(codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, cfop: "5101" } }], { crt: "1", modelo: 65 }))).not.toContain("CFOP_MEI");
   });
+  it("MEI: CSOSN por modelo (NFC-e 102/300; NF-e 102/300/400/900) — rejeição 782", () => {
+    const mei = (csosn, modelo, cfop = "5102") => codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, csosn, cfop } }], { crt: "4", modelo }));
+    for (const c of ["102", "300"]) expect(mei(c, 65)).toEqual([]);
+    for (const c of ["103", "400", "500", "900"]) expect(mei(c, 65)).toContain("CSOSN_MEI");
+    for (const c of ["102", "300", "400", "900"]) expect(mei(c, 55)).toEqual([]);
+    for (const c of ["103", "500"]) expect(mei(c, 55)).toContain("CSOSN_MEI");
+  });
+  it("MEI na NF-e: venda com 5102/6102; lista ampla só com CSOSN 900 — rejeição 337", () => {
+    const mei = (cfop, csosn = "102") => codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, csosn, cfop } }], { crt: "4", modelo: 55 }));
+    expect(mei("5102")).toEqual([]);
+    expect(mei("6102")).toEqual([]);
+    expect(mei("5101")).toContain("CFOP_MEI");
+    expect(mei("5904")).toContain("CFOP_MEI");
+    expect(mei("5904", "900")).toEqual([]);
+  });
+  it("NFC-e: a partir de R$ 10.000 exige identificação; a partir de R$ 200.000 é vedada", () => {
+    expect(problemasDaVenda({ modelo: 65, valorTotal: 9999.99 })).toEqual([]);
+    expect(codigos(problemasDaVenda({ modelo: 65, valorTotal: 10000 }))).toContain("NFCE_IDENTIFICAR");
+    expect(problemasDaVenda({ modelo: 65, valorTotal: 10000, cpfConsumidor: "123.456.789-09" })).toEqual([]);
+    expect(codigos(problemasDaVenda({ modelo: 65, valorTotal: 200000, cpfConsumidor: "123.456.789-09" }))).toContain("NFCE_VALOR_VEDADO");
+  });
   it("MEI (CRT 4) é Simples Nacional: confere CSOSN, não exige CST de ICMS", () => {
     expect(problemasDosItens([ITEM], { crt: "4", modelo: 65 })).toEqual([]);
     expect(codigos(problemasDosItens([{ ...ITEM, fiscal: { ...ITEM.fiscal, csosn: "" } }], { crt: "4", modelo: 65 }))).toContain("CSOSN");

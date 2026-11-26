@@ -83,6 +83,25 @@ export function problemasDoCertificado({ credenciais = null, documento = "", mod
   return p;
 }
 
+// ── MEI (CRT 4): NT 2024.001 (validações em produção desde 01/04/2025) ─────────────────────────────
+// CSOSN (rejeição 782): NFC-e só 102 e 300; NF-e 102, 300, 400 e 900.
+// CFOP (rejeição 337): nas vendas do caixa, 5102 (6102 na NF-e para outro estado); a lista ampla abaixo (devolução, remessa,
+// comércio exterior, imobilizado) só vale para a NF-e com CSOSN 900.
+const CFOP_MEI_NFE_900 = new Set(["1202", "1904", "2202", "2904", "5102", "5202", "5904", "6102", "6202", "6904", "1501", "1503", "1504", "1505", "1506", "1553",
+  "2501", "2503", "2504", "2505", "2506", "2553", "5501", "5502", "5504", "5505", "5551", "5933", "6501", "6502", "6504", "6505", "6551", "6933"]);
+export function csosnPermitidosMei(modelo) {
+  return Number(modelo) === 55 ? ["102", "300", "400", "900"] : ["102", "300"];
+}
+export function cfopPermitidoMei(cfop, { modelo = 65, csosn = "" } = {}) {
+  const c = String(cfop ?? "").trim();
+  if (Number(modelo) !== 55) return c === "5102";
+  return String(csosn).trim() === "900" ? CFOP_MEI_NFE_900.has(c) : c === "5102" || c === "6102";
+}
+
+// ── Limites da NFC-e (Ajuste SINIEF 19/16, cláusula quarta). A UF pode reduzi-los. ──
+export const NFCE_VALOR_EXIGE_IDENTIFICACAO = 10000;
+export const NFCE_VALOR_VEDADO = 200000;
+
 /**
  * Itens da venda: o que cada produto precisa para a nota sair certa.
  * @param {object[]} itens  venda.itens (com .nome, .fiscal, .valorBruto, .quantidade)
@@ -103,11 +122,17 @@ export function problemasDosItens(itens = [], { crt = "", modelo = 65 } = {}) {
     const cfop = String(f.cfop ?? "").trim();
     if (!/^[1-7]\d{3}$/.test(cfop)) add("CFOP", `CFOP "${cfop}" inválido (4 números).`);
     else if (Number(modelo) === 65 && !cfop.startsWith("5")) add("CFOP_NFCE", `CFOP ${cfop} não serve para NFC-e (venda ao consumidor dentro do estado: 5.xxx).`);
-    // MEI (CRT 4) emitindo NFC-e: a SEFAZ só aceita o CFOP 5102 (NT 2024.001, rejeição 337). Barra ANTES de reservar número.
-    if (String(crt) === "4" && Number(modelo) === 65 && /^[1-7]\d{3}$/.test(cfop) && cfop !== "5102") add("CFOP_MEI", `CFOP ${cfop} não é aceito para MEI na NFC-e: use 5102 (a SEFAZ rejeitaria com 337).`);
-    // MEI só usa CSOSN 102, 103, 300, 400 ou 500: o 101 (crédito do Simples), 201/202/203 (ST) e 900 (outros) não existem para MEI.
-    if (String(crt) === "4" && CSOSN_VALIDOS.has(String(f.csosn ?? "").trim()) && !["102", "103", "300", "400", "500"].includes(String(f.csosn).trim())) {
-      add("CSOSN_MEI", `CSOSN ${String(f.csosn).trim()} não vale para MEI: use 102 (tributada sem crédito), 103, 300, 400 ou 500.`);
+    // MEI (CRT 4): CFOP e CSOSN têm lista própria por modelo (ver acima). Barra ANTES de reservar número.
+    if (String(crt) === "4") {
+      const sigla = Number(modelo) === 55 ? "NF-e" : "NFC-e";
+      const csosn = String(f.csosn ?? "").trim();
+      if (/^[1-7]\d{3}$/.test(cfop) && !cfopPermitidoMei(cfop, { modelo, csosn })) {
+        add("CFOP_MEI", `CFOP ${cfop} não é aceito para MEI na ${sigla}: use 5102 (a SEFAZ rejeitaria com 337).`);
+      }
+      const aceitos = csosnPermitidosMei(modelo);
+      if (CSOSN_VALIDOS.has(csosn) && !aceitos.includes(csosn)) {
+        add("CSOSN_MEI", `CSOSN ${csosn} não vale para MEI na ${sigla}: use 102 (tributada sem crédito) ou outro aceito (${aceitos.join(", ")}). A SEFAZ rejeitaria com 782.`);
+      }
     }
     if (simples) {
       if (!CSOSN_VALIDOS.has(String(f.csosn ?? "").trim())) add("CSOSN", `CSOSN ${f.csosn || "(vazio)"} inválido para empresa do Simples Nacional (aceitos: ${[...CSOSN_VALIDOS].join(", ")}).`);
@@ -123,9 +148,15 @@ export function problemasDosItens(itens = [], { crt = "", modelo = 65 } = {}) {
  * Pagamentos e destinatário.
  * @param {object} p { modelo, cpfConsumidor, destinatario }
  */
-export function problemasDaVenda({ modelo = 65, cpfConsumidor = "", destinatario = null } = {}) {
+export function problemasDaVenda({ modelo = 65, cpfConsumidor = "", destinatario = null, valorTotal = 0 } = {}) {
   const p = [];
   const add = (codigo, msg, onde = "Caixa") => p.push({ codigo, msg, onde });
+  if (Number(modelo) === 65) {
+    if (Number(valorTotal) >= NFCE_VALOR_VEDADO) add("NFCE_VALOR_VEDADO", "NFC-e não pode ser emitida a partir de R$ 200.000,00: emita NF-e.");
+    else if (Number(valorTotal) >= NFCE_VALOR_EXIGE_IDENTIFICACAO && !String(cpfConsumidor || "").trim()) {
+      add("NFCE_IDENTIFICAR", "NFC-e a partir de R$ 10.000,00 exige o CPF ou CNPJ do consumidor.");
+    }
+  }
   // Código fiscal das formas de pagamento: já conferido ao montar a venda (venda.pendencias).
   if (Number(modelo) === 65 && cpfConsumidor) {
     const d = validarDocumentoFiscal(cpfConsumidor);
@@ -172,7 +203,7 @@ export function validarAntesDeEmitir({ emitente, documento = "", confereDocument
     ...problemasDaEmpresa(emitente, documento, { confereDocumento }),
     ...problemasDoCertificado({ credenciais, documento, modelo, ambiente, agora }),
     ...problemasDosItens(venda?.itens || [], { crt: emitente?.crt, modelo }),
-    ...problemasDaVenda({ modelo, cpfConsumidor, destinatario }),
+    ...problemasDaVenda({ modelo, cpfConsumidor, destinatario, valorTotal: venda?.totais?.vNF }),
     ...(foraDaUf ? [{ codigo: "DEST_FORA_UF", msg: foraDaUf, onde: "Caixa" }] : []),
   ];
   const vistos = new Set();

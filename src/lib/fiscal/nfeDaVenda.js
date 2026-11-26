@@ -66,6 +66,8 @@ export function grupoPisCofinsPorCst(cst) {
   return null;
 }
 const CSOSN_GRUPO_SN102 = ["102", "103", "300", "400"];
+export const EXPRESSOES_SIMPLES = "DOCUMENTO EMITIDO POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL. NAO GERA DIREITO A CREDITO FISCAL DE IPI.";
+const FIM_EXPRESSOES_SIMPLES = "2027-01-01T00:00:00-03:00";
 
 // CFOP interno (5xxx) → equivalente interestadual (6xxx). Só pares seguros; fora da
 // tabela, o produto precisa ter o CFOP 6xxx informado (o 5405 vira 6404, não 6405).
@@ -270,6 +272,13 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     const aliq = [...credito.aliquotas].sort((a, b) => a - b).map((p) => `${String(p).replace(".", ",")}%`).join(" e ");
     const valor = credito.total.toFixed(2).replace(".", ",");
     infCplFinal = [infCplFinal, `PERMITE O APROVEITAMENTO DO CREDITO DE ICMS NO VALOR DE R$ ${valor} CORRESPONDENTE A ALIQUOTA DE ${aliq}, NOS TERMOS DO ART. 23 DA LC 123/2006.`].filter(Boolean).join(" ");
+  }
+
+  // ME/EPP do Simples Nacional (CRT 1): expressões obrigatórias nas informações complementares (Resolução CGSN 140/2018,
+  // art. 59, § 4º), revogadas a partir de 01/01/2027 (horário de Brasília). O MEI (art. 106) não leva essas expressões.
+  const emissao = dhEmi ? new Date(dhEmi) : agora;
+  if (crt === "1" && emissao.getTime() < Date.parse(FIM_EXPRESSOES_SIMPLES)) {
+    infCplFinal = [infCplFinal, EXPRESSOES_SIMPLES].filter(Boolean).join(" ");
   }
 
   // Resgate de pontos do programa de fidelidade: desconto incondicional (rateado nos itens, vDesc). Deixa EXPRESSO na nota o

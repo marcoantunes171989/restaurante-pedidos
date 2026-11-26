@@ -120,6 +120,14 @@ describe("dadosNFeDaVenda", () => {
     expect(xml).toContain("PERMITE O APROVEITAMENTO DO CREDITO DE ICMS NO VALOR DE R$ " + total.toFixed(2).replace(".", ",") + " CORRESPONDENTE A ALIQUOTA DE 1,25%, NOS TERMOS DO ART. 23 DA LC 123/2006.");
     expect(totais.vNF).toBe(v.totais.vNF); // o crédito não muda o total da nota
   });
+  it("Simples ME/EPP (CRT 1): expressões obrigatórias até 31/12/2026; fora disso (2027, MEI) não saem", () => {
+    const frase = /DOCUMENTO EMITIDO POR ME OU EPP OPTANTE PELO SIMPLES NACIONAL\. NAO GERA DIREITO A CREDITO FISCAL DE IPI\./;
+    const infCpl = (extra) => dadosNFeDaVenda({ ...BASE, venda: venda(), ...extra }).dados.infAdic?.infCpl || "";
+    expect(infCpl({})).toMatch(frase);
+    expect(infCpl({ dhEmi: "2027-01-01T02:59:59.000Z" })).toMatch(frase); // 31/12/2026 23:59 em Brasília
+    expect(infCpl({ dhEmi: "2027-01-01T03:00:00.000Z" })).not.toMatch(frase);
+    expect(infCpl({ emitente: { ...EMIT, crt: "4" } })).not.toMatch(frase);
+  });
   it("CSOSN 101 sem alíquota de crédito é recusado com mensagem clara (não chuta valor)", () => {
     const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, csosn: "101", icmsAliquota: 0 }] } });
     const r = dadosNFeDaVenda({ ...BASE, venda: v });

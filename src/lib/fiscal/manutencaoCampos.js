@@ -9,6 +9,7 @@
 
 import { textoFiscal, descricaoProdutoFiscal } from "./nfeXml.js";
 import { grupoPisCofinsPorCst } from "./nfeDaVenda.js";
+import { csosnPermitidosMei, cfopPermitidoMei } from "./validacaoPreEmissao.js";
 import { validarDocumentoFiscal, normalizarDocumentoFiscal, inscricaoEstadualValida, normalizarInscricaoEstadual, cepValido } from "../emitenteFiscalService.js";
 
 /** Situações em que a nota pode receber manutenção: a SEFAZ ainda não autorizou (e uma "enviada" pode ter sido; consulte antes). */
@@ -20,6 +21,11 @@ export function podeManutencao(doc) {
 
 const CSOSN_SEM_CALCULO = ["102", "103", "300", "400"]; // grupo ICMSSN102: só origem + CSOSN
 const dig = (v) => String(v ?? "").replace(/\D/g, "");
+/** CSOSN que podem ser trocados no editor (sem mudar o cálculo); o MEI tem lista própria por modelo. */
+const csosnEditaveis = (crt, modelo) => {
+  const todos = [...CSOSN_SEM_CALCULO, "500"];
+  return String(crt) === "4" ? todos.filter((x) => csosnPermitidosMei(modelo).includes(x)) : todos;
+};
 
 // Cada campo: normalizar(valor) → valor limpo; validar(valor, ctx) → mensagem de erro ou "".
 const T = (max) => ({ normalizar: (v) => textoFiscal(v, max), validar: () => "" });
@@ -31,10 +37,11 @@ const TIPOS = {
   natOp: { normalizar: (v) => textoFiscal(v, 60), validar: (v) => (v.length >= 1 ? "" : "Natureza da operação obrigatória.") },
   ncm: { normalizar: dig, validar: (v) => (/^\d{8}$/.test(v) ? "" : "NCM precisa ter 8 números.") },
   cest: { normalizar: dig, validar: (v) => (v === "" || /^\d{7}$/.test(v) ? "" : "CEST precisa ter 7 números (ou ficar vazio).") },
-  cfop: { normalizar: dig, validar: (v, ctx) => (!/^[1-7]\d{3}$/.test(v) ? "CFOP precisa ter 4 números." : ctx.modelo === 65 && !v.startsWith("5") ? "NFC-e só aceita CFOP 5.xxx (venda dentro do estado)." : "") },
+  cfop: { normalizar: dig, validar: (v, ctx) => (!/^[1-7]\d{3}$/.test(v) ? "CFOP precisa ter 4 números." : ctx.modelo === 65 && !v.startsWith("5") ? "NFC-e só aceita CFOP 5.xxx (venda dentro do estado)."
+    : ctx.crt === "4" && !cfopPermitidoMei(v, { modelo: ctx.modelo }) ? "MEI: use o CFOP 5102 (a SEFAZ rejeita os demais com 337)." : "") },
   unidade: { normalizar: (v) => textoFiscal(v, 6).toUpperCase().replace(/[^A-Z]/g, ""), validar: (v) => (/^[A-Z]{1,6}$/.test(v) ? "" : "Unidade: 1 a 6 letras (ex.: UN, KG).") },
   orig: { normalizar: (v) => String(v ?? "").trim(), validar: (v) => (/^[0-8]$/.test(v) ? "" : "Origem: um número de 0 a 8.") },
-  csosn: { normalizar: (v) => String(v ?? "").trim(), validar: (v) => (CSOSN_SEM_CALCULO.includes(v) || v === "500" ? "" : "CSOSN permitido aqui: 102, 103, 300, 400 ou 500 (os demais mudam o cálculo do imposto: faça pelo cadastro do produto).") },
+  csosn: { normalizar: (v) => String(v ?? "").trim(), validar: (v, ctx) => (csosnEditaveis(ctx.crt, ctx.modelo).includes(v) ? "" : `CSOSN permitido aqui: ${csosnEditaveis(ctx.crt, ctx.modelo).join(", ")} (os demais mudam o cálculo do imposto: faça pelo cadastro do produto).`) },
   cstPisCofins: { normalizar: (v) => String(v ?? "").trim(), validar: (v) => (grupoPisCofinsPorCst(v) ? "" : "CST inválido.") },
   tPag: { normalizar: (v) => String(v ?? "").trim(), validar: (v) => (/^[0-9]{2}$/.test(v) ? "" : "Código de pagamento: 2 números (ex.: 01, 03, 17).") },
   xPag: { normalizar: (v) => textoFiscal(v, 60), validar: () => "" },
@@ -92,7 +99,7 @@ export function celulasDaNota(dados) {
       c(`itens.${i}.CEST`, "Itens", g, "CEST", "cest", it.CEST), c(`itens.${i}.CFOP`, "Itens", g, "CFOP", "cfop", it.CFOP), c(`itens.${i}.uCom`, "Itens", g, "Unidade", "unidade", it.uCom),
       fixo(`itens.${i}.qCom`, "Itens", g, "Quantidade", it.qCom), fixo(`itens.${i}.vUnCom`, "Itens", g, "Valor unitário", it.vUnCom), fixo(`itens.${i}.vProd`, "Itens", g, "Valor do item", it.vProd),
       ic.orig !== undefined ? c(`itens.${i}.icms.orig`, "Itens", g, "Origem", "orig", ic.orig) : fixo(`itens.${i}.icms.orig`, "Itens", g, "Origem", ""),
-      csosnEditavel ? c(`itens.${i}.icms.CSOSN`, "Itens", g, "CSOSN", "csosn", ic.CSOSN, { opcoes: [...CSOSN_SEM_CALCULO, "500"] }) : fixo(`itens.${i}.icms.${ic.CSOSN !== undefined ? "CSOSN" : "CST"}`, "Itens", g, ic.CSOSN !== undefined ? "CSOSN" : "CST ICMS", ic.CSOSN ?? ic.CST),
+      csosnEditavel ? c(`itens.${i}.icms.CSOSN`, "Itens", g, "CSOSN", "csosn", ic.CSOSN, { opcoes: csosnEditaveis(d.emit?.CRT, d.ide?.mod) }) : fixo(`itens.${i}.icms.${ic.CSOSN !== undefined ? "CSOSN" : "CST"}`, "Itens", g, ic.CSOSN !== undefined ? "CSOSN" : "CST ICMS", ic.CSOSN ?? ic.CST),
       pisCst !== undefined ? c(`itens.${i}.pis.CST`, "Itens", g, "CST PIS", "cstPisCofins", pisCst) : fixo(`itens.${i}.pis.CST`, "Itens", g, "CST PIS", ""),
       cofCst !== undefined ? c(`itens.${i}.cofins.CST`, "Itens", g, "CST COFINS", "cstPisCofins", cofCst) : fixo(`itens.${i}.cofins.CST`, "Itens", g, "CST COFINS", ""));
   });
@@ -131,7 +138,7 @@ export function aplicarAlteracoes(dados, alteracoes = []) {
     if (!cel.editavel) { erro(cel, `${cel.grupo} › ${cel.rotulo}: este campo não pode ser alterado aqui (altere pelo pedido/cadastro).`); continue; }
     const t = TIPOS[cel.tipo];
     const valor = t.normalizar(a.valor);
-    const msg = t.validar(valor, { modelo });
+    const msg = t.validar(valor, { modelo, crt: String(novo.emit?.CRT ?? "") });
     if (msg) { erro(cel, `${cel.grupo} › ${cel.rotulo}: ${msg}`); continue; }
     const antes = String(ler(novo, cel.caminho) ?? "");
     if (valor === antes) continue;
