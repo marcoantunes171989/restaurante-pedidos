@@ -36,7 +36,7 @@ export default function PdvPassoFechar({
         <div className="flex items-start gap-2 rounded-xl bg-[var(--pp-bg)] p-3 text-xs text-[var(--pp-text-body)]" data-testid="aviso-nfce-sozinha">
           <Printer size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
           {nfeEscolhida
-            ? <span><b className="text-[var(--pp-text)]">A NF-e sai ao fechar.</b> A nota é emitida para a empresa e o DANFE (folha A4) abre para imprimir.</span>
+            ? <span><b className="text-[var(--pp-text)]">A NF-e é emitida ao fechar.</b> Depois de autorizada, toque em Imprimir nota fiscal para abrir o DANFE (folha A4).</span>
             : <span><b className="text-[var(--pp-text)]">A NFC-e sai sozinha.</b> Ao fechar, a nota é emitida e o cupom imprime na hora.</span>}
         </div>
       )}

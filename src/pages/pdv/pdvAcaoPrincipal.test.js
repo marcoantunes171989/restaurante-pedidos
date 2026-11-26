@@ -24,7 +24,7 @@ describe("barra de ação do PDV", () => {
     expect(acaoPrincipal({ ...base, passo: 2, podeFechar: false }).desabilitado).toBe(true);
   });
   it("passo Fechar com NF-e marcada: o botão fala em NF-e", () => {
-    expect(acaoPrincipal({ ...base, passo: 2, nfe: true }).texto).toBe("Fechar conta e imprimir NF-e");
+    expect(acaoPrincipal({ ...base, passo: 2, nfe: true }).texto).toBe("Fechar conta e emitir NF-e");
     expect(acaoPrincipal({ ...base, passo: 2, nfe: true, emiteNota: false }).texto).toBe("Fechar conta");
   });
   it("a frase guia cada passo", () => {

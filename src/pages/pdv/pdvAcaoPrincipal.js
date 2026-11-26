@@ -12,8 +12,9 @@ export function acaoPrincipal({ temConta, passo, temItens, restante, podeFechar,
       ? { texto: `Falta ${formatCurrency(restante)}`, desabilitado: true, tom: "neutro", acao: null }
       : { texto: "Continuar para fechar", desabilitado: !podeFechar, tom: "verde", acao: "continuar" };
   }
-  // `nfe`: o operador marcou "Emitir NF-e para a empresa"; a nota que sai é a NF-e (DANFE A4), não a NFC-e.
-  return { texto: emiteNota ? `Fechar conta e imprimir ${nfe ? "NF-e" : "NFC-e"}` : "Fechar conta", desabilitado: !podeFechar, tom: "verde", acao: "fechar" };
+  // `nfe`: o operador marcou "Emitir NF-e para a empresa". A NF-e não imprime sozinha (só a NFC-e): o DANFE abre pelo botão do aviso.
+  const comNota = nfe ? "Fechar conta e emitir NF-e" : "Fechar conta e imprimir NFC-e";
+  return { texto: emiteNota ? comNota : "Fechar conta", desabilitado: !podeFechar, tom: "verde", acao: "fechar" };
 }
 
 export function frasePasso({ temConta, passo, temItens, restante }) {
