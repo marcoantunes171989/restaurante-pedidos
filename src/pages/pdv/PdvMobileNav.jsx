@@ -26,7 +26,7 @@ export default function PdvMobileNav({ ativo = "conta", onChange, temConta = fal
               onClick={() => onChange?.(id)}
               aria-current={on ? "page" : undefined}
               title={dica}
-              className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-black transition active:scale-[0.98] ${
+              className={`flex min-h-11 flex-wrap items-center justify-center gap-x-1.5 rounded-xl px-1 py-1 text-[11px] font-black transition active:scale-[0.98] ${
                 on
                   ? "btn-laranja text-[#012E46]"
                   : "bg-[var(--pp-bg)] text-[var(--pp-text-body)]"
@@ -35,7 +35,7 @@ export default function PdvMobileNav({ ativo = "conta", onChange, temConta = fal
               <Icon size={18} aria-hidden="true" />
               <span>{label}</span>
               {id === "pagamento" && temConta && totalLabel && (
-                <span className={`max-w-full truncate text-[10px] font-bold tabular-nums ${on ? "text-white/90" : "text-[var(--pp-primary-text)]"}`}>
+                <span className={`max-w-full truncate text-[10px] font-bold tabular-nums ${on ? "text-[#012E46]" : "text-[var(--pp-primary-text)]"}`}>
                   {totalLabel}
                 </span>
               )}

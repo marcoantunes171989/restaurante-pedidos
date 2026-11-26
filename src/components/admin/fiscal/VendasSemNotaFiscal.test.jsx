@@ -12,19 +12,28 @@ let root, el;
 afterEach(() => { act(() => root?.unmount()); el?.remove(); root = el = null; });
 const esperar = (ms = 40) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 const q = (id) => el.querySelector(`[data-testid="${id}"]`);
+const clicar = async (alvo) => act(async () => { alvo.click(); });
 
 const EMIT_BANCO = { id: 1, loja_id: 9, nfce_habilitada: true, nfe_habilitada: false, nfce_ambiente: "homologacao", crt: "4", uf: "SP", razao_social: "Burger Teste Ltda", inscricao_estadual: "110042490114", cep: "01001000", logradouro: "Rua das Flores", numero: "100", bairro: "Centro", municipio: "São Paulo", codigo_municipio_ibge: "3550308", nfce_serie: 1 };
 const agoraISO = () => new Date().toISOString();
-const PEDIDO = (id, extra = {}) => ({ id, lojaId: 9, table: "Mesa 01", command: "C1", status: "delivered", paymentStatus: "paid", createdAtISO: agoraISO(), pagamentoForma: "PIX", items: [{ productId: 45, name: "X-Salada", price: 26.4, quantity: 2 }], ...extra });
+const ITENS = [{ productId: 45, name: "X-Salada", price: 26.4, quantity: 2 }];
+const PEDIDO = (id, extra = {}) => ({ id, lojaId: 9, table: "Mesa 01", command: "C1", status: "delivered", paymentStatus: "paid", createdAtISO: agoraISO(), pagamentoForma: "PIX", items: ITENS, ...extra });
+const REGISTRO = (id, extra = {}) => ({
+  codigo: `PAG-${id}`, pedidos_ids: [id], mesa: "Mesa 01", tipo_escolhido: "balcao", total: 58.08, criado_em: agoraISO(),
+  composicao: { subtotal: 52.8, taxaServico: 5.28, acrescimo: 0, descontoManual: 0, descontoCupom: 0, total: 58.08 },
+  pagamento: { total: 58.08, troco: 0, detalhes: [{ forma: "PIX", valor: 58.08 }] },
+  pedidos: [{ id, lojaId: 9, table: "Mesa 01", command: "C1", items: ITENS }], ...extra,
+});
 const PRODUTOS = [{ id: 45, name: "X-Salada", lojaId: 9, active: true, lojaFiscalRegraId: 3, fiscal: {} }];
 const CTX = { lojaFiscalRegras: [{ id: 3, ncmCodigo: "21069090", cfopCodigo: "5102", csosn: "102", cstPis: "49", cstCofins: "49" }] };
 const FORMAS = [{ id: 1, nome: "Dinheiro", tipo: "dinheiro", active: true, lojaId: 9 }, { id: 4, nome: "PIX", tipo: "pix", active: true, lojaId: 9 }];
 
-function banco({ documentos = [], reservas = [] } = {}) {
+function banco({ documentos = [], registros = [], reservas = [], semMigracao = false } = {}) {
   return {
     auth: { getSession: async () => ({ data: { session: { access_token: "t" } } }) },
     rpc: async (nome, p) => {
       if (nome === "app_fiscal_listar_documentos") return { data: { ok: true, documentos }, error: null };
+      if (nome === "app_venda_caixa_listar") return semMigracao ? { data: null, error: { code: "PGRST202", message: "x" } } : { data: { ok: true, vendas: registros }, error: null };
       if (nome === "app_fiscal_emitente_da_loja") return { data: { ok: true, emitente: EMIT_BANCO }, error: null };
       if (nome === "app_fiscal_config_venda") return { data: { ok: true, mapa_meios: { "id:1": "01", "id:4": "17" }, taxa_servico_tratamento: "outras_despesas" }, error: null };
       if (nome === "app_fiscal_reservar_documento") { reservas.push(p); return { data: { ok: true, documento_id: "D1", modelo: 65, serie: 1, numero: 4, ambiente: "homologacao", status: "reservado" }, error: null }; }
@@ -33,9 +42,9 @@ function banco({ documentos = [], reservas = [] } = {}) {
   };
 }
 
-async function montar({ orders, documentos, reservas }) {
+async function montar({ orders = [], ...opcoes }) {
   const { default: VendasSemNotaFiscal } = await import("./VendasSemNotaFiscal.jsx");
-  const supabase = banco({ documentos, reservas });
+  const supabase = banco(opcoes);
   el = document.createElement("div"); document.body.appendChild(el); root = createRoot(el);
   await act(async () => root.render(<VendasSemNotaFiscal supabase={supabase} lojaInfo={{ id: 9, nome: "Burger Station" }} orders={orders} produtos={PRODUTOS} formasPagamento={FORMAS} ctxFiscal={CTX} />));
   await esperar(80);
@@ -45,28 +54,30 @@ const digitar = async (input, v) => act(async () => {
   input.dispatchEvent(new Event("input", { bubbles: true }));
 });
 
-describe("Vendas sem nota fiscal (tela)", () => {
+describe("Venda Balcão (tela)", () => {
   it("lista só a venda paga que NÃO tem nota (a que já tem nota, em qualquer situação, não aparece)", async () => {
-    await montar({ orders: [PEDIDO("PED-A"), PEDIDO("PED-B"), PEDIDO("PED-C", { paymentStatus: "open" })], documentos: [{ id: "d1", status: "rejeitado", pedidos_ids: ["PED-B"] }] });
+    await montar({ orders: [PEDIDO("PED-A"), PEDIDO("PED-B"), PEDIDO("PED-C", { paymentStatus: "open" })], registros: [REGISTRO("PED-A"), REGISTRO("PED-B")], documentos: [{ id: "d1", status: "rejeitado", pedidos_ids: ["PED-B"] }] });
     expect(q("vsn-lista").textContent).toContain("PED-A");
     expect(q("vsn-lista").textContent).not.toContain("PED-B");
     expect(q("vsn-lista").textContent).not.toContain("PED-C");
+    expect(el.querySelectorAll('[data-testid="venda-balcao"]')).toHaveLength(1);
   });
   it("sem venda pendente: mostra que está tudo com nota", async () => {
     await montar({ orders: [PEDIDO("PED-B")], documentos: [{ id: "d1", status: "autorizado", pedidos_ids: ["PED-B"] }] });
     expect(q("vsn-vazio")).not.toBeNull();
   });
-  it("emite a NFC-e da venda: taxa de serviço, forma de pagamento que fecha o total, reserva e envio (uma nota só)", async () => {
+  it("não deixa alterar valores nem forma de pagamento; emite a NFC-e com o que o caixa cobrou", async () => {
     const reservas = [];
     const fetchMock = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 4 }) }));
     globalThis.fetch = fetchMock;
-    await montar({ orders: [PEDIDO("PED-A")], documentos: [], reservas });
-    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-A"]').click(); });
-    await act(async () => { q("btn-abrir-emissao").click(); });
-    expect(q("total-nota").textContent).toContain("58,08"); // 52,80 + 10% de serviço
-    expect(q("forma-0").value).toBe("PIX"); // a forma que o caixa gravou
-    expect(q("btn-emitir-venda").disabled).toBe(false);
-    await act(async () => { q("btn-emitir-venda").click(); });
+    await montar({ orders: [PEDIDO("PED-A")], registros: [REGISTRO("PED-A")], reservas });
+    await clicar(q("btn-abrir-emissao"));
+    expect(q("total-nota").textContent).toContain("58,08");
+    expect(q("pagamento-travado").textContent).toMatch(/PIX/);
+    expect(q("painel-emissao-venda").querySelector("select")).toBeNull();
+    expect(q("campo-taxa")).toBeNull();
+    expect(q("tipo-balcao")).toBeNull();
+    await clicar(q("btn-emitir-venda"));
     await esperar(300);
     expect(reservas).toHaveLength(1);
     expect(reservas[0].p_pedidos_ids).toEqual(["PED-A"]);
@@ -74,39 +85,42 @@ describe("Vendas sem nota fiscal (tela)", () => {
     expect(reservas[0].p_rascunho.venda.pagamentos.map((p) => p.valor)).toEqual([58.08]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(q("resultado-emissao").textContent).toMatch(/NFC-e nº 4 autorizada/);
+    expect(q("btn-imprimir-nota")).not.toBeNull();
   });
   it("CPF/CNPJ digitado vai para o rascunho da nota (e daí para o XML)", async () => {
     const reservas = [];
     globalThis.fetch = vi.fn(async () => ({ status: 200, json: async () => ({ ok: true, situacao: "autorizada", numero: 4 }) }));
-    await montar({ orders: [PEDIDO("PED-A")], documentos: [], reservas });
-    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-A"]').click(); });
-    await act(async () => { q("btn-abrir-emissao").click(); });
+    await montar({ orders: [PEDIDO("PED-A")], registros: [REGISTRO("PED-A")], reservas });
+    await clicar(q("btn-abrir-emissao"));
     await digitar(el.querySelector('input[placeholder="Só números"]'), "529.982.247-25");
-    await act(async () => { q("btn-emitir-venda").click(); });
+    await clicar(q("btn-emitir-venda"));
     await esperar(300);
     expect(reservas).toHaveLength(1);
     expect(reservas[0].p_rascunho.cpf).toBe("52998224725");
   });
-  it("entrega (sem taxa de serviço): o total da nota é o subtotal, R$ 52,80", async () => {
-    await montar({ orders: [PEDIDO("PED-E", { table: "Externo · Entrega" })], documentos: [] });
-    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-E"]').click(); });
-    await act(async () => { q("btn-abrir-emissao").click(); });
-    expect(q("total-nota").textContent).toContain("52,80");
-    expect(q("campo-taxa").value).toBe("0");
+  it("NF-e desligada na loja: o botão NF-e fica bloqueado", async () => {
+    await montar({ orders: [PEDIDO("PED-A")], registros: [REGISTRO("PED-A")] });
+    await clicar(q("btn-abrir-emissao"));
+    expect(q("tipo-nfce").getAttribute("aria-checked")).toBe("true");
+    expect(q("tipo-nfe").disabled).toBe(true);
   });
-  it("pagamento que não fecha o total bloqueia a emissão e diz quanto falta", async () => {
-    await montar({ orders: [PEDIDO("PED-A")], documentos: [] });
-    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-A"]').click(); });
-    await act(async () => { q("btn-abrir-emissao").click(); });
-    await digitar(el.querySelector('input[aria-label="Valor 1"]'), "50,00");
-    expect(q("btn-emitir-venda").disabled).toBe(true);
-    expect(q("aviso-pagamento").textContent).toMatch(/Faltam .*8,08/);
+  it("Cupom fiscal mostra produtos, taxa, total e pagamento, avisando que não é documento fiscal", async () => {
+    await montar({ orders: [PEDIDO("PED-A")], registros: [REGISTRO("PED-A")] });
+    await clicar(q("btn-cupom"));
+    expect(q("cupom-previa").textContent).toContain("NÃO É DOCUMENTO FISCAL");
+    expect(q("cupom-itens").textContent).toContain("X-Salada");
+    expect(q("cupom-previa").textContent).toContain("Taxa de serviço");
+    expect(q("cupom-total").textContent).toContain("58,08");
+    expect(q("cupom-previa").textContent).toContain("PIX");
   });
-  it("sem forma de pagamento escolhida não emite", async () => {
-    await montar({ orders: [PEDIDO("PED-A", { pagamentoForma: "Dinheiro + Pontos" })], documentos: [] });
-    await act(async () => { el.querySelector('input[aria-label="Selecionar PED-A"]').click(); });
-    await act(async () => { q("btn-abrir-emissao").click(); });
-    expect(q("forma-0").value).toBe("");
-    expect(q("btn-emitir-venda").disabled).toBe(true);
+  it("venda sem o registro do fechamento: dá para consultar o cupom, mas não emitir", async () => {
+    await montar({ orders: [PEDIDO("PED-A")] });
+    expect(q("venda-sem-registro")).not.toBeNull();
+    expect(q("btn-abrir-emissao")).toBeNull();
+    expect(q("btn-cupom")).not.toBeNull();
+  });
+  it("sem a migration 208: avisa", async () => {
+    await montar({ orders: [PEDIDO("PED-A")], semMigracao: true });
+    expect(q("vsn-sem-registro").textContent).toMatch(/208/);
   });
 });

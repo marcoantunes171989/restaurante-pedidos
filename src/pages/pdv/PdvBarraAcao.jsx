@@ -21,21 +21,21 @@ export default function PdvBarraAcao({ estado, fechando = false, onFuncoes, onAc
       style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
       data-testid="barra-acao"
     >
-      <p className="min-w-[180px] flex-1 text-[12px] text-[var(--pp-text-muted)]" data-testid="frase-passo"><b className="text-[var(--pp-text)]">{frase.negrito}</b> {frase.texto}</p>
+      <p className="min-w-[180px] flex-1 basis-full text-[12px] sm:basis-0 text-[var(--pp-text-muted)]" data-testid="frase-passo"><b className="text-[var(--pp-text)]">{frase.negrito}</b> {frase.texto}</p>
       <button
         type="button"
         onClick={onFuncoes}
         data-testid="btn-mais-funcoes"
-        className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-4 text-[13px] font-black text-[var(--pp-text-body)] hover:border-[#012E46]"
+        className="inline-flex min-h-12 shrink-0 items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-2.5 text-[12px] font-black text-[var(--pp-text-body)] hover:border-[#012E46] sm:min-h-11 sm:gap-2 sm:px-4 sm:text-[13px]"
       >
-        <MoreHorizontal size={16} aria-hidden="true" /> Mais funções <kbd className="rounded border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px]">*</kbd>
+        <MoreHorizontal size={16} aria-hidden="true" /> Mais funções <kbd className="hidden rounded border border-[var(--pp-border)] bg-[var(--pp-bg)] px-1.5 text-[10px] sm:inline">*</kbd>
       </button>
       <button
         type="button"
         onClick={() => principal.acao && onAcao?.(principal.acao)}
         disabled={principal.desabilitado || fechando}
         data-testid="acao-principal"
-        className={`inline-flex min-h-12 min-w-[240px] items-center justify-center gap-2 rounded-xl px-6 text-base font-black transition disabled:cursor-not-allowed ${TOM[principal.tom]}`}
+        className={`inline-flex min-h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-center text-[15px] font-black leading-tight transition disabled:cursor-not-allowed sm:min-w-[240px] sm:flex-none sm:px-6 sm:text-base ${TOM[principal.tom]}`}
       >
         {fechando ? <><Loader2 size={16} className="animate-spin" aria-hidden="true" /> Fechando…</> : principal.texto}
       </button>

@@ -685,6 +685,17 @@ body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflo
   filter: brightness(0.95);
 }
 
+/* ── Telas de Venda PDV (.pdv-toque): sem zoom no celular ──
+   O iPhone amplia a tela ao focar um campo com letra menor que 16px, e o toque
+   duplo amplia em qualquer navegador. Nos aparelhos de toque os campos ficam
+   com 16px e o toque duplo não amplia. */
+.pdv-toque { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+@media (pointer: coarse) {
+  .pdv-toque input:not([type="checkbox"]):not([type="radio"]),
+  .pdv-toque select,
+  .pdv-toque textarea { font-size: 16px !important; }
+}
+
 /* ── Painel de filtro oficial (FilterGroup, src/components/Prime.jsx) ──
    Filtro ATIVO = sempre petróleo + texto branco (skill
    texto-claro-botao-escuro-pedido-prime). Nunca amarrar o fill a

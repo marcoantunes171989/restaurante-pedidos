@@ -30,7 +30,7 @@ const LABELS_ADMIN = {
   cardapioext: "Cardápio Externo",
   "painel-fiscal": "Painel Fiscal",
   "notas-fiscais": "Notas Emitidas",
-  "vendas-sem-nota": "Vendas sem nota",
+  "vendas-sem-nota": "Venda Balcão",
   "cancelamento-nfce": "Cancelar NFC-e",
   "cancelamento-nfe": "Cancelar NF-e",
   "xmls-fiscais": "XMLs fiscais",
@@ -53,7 +53,7 @@ const LABELS_TAB = {
   tablet: "Tablet / Mesa",
   kitchen: "Cozinha",
   panel: "Painel",
-  cashier: "Caixa (PDV)",
+  cashier: "Venda PDV",
   opmobile: "Operação Mobile",
   admin: "Administração",
 };

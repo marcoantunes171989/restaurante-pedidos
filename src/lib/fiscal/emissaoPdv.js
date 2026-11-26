@@ -54,19 +54,32 @@ export function motivoSemNota(emitente, { nfe = false } = {}) {
   return null;
 }
 
-export const NOTA_VAZIA =Object.freeze({ documento: "", nfe: false, entrega: false, quemEntrega: "", intermediador: "",nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
+export const NOTA_VAZIA = Object.freeze({ balcao: false, documento: "", nfe: false, entrega: false, quemEntrega: "", intermediador: "", nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
+
+/**
+ * Tipo escolhido no fechamento: 'balcao' (Venda Balcão, sem nota agora), 'nfce' ou 'nfe'.
+ * Sem escolha, vale a NFC-e quando a loja a emite (comportamento de sempre); senão, Venda Balcão.
+ */
+export function tipoDaNota(v = NOTA_VAZIA, { nfceDisponivel = true, nfeDisponivel = false } = {}) {
+  if (v?.balcao) return "balcao";
+  if (v?.nfe) return nfeDisponivel ? "nfe" : "balcao";
+  return nfceDisponivel ? "nfce" : "balcao";
+}
 
 const enderecoDoCaixa = (v) => ({ xLgr: v.xLgr, nro: v.nro, xCpl: v.xCpl, xBairro: v.xBairro, cMun: v.cMun, xMun: v.xMun, UF: v.UF, CEP: v.CEP, fone: v.fone });
 
 /**
  * Confere o que o caixa digitou para a nota (E8 parte 3).
  * Entrega a domicílio (NFC-e): devolve também `entrega: true` e o cliente em `destinatario`.
- * @returns {{ ok:boolean, erro?:string, modelo:55|65, cpf:string, destinatario:object|null, entrega?:true }}
+ * Venda Balcão: nada é conferido nem emitido agora ({ balcao: true, modelo: null }).
+ * @returns {{ ok:boolean, erro?:string, balcao?:true, modelo:55|65|null, cpf:string, destinatario:object|null, entrega?:true }}
  */
-export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false, entregaDisponivel = false, ufEmitente = "" } = {}) {
+export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfceDisponivel = true, nfeDisponivel = false, entregaDisponivel = false, ufEmitente = "" } = {}) {
+  if (v.balcao || (!v.nfe && !nfceDisponivel && nfeDisponivel)) return { ok: true, balcao: true, modelo: null, cpf: "", destinatario: null };
   const doc = normalizarDocumentoFiscal(v.documento);
   if (v.nfe) {
     if (!nfeDisponivel) return { ok: false, erro: "Esta loja ainda não emite NF-e." };
+    if (doc.length !== 14) return { ok: false, erro: "NF-e: informe o CNPJ da empresa (a NF-e é só para empresa)." };
     const destinatario = { documento: doc, nome: v.nome, ie: v.ie, ender: enderecoDoCaixa(v) };
     const r = montarDestinatario({ modelo: 55, destinatario });
     if (r.erro) return { ok: false, erro: r.erro };

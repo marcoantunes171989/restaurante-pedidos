@@ -51,7 +51,8 @@ import { legendaCupom } from "./pdvCupomValidacao";
 import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
-import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, motivoSemNota, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
+import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, motivoSemNota, tipoDaNota, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
+import { registrarVendaCaixa } from "../../lib/fiscal/vendaCaixa";
 import { normalizarEntregaNfce } from "../../lib/fiscal/entregaNfce";
 import { enderecoEmLinha } from "../../lib/enderecoEntrega";
 import { useEnderecoDoPedido } from "../../hooks/useEnderecoDoPedido";
@@ -1069,7 +1070,7 @@ export default function CashierPdv({
       return;
     }
     // E8: confere o CPF/CNPJ (e a NF-e) antes de fechar; corrigir ou apagar o campo libera.
-    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfceDisponivel: nfceNaLoja, nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) {
       notify("error", notaCx.erro);
       return;
@@ -1137,7 +1138,8 @@ export default function CashierPdv({
       let emitenteVenda = emitenteFiscal;
       let configVenda = configFiscalVenda;
       const ambienteDe = (e) => (ehNfe ? ambienteNfeDaLoja(e) : ambienteNfceDaLoja(e));
-      if (EMISSAO_FISCAL_PDV_ATIVA && supabase && lojaInfo?.id != null && !ambienteDe(emitenteFiscal)) {
+      const balcao = notaCx.balcao === true; // o caixa escolheu Venda Balcão: nada de nota agora
+      if (!balcao && EMISSAO_FISCAL_PDV_ATIVA && supabase && lojaInfo?.id != null && !ambienteDe(emitenteFiscal)) {
         try {
           const [e, c] = await Promise.all([buscarEmitenteFiscal(supabase, lojaInfo.id), buscarConfigFiscalVenda(supabase, lojaInfo.id)]);
           if (e) { emitenteVenda = e; configVenda = configVendaParaSelo(c); } // pagamentos mapeados depois de abrir o caixa também valem
@@ -1146,12 +1148,21 @@ export default function CashierPdv({
       // A nota sai sempre que o PAGAMENTO foi gravado (os pedidos constam como pagos): falha só em estoque/histórico/caixa não pode impedir a NFC-e.
       // Pagamento recusado (sem retorno) ou não gravado: nada de nota (nenhum número é reservado).
       const vendaGravada = !!baixa && typeof baixa === "object" && (!baixa.erro || baixa.pagamentoGravado === true);
-      const emiteNota = vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteDe(emitenteVenda);
+      const emiteNota = !balcao && vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteDe(emitenteVenda);
       // Emissão ligada no sistema mas esta venda não gerou nota: diz o motivo (antes ficava só o recibo antigo, em silêncio).
-      const motivoSem = !emiteNota && vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && !!supabase ? motivoSemNota(emitenteVenda, { nfe: ehNfe }) : null;
+      const motivoSem = !balcao && !emiteNota && vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && !!supabase ? motivoSemNota(emitenteVenda, { nfe: ehNfe }) : null;
+      // Guarda o que foi cobrado (migration 208): a tela Venda Balcão emite a nota depois com estes valores, sem edição.
+      if (vendaGravada && EMISSAO_FISCAL_PDV_ATIVA && supabase && lojaInfo?.id != null) {
+        registrarVendaCaixa(supabase, {
+          lojaId: lojaInfo.id, codigo: codigoPagamento, tipo: balcao ? "balcao" : ehNfe ? "nfe" : "nfce", mesa: mesaFechada,
+          pedidos: pedidosSel, composicao: info.composicao, pagamento: { total: totalCobrar, troco: trocoSel, detalhes },
+        }).then((r) => { if (!r.ok && balcao) notify("error", `A venda foi paga, mas não ficou guardada para emitir a nota depois: ${r.erro}`); });
+      }
       setSucesso({
         ...info,
-        notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" } : motivoSem ? { estado: "desligada", titulo: "Nota fiscal não emitida", detalhe: motivoSem } : null,
+        notaFiscal: emiteNota ? { estado: "emitindo", titulo: "Emitindo nota fiscal…" }
+          : balcao && vendaGravada ? { estado: "balcao", titulo: "Venda Balcão: sem nota fiscal", detalhe: "Para emitir depois, abra Fiscal › Venda Balcão." }
+          : motivoSem ? { estado: "desligada", titulo: "Nota fiscal não emitida", detalhe: motivoSem } : null,
         subtotal: subtotalSel,
         taxa: taxaValorSel,
         acrescimo: acrescimoSel,
@@ -1714,6 +1725,7 @@ export default function CashierPdv({
 
   const temConta = !!contaSel;
   const emiteNotaTela = nfceNaLoja || nfeNaLoja;
+  const tipoNotaTela = emiteNotaTela ? tipoDaNota(notaCaixa, { nfceDisponivel: nfceNaLoja, nfeDisponivel: nfeNaLoja }) : null;
   const abrirAdmin = (rota) => window.open(rota, "_blank", "noopener");
   const funcoesPdv = catalogoFuncoes({
     e: {
@@ -1764,7 +1776,7 @@ export default function CashierPdv({
   return (
     <div
       data-theme="light"
-      className="pdv-tema tema-claro-area fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--pp-surface)]"
+      className="pdv-tema pdv-toque tema-claro-area fixed inset-0 z-50 flex flex-col overflow-hidden bg-[var(--pp-surface)]"
       style={{
         height: "100dvh",
         maxHeight: "100dvh",
@@ -2032,7 +2044,7 @@ export default function CashierPdv({
         estado={{
           temConta, passo, temItens: pedidosSel.some((o) => (o.items || []).length > 0), restante: restanteSel, podeFechar,
           total: totalCobrar > 0 ? totalCobrar : totalSel,
-          emiteNota: nfceNaLoja || (nfeNaLoja && !!notaCaixa.nfe), nfe: nfeNaLoja && !!notaCaixa.nfe,
+          emiteNota: tipoNotaTela === "nfce" || tipoNotaTela === "nfe", nfe: tipoNotaTela === "nfe", balcao: tipoNotaTela === "balcao",
         }}
         fechando={processando}
         onFuncoes={() => setPaletaAberta(true)}

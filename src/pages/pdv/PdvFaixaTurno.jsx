@@ -15,11 +15,13 @@ export default function PdvFaixaTurno({
         className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-[12px] text-[var(--pp-text-muted)]"
         style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
       >
-        <span>Turno <b className="text-[var(--pp-text)]">{hora}</b></span>
-        <span>Faturamento <b className="tabular-nums text-[var(--pp-text)]">{formatCurrency(faturamentoDia)}</b></span>
-        <span>Ticket médio <b className="tabular-nums text-[var(--pp-text)]">{formatCurrency(ticketMedio)}</b></span>
-        <span>Mesas livres <b className="tabular-nums text-[var(--pp-text)]">{mesasDisponiveis}</b></span>
-        {pagamentoPendente > 0 && <span>Aguardando pagamento <b className="tabular-nums text-[var(--pp-text)]">{pagamentoPendente}</b></span>}
+        <b className="text-[var(--pp-text)] lg:hidden" aria-hidden="true">Venda PDV</b>
+        {/* No celular os números do turno ficam só no "ver resumo do turno": sobra altura para a venda. */}
+        <span className="hidden sm:inline">Turno <b className="text-[var(--pp-text)]">{hora}</b></span>
+        <span className="hidden sm:inline">Faturamento <b className="tabular-nums text-[var(--pp-text)]">{formatCurrency(faturamentoDia)}</b></span>
+        <span className="hidden sm:inline">Ticket médio <b className="tabular-nums text-[var(--pp-text)]">{formatCurrency(ticketMedio)}</b></span>
+        <span className="hidden sm:inline">Mesas livres <b className="tabular-nums text-[var(--pp-text)]">{mesasDisponiveis}</b></span>
+        {pagamentoPendente > 0 && <span className="hidden sm:inline">Aguardando pagamento <b className="tabular-nums text-[var(--pp-text)]">{pagamentoPendente}</b></span>}
         {nfceAtiva && (
           <button
             type="button"

@@ -541,7 +541,7 @@ const OP_MODULOS = [
   { id: "pedidos", acesso: "op_pedidos", label: "Pedidos", ic: "🧾", desc: "Acompanhar pedidos em aberto, novos pedidos e status de atendimento." },
   { id: "cozinha", acesso: "op_cozinha", label: "Cozinha", ic: "👨‍🍳", desc: "Visualizar pedidos enviados para preparo na cozinha." },
   { id: "bar",     acesso: "op_bar",     label: "Bar",     ic: "🍹", desc: "Visualizar bebidas e itens direcionados ao bar." },
-  { id: "caixa",   acesso: "op_caixa",   label: "Caixa",   ic: "💳", desc: "Controlar pagamentos, fechamento de conta e baixas." },
+  { id: "caixa",   acesso: "op_caixa",   label: "Venda PDV", ic: "💳", desc: "Controlar pagamentos, fechamento de conta e baixas." },
 ];
 // Resolve as permissões operacionais do usuário (compatível com o legado:
 // admin/superAdmin = acesso total; sem op_* específico → deriva de kitchen/cashier).
@@ -7669,7 +7669,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     { grupo: "Fiscal", itens: [
       { id: "painel-fiscal", icon: <CheckCircle2 className="h-4 w-4" />, label: "Painel Fiscal" },
       { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
-      { id: "vendas-sem-nota", icon: <Receipt className="h-4 w-4" />, label: "Vendas sem nota" },
+      { id: "vendas-sem-nota", icon: <Receipt className="h-4 w-4" />, label: "Venda Balcão" },
       { id: "cancelamento-nfce", icon: <SearchX className="h-4 w-4" />, label: "Cancelar NFC-e" },
       { id: "cancelamento-nfe", icon: <SearchX className="h-4 w-4" />, label: "Cancelar NF-e" },
       { id: "xmls-fiscais", icon: <Download className="h-4 w-4" />, label: "XMLs fiscais" },
@@ -7876,7 +7876,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           ))}
           {ativo === "vendas-sem-nota" && (precisaEmpresa ? avisoEmpresa : (
             <main className="space-y-5">
-              <PageHeader icone={<Receipt className="h-4 w-4" />} titulo="Vendas sem nota" descricao={`Vendas já pagas da ${lojaInfo?.nome || "sua loja"} que ficaram sem nota fiscal: emita a NFC-e delas.`} />
+              <PageHeader icone={<Receipt className="h-4 w-4" />} titulo="Venda Balcão" descricao={`Vendas já pagas da ${lojaInfo?.nome || "sua loja"} sem nota fiscal: consulte o cupom e emita a NFC-e ou a NF-e.`} />
               <VendasSemNotaFiscal supabase={supabase} lojaInfo={lojaInfo} orders={orders} produtos={products} formasPagamento={filtraLoja(formasPagamento)} ctxFiscal={ctxFiscalAdmin} />
             </main>
           ))}
@@ -8670,7 +8670,7 @@ function OperacaoMobileView({ fiscalVendaPdv = null, orders = [], updateOrderSta
       }, i * 350);
     });
   }
-  const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Caixa";
+  const titulo = tab === "central" ? "Central Operacional" : tab === "pedidos" ? "Pedidos" : tab === "cozinha" ? "Cozinha" : tab === "bar" ? "Bar" : "Venda PDV";
 
   // Central Operacional — tela dedicada (src/pages/OperationalCentral.jsx),
   // substitui totalmente o antigo grid de cards + cabeçalho compartilhado

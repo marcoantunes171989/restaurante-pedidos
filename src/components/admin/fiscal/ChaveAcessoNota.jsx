@@ -29,7 +29,8 @@ export default function ChaveAcessoNota({ nota }) {
           {copiada === "ok" ? "Chave copiada" : copiada === "erro" ? "Não foi possível copiar" : "Copiar chave"}
         </button>
         {links?.direta && (
-          <a className={link} href={links.direta} target="_blank" rel="noopener noreferrer" data-testid="link-consulta-direta">Abrir na SEFAZ</a>
+          // NF-e: além de abrir a página já preenchida, deixa a chave copiada (se o portal limpar o campo, é só colar).
+          <a className={link} href={links.direta} target="_blank" rel="noopener noreferrer" data-testid="link-consulta-direta" onClick={links.confirmarHumano ? copiar : undefined}>Abrir na SEFAZ</a>
         )}
         {links && (
           <a className={link} href={links.portal} target="_blank" rel="noopener noreferrer" data-testid="link-consulta-portal">
@@ -37,6 +38,7 @@ export default function ChaveAcessoNota({ nota }) {
           </a>
         )}
         {links && <span className="text-[11px] text-[var(--pp-text-muted)]">{homolog ? "Ambiente de homologação: a consulta mostra nota de teste, sem valor fiscal." : "Ambiente de produção."}</span>}
+        {links?.confirmarHumano && <span className="w-full text-[11px] text-[var(--pp-text-muted)]" data-testid="dica-consulta-nfe">A página da SEFAZ abre com a chave preenchida: marque &quot;Sou humano&quot; e toque em Continuar.</span>}
       </div>
     </div>
   );

@@ -23,8 +23,13 @@ describe("consulta pública da NFC-e na SEFAZ", () => {
     expect(l.direta).toBe(`https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode?p=${CHAVE}|3|2`);
     expect(linksConsultaNfce({ chave: CHAVE, ambiente: "simulacao" }).ambiente).toBe("homologacao");
   });
-  it("NF-e (modelo 55) não usa o link da NFC-e: só o portal nacional", () => {
-    expect(linksConsultaNfce({ chave: CHAVE, ambiente: "producao", modelo: 55 }).direta).toBeNull();
+  it("NF-e (modelo 55): portal nacional com a chave já preenchida, no ambiente da nota", () => {
+    const p = linksConsultaNfce({ chave: CHAVE, ambiente: "producao", modelo: 55 });
+    expect(p.direta).toBe(`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g=&nfe=${CHAVE}`);
+    expect(p.confirmarHumano).toBe(true);
+    const h = linksConsultaNfce({ chave: CHAVE, ambiente: "homologacao", modelo: 55 });
+    expect(h.direta.startsWith("https://hom.nfe.fazenda.gov.br/portal/")).toBe(true);
+    expect(h.portal).not.toContain("nfe=");
   });
   it("outra UF: sem link direto, só o portal nacional", () => {
     const l = linksConsultaNfce({ chave: `41${CHAVE.slice(2)}`, ambiente: "producao" });

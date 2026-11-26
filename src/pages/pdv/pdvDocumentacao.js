@@ -488,6 +488,7 @@ export function secoesDocumentacao(ctx = {}) {
           itens: [
             "Com o total coberto, toque em Fechar conta (ou F5).",
             "A confirmação mostra subtotal, taxa (ou taxa removida), acréscimo, desconto, cupom, cada forma recebida, o troco e os pontos que o cliente vai ganhar.",
+            "Se a loja emite nota, escolha Venda Balcão (sem nota agora; emita depois em Fiscal › Venda Balcão), NFC-e ou NF-e.",
             "Confirme. O pagamento é gravado, o estoque é baixado e a mesa é liberada.",
             "Na tela de sucesso: comprovante completo de pagamento (ou retirada/entrega no delivery) e, no salão, também o cupom simplificado do cliente.",
           ],

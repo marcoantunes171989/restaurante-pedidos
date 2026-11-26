@@ -27,13 +27,16 @@ export default function PdvHeader({
       style={{ paddingLeft: "max(0.75rem, env(safe-area-inset-left))", paddingRight: "max(0.75rem, env(safe-area-inset-right))" }}
     >
       <div className="flex flex-wrap items-center gap-2 lg:gap-2.5">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        {/* Abaixo de lg os canais ocupam a linha inteira: antes os botões da direita os espremiam até sumirem no celular. */}
+        <div className="flex min-w-0 basis-full items-center gap-2 lg:flex-1 lg:basis-0">
           <LogoPP size={28} className="shrink-0" />
+          {/* Em telas estreitas o nome aparece na faixa do turno, para não espremer os canais. */}
+          <h1 className="sr-only shrink-0 whitespace-nowrap text-[13px] font-black text-[var(--pp-text)] lg:not-sr-only">Venda PDV</h1>
 
           <div
             role="tablist"
             aria-label="Canal do PDV"
-            className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] p-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex min-w-0 max-w-full flex-1 items-center gap-0.5 overflow-x-auto lg:flex-none rounded-lg border border-[var(--pp-border)] bg-[var(--pp-bg)] p-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {CANAIS_PDV.map(({ id, label, dica }) => {
               const on = canal === id;
@@ -45,7 +48,7 @@ export default function PdvHeader({
                   aria-selected={on}
                   title={dica}
                   onClick={() => onCanalChange?.(id)}
-                  className={`h-8 shrink-0 rounded-md px-2.5 text-[11px] font-black transition ${
+                  className={`h-10 flex-1 shrink-0 rounded-md px-1.5 text-[11px] font-black transition sm:px-2.5 lg:h-8 lg:flex-none ${
                     on ? "btn-laranja text-[#012E46] shadow-sm" : "text-[var(--op-nav-accent)] hover:bg-[var(--pp-surface)]"
                   }`}
                 >
@@ -86,7 +89,7 @@ export default function PdvHeader({
           </div>
         </form>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0">
           {typeof onFuncoes === "function" && (
             <button
               type="button"

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  Vendas PAGAS que ainda não têm nota fiscal (para emitir a NFC-e depois, pela tela "Vendas sem nota").
+//  Vendas PAGAS que ainda não têm nota fiscal (para emitir a nota depois, pela tela "Venda Balcão"; ver também vendaCaixa.js).
 //  Funções puras: recebem os pedidos da loja e as notas já reservadas/emitidas e devolvem o que falta.
 //  Regra de ouro: pedido que já consta em QUALQUER nota (autorizada, rejeitada, descartada…) não aparece aqui — a nota dele se resolve em
 //  Notas emitidas. E emitir de novo nunca duplica: a chave de idempotência da reserva vem dos pedidos.

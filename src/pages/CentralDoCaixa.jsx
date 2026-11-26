@@ -13,6 +13,7 @@ import {
   EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja,
 } from "../lib/fiscal/emissaoPdv";
 import { normalizarEntregaNfce } from "../lib/fiscal/entregaNfce";
+import { registrarVendaCaixa } from "../lib/fiscal/vendaCaixa";
 import { enderecoEmLinha } from "../lib/enderecoEntrega";
 import { useEnderecoDoPedido } from "../hooks/useEnderecoDoPedido";
 import PdvNotaFiscalCampos from "./pdv/PdvNotaFiscalCampos";
@@ -168,7 +169,7 @@ export default function CentralDoCaixa({
   async function confirmarPagamento() {
     if (!confirmacao) return;
     const { o, linhas, total } = confirmacao;
-    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfceDisponivel: nfceNaLoja, nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) { setErroConfirmacao(notaCx.erro); return; }
     if (pagandoIdsRef.current.has(o.id)) return; // trava contra clique duplo antes do re-render
     pagandoIdsRef.current.add(o.id);
@@ -182,8 +183,20 @@ export default function CentralDoCaixa({
       const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao }, { manterStatus: true, somenteId: o.id });
       // Só emite se o pagamento foi gravado (recusa — sem permissão, já pago — não devolve objeto). Falha só em estoque/histórico não impede a NFC-e.
       if (baixa && typeof baixa === "object" && (!baixa.erro || baixa.pagamentoGravado === true)) {
-        janelaEmUso = true;
-        emitirNotaDaConta(o, dadosNota, notaCx, janelaNota);
+        const balcao = notaCx.balcao === true;
+        const marca = `${o.id}-${Date.now()}`;
+        const rotulo = String(o.table || "Conta").split(" · ")[0];
+        if (balcao) setNotaAviso({ marca, rotulo, nota: { estado: "balcao", titulo: "Venda Balcão: sem nota fiscal", detalhe: "Para emitir depois, abra Fiscal › Venda Balcão." } });
+        // Guarda o que foi cobrado (migration 208): a tela Venda Balcão emite a nota depois com estes valores, sem edição.
+        if (EMISSAO_FISCAL_PDV_ATIVA && supabase && lojaInfo?.id != null) {
+          registrarVendaCaixa(supabase, {
+            lojaId: lojaInfo.id, codigo: `PAG-${Date.now().toString().slice(-8)}`, tipo: balcao ? "balcao" : notaCx.modelo === 55 ? "nfe" : "nfce", mesa: o.table || "",
+            pedidos: [o], composicao: dadosNota.composicao, pagamento: dadosNota.pagamento,
+          }).then((r) => {
+            if (!r.ok && balcao) setNotaAviso({ marca, rotulo, nota: { estado: "erro", titulo: "Venda paga, mas não guardada para emitir depois", detalhe: r.erro } });
+          });
+        }
+        if (!balcao) { janelaEmUso = true; emitirNotaDaConta(o, dadosNota, notaCx, janelaNota); }
         setContaCheckout((cur) => (cur && cur.id === o.id ? null : cur));
       }
     } catch { /* feedback já tratado no backend */ }
@@ -222,9 +235,9 @@ export default function CentralDoCaixa({
   }
 
   return (
-    <div className="min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="mx-auto max-w-[1600px] px-4 pb-6 pt-6 md:px-6 md:pt-10 lg:px-10">
-        <OrdersHeader titulo="Caixa" usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} />
+    <div className="pdv-toque min-h-[100dvh] w-full pb-28" style={{ background: "var(--pp-bg)", paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="mx-auto max-w-[1600px] px-3 pb-6 pt-4 sm:px-4 sm:pt-6 md:px-6 md:pt-10 lg:px-10">
+        <OrdersHeader titulo="Venda PDV" usuarioNome={usuarioNome} lojaInfo={lojaInfo} onFechar={onFechar} nivelAcesso={nivelAcesso} />
 
         <div className="mt-6">
           <CashierSummary aguardando={counts.aguardando} abertas={contas.length} totalReceber={formatCurrency(totalReceber)} faturadoHoje={formatCurrency(faturadoHoje)} />
@@ -281,7 +294,7 @@ export default function CentralDoCaixa({
               ))}
               <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5 text-base"><span className="font-bold">Total</span><strong>{formatCurrency(confirmacao.total)}</strong></div>
             </div>
-            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} entregaConfig={configFiscalVenda?.entregaNfce}pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: confirmacao.o.customer } : null} />}
+            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfceDisponivel={nfceNaLoja} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} entregaConfig={configFiscalVenda?.entregaNfce}pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: confirmacao.o.customer } : null} />}
             {enderecoDoPedido && !(entregaNaLoja) && <p className="mt-3 text-xs text-[var(--pp-text-body)]">Entregar em: <b>{enderecoEmLinha(enderecoDoPedido)}</b></p>}
             {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[#B42318]/30 bg-[#FDECEA] px-3 py-2 text-xs font-semibold text-[#B42318]">{erroConfirmacao}</p>}
             <div className="mt-5 grid grid-cols-2 gap-2">

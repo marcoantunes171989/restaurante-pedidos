@@ -7,6 +7,12 @@ const SP = {
   homologacao: { qrcode: "https://www.homologacao.nfce.fazenda.sp.gov.br/qrcode", portal: "https://www.homologacao.nfce.fazenda.sp.gov.br/consulta" },
 };
 const PORTAL_NACIONAL = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g=";
+// NF-e (55): consulta no Portal Nacional. O parâmetro "nfe" abre a página oficial já com a chave preenchida (conferido nos dois
+// ambientes em 26/11/2026); a pessoa só confirma que é humana e continua. A homologação tem portal próprio.
+const PORTAL_NFE = {
+  producao: PORTAL_NACIONAL,
+  homologacao: "https://hom.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g=",
+};
 
 export const chaveValida = (chave) => /^[0-9]{44}$/.test(String(chave ?? "").replace(/\s/g, ""));
 export const soDigitos = (chave) => String(chave ?? "").replace(/\D/g, "");
@@ -22,6 +28,7 @@ export function linksConsultaNfce({ chave, ambiente, modelo = 65 } = {}) {
   const c = soDigitos(chave);
   if (!chaveValida(c)) return null;
   const amb = ambiente === "producao" ? "producao" : "homologacao";
+  if (Number(modelo) === 55) return { uf: null, ambiente: amb, direta: `${PORTAL_NFE[amb]}&nfe=${c}`, portal: PORTAL_NFE[amb], confirmarHumano: true };
   if (Number(modelo) === 65 && c.slice(0, 2) === "35") {
     return { uf: "SP", ambiente: amb, direta: `${SP[amb].qrcode}?p=${c}|3|${amb === "producao" ? 1 : 2}`, portal: SP[amb].portal };
   }
