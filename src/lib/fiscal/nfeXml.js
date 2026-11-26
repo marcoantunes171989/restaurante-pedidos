@@ -216,7 +216,8 @@ export const XNOME_DEST_HOMOLOGACAO = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO -
  * @param {object} d.emit    { CNPJ|CPF, xNome, xFant?, IE, CRT, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @param {object} [d.dest]  { CPF|CNPJ, xNome?, ender?{xLgr,nro,xCpl,xBairro,cMun,xMun,UF,CEP,fone}, indIEDest?, IE? }
  * @param {object[]} d.itens [{ cProd, cEAN?, xProd, NCM, CEST?, CFOP, uCom, qCom, vUnCom, vProd, vDesc?, vOutro?, icms, pis, cofins, ibscbs? }]
- * @param {object} [d.transp]  { modFrete?, transporta?:{ CNPJ|CPF, xNome, UF } } — sem ele, modFrete 9
+ * @param {object} [d.transp]  { modFrete?, transporta?:{ CNPJ|CPF, xNome, IE?, xEnder?, xMun?, UF? } } — sem ele, modFrete 9
+ * @param {object} [d.intermediador]  { CNPJ, idCadIntTran } — junto com ide.indIntermed = "1"
  * @param {object} d.pag     { detPag:[{ tPag, vPag, indPag?, xPag?, card?:{ tpIntegra, CNPJ?, tBand?, cAut? } }], vTroco? }
  * @param {object} [d.infAdic]  { infCpl? }
  * @param {object} [d.respTec]  { CNPJ, xContato, email, fone }
@@ -371,10 +372,15 @@ export function montarXmlNFe(d = {}) {
   exigir(/^[012349]$/.test(modFrete), "Modalidade do frete inválida.");
   if (mod === 65 && !entregaDomicilio) exigir(modFrete === "9" && !tr, "NFC-e sem entrega a domicílio não informa frete nem transportador.");
   if (entregaDomicilio) exigir(d.dest?.ender, "NFC-e de entrega a domicílio exige o cliente identificado com endereço.");
-  const transporta = tr ? g("transporta", (tr.CNPJ ? t("CNPJ", tr.CNPJ) : t("CPF", tr.CPF)) + t("xNome", tr.xNome, { texto: true, max: 60 }) + t("UF", tr.UF)) : "";
+  const transporta = tr ? g("transporta", (tr.CNPJ ? t("CNPJ", tr.CNPJ) : t("CPF", tr.CPF)) + t("xNome", tr.xNome, { texto: true, max: 60 }) + t("IE", tr.IE) +
+    t("xEnder", tr.xEnder, { texto: true, max: 60 }) + t("xMun", tr.xMun, { texto: true, max: 60 }) + t("UF", tr.UF)) : "";
   const transpXml = g("transp", t("modFrete", modFrete) + transporta);
+  // Intermediador (marketplace): o indicador e o grupo andam juntos.
+  const im = d.intermediador;
+  exigir((String(ide.indIntermed ?? "0") === "1") === !!im, "Venda por intermediador exige o indicador 1 e o CNPJ do intermediador (os dois juntos).");
+  const intermedXml = im ? g("infIntermed", t("CNPJ", im.CNPJ) + t("idCadIntTran", im.idCadIntTran, { texto: true, max: 60 })) : "";
 
-  const infNFe = ideXml + emitXml + destXml + detXml + totalXml + transpXml + pagCompleto + infAdic + respTec;
+  const infNFe = ideXml + emitXml + destXml + detXml + totalXml + transpXml + pagCompleto + intermedXml + infAdic + respTec;
   // Atributos em ordem canônica (C14N ordena por nome: Id antes de versao).
   const xml = `<NFe xmlns="${LEIAUTE.namespace}"><infNFe Id="NFe${chave}" versao="${LEIAUTE.versao}">${infNFe}</infNFe></NFe>`;
   return { xml, chave, totais: { vProd: tot.vProd, vDesc: tot.vDesc, vOutro: tot.vOutro, vNF, vPag: vPagTot, vTroco: troco }, avisos };

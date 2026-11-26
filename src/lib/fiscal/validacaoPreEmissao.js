@@ -12,7 +12,7 @@ import {
 } from "../emitenteFiscalService.js";
 import { descricaoProdutoFiscal } from "./nfeXml.js";
 import { aplicaIbsCbsSn, pendenciasIbsCbsSn } from "./ibsCbsSimples.js";
-import { normalizarEntregaNfce } from "./entregaNfce.js";
+import { normalizarEntregaNfce, transporteDaEntrega, intermediadorDaEntrega } from "./entregaNfce.js";
 
 const ONDE_EMPRESA = "Fiscal › Dados da Empresa";
 const ONDE_PRODUTO = "Fiscal › Tributação › Produtos";
@@ -213,13 +213,18 @@ export function problemaEntregaForaDaUf(ufCliente, ufEmitente) {
  * Tudo junto. Devolve { ok, problemas, texto }: `texto` é a mensagem pronta para a tela.
  * Sem `documento` (o caixa não tem o CNPJ da loja; o servidor confere de novo com ele) a conferência do CNPJ é pulada.
  */
-export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false, ibsCbsSn = null, entrega = false, entregaNfce = null } = {}) {
+export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false, ibsCbsSn = null, entrega = false, entregaNfce = null, entregaOpcoes = null } = {}) {
   const emEntrega = entrega === true && Number(modelo) === 65;
   const problemasEntrega = [];
   if (emEntrega) {
     if (!normalizarEntregaNfce(entregaNfce).ativo) problemasEntrega.push({ codigo: "ENTREGA_DESLIGADA", msg: "A NFC-e de entrega a domicílio não está ligada para esta loja.", onde: "Fiscal › Emissão › Entrega a domicílio" });
     const fora = problemaEntregaForaDaUf(destinatario?.ender?.UF, emitente?.uf);
     if (fora) problemasEntrega.push({ codigo: "ENTREGA_FORA_UF", msg: fora, onde: "Caixa" });
+    // Transportador terceiro e marketplace escolhidos na venda precisam estar completos no cadastro da loja.
+    const transporte = transporteDaEntrega(entregaNfce, { documento: "", emitente: emitente || {}, quem: entregaOpcoes?.quem });
+    if (transporte.erro) problemasEntrega.push({ codigo: "ENTREGA_TRANSPORTADOR", msg: transporte.erro, onde: "Fiscal › Emissão › Entrega a domicílio" });
+    const intermed = intermediadorDaEntrega(entregaNfce, entregaOpcoes?.intermediador);
+    if (intermed?.erro) problemasEntrega.push({ codigo: "ENTREGA_MARKETPLACE", msg: intermed.erro, onde: "Fiscal › Emissão › Entrega a domicílio" });
   }
   // IBS/CBS do Simples ligado e incompleto: barra antes de reservar número.
   const faltaSn = aplicaIbsCbsSn({ config: ibsCbsSn, crt: emitente?.crt, ambiente, data: agora }) ? pendenciasIbsCbsSn(ibsCbsSn) : [];

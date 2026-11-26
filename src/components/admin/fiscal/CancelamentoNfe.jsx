@@ -40,7 +40,7 @@ const REGRAS_NFE = Object.freeze({
   exemploMotivo: "Ex.: Venda desfeita antes da saída da mercadoria do estabelecimento",
   condicao: <>Confirmo que a <b>mercadoria não circulou</b> (não saiu do estabelecimento). A lei só permite cancelar nessa condição.</>,
   avisoExtemporaneo: "Fora do prazo regular de 24 horas",
-  condicaoExtemporaneo: <>Estou ciente de que é um <b>cancelamento fora do prazo</b>: pode haver penalidade (confirme com o contador) e a SEFAZ pode recusar nota com manifestação do destinatário ou documento de transporte.</>,
+  condicaoExtemporaneo: <>Estou ciente de que é um <b>cancelamento fora do prazo</b>: o RICMS/SP (art. 527, IV, z1) prevê multa de 1% do valor da operação, no mínimo 6 UFESPs por documento (R$ 230,52 em 2026); a SEFAZ-SP já respondeu que o pedido feito pelo sistema em até 480 horas, antes de qualquer fiscalização, é denúncia espontânea (RC 30111/2024). Confirme com o contador. A SEFAZ pode recusar nota com manifestação do destinatário ou documento de transporte.</>,
   regra: (uf) => {
     const extra = prazoExtemporaneoNfeHoras(uf);
     return <>Prazo regular: <b>{PRAZO_CANCELAMENTO_NFE_HORAS} horas</b> contadas da autorização. {FUNDAMENTO_CANCELAMENTO_NFE}{extra ? <> Em {uf}, o pedido ainda é aceito até <b>{extra} horas</b> ({extra / 24} dias), como cancelamento fora do prazo.</> : null}</>;

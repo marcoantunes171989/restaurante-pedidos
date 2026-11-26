@@ -2,7 +2,7 @@
 // NFC-e de entrega a domicílio: caixa → rascunho → dados no servidor → XML (XSD oficial) → cupom.
 import { describe, it, expect, vi } from "vitest";
 import { webcrypto } from "node:crypto";
-import { normalizarEntregaNfce, transporteDaEntrega } from "../../src/lib/fiscal/entregaNfce.js";
+import { normalizarEntregaNfce, transporteDaEntrega, intermediadorDaEntrega, pendenciasDaEntrega } from "../../src/lib/fiscal/entregaNfce.js";
 import { dadosDaNotaNoCaixa, emitirNotaDaVenda, NOTA_VAZIA } from "../../src/lib/fiscal/emissaoPdv.js";
 import { montarVendaFiscal } from "../../src/lib/fiscal/vendaFiscal.js";
 import { montarXmlNFe } from "../../src/lib/fiscal/nfeXml.js";
@@ -26,6 +26,9 @@ const VENDA = montarVendaFiscal({
   ctxFiscal: { lojaFiscalRegras: [REGRA] }, formas: FORMAS, mapaMeios: { dinheiro: "01" }, pagamento: PAGAMENTO,
 });
 const LIGADA = { ativo: true, modFrete: "3", informarTransportador: true };
+// Dados fictícios: CPF/CNPJ de teste com dígitos válidos.
+const COM_TERCEIRO = { ...LIGADA, terceiro: { documento: "529.982.247-25", nome: "Entregador Teste", uf: "sp", municipio: "São Paulo" },
+  marketplaces: [{ nome: "Plataforma Teste", cnpj: "11.222.333/0001-81", idCadIntTran: "loja-123" }] };
 const CAIXA = { ...NOTA_VAZIA, entrega: true, documento: "123.456.789-09", nome: "Cliente Teste", CEP: "01310-100",
   xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", xMun: "São Paulo", UF: "SP", cMun: "3550308" };
 const NO_CAIXA = dadosDaNotaNoCaixa(CAIXA, { entregaDisponivel: true, ufEmitente: "SP" });
@@ -41,15 +44,28 @@ const deps = (extra = {}) => ({
 const AGORA = new Date("2026-11-26T15:00:00Z");
 
 describe("parâmetros da entrega", () => {
-  it("padrão: desligado, entrega própria com a loja como transportadora", () => {
-    expect(normalizarEntregaNfce(null)).toEqual({ ativo: false, modFrete: "3", informarTransportador: true, pedirNoCardapio: false });
-    expect(normalizarEntregaNfce({ modFrete: "7" }).modFrete).toBe("3");
+  it("padrão: desligado, entrega pela própria loja, sem terceiro nem marketplace", () => {
+    expect(normalizarEntregaNfce(null)).toEqual({ ativo: false, modFrete: "3", informarTransportador: true, pedirNoCardapio: false,
+      terceiro: { documento: "", nome: "", ie: "", endereco: "", municipio: "", uf: "" }, marketplaces: [] });
+    for (const antigo of ["7", "9"]) expect(normalizarEntregaNfce({ modFrete: antigo }).modFrete).toBe("3");
+    // O transportador é sempre informado (a SEFAZ exige na entrega).
+    expect(normalizarEntregaNfce({ informarTransportador: false }).informarTransportador).toBe(true);
   });
-  it("a loja só vai como transportadora na entrega própria", () => {
+  it("própria loja ou terceiro: a escolha da venda vale sobre o padrão da loja", () => {
     const quem = { documento: "12345678000195", emitente: EMIT };
-    expect(transporteDaEntrega(LIGADA, quem)).toEqual({ modFrete: "3", transporta: { CNPJ: "12345678000195", xNome: EMIT.razaoSocial, UF: "SP" } });
-    expect(transporteDaEntrega({ ...LIGADA, modFrete: "0" }, quem)).toEqual({ modFrete: "0" });
-    expect(transporteDaEntrega({ ...LIGADA, informarTransportador: false }, quem)).toEqual({ modFrete: "3" });
+    const propria = { modFrete: "3", transporta: { CNPJ: "12345678000195", xNome: EMIT.razaoSocial, UF: "SP" } };
+    expect(transporteDaEntrega(LIGADA, quem)).toEqual(propria);
+    expect(transporteDaEntrega(COM_TERCEIRO, { ...quem, quem: "terceiro" })).toEqual({ modFrete: "0", transporta: { CPF: "52998224725", xNome: "Entregador Teste", UF: "SP", xMun: "São Paulo" } });
+    expect(transporteDaEntrega({ ...COM_TERCEIRO, modFrete: "0" }, quem).modFrete).toBe("0");
+    expect(transporteDaEntrega({ ...COM_TERCEIRO, modFrete: "0" }, { ...quem, quem: "propria" })).toEqual(propria);
+    expect(transporteDaEntrega(LIGADA, { ...quem, quem: "terceiro" }).erro).toMatch(/Transportador terceiro incompleto/);
+  });
+  it("marketplace: só o cadastrado na loja; sem escolha é venda direta", () => {
+    expect(intermediadorDaEntrega(COM_TERCEIRO, "")).toBeNull();
+    expect(intermediadorDaEntrega(COM_TERCEIRO, "11.222.333/0001-81")).toEqual({ CNPJ: "11222333000181", idCadIntTran: "loja-123" });
+    expect(intermediadorDaEntrega(COM_TERCEIRO, "12345678000195").erro).toMatch(/não está cadastrado/);
+    expect(pendenciasDaEntrega(COM_TERCEIRO)).toEqual([]);
+    expect(pendenciasDaEntrega({ ativo: true, modFrete: "0", marketplaces: [{ nome: "iFood", cnpj: "123", idCadIntTran: "x" }] })).toHaveLength(2);
   });
 });
 
@@ -89,6 +105,24 @@ describe("servidor, XML e cupom", () => {
     const danfe = dadosDanfeNfce({ xml, fonte: "contingencia" });
     expect(danfe.entrega).toBe(true);
     expect(htmlDanfeNfce(danfe)).toContain("ENTREGA A DOMICÍLIO: Av Paulista, 1000");
+  });
+  it("terceiro e marketplace: XML com o transportador terceiro, indIntermed 1 e infIntermed depois do pagamento", async () => {
+    const opcoes = { quem: "terceiro", intermediador: "11.222.333/0001-81" };
+    const caixa = dadosDaNotaNoCaixa({ ...CAIXA, quemEntrega: opcoes.quem, intermediador: opcoes.intermediador }, { entregaDisponivel: true, ufEmitente: "SP" });
+    expect(caixa.entregaOpcoes).toEqual(opcoes);
+    const r = await dadosDaNota({ ...DOC, rascunho: { ...DOC.rascunho, entregaOpcoes: opcoes } }, deps({ entregaNfce: vi.fn().mockResolvedValue(COM_TERCEIRO) }), AGORA);
+    expect(r.code).toBeUndefined();
+    const { xml } = montarXmlNFe(r.dados);
+    expect(xml).toContain("<indPres>4</indPres><indIntermed>1</indIntermed>");
+    expect(xml).toContain("<transp><modFrete>0</modFrete><transporta><CPF>52998224725</CPF><xNome>Entregador Teste</xNome><xMun>São Paulo</xMun><UF>SP</UF></transporta></transp>");
+    expect(xml).toMatch(/<\/pag><infIntermed><CNPJ>11222333000181<\/CNPJ><idCadIntTran>loja-123<\/idCadIntTran><\/infIntermed>/);
+    expect(() => montarXmlNFe({ ...r.dados, intermediador: undefined })).toThrow(/intermediador/);
+  });
+  it("marketplace que não está no cadastro da loja: o servidor não monta a nota", async () => {
+    const d = deps();
+    const r = await dadosDaNota({ ...DOC, rascunho: { ...DOC.rascunho, entregaOpcoes: { intermediador: "11222333000181" } } }, d, AGORA);
+    expect(r.detalhe).toMatch(/não está cadastrado/);
+    expect(d.salvarDados).not.toHaveBeenCalled();
   });
   it("loja que não ligou a entrega: o servidor não monta a nota", async () => {
     const d = deps({ entregaNfce: vi.fn().mockResolvedValue(null) });

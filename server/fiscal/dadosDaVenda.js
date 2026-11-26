@@ -76,6 +76,7 @@ export async function dadosDaNota(doc, deps, agora = new Date(), { permissivo = 
     destinatario: doc.rascunho?.dest || null,
     entrega,
     entregaNfce: entrega && deps.entregaNfce ? await deps.entregaNfce(doc.loja_id) : null,
+    entregaOpcoes: entrega ? doc.rascunho?.entregaOpcoes || null : null,
     // Tributos aproximados (Lei 12.741) pela tabela IBPT da UF da loja, se existir.
     ibpt: await (deps.tabelaIbpt || tabelaIbpt)(emitente.dados?.uf),
     // IBS/CBS do Simples: parâmetros da loja lidos do banco (migration 205); sem a função no banco, fica desligado.

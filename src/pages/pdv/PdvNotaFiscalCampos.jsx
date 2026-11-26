@@ -2,11 +2,14 @@
 import { useState } from "react";
 import { buscarEnderecoPorCep } from "../../lib/fiscal/cep";
 import { completarComEnderecoDoPedido, enderecoEmLinha } from "../../lib/enderecoEntrega";
+import { normalizarEntregaNfce, problemaMarketplace, temTerceiro } from "../../lib/fiscal/entregaNfce";
 
 const campo = "min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-sm text-[var(--pp-text)] focus:border-[#012E46] focus:outline-none";
 const rotulo = "text-[11px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]";
 
-export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = false, entregaDisponivel = false, pedidoDeEntrega = false, pedidoComEndereco = null }) {
+export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = false, entregaDisponivel = false, pedidoDeEntrega = false, pedidoComEndereco = null, entregaConfig = null }) {
+  const cfgEntrega = normalizarEntregaNfce(entregaConfig);
+  const marketplaces = cfgEntrega.marketplaces.filter((m) => !problemaMarketplace(m));
   const [cepEstado, setCepEstado] = useState({ buscando: false, erro: "" });
   const muda = (k) => (e) => onChange({ ...valor, [k]: e.target.value });
   const docDigitos = String(valor.documento || "").replace(/[^0-9A-Za-z]/g, "");
@@ -47,6 +50,26 @@ export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = f
         <p className="text-xs text-[var(--pp-text-body)]">Endereço informado no pedido: <b>{enderecoEmLinha(pedidoComEndereco.endereco)}</b>. Ao marcar, os campos já vêm preenchidos.</p>
       )}
       {entrega && <p className="text-xs text-[var(--pp-text-muted)]">Avise o cliente: o CPF/CNPJ e o endereço são pedidos para a nota fiscal da entrega.</p>}
+      {entrega && (temTerceiro(cfgEntrega) || marketplaces.length > 0) && (
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {temTerceiro(cfgEntrega) && (
+            <label className="block"><span className={rotulo}>Quem entrega</span>
+              <select className={campo} value={valor.quemEntrega || (cfgEntrega.modFrete === "0" ? "terceiro" : "propria")} onChange={muda("quemEntrega")}>
+                <option value="propria">A própria loja</option>
+                <option value="terceiro">{cfgEntrega.terceiro.nome}</option>
+              </select>
+            </label>
+          )}
+          {marketplaces.length > 0 && (
+            <label className="block"><span className={rotulo}>Origem da venda</span>
+              <select className={campo} value={valor.intermediador || ""} onChange={muda("intermediador")}>
+                <option value="">Venda direta da loja</option>
+                {marketplaces.map((m) => <option key={m.cnpj} value={m.cnpj}>{m.nome}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
+      )}
       {(valor.nfe || entrega) && (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <label className="col-span-2 block"><span className={rotulo}>{valor.nfe ? "Razão social" : "Nome do cliente"}</span><input className={campo} value={valor.nome} onChange={muda("nome")} /></label>

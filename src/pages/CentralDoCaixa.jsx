@@ -130,7 +130,7 @@ export default function CentralDoCaixa({
     setNotaAviso({ marca, rotulo, nota: { estado: "emitindo", titulo: "Emitindo nota fiscal…" } });
     emitirNotaDaVenda({
       supabase, emitente: emitenteFiscal, ...dadosNota, produtos, formas: formasPagamento,
-      config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario, entrega: notaCx.entrega,
+      config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario, entrega: notaCx.entrega, entregaOpcoes: notaCx.entregaOpcoes,
     })
       .then((n) => {
         if (n?.estado === "fora") setNotaAviso((cur) => (cur && cur.marca === marca ? null : cur)); else atualizar(n);
@@ -281,7 +281,7 @@ export default function CentralDoCaixa({
               ))}
               <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5 text-base"><span className="font-bold">Total</span><strong>{formatCurrency(confirmacao.total)}</strong></div>
             </div>
-            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: confirmacao.o.customer } : null} />}
+            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} entregaConfig={configFiscalVenda?.entregaNfce}pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: confirmacao.o.customer } : null} />}
             {enderecoDoPedido && !(entregaNaLoja) && <p className="mt-3 text-xs text-[var(--pp-text-body)]">Entregar em: <b>{enderecoEmLinha(enderecoDoPedido)}</b></p>}
             {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[#B42318]/30 bg-[#FDECEA] px-3 py-2 text-xs font-semibold text-[#B42318]">{erroConfirmacao}</p>}
             <div className="mt-5 grid grid-cols-2 gap-2">

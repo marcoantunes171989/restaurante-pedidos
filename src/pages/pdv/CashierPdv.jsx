@@ -1037,7 +1037,7 @@ export default function CashierPdv({
       }
       const n = await comPrazo(emitirNotaDaVenda({
         supabase, emitente, pedidos: v.pedidos, produtos: products, composicao: v.composicao, pagamento: v.pagamento, formas: formasPagamento,
-        config: configFiscalVenda, ctxFiscal, modelo: v.modelo, cpf: v.cpf, destinatario: v.destinatario, entrega: v.entrega,
+        config: configFiscalVenda, ctxFiscal, modelo: v.modelo, cpf: v.cpf, destinatario: v.destinatario, entrega: v.entrega, entregaOpcoes: v.entregaOpcoes,
       }), 90000, () => ({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A emissão demorou demais. Tente de novo." }));
       if (n.documentoId || ["autorizada", "contingencia"].includes(n.estado)) {
         removerVendaPendente(lojaInfo?.id, v.codigo);
@@ -1174,14 +1174,14 @@ export default function CashierPdv({
         const lojaIdFila = lojaInfo?.id ?? null;
         guardarVendaPendente(lojaIdFila, {
           codigo: codigoPagamento, total: totalCobrar, mesa: mesaFechada, pedidos: pedidosSel, composicao: info.composicao,
-          pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, cpf: notaCx.cpf, modelo: notaCx.modelo, destinatario: notaCx.destinatario, entrega: notaCx.entrega,
+          pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, cpf: notaCx.cpf, modelo: notaCx.modelo, destinatario: notaCx.destinatario, entrega: notaCx.entrega, entregaOpcoes: notaCx.entregaOpcoes,
         });
         setVendasSemNotaVersao((v) => v + 1);
         // A emissão nunca fica eternamente em "Emitindo…": passou do prazo, a venda segue na fila para emitir de novo (sem duplicar).
         comPrazo(emitirNotaDaVenda({
           supabase, emitente: emitenteVenda, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
           pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
-          config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario, entrega: notaCx.entrega,
+          config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario, entrega: notaCx.entrega, entregaOpcoes: notaCx.entregaOpcoes,
         }), 90000, () => ({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A emissão demorou demais. A venda ficou em \"Venda sem nota fiscal\": use Emitir agora (não duplica a nota)." })).then((n) => {
           // A nota existe (ou o documento está reservado em Notas emitidas): sai da fila. Senão, a venda fica com o motivo.
           if (n.documentoId || ["autorizada", "contingencia", "fora"].includes(n.estado)) removerVendaPendente(lojaIdFila, codigoPagamento);
@@ -2002,6 +2002,7 @@ export default function CashierPdv({
           {passo === 2 && (
             <PdvPassoFechar
               pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: contaSel?.cliente } : null}
+              entregaConfig={configFiscalVenda?.entregaNfce}
               conta={contaSel}
               subtotal={subtotalSel}
               taxaPct={taxaPct}

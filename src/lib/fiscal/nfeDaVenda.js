@@ -11,7 +11,7 @@
 import { tributosAproximados } from "./ibpt.js";
 import { validarAntesDeEmitir, problemaNfeForaDaUf } from "./validacaoPreEmissao.js";
 import { aplicaIbsCbsSn, pendenciasIbsCbsSn, itemComIbsCbsSn, INICIO_PADRAO } from "./ibsCbsSimples.js";
-import { transporteDaEntrega } from "./entregaNfce.js";
+import { transporteDaEntrega, intermediadorDaEntrega } from "./entregaNfce.js";
 import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual, normalizarInscricaoEstadual } from "../emitenteFiscalService.js";
 
 // Cadastros antigos podem ter máscara (CEP 01001-000, IBGE, telefone): o leiaute só aceita números.
@@ -142,9 +142,10 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @param {boolean} [p.entrega]       NFC-e de entrega a domicílio (usa `destinatario`)
  * @param {object} [p.entregaNfce]    parâmetros de entrega da loja (entregaNfce.js)
+ * @param {object} [p.entregaOpcoes]  da venda: { quem: "propria"|"terceiro"|"", intermediador: CNPJ do marketplace ou "" }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false, ibsCbsSn = null, entrega = false, entregaNfce = null } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false, ibsCbsSn = null, entrega = false, entregaNfce = null, entregaOpcoes = null } = {}) {
   const emEntrega = entrega === true && Number(modelo) === 65;
   // `permissivo`: SÓ para a Manutenção fiscal. Monta os dados mesmo com pendência de cadastro (CSOSN vazio etc.) para a pessoa corrigir
   // no editor; a conferência completa (XML + XSD) continua obrigatória ao gravar e ao transmitir.
@@ -163,7 +164,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   // Conferência completa ANTES de montar: tudo que a SEFAZ rejeitaria por dado nosso (CNPJ, IE, IBGE, NCM, CFOP, CST, destinatário…).
-  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual, ibsCbsSn, entrega: emEntrega, entregaNfce, agora: dhEmi ? new Date(dhEmi) : agora });
+  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual, ibsCbsSn, entrega: emEntrega, entregaNfce, entregaOpcoes, agora: dhEmi ? new Date(dhEmi) : agora });
   if (!pre.ok) return falha(`Dados fiscais com problema: ${pre.texto}`);
   const simples = crt !== "3";
   const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
@@ -314,6 +315,11 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     // (maquininha separada); bandeira, CNPJ da credenciadora e autorização são opcionais e o caixa ainda não os informa.
     ...(["03", "04", "17"].includes(String(p.meio)) ? { card: { tpIntegra: "2" } } : {}),
   }));
+  // Entrega: quem leva (própria loja ou terceiro) e, se a venda veio de marketplace, o intermediador. Só o que a loja cadastrou.
+  const transp = emEntrega ? transporteDaEntrega(entregaNfce, { documento: normalizarDocumentoFiscal(documento), emitente: e, quem: entregaOpcoes?.quem }) : null;
+  if (transp?.erro) return falha(transp.erro);
+  const intermed = emEntrega ? intermediadorDaEntrega(entregaNfce, entregaOpcoes?.intermediador) : null;
+  if (intermed?.erro) return falha(intermed.erro);
   const dh = dhEmi || new Date().toISOString();
   const d = new Date(dh);
   const aamm = String(d.getUTCFullYear()).slice(-2) + String(d.getUTCMonth() + 1).padStart(2, "0");
@@ -355,16 +361,17 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const dados = {
     chave,
     ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], idDest: interestadual ? "2" : "1", cMunFG: apenasDigitos(e.codigoMunicipioIbge), cDV: chave.slice(-1),
-      // Entrega a domicílio: venda não presencial (4), sem intermediador (marketplace não suportado).
-      ...(emEntrega ? { indPres: "4", indIntermed: "0" } : { indPres: "1" }), indFinal: "1" },
+      // Entrega a domicílio: venda não presencial (4); indIntermed 1 quando veio de marketplace.
+      ...(emEntrega ? { indPres: "4", indIntermed: intermed ? "1" : "0" } : { indPres: "1" }), indFinal: "1" },
     emit: {
       CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: normalizarInscricaoEstadual(e.inscricaoEstadual), CRT: crt,
       ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: apenasDigitos(e.codigoMunicipioIbge), xMun: e.municipio, UF: e.uf, CEP: apenasDigitos(e.cep), fone: apenasDigitos(e.telefoneFiscal) },
     },
     dest: dest.dest,
     itens,
-    ...(emEntrega ? { transp: transporteDaEntrega(entregaNfce, { documento: normalizarDocumentoFiscal(documento), emitente: e }) } : {}),
+    ...(transp ? { transp } : {}),
     pag: { detPag, vTroco: venda.totais.vTroco },
+    ...(intermed ? { intermediador: intermed } : {}),
     infAdic: infCplFinal ? { infCpl: infCplFinal } : undefined,
     respTec: respTec || undefined,
   };

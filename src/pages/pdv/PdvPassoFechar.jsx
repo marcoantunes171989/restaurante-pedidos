@@ -9,7 +9,7 @@ import PdvNotaFiscalCampos from "./PdvNotaFiscalCampos";
 export default function PdvPassoFechar({
   conta, subtotal = 0, taxaPct = 0, taxaRemovida = false, taxaValor = 0, acrescimo = 0, descontoManual = 0, descontoCupom = 0, cupomCodigo = "",
   total = 0, pagamentos = [], recebido = 0, troco = 0, pontosGanhar = 0,
-  mostraNota = false, notaCaixa, onNotaChange, nfeDisponivel = false, entregaDisponivel = false, emiteNota = false, pedidoComEndereco = null,
+  mostraNota = false, notaCaixa, onNotaChange, nfeDisponivel = false, entregaDisponivel = false, emiteNota = false, pedidoComEndereco = null, entregaConfig = null,
 }) {
   const nfeEscolhida = nfeDisponivel && !!notaCaixa?.nfe;
   return (
@@ -31,7 +31,7 @@ export default function PdvPassoFechar({
         {troco > 0 && <div className="flex justify-between text-[var(--pp-primary-text)]"><span>Troco</span><strong>{formatCurrency(troco)}</strong></div>}
         {pontosGanhar > 0 && <div className="flex justify-between text-[#1F7A3D]"><span>Pontos ao cliente</span><strong>{pontosGanhar}</strong></div>}
       </div>
-      {mostraNota && <PdvNotaFiscalCampos valor={notaCaixa} onChange={onNotaChange} nfeDisponivel={nfeDisponivel} entregaDisponivel={entregaDisponivel} pedidoDeEntrega={/entreg/i.test(conta?.mesa || "")} pedidoComEndereco={pedidoComEndereco} />}
+      {mostraNota && <PdvNotaFiscalCampos valor={notaCaixa} onChange={onNotaChange} nfeDisponivel={nfeDisponivel} entregaDisponivel={entregaDisponivel} pedidoDeEntrega={/entreg/i.test(conta?.mesa || "")} pedidoComEndereco={pedidoComEndereco} entregaConfig={entregaConfig} />}
       {(emiteNota || nfeEscolhida) && (
         <div className="flex items-start gap-2 rounded-xl bg-[var(--pp-bg)] p-3 text-xs text-[var(--pp-text-body)]" data-testid="aviso-nfce-sozinha">
           <Printer size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
