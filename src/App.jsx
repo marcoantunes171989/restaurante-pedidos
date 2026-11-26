@@ -17,6 +17,8 @@ import CancelamentoNfe from "./components/admin/fiscal/CancelamentoNfe.jsx";
 import XmlsFiscais from "./components/admin/fiscal/XmlsFiscais.jsx";
 import VendasSemNotaFiscal from "./components/admin/fiscal/VendasSemNotaFiscal.jsx";
 import AbasConfiguracoes from "./components/admin/AbasConfiguracoes.jsx";
+import ListaProdutos from "./components/admin/produtos/ListaProdutos.jsx";
+import InputAoSair from "./components/admin/produtos/InputAoSair.jsx";
 import { abasDisponiveis, ehTelaDeConfiguracao, menuComConfiguracoesAgrupadas } from "./lib/centralConfiguracoes.js";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
@@ -224,7 +226,7 @@ const TEMPOS_PREPARO = ["5-10 min", "10-15 min", "15-20 min", "20-30 min", "25-3
 const PP_INP = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]";
 // min-h + leading-tight: rótulos de 1 e 2 linhas ocupam a MESMA altura, então os
 // inputs logo abaixo ficam alinhados em toda linha de grid (padrão entre abas).
-const PP_LBL = "mb-1 block min-h-[30px] text-[11px] font-semibold uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]";
+const PP_LBL = "mb-1 block sm:min-h-[30px] text-[11px] font-semibold uppercase leading-tight tracking-wide text-[var(--pp-text-muted)]";
 
 // ── Personalização inteligente do produto (aba "Opções") ─────────────
 // Tipos de produto e detecção pelo NOME da categoria (único sinal disponível).
@@ -18364,100 +18366,6 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
 }
 
 // ════════════════════════════════════════════════════════════
-//  Admin — Adicionais e Variações de um produto (migration 040)
-// ════════════════════════════════════════════════════════════
-function GruposOpcoesModal({ produto, api, onFechar }) {
-  const grupos = (api.grupos || []).filter((g) => g.produtoId === produto.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-  const [novoGrupo, setNovoGrupo] = useState({ nome: "", minSelect: 0, maxSelect: 1, obrigatorio: false });
-  const [novaOpcao, setNovaOpcao] = useState({}); // { [grupoId]: { nome, precoDelta } }
-  const inp = "w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none focus:border-gold-400/60 transition";
-
-  async function criarGrupo() {
-    if (!novoGrupo.nome.trim()) return;
-    await api.addGrupo(produto.id, { ...novoGrupo, ordem: grupos.length });
-    setNovoGrupo({ nome: "", minSelect: 0, maxSelect: 1, obrigatorio: false });
-  }
-  async function criarOpcao(grupoId) {
-    const d = novaOpcao[grupoId];
-    if (!d?.nome?.trim()) return;
-    await api.addOpcao(grupoId, { nome: d.nome.trim(), precoDelta: Number(String(d.precoDelta || "0").replace(",", ".")) || 0 });
-    setNovaOpcao((c) => ({ ...c, [grupoId]: { nome: "", precoDelta: "" } }));
-  }
-
-  return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-2xl flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gold-400/15 text-gold-300"><IconProdutos /></span>
-            <div>
-              <h2 className="page-title text-lg font-bold tracking-tight text-white">Adicionais e Variações</h2>
-              <p className="text-xs text-slate-500">{produto.name}</p>
-            </div>
-          </div>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          {grupos.length === 0 && <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-400">Nenhum grupo ainda. Crie grupos como “Tamanho”, “Ponto da carne”, “Adicionais” ou “Escolha a bebida”.</p>}
-
-          {grupos.map((g) => {
-            const ops = (api.opcoes || []).filter((o) => o.grupoId === g.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-            const nd = novaOpcao[g.id] || { nome: "", precoDelta: "" };
-            return (
-              <div key={g.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="min-w-[140px] flex-1">
-                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Grupo</span>
-                    <input value={g.nome} onChange={(e) => api.editarGrupo(g.id, { nome: e.target.value })} className={inp} />
-                  </div>
-                  <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Mín</span><input inputMode="numeric" value={g.minSelect} onChange={(e) => api.editarGrupo(g.id, { minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={inp} /></div>
-                  <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Máx</span><input inputMode="numeric" value={g.maxSelect} onChange={(e) => api.editarGrupo(g.id, { maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={inp} /></div>
-                  <button onClick={() => api.editarGrupo(g.id, { obrigatorio: !g.obrigatorio })} className={`rounded-xl border px-3 py-2 text-xs font-black transition ${g.obrigatorio ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-400"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
-                  <button onClick={() => api.removerGrupo(g.id)} className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 hover:bg-red-500/20">🗑️</button>
-                </div>
-
-                {/* Opções do grupo */}
-                <div className="mt-3 space-y-1.5">
-                  {ops.map((o) => (
-                    <div key={o.id} className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2">
-                      <span className="flex-1 truncate text-sm text-white">{o.nome}</span>
-                      <span className="text-xs font-black text-gold-400">{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
-                      <button onClick={() => api.removerOpcao(o.id)} className="rounded-lg p-1 text-slate-500 hover:text-red-300">🗑️</button>
-                    </div>
-                  ))}
-                </div>
-                {/* Nova opção */}
-                <div className="mt-2 flex gap-2">
-                  <input value={nd.nome} onChange={(e) => setNovaOpcao((c) => ({ ...c, [g.id]: { ...nd, nome: e.target.value } }))} placeholder="Nova opção (ex.: Bacon)" className={`${inp} flex-1`} onKeyDown={(e) => e.key === "Enter" && criarOpcao(g.id)} />
-                  <input value={nd.precoDelta} onChange={(e) => setNovaOpcao((c) => ({ ...c, [g.id]: { ...nd, precoDelta: e.target.value.replace(/[^\d.,-]/g, "") } }))} placeholder="+ R$" className={`${inp} w-24`} onKeyDown={(e) => e.key === "Enter" && criarOpcao(g.id)} />
-                  <button onClick={() => criarOpcao(g.id)} className="rounded-xl bg-gold-400 px-4 text-sm font-black text-blue-950 hover:bg-gold-300 transition">+</button>
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Novo grupo */}
-          <div className="rounded-2xl border border-gold-400/25 bg-gold-400/[0.04] p-4">
-            <p className="mb-2 text-xs font-black uppercase tracking-widest text-gold-300">+ Novo grupo</p>
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="min-w-[140px] flex-1"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Nome</span><input value={novoGrupo.nome} onChange={(e) => setNovoGrupo({ ...novoGrupo, nome: e.target.value })} placeholder="Ex.: Tamanho, Ponto da carne…" className={inp} onKeyDown={(e) => e.key === "Enter" && criarGrupo()} /></div>
-              <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Mín</span><input inputMode="numeric" value={novoGrupo.minSelect} onChange={(e) => setNovoGrupo({ ...novoGrupo, minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={inp} /></div>
-              <div className="w-16"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Máx</span><input inputMode="numeric" value={novoGrupo.maxSelect} onChange={(e) => setNovoGrupo({ ...novoGrupo, maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={inp} /></div>
-              <button onClick={() => setNovoGrupo({ ...novoGrupo, obrigatorio: !novoGrupo.obrigatorio })} className={`rounded-xl border px-3 py-2 text-xs font-black transition ${novoGrupo.obrigatorio ? "border-gold-400/60 bg-gold-400/10 text-gold-200" : "border-white/10 bg-white/[0.03] text-slate-400"}`}>{novoGrupo.obrigatorio ? "Obrigatório" : "Opcional"}</button>
-              <button onClick={criarGrupo} className="rounded-xl bg-gold-400 px-4 py-2 text-sm font-black text-blue-950 hover:bg-gold-300 transition">Criar</button>
-            </div>
-          </div>
-        </div>
-        <div className="shrink-0 border-t border-white/10 px-6 py-4">
-          <button onClick={onFechar} className="w-full rounded-2xl bg-gold-400 py-3.5 text-sm font-black text-blue-950 hover:bg-gold-300 transition">Concluído</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
 //  Admin — Setores de Cozinha (migration 041)
 // ════════════════════════════════════════════════════════════
 // ════════════════════════════════════════════════════════════
@@ -20721,8 +20629,8 @@ function ConfirmModal({ titulo, mensagem, confirmar, onConfirmar, onCancelar, pe
     return () => window.removeEventListener("keydown", onKey);
   }, [escFecha, processando, onCancelar]);
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={processando ? undefined : onCancelar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-[110] !mt-0 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={processando ? undefined : onCancelar}>
+      <div role="alertdialog" aria-modal="true" aria-label={titulo} onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-white/10 bg-slate-900 p-6 shadow-2xl">
         <div className="text-center">
           <span className="text-4xl">{perigo ? "⚠️" : "❓"}</span>
           <h2 className="mt-3 text-lg font-black text-white">{titulo}</h2>
@@ -20832,7 +20740,7 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
           {tags.map((t) => (
             <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.06)] px-3 py-1.5 text-sm font-semibold text-[#012E46]">
               {t}
-              <button type="button" onClick={() => setTags(tags.filter((x) => x !== t))} className="flex h-4 w-4 items-center justify-center rounded-full bg-[rgba(1, 46, 70,0.15)] text-xs text-[#012E46] transition hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
+              <button type="button" aria-label={`Remover ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="relative flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(1, 46, 70,0.15)] text-xs text-[#012E46] transition before:absolute before:-inset-2 before:content-[''] hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
             </span>
           ))}
         </div>
@@ -20857,12 +20765,12 @@ function AdicionaisEditor({ value = [], onChange }) {
   }
   return (
     <div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2 sm:flex-nowrap">
         <input value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          placeholder="Adicional (ex.: Bacon)" className={`${inp} flex-1`} />
+          aria-label="Nome do adicional" placeholder="Adicional (ex.: Bacon)" className={`${inp} flex-1 basis-full sm:basis-0`} />
         <input value={preco} onChange={(e) => { const { display } = handleMoeda(e); setPreco(display); }} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          inputMode="numeric" placeholder="R$ 0,00" className={`${inp} w-28 shrink-0`} />
-        <button type="button" onClick={add} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#F38525] text-lg font-semibold text-[#012E46] transition hover:bg-[#F38525]">+</button>
+          aria-label="Preço do adicional" inputMode="numeric" placeholder="R$ 0,00" className={`${inp} min-w-0 flex-1 sm:w-28 sm:flex-none`} />
+        <button type="button" onClick={add} className="flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#F38525] px-4 text-sm font-semibold text-[#012E46] transition hover:bg-[#F38525]">＋ Incluir</button>
       </div>
       {(value || []).length > 0 && (
         <div className="mt-2 space-y-1.5">
@@ -20870,7 +20778,7 @@ function AdicionaisEditor({ value = [], onChange }) {
             <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
               <span className="text-sm font-semibold text-[var(--pp-text)]">{a.nome}</span>
               <span className="flex items-center gap-2 text-sm"><span className="font-semibold text-[#2F9E52]">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
-                <button type="button" onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-5 w-5 items-center justify-center rounded-full bg-[rgba(200,30,74,0.12)] text-xs text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.24)]">✕</button></span>
+                <button type="button" aria-label={`Remover ${a.nome}`} onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(200,30,74,0.12)] text-xs text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.24)]">✕</button></span>
             </div>
           ))}
         </div>
@@ -23630,31 +23538,13 @@ function FiscalModalShell({ titulo, sub, icone, erro, salvando, onFechar, onSalv
 
 function ProductAdmin({ products, categories, categoriasDb = [], addProduct, toggleProduct, editarProduto, removerProduto, lojaId, opcoesApi = null, setores = [], impressoras = [], fiscalNcm = [], fiscalIcms = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], lojaFiscalRegras = [] }) {
   const fiscalVinc = { ncm: fiscalNcm, icms: fiscalIcms, cfop: fiscalCfop, pis: fiscalPis, cofins: fiscalCofins, ipi: fiscalIpi, cest: fiscalCest };
-  const [editando, setEditando] = useState(null);
+  const [editando, setEditando] = useState(null); // { produto, aba }
   const [excluir, setExcluir]   = useState(null);
-  const [variacoes, setVariacoes] = useState(null); // produto cujas variações/adicionais estamos editando
   const [criando, setCriando]   = useState(false);
-  const [busca, setBusca]       = useState("");
-  const [filtroCat, setFiltroCat] = useState("Todos");
-  const [pagina, setPagina] = useState(1);
-  const POR_PAGINA = 10;
   const cats = categories.filter((c) => c !== "Todos");
   // Categorias cadastradas e ativas — únicas selecionáveis ao criar/editar
   // produto (migration 068: vínculo obrigatório por ID, nunca por nome).
   const categoriasAtivas = categoriasDb.filter((c) => c.active !== false);
-
-  const filtrados = products.filter((p) => {
-    const t = `${p.name} ${p.category}`.toLowerCase();
-    const okBusca = t.includes(busca.toLowerCase());
-    const okCat = filtroCat === "Todos" || p.category === filtroCat;
-    return okBusca && okCat;
-  });
-
-  // Paginação: 10 produtos por página (por categoria ou em "Todos")
-  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA));
-  useEffect(() => { setPagina(1); }, [busca, filtroCat, products.length]);
-  const paginaAtual = Math.min(pagina, totalPaginas);
-  const visiveis = filtrados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   function abrirCadastro() {
     // O ProdutoAdminModal (modo="criar") mantém o próprio estado local.
@@ -23666,107 +23556,24 @@ function ProductAdmin({ products, categories, categoriasDb = [], addProduct, tog
   }
 
   return (
-    <main className="space-y-5">
-      {/* ── Cabeçalho padronizado (PageHeader) ─────────────── */}
+    <main className="space-y-4">
       <PageHeader
         icone={<IconProdutos />}
         titulo="Produtos"
         descricao="Gerencie os itens vendidos no tablet, QR Code e cardápio externo."
-        indicadores={[
-          { valor: products.length, rotulo: products.length === 1 ? "produto" : "produtos" },
-          { valor: products.filter((p) => p.active).length, rotulo: "ativos", tom: "ok" },
-          { valor: products.filter((p) => !p.active).length, rotulo: "inativos" },
-          ...(products.filter((p) => p.active && (p.estoque ?? 0) > 0 && p.estoque <= 5).length > 0
-            ? [{ valor: products.filter((p) => p.active && (p.estoque ?? 0) > 0 && p.estoque <= 5).length, rotulo: "com estoque baixo", tom: "alerta" }] : []),
-        ]}
-        acao={<PrimeButton onClick={abrirCadastro}><span className="text-lg leading-none">+</span> Cadastrar produto</PrimeButton>}
       />
 
-      {/* ── Cards de resumo ──────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-        {[
-          { l: "Total de produtos", v: products.length, tom: "text-white" },
-          { l: "Ativos", v: products.filter((p) => p.active).length, tom: "text-emerald-400" },
-          { l: "Indisponíveis", v: products.filter((p) => !p.active).length, tom: "text-amber-400" },
-          { l: "Sem imagem", v: products.filter((p) => !p.imageUrl).length, tom: "text-slate-300" },
-        ].map((c) => (
-          <div key={c.l} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{c.l}</p>
-            <p className={`page-title mt-1.5 text-2xl font-black ${c.tom}`}>{c.v}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Busca + filtro por categoria ─────────────────── */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-        <div className="relative mb-3">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto por nome ou categoria..."
-            className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {["Todos", ...cats].map((c) => (
-            <FilterChip key={c} size="sm" selected={filtroCat === c} label={c} onClick={() => setFiltroCat(c)} />
-          ))}
-        </div>
-
-        <div className="mt-4 space-y-2">
-          {filtrados.length === 0 && (
-            <div className="py-10 text-center">
-              <p className="text-sm text-slate-500">Nenhum produto encontrado.</p>
-              <button onClick={abrirCadastro} className="mt-3 rounded-2xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-black text-blue-200 hover:bg-blue-500/25">+ Cadastrar produto</button>
-            </div>
-          )}
-          {visiveis.map((p) => {
-            const margin = p.price > 0 ? ((p.price - p.cost) / p.price) * 100 : 0;
-            const estoqueBaixo = (p.estoque ?? 0) <= 5;
-            return (
-              <div key={p.id} className={`flex items-center gap-3 rounded-3xl border bg-slate-950/40 p-3 transition hover:bg-slate-900/60 ${p.active ? "border-white/10" : "border-white/10 opacity-60"}`}>
-                <img src={p.imageUrl || fallbackImage} alt={p.name} className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 font-black text-white truncate">
-                    {p.name}
-                    {p.precoPromocional > 0 && <span className="shrink-0 rounded-full bg-gold-400/15 px-1.5 py-0.5 text-[9px] font-black text-gold-300">PROMO</span>}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-400">
-                    <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{p.category}</span>
-                    {p.precoPromocional > 0
-                      ? <span><span className="text-slate-500 line-through">{formatCurrency(p.price)}</span> <span className="font-bold text-gold-300">{formatCurrency(p.precoPromocional)}</span></span>
-                      : <span className="font-bold text-white">{formatCurrency(p.price)}</span>}
-                    {/* Custo e estoque são opcionais: sem custo não há margem; o estoque só aparece em quem o controla ou já tem quantidade. */}
-                    {Number(p.cost) > 0 && <span className="text-emerald-300">margem {margin.toFixed(0)}%</span>}
-                    {(p.controlaEstoque || Number(p.estoque) > 0) && <span className={estoqueBaixo ? "font-bold text-red-300" : ""}>estoque {p.estoque ?? 0}{estoqueBaixo ? " ⚠" : ""}</span>}
-                    {/* Canais ocultos (migration 034) */}
-                    {(p.visivelTablet === false || p.visivelQr === false || p.visivelExterno === false) && (
-                      <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                        oculto: {[p.visivelTablet === false && "tablet", p.visivelQr === false && "QR", p.visivelExterno === false && "externo"].filter(Boolean).join(", ")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button onClick={() => toggleProduct(p.id)} title={p.active ? "Inativar" : "Ativar"} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black transition ${p.active ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{p.active ? "Ativo" : "Inativo"}</button>
-                <button onClick={() => setEditando(p)} title="Editar" className="shrink-0 rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 hover:bg-blue-500/20 transition">✏️</button>
-                {opcoesApi && <button onClick={() => setVariacoes(p)} title="Adicionais e variações" className="shrink-0 rounded-xl border border-gold-400/30 bg-gold-400/10 px-3 py-1.5 text-xs font-black text-gold-200 hover:bg-gold-400/20 transition">⭐ Variações</button>}
-                <button onClick={() => setExcluir(p)} title="Excluir" className="shrink-0 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 hover:bg-red-500/20 transition">🗑️</button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Paginação — 10 por página */}
-        <Paginacao
-          pagina={paginaAtual} totalPaginas={totalPaginas} total={filtrados.length}
-          porPagina={POR_PAGINA} onMudar={setPagina} rotulo="produto(s)"
-        />
-      </div>
+      <ListaProdutos produtos={products} categorias={cats} imagemPadrao={fallbackImage} usaParametroFiscal={lojaFiscalRegras.length > 0}
+        onNovo={abrirCadastro} onAlternar={(p) => toggleProduct(p.id)} onExcluir={setExcluir}
+        onEditar={(p) => setEditando({ produto: p, aba: "geral" })}
+        onOpcoes={opcoesApi ? (p) => setEditando({ produto: p, aba: "opcoes" }) : null} />
 
       {criando && (
         <ProdutoAdminModal modo="criar" categoriasAtivas={categoriasAtivas} lojaId={lojaId}
           setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} lojaFiscalRegras={lojaFiscalRegras}
           onSalvar={salvarNovo} onFechar={() => setCriando(false)} />
       )}
-      {editando && <ProdutoAdminModal modo="editar" produto={editando} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} lojaFiscalRegras={lojaFiscalRegras} onSalvar={(d) => { editarProduto(editando.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
-      {variacoes && opcoesApi && <GruposOpcoesModal produto={variacoes} api={opcoesApi} onFechar={() => setVariacoes(null)} />}
+      {editando && <ProdutoAdminModal modo="editar" produto={editando.produto} abaInicial={editando.aba} categoriasAtivas={categoriasAtivas} lojaId={lojaId} setores={setores} impressoras={impressoras} opcoesApi={opcoesApi} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalVinc={fiscalVinc} lojaFiscalRegras={lojaFiscalRegras} onSalvar={async (d) => { await editarProduto(editando.produto.id, d); setEditando(null); }} onFechar={() => setEditando(null)} />}
       {excluir && (
         <ConfirmModal titulo="Excluir produto?"
           mensagem={`Tem certeza que deseja excluir "${excluir.name}"? Esta ação não pode ser desfeita. Dica: você pode apenas inativar o produto.`}
@@ -23805,12 +23612,15 @@ function handleMoeda(e) {
 function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, erroUpload = "" }) {
   const fileRef = React.useRef(null);
   const [previa, setPrevia] = React.useState("");
+  const [erroArquivo, setErroArquivo] = React.useState("");
 
   function handleFile(e) {
     const f = e.target.files?.[0];
+    e.target.value = ""; // permite escolher o mesmo arquivo de novo
     if (!f) return;
     const erroVal = validarImagemProduto(f);
-    if (erroVal) { onFileChange(null); onImageUrl(""); alert(erroVal); return; }
+    setErroArquivo(erroVal || "");
+    if (erroVal) return; // mantém a foto que já estava
     const blob = URL.createObjectURL(f);
     setPrevia(blob);
     onFileChange(f);
@@ -23838,10 +23648,16 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
         <div className="flex-1 space-y-2">
           {/* Arquivo local */}
           <input ref={fileRef} type="file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" className="hidden" onChange={handleFile} />
-          <button type="button" onClick={() => fileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(1, 46, 70,0.25)] bg-white py-2.5 text-xs font-semibold text-[#012E46] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.05)]">
-            ⬆ Trocar imagem <span className="text-[var(--pp-text-muted)]">(PNG / JPEG • máx 2 MB)</span>
-          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => fileRef.current?.click()}
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[rgba(1, 46, 70,0.25)] bg-white px-3 py-2.5 text-[13px] font-semibold text-[#012E46] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.05)]">
+              ⬆ {exibir ? "Trocar foto" : "Escolher foto"}
+            </button>
+            {exibir && (
+              <button type="button" onClick={() => { setPrevia(""); setErroArquivo(""); onFileChange(null); onImageUrl(""); }}
+                className="min-h-11 shrink-0 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px] font-semibold text-[#B42318]">Remover</button>
+            )}
+          </div>
           {/* OU URL */}
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--pp-text-muted)]">🔗</span>
@@ -23854,15 +23670,15 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
           </div>
         </div>
       </div>
-      {previa && <p className="text-[11px] text-emerald-400">✅ Arquivo selecionado — será enviado ao salvar.</p>}
-      {erroUpload && <p className="text-[11px] text-red-400">❌ {erroUpload}</p>}
+      {previa && <p className="text-[11px] font-semibold text-[#1F7A3D]">✅ Arquivo selecionado — será enviado ao salvar.</p>}
+      {(erroArquivo || erroUpload) && <p role="alert" className="text-[12px] font-semibold text-[#C81E4A]">❌ {erroArquivo || erroUpload}</p>}
     </div>
   );
 }
 
 // Modal ÚNICO de produto (cadastro = edição), 5 abas — Geral · Comercial &
 // Estoque · Operação · Fiscal · NF-e/NFC-e. Padrão branco/petróleo do admin.
-function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null, fiscalNcm = [], fiscalIcms = [], fiscalVinc = null, lojaFiscalRegras = [] }) {
+function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = null, categoriasAtivas = [], onSalvar, onFechar, lojaId, setores = [], impressoras = [], opcoesApi = null, fiscalNcm = [], fiscalIcms = [], fiscalVinc = null, lojaFiscalRegras = [] }) {
   const ehEdicao = modo === "editar";
   const toDisplay = (v) => {
     if (!v && v !== 0) return "";
@@ -23871,7 +23687,10 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
     return rawParaMoeda(digits);
   };
   const op = produto?.operacao || {};
-  const [aba, setAba] = useState("geral");
+  const [aba, setAba] = useState(abaInicial);
+  const abaRef = useRef(null);
+  // No celular as abas rolam de lado: a aba aberta fica sempre visível.
+  useEffect(() => { abaRef.current?.scrollIntoView?.({ block: "nearest", inline: "center" }); }, [aba]);
   const [f, setF] = useState(() => ({
     name: produto?.name || "", category: produto?.category || "", categoriaId: produto?.categoriaId ?? null,
     price: produto ? toDisplay(produto.price) : "", cost: produto ? toDisplay(produto.cost) : "",
@@ -23928,6 +23747,22 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   // Modo CRIAR: grupos ficam em memória (sem id ainda). Modo EDITAR: usa opcoesApi.
   const [gruposNovos, setGruposNovos] = useState([]);
   const [novaOpcao, setNovaOpcao] = useState({}); // { [grupoKey]: { nome, precoDelta } }
+  const [grupoExcluindo, setGrupoExcluindo] = useState(null);
+  // Fechar sem perder o que foi digitado: compara o formulário com o que estava ao abrir.
+  const retrato = JSON.stringify([f, tags, adicionais, fis, ncmId, vinc, lojaFiscalRegraId, gruposNovos]);
+  const [retratoInicial] = useState(retrato);
+  const alterado = retrato !== retratoInicial;
+  const [confirmarSaida, setConfirmarSaida] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const salvandoRef = useRef(false);
+  const tentarFechar = () => { if (alterado && !salvando) setConfirmarSaida(true); else onFechar(); };
+  const fecharRef = useRef(tentarFechar);
+  useEffect(() => { fecharRef.current = tentarFechar; });
+  useEffect(() => {
+    const tecla = (e) => { if (e.key === "Escape") fecharRef.current(); };
+    window.addEventListener("keydown", tecla);
+    return () => window.removeEventListener("keydown", tecla);
+  }, []);
   const grupos = ehEdicao
     ? (opcoesApi?.grupos || []).filter((g) => g.produtoId === produto?.id).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
     : gruposNovos;
@@ -23969,6 +23804,12 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   const sugestoes = (PRESETS_OPCOES[tipoProduto] || []).filter((p) => !nomesGrupos.has(p.nome.toLowerCase()));
 
   async function handleSalvar() {
+    if (salvandoRef.current) return; // toque duplo não cadastra o mesmo produto duas vezes
+    salvandoRef.current = true;
+    setSalvando(true);
+    try { await enviar(); } finally { salvandoRef.current = false; setSalvando(false); }
+  }
+  async function enviar() {
     setErroUpload("");
     let imgFinal = f.imageUrl;
     if (arquivoImg) {
@@ -23984,7 +23825,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       permitirPromo: f.permitirPromo, exibirMargemAutorizados: f.exibirMargemAutorizados, alertaEstoqueMinimo: f.alertaEstoqueMinimo,
       tipoProduto,
     };
-    onSalvar({
+    await onSalvar({
       name: f.name, category: f.category, categoriaId: f.categoriaId, price: precoNum, cost: custoNum,
       time: f.time, imageUrl: imgFinal, description: f.description, ingredients: tags, adicionais,
       estoque: estoqueN, precoPromocional: promoNum, controlaEstoque: f.controlaEstoque, estoqueMinimo: estoqueMinN,
@@ -24000,9 +23841,10 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   }
 
   // ── helpers de render (funções, não componentes: seguras p/ lint) ──
-  const toggle = (on, onClick) => (
-    <button type="button" role="switch" aria-checked={!!on} onClick={onClick} className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
-      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+  // before:-inset-2 aumenta a área de toque sem aumentar o desenho.
+  const toggle = (on, onClick, rotulo) => (
+    <button type="button" role="switch" aria-checked={!!on} aria-label={rotulo} onClick={onClick} className={`relative h-7 w-12 shrink-0 rounded-full transition before:absolute before:-inset-2 before:content-[''] ${on ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+      <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
     </button>
   );
   // Bloco recolhido: o que é opcional ou avançado fica a um toque, sem encher a tela.
@@ -24026,7 +23868,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   );
   const regra = (on, onClick, titulo, desc) => (
     <div className="flex items-start gap-2.5">
-      {toggle(on, onClick)}
+      {toggle(on, onClick, titulo)}
       <div className="min-w-0"><p className="text-[13px] font-semibold text-[var(--pp-text)]">{titulo}</p><p className="text-[11px] leading-snug text-[var(--pp-text-muted)]">{desc}</p></div>
     </div>
   );
@@ -24041,7 +23883,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
       </select></div>
   );
   const chipCanal = (k, label) => (
-    <button type="button" onClick={() => set(k, !f[k])} className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${f[k] ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>
+    <button type="button" aria-pressed={!!f[k]} onClick={() => set(k, !f[k])} className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${f[k] ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>
       <span>{f[k] ? "✓" : "○"}</span>{label}
     </button>
   );
@@ -24051,23 +23893,23 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   return (
     // !mt-0: a tela de produtos usa space-y e empurrava a janela fixa 20px para baixo (o rodapé sumia no celular).
     <div className="fixed inset-0 z-[100] !mt-0 flex items-stretch justify-center sm:items-center sm:p-4">
-      <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <button type="button" aria-label="Fechar" tabIndex={-1} onClick={tentarFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       {/* No celular ocupa a tela toda; do tablet para cima vira janela. pdv-toque: sem zoom ao focar campos. */}
       <div role="dialog" aria-modal="true" aria-label={ehEdicao ? "Editar produto" : "Cadastrar produto"} className="pdv-toque relative flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border-[var(--pp-border)] bg-white shadow-2xl sm:h-[90dvh] sm:rounded-3xl sm:border">
         {/* Cabeçalho */}
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-4 py-3 sm:px-6 sm:py-4" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <span className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525] sm:flex">{ehEdicao ? "✏️" : "＋"}</span>
-            <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{ehEdicao ? "Editar produto" : "Cadastrar produto"}</h2>
-              <p className="text-[13px] text-[var(--pp-text-muted)]">Para vender basta nome, categoria e preço.</p></div>
+            <div className="min-w-0"><h2 className="truncate text-lg font-semibold text-[var(--pp-text)]">{ehEdicao ? "Editar produto" : "Cadastrar produto"}</h2>
+              <p className="truncate text-[13px] text-[var(--pp-text-muted)]">{ehEdicao ? produto?.name : "Para vender basta nome, categoria e preço."}</p></div>
           </div>
-          <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
+          <button type="button" aria-label="Fechar janela" onClick={tentarFechar} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         {/* Abas — barra fixa (fora da rolagem), alinhada ao conteúdo, com respiro */}
         <div role="tablist" aria-label="Partes do cadastro" className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-2 pt-1 sm:px-6">
           {ABAS.map(([id, rot]) => (
-            <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
+            <button key={id} ref={aba === id ? abaRef : undefined} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
+              className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}{id === "geral" && !valido && <span aria-label="falta preencher" className="ml-1.5 inline-block h-2 w-2 rounded-full bg-[#F38525] align-middle" />}</button>
           ))}
         </div>
 
@@ -24104,7 +23946,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 <div><label className={PP_LBL}>Preço de venda *</label><input inputMode="numeric" value={f.price} onChange={(e) => { const { display } = handleMoeda(e); set("price", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
               </div>
               <div className="mt-3"><label className={PP_LBL}>Categoria *</label>
-                {categoriasAtivas.length === 0 ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias.</p>
+                {categoriasAtivas.length === 0 ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma categoria ativa. Cadastre em Gestão › Categorias.</p>
                   : <SeletorCategoria valorId={f.categoriaId} aoMudar={(c) => setF((cur) => ({ ...cur, categoriaId: c.id, category: c.nome }))} categorias={categoriasAtivas} />}
               </div>
               <div className="mt-3"><label className={PP_LBL}>Descrição (aparece no cardápio)</label>
@@ -24180,11 +24022,11 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
 
           {/* ══ ABA OPÇÕES (personalização inteligente) ══ */}
           {aba === "opcoes" && (<>
-            {secao("🧠", "Tipo de produto", "Detectamos pela categoria — ajuste se precisar. Ele guia as sugestões de personalização.", <>
+            {mais(`Tipo de produto: ${TIPOS_PRODUTO.find((t) => t.id === tipoProduto)?.nome || "Outro"}`, "Detectado pela categoria. Muda só as sugestões abaixo.", <>
               <div className="flex flex-wrap gap-2">
                 {TIPOS_PRODUTO.map((t) => (
-                  <button key={t.id} type="button" onClick={() => setTipoOverride(t.id)}
-                    className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${tipoProduto === t.id ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#012E46]"}`}>{t.nome}</button>
+                  <button key={t.id} type="button" aria-pressed={tipoProduto === t.id} onClick={() => setTipoOverride(t.id)}
+                    className={`min-h-11 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${tipoProduto === t.id ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#012E46]"}`}>{t.nome}</button>
                 ))}
               </div>
               <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">Categoria: <b className="font-semibold text-[var(--pp-text)]">{catNome}</b>{!tipoOverride && <span> · tipo automático</span>}</p>
@@ -24201,7 +24043,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 ))}
               </div>)}
 
-            {secao("⭐", "Grupos de opções", "Ex.: Ponto da carne, Número de fatias, Tamanho, Borda. Aparecem para o cliente ao pedir.", <>
+            {secao("⭐", "Grupos de opções", ehEdicao ? "Aparecem para o cliente ao pedir. Neste produto já cadastrado, cada alteração aqui é salva na hora." : "Ex.: Ponto da carne, Número de fatias, Tamanho, Borda. Aparecem para o cliente ao pedir.", <>
               {grupos.length === 0 && <p className="rounded-xl border border-[var(--pp-border)] bg-white px-4 py-3 text-sm text-[var(--pp-text-muted)]">Nenhum grupo ainda. Use as sugestões acima ou crie um grupo abaixo.</p>}
               <div className="space-y-3">
                 {grupos.map((g) => {
@@ -24210,25 +24052,28 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                   return (
                     <div key={chaveGrupo(g)} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
                       <div className="flex flex-wrap items-end gap-2">
-                        <div className="min-w-[150px] flex-1"><label className={PP_LBL}>Grupo</label><input value={g.nome} onChange={(e) => editGrupo(g, { nome: e.target.value })} className={PP_INP} /></div>
-                        <div className="w-16"><label className={PP_LBL}>Mín</label><input inputMode="numeric" value={g.minSelect} onChange={(e) => editGrupo(g, { minSelect: Number(e.target.value.replace(/\D/g, "")) || 0 })} className={PP_INP} /></div>
-                        <div className="w-16"><label className={PP_LBL}>Máx</label><input inputMode="numeric" value={g.maxSelect} onChange={(e) => editGrupo(g, { maxSelect: Number(e.target.value.replace(/\D/g, "")) || 1 })} className={PP_INP} /></div>
-                        <button type="button" onClick={() => editGrupo(g, { obrigatorio: !g.obrigatorio })} className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${g.obrigatorio ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
-                        <button type="button" onClick={() => removeGrupo(g)} className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-white px-3 py-2.5 text-xs font-semibold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.08)]">🗑</button>
+                        <div className="min-w-[150px] flex-1 basis-full sm:basis-0"><label className={PP_LBL}>Nome do grupo</label><InputAoSair valor={g.nome} onConfirmar={(v) => editGrupo(g, { nome: v })} aria-label="Nome do grupo" className={PP_INP} /></div>
+                        <div className="w-20"><label className={PP_LBL}>Mínimo</label><InputAoSair inputMode="numeric" valor={g.minSelect} onConfirmar={(v) => editGrupo(g, { minSelect: Number(String(v).replace(/\D/g, "")) || 0 })} aria-label="Mínimo de escolhas" className={PP_INP} /></div>
+                        <div className="w-20"><label className={PP_LBL}>Máximo</label><InputAoSair inputMode="numeric" valor={g.maxSelect} onConfirmar={(v) => editGrupo(g, { maxSelect: Number(String(v).replace(/\D/g, "")) || 1 })} aria-label="Máximo de escolhas" className={PP_INP} /></div>
+                        <button type="button" aria-pressed={!!g.obrigatorio} onClick={() => editGrupo(g, { obrigatorio: !g.obrigatorio })} className={`min-h-11 rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${g.obrigatorio ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
+                        {/* Excluir o grupo apaga as opções dele: pede um segundo toque. */}
+                        <button type="button" aria-label={grupoExcluindo === chaveGrupo(g) ? `Confirmar exclusão do grupo ${g.nome}` : `Excluir o grupo ${g.nome}`} onBlur={() => setGrupoExcluindo(null)}
+                          onClick={() => { if (grupoExcluindo === chaveGrupo(g)) { removeGrupo(g); setGrupoExcluindo(null); } else setGrupoExcluindo(chaveGrupo(g)); }}
+                          className={`min-h-11 min-w-11 rounded-xl border px-3 text-xs font-semibold transition ${grupoExcluindo === chaveGrupo(g) ? "border-[#C81E4A] bg-[#C81E4A] text-white" : "border-[rgba(200,30,74,0.24)] bg-white text-[#C81E4A] hover:bg-[rgba(200,30,74,0.08)]"}`}>{grupoExcluindo === chaveGrupo(g) ? "Excluir grupo?" : "🗑"}</button>
                       </div>
                       <div className="mt-2.5 space-y-1.5">
                         {ops.map((o) => (
                           <div key={ehEdicao ? o.id : o._tid} className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
                             <span className="flex-1 truncate text-sm text-[var(--pp-text)]">{o.nome}</span>
                             <span className="text-xs font-semibold text-[#2F9E52]">{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
-                            <button type="button" onClick={() => removeOpcaoG(g, o)} className="rounded-lg p-1 text-[var(--pp-text-muted)] transition hover:text-[#C81E4A]">🗑</button>
+                            <button type="button" aria-label={`Remover a opção ${o.nome}`} onClick={() => removeOpcaoG(g, o)} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--pp-text-muted)] transition hover:text-[#C81E4A]">🗑</button>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-2 flex gap-2">
-                        <input value={nd.nome} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, nome: e.target.value } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} placeholder="Nova opção (ex.: Ao ponto)" className={`${PP_INP} flex-1`} />
-                        <input value={nd.precoDelta} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, precoDelta: e.target.value.replace(/[^\d.,-]/g, "") } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} placeholder="+ R$" className={`${PP_INP} w-24 shrink-0`} />
-                        <button type="button" onClick={() => addOpcaoG(g)} className="flex h-[42px] w-11 shrink-0 items-center justify-center rounded-xl bg-[#012E46] text-lg font-semibold text-white transition hover:bg-[#012E46]">＋</button>
+                      <div className="mt-2 flex flex-wrap gap-2 sm:flex-nowrap">
+                        <input value={nd.nome} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, nome: e.target.value } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} aria-label="Nova opção" placeholder="Nova opção (ex.: Ao ponto)" className={`${PP_INP} flex-1 basis-full sm:basis-0`} />
+                        <input value={nd.precoDelta} onChange={(e) => setNovaOpcao((c) => ({ ...c, [chaveGrupo(g)]: { ...nd, precoDelta: e.target.value.replace(/[^\d.,-]/g, "") } }))} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addOpcaoG(g))} aria-label="Preço extra da opção" inputMode="decimal" placeholder="+ R$" className={`${PP_INP} min-w-0 flex-1 sm:w-24 sm:flex-none`} />
+                        <button type="button" onClick={() => addOpcaoG(g)} className="flex h-11 shrink-0 items-center justify-center gap-1 rounded-xl bg-[#012E46] px-4 text-sm font-semibold text-white transition hover:bg-[#012E46]">＋ Incluir</button>
                       </div>
                     </div>
                   );
@@ -24266,7 +24111,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
             {mais("Dados avançados (para o contador)", "NCM, vínculos, código de barras, unidade, origem e textos da nota.", <>
             {secao("🗂️", "NCM do produto", "Vincule um NCM cadastrado no módulo Fiscal. A regra de ICMS vem do NCM (Produto → NCM → ICMS) — altere a regra uma vez e reflete em todos os produtos do mesmo NCM.", <>
               {fiscalNcm.length === 0
-                ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhum NCM cadastrado. Cadastre NCMs e regras de ICMS no menu lateral <b>Fiscal</b>.</p>
+                ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhum NCM cadastrado. Cadastre NCMs e regras de ICMS em <b>Configurações › Cadastros fiscais</b>.</p>
                 : (<>
                     <div className="flex flex-wrap items-end gap-2">
                       <div className="min-w-[220px] flex-1"><label className={PP_LBL}>NCM vinculado</label>
@@ -24365,11 +24210,18 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
 
         {/* Rodapé */}
         <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-3 py-3 sm:px-6 sm:py-4" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-          {!valido && <p className="text-xs font-semibold text-[#8A5200]" data-testid="produto-faltam">Falta preencher: {faltam.join(", ")}.</p>}
+          {!valido && <button type="button" onClick={() => setAba("geral")} className="block text-left text-xs font-semibold text-[#8A5200] underline-offset-2 hover:underline" data-testid="produto-faltam">Falta preencher: {faltam.join(", ")}.</button>}
+          {confirmarSaida && (
+            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-[#F38525] bg-[#FEF1E3] px-3 py-2" data-testid="produto-descartar">
+              <p className="min-w-0 flex-1 basis-40 text-[13px] font-semibold text-[#8A5200]">Há alterações sem salvar. Sair mesmo assim?</p>
+              <button type="button" onClick={() => setConfirmarSaida(false)} className="min-h-11 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px] font-bold text-[#012E46]">Continuar editando</button>
+              <button type="button" onClick={onFechar} className="min-h-11 rounded-xl bg-[#B42318] px-3 text-[13px] font-bold text-white">Descartar</button>
+            </div>
+          )}
           {erroUpload && <p className="text-xs font-semibold text-[#C81E4A]">❌ {erroUpload}</p>}
           <div className="flex gap-2">
-            <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
-            <PrimeButton onClick={handleSalvar} disabled={!valido || uploadando} className="flex-1">{uploadando ? "⏳ Enviando imagem…" : (ehEdicao ? "💾 Salvar alterações" : "＋ Cadastrar produto")}</PrimeButton>
+            <button type="button" onClick={tentarFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
+            <PrimeButton onClick={handleSalvar} disabled={!valido || uploadando || salvando} className="flex-1">{uploadando ? "⏳ Enviando imagem…" : salvando ? "Salvando…" : (ehEdicao ? "💾 Salvar alterações" : "＋ Cadastrar produto")}</PrimeButton>
           </div>
         </div>
       </div>
