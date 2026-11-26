@@ -50,6 +50,62 @@ export function podeCancelarNfce(doc, { uf, agora = new Date() } = {}) {
   return janelaCancelamentoNfce({ dhAutorizacao: doc.dhAutorizacao, uf, agora }).dentro;
 }
 
+// ── NF-e (modelo 55) ───────────────────────────────────────────────────────
+//  • Prazo regular: Ajuste SINIEF 07/05, cláusula décima segunda: até 24 horas da Autorização de Uso, sem circulação da mercadoria.
+//  • SP aceita o pedido, fora do prazo, até 480 horas da autorização (Portaria CAT 162/2008, art. 18; RC 29209/2024; o portal da
+//    Fazenda cita a Portaria SRE 80/25). Depois disso: manifestação do destinatário ou pedido pelo SIPET; autorizado pelo fisco,
+//    o cancelamento ainda é transmitido pelo sistema (por isso o servidor não bloqueia a NF-e por prazo).
+//  • Outras UFs: só o prazo regular, até haver regra confirmada (basta informar a UF em PRAZO_EXTEMPORANEO_NFE_HORAS).
+export const PRAZO_CANCELAMENTO_NFE_HORAS = 24;
+export const PRAZO_EXTEMPORANEO_NFE_HORAS = Object.freeze({ SP: 480 });
+export const FUNDAMENTO_CANCELAMENTO_NFE = "Ajuste SINIEF 07/05, cláusula 12: até 24 horas da autorização de uso, desde que a mercadoria não tenha circulado.";
+
+/** Horas aceitas fora do prazo regular na UF (0 = nenhuma regra confirmada). */
+export function prazoExtemporaneoNfeHoras(uf) {
+  return Number(PRAZO_EXTEMPORANEO_NFE_HORAS[String(uf || "").trim().toUpperCase()]) || 0;
+}
+
+/**
+ * Janela de cancelamento de uma NF-e. `extemporaneo`: passou das 24 h, mas a UF ainda aceita.
+ * `limite`, `prazoMin` e `restanteMs` valem para a janela em que a nota está.
+ */
+export function janelaCancelamentoNfe({ dhAutorizacao, uf, agora = new Date() } = {}) {
+  const regularMin = PRAZO_CANCELAMENTO_NFE_HORAS * 60;
+  const t = dhAutorizacao ? new Date(dhAutorizacao).getTime() : NaN;
+  if (!Number.isFinite(t)) return { aplicavel: false, dentro: false, extemporaneo: false, prazoMin: regularMin, limite: null, restanteMs: 0 };
+  const quando = new Date(agora).getTime();
+  const extraMin = prazoExtemporaneoNfeHoras(uf) * 60;
+  const extemporaneo = quando >= t + regularMin * 60000 && extraMin > regularMin;
+  const prazoMin = extemporaneo ? extraMin : regularMin;
+  const limite = new Date(t + prazoMin * 60000);
+  const restanteMs = limite.getTime() - quando;
+  return { aplicavel: true, dentro: restanteMs > 0, extemporaneo: extemporaneo && restanteMs > 0, prazoMin, limite, restanteMs };
+}
+
+/** A NF-e aparece na tela de cancelamento? (autorizada, sem outra nota de contingência cobrindo a venda, dentro de uma das janelas) */
+export function podeCancelarNfe(doc, { uf, agora = new Date() } = {}) {
+  if (!doc || Number(doc.modelo) !== 55) return false;
+  if (doc.status !== "autorizado" || !doc.protocolo || !doc.chave) return false;
+  if (doc.contingenciaNumero) return false; // venda também emitida em contingência: tratar em Notas emitidas
+  return janelaCancelamentoNfe({ dhAutorizacao: doc.dhAutorizacao, uf, agora }).dentro;
+}
+
+/** NF-e autorizada que já passou de todas as janelas. */
+export function nfeForaDoPrazo(doc, { uf, agora = new Date() } = {}) {
+  if (!doc || Number(doc.modelo) !== 55 || doc.status !== "autorizado") return false;
+  const j = janelaCancelamentoNfe({ dhAutorizacao: doc.dhAutorizacao, uf, agora });
+  return j.aplicavel && !j.dentro;
+}
+
+/** "23:59:59" ou "19 d 04:00:00" (prazos da NF-e são de horas e dias). */
+export function textoContagemLonga(ms) {
+  const s = Math.max(0, Math.floor(Number(ms) / 1000));
+  const d = Math.floor(s / 86400);
+  const dois = (n) => String(n).padStart(2, "0");
+  const hms = `${dois(Math.floor((s % 86400) / 3600))}:${dois(Math.floor((s % 3600) / 60))}:${dois(s % 60)}`;
+  return d > 0 ? `${d} d ${hms}` : hms;
+}
+
 /** "12:34" (minutos:segundos) ou "00:00". */
 export function textoContagem(ms) {
   const s = Math.max(0, Math.floor(Number(ms) / 1000));

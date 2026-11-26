@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { catalogoFuncoes, filtrarFuncoes, funcaoPorCodigo, agruparFuncoes, teclaAbrePaleta, normalizarBusca } from "./pdvFuncoes";
 
 const acao = () => vi.fn();
-const TODAS = ["incluirProduto", "buscar", "transferir", "separar", "observacoes", "historico", "dividir", "desconto", "acrescimo", "alternarTaxa", "cupom", "pontos", "registrarParcial", "identificarCliente", "cpfNaNota", "nfe", "preConta", "comprovante", "cozinha", "reimprimirNfce", "notasEmitidas", "cancelarNfce", "xmls", "fecharConta", "resumoTurno", "mesas", "ajuda", "atalhos"];
+const TODAS = ["incluirProduto", "buscar", "transferir", "separar", "observacoes", "historico", "dividir", "desconto", "acrescimo", "alternarTaxa", "cupom", "pontos", "registrarParcial", "identificarCliente", "cpfNaNota", "nfe", "preConta", "comprovante", "cozinha", "reimprimirNfce", "notasEmitidas", "cancelarNfce", "xmls", "cancelarNfe", "fecharConta", "resumoTurno", "mesas", "ajuda", "atalhos"];
 const acoes = () => Object.fromEntries(TODAS.map((k) => [k, acao()]));
 const estado = (extra = {}) => ({ temConta: true, emiteNota: true, nfeDisponivel: true, temItensParaSeparar: true, temUltimaNota: true, ...extra });
 
@@ -50,8 +50,13 @@ describe("catálogo de funções", () => {
     expect(g({ taxaRemovida: false })).toBe("Taxa de serviço (remover)");
     expect(g({ taxaRemovida: true })).toBe("Taxa de serviço (aplicar)");
   });
-  it("as funções novas (reimprimir NFC-e, cancelar NFC-e, XMLs) vêm marcadas", () => {
-    expect(catalogoFuncoes({ a: acoes(), e: estado() }).filter((f) => f.novo).map((f) => f.codigo)).toEqual(["33", "41", "42"]);
+  it("as funções novas (reimprimir NFC-e, cancelar NFC-e, XMLs, cancelar NF-e) vêm marcadas", () => {
+    expect(catalogoFuncoes({ a: acoes(), e: estado() }).filter((f) => f.novo).map((f) => f.codigo)).toEqual(["33", "41", "42", "43"]);
+  });
+  it("cancelar NF-e só fica disponível com NF-e habilitada", () => {
+    const g = (extra) => catalogoFuncoes({ a: acoes(), e: estado(extra) }).find((x) => x.codigo === "43");
+    expect(g({}).disponivel).toBe(true);
+    expect(g({ nfeDisponivel: false }).bloqueio).toMatch(/NF-e não habilitada/);
   });
   it("executar chama a ação real", () => {
     const a = acoes();

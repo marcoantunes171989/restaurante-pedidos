@@ -33,6 +33,17 @@ describe("CODE-128C (MOC 7.0 Anexo II)", () => {
     expect(modulosCode128c(r.chave).reduce((a, b) => a + b, 0) + 20).toBe(297);
     expect(svgCode128c(r.chave)).toContain('viewBox="0 0 297 1"');
   });
+  // O DV é módulo 103: pode dar 100, 101 ou 102 (antes disso o DANFE falhava, ex.: NF-e nº 2 de homologação).
+  it.each([["98", 100, "114131"], ["99", 101, "311141"], ["0050", 102, "411131"]])("dados %s: DV %i tem barras próprias", (dados, dv, barras) => {
+    expect(dvCode128c(dados)).toBe(dv);
+    expect(modulosCode128c(dados).join("").endsWith(`${barras}2331112`)).toBe(true);
+  });
+  it("todo DV possível gera código: 103 símbolos distintos de 11 módulos", async () => {
+    const { CODE128C_BARRAS } = await import("../../src/lib/fiscal/code128c.js");
+    expect(CODE128C_BARRAS).toHaveLength(103);
+    expect(new Set(CODE128C_BARRAS).size).toBe(103);
+    for (const b of CODE128C_BARRAS) expect([...b].reduce((s, n) => s + Number(n), 0), b).toBe(11);
+  });
   it("começa com o START C e termina com o STOP", () => {
     const m = modulosCode128c("0975").join("");
     expect(m.startsWith("211232")).toBe(true);

@@ -32,6 +32,7 @@ const LABELS_ADMIN = {
   "notas-fiscais": "Notas Emitidas",
   "vendas-sem-nota": "Vendas sem nota",
   "cancelamento-nfce": "Cancelar NFC-e",
+  "cancelamento-nfe": "Cancelar NF-e",
   "xmls-fiscais": "XMLs fiscais",
   "dados-fiscais-empresa": "Dados da Empresa (Fiscal)",
   fiscal: "Cadastros Fiscais",

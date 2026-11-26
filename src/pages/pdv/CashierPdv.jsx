@@ -1744,6 +1744,7 @@ export default function CashierPdv({
       reimprimirNfce: () => imprimirNotaFiscal({ documentoId: ultimaNota?.documentoId, numero: ultimaNota?.numero }),
       notasEmitidas: () => abrirAdmin("/admin/notas-fiscais"),
       cancelarNfce: () => abrirAdmin("/admin/cancelamento-nfce"),
+      cancelarNfe: () => abrirAdmin("/admin/cancelamento-nfe"),
       xmls: () => abrirAdmin("/admin/xmls-fiscais"),
       fecharConta: acionarFechar,
       resumoTurno: () => setTurnoAberto(true),

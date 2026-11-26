@@ -13,6 +13,7 @@ import ComoFuncionaFiscal from "./components/admin/fiscal/ComoFuncionaFiscal.jsx
 import DadosEmpresaFiscal from "./components/admin/fiscal/DadosEmpresaFiscal.jsx";
 import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
 import CancelamentoNfce from "./components/admin/fiscal/CancelamentoNfce.jsx";
+import CancelamentoNfe from "./components/admin/fiscal/CancelamentoNfe.jsx";
 import XmlsFiscais from "./components/admin/fiscal/XmlsFiscais.jsx";
 import VendasSemNotaFiscal from "./components/admin/fiscal/VendasSemNotaFiscal.jsx";
 import {
@@ -7670,6 +7671,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
       { id: "notas-fiscais", icon: <ClipboardList className="h-4 w-4" />, label: "Notas Emitidas" },
       { id: "vendas-sem-nota", icon: <Receipt className="h-4 w-4" />, label: "Vendas sem nota" },
       { id: "cancelamento-nfce", icon: <SearchX className="h-4 w-4" />, label: "Cancelar NFC-e" },
+      { id: "cancelamento-nfe", icon: <SearchX className="h-4 w-4" />, label: "Cancelar NF-e" },
       { id: "xmls-fiscais", icon: <Download className="h-4 w-4" />, label: "XMLs fiscais" },
       { id: "dados-fiscais-empresa", icon: <Store className="h-4 w-4" />, label: "Dados da Empresa" },
       { id: "emissao-fiscal", icon: <LockKeyhole className="h-4 w-4" />, label: "Emissão" },
@@ -7882,6 +7884,12 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <main className="space-y-5">
               <PageHeader icone={<SearchX className="h-4 w-4" />} titulo="Cancelar NFC-e" descricao={`Só aparecem as NFC-e da ${lojaInfo?.nome || "sua loja"} que ainda estão dentro do prazo legal de cancelamento.`} />
               <CancelamentoNfce supabase={supabase} lojaInfo={lojaInfo} />
+            </main>
+          ))}
+          {ativo === "cancelamento-nfe" && (precisaEmpresa ? avisoEmpresa : (
+            <main className="space-y-5">
+              <PageHeader icone={<SearchX className="h-4 w-4" />} titulo="Cancelar NF-e" descricao={`Só aparecem as NF-e da ${lojaInfo?.nome || "sua loja"} que ainda podem ser canceladas.`} />
+              <CancelamentoNfe supabase={supabase} lojaInfo={lojaInfo} />
             </main>
           ))}
           {ativo === "xmls-fiscais" && (precisaEmpresa ? avisoEmpresa : (

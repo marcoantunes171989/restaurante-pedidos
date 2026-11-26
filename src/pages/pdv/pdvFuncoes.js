@@ -43,6 +43,7 @@ export function catalogoFuncoes({ a = {}, e = {} } = {}) {
     { codigo: "40", grupo: "Fiscal", nome: "Notas emitidas", descricao: "Situação, reenvio e histórico das notas", acao: a.notasEmitidas },
     { codigo: "41", grupo: "Fiscal", nome: "Cancelar NFC-e (até 30 min)", descricao: "Só aparecem as notas ainda no prazo legal", novo: true, acao: a.cancelarNfce },
     { codigo: "42", grupo: "Fiscal", nome: "XMLs fiscais", descricao: "Pesquisar e baixar XML por período", novo: true, acao: a.xmls },
+    { codigo: "43", grupo: "Fiscal", nome: "Cancelar NF-e", descricao: "Só aparecem as notas que ainda podem ser canceladas", novo: true, bloqueio: !e.nfeDisponivel ? "NF-e não habilitada nesta empresa" : null, acao: a.cancelarNfe },
 
     { codigo: "50", grupo: "Caixa", nome: "Fechar conta", descricao: "Confirmar, emitir a NFC-e e imprimir", atalho: "F5", ...conta(), acao: a.fecharConta },
     { codigo: "51", grupo: "Caixa", nome: "Resumo do turno", descricao: "Faturamento, formas, aberto × pago", acao: a.resumoTurno },
