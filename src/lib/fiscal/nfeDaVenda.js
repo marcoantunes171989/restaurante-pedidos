@@ -11,6 +11,7 @@
 import { tributosAproximados } from "./ibpt.js";
 import { validarAntesDeEmitir, problemaNfeForaDaUf } from "./validacaoPreEmissao.js";
 import { aplicaIbsCbsSn, pendenciasIbsCbsSn, itemComIbsCbsSn, INICIO_PADRAO } from "./ibsCbsSimples.js";
+import { transporteDaEntrega } from "./entregaNfce.js";
 import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual, normalizarInscricaoEstadual } from "../emitenteFiscalService.js";
 
 // Cadastros antigos podem ter máscara (CEP 01001-000, IBGE, telefone): o leiaute só aceita números.
@@ -85,32 +86,36 @@ export function cfopInterestadual(cfop) {
 
 // ── Destinatário ───────────────────────────────────────────
 // NFC-e: CPF ou CNPJ na nota (opcional), sempre não contribuinte (indIEDest 9;
-// MOC 7.0 Anexo I, nota 1 do campo E16a). NF-e: documento, nome e endereço
-// obrigatórios (rejeição 726); com IE informada → contribuinte (indIEDest 1).
+// MOC 7.0 Anexo I, nota 1 do campo E16a). NFC-e de entrega a domicílio: documento,
+// nome e endereço obrigatórios. NF-e: documento, nome e endereço obrigatórios
+// (rejeição 726); com IE informada → contribuinte (indIEDest 1).
 const so = (v) => String(v ?? "").replace(/\D/g, "");
-export function montarDestinatario({ modelo, cpfConsumidor = "", destinatario = null } = {}) {
+export function montarDestinatario({ modelo, cpfConsumidor = "", destinatario = null, entrega = false } = {}) {
   const docDe = (v) => normalizarDocumentoFiscal(v);
   const grupoDoc = (d) => (d.length === 11 ? { CPF: d } : { CNPJ: d });
-  if (modelo !== 55) {
+  const nfe = modelo === 55;
+  if (!nfe && !entrega) {
     const d = docDe(destinatario?.documento || cpfConsumidor);
     if (!d) return { dest: undefined };
     if (!validarDocumentoFiscal(d).valido) return { erro: "CPF/CNPJ do consumidor inválido." };
     return { dest: { ...grupoDoc(d), indIEDest: "9" } };
   }
+  const rotulo = nfe ? "NF-e" : "Entrega";
+  const quem = nfe ? "destinatário" : "cliente";
   const x = destinatario || {};
   const d = docDe(x.documento);
-  if (!d || !validarDocumentoFiscal(d).valido) return { erro: "NF-e: informe um CPF ou CNPJ válido do destinatário." };
+  if (!d || !validarDocumentoFiscal(d).valido) return { erro: `${rotulo}: informe um CPF ou CNPJ válido do ${quem}.` };
   const nome = String(x.nome || "").trim();
-  if (nome.length < 2) return { erro: "NF-e: informe o nome ou a razão social do destinatário." };
+  if (nome.length < 2) return { erro: `${rotulo}: informe o nome${nfe ? " ou a razão social" : ""} do ${quem}.` };
   const en = x.ender || {};
   const uf = String(en.UF || "").toUpperCase();
   if (!String(en.xLgr || "").trim() || !String(en.nro || "").trim() || !String(en.xBairro || "").trim() || !String(en.xMun || "").trim()) {
-    return { erro: "NF-e: endereço do destinatário incompleto (rua, número, bairro e município)." };
+    return { erro: `${rotulo}: endereço do ${quem} incompleto (rua, número, bairro e município).` };
   }
-  if (!UFS.includes(uf)) return { erro: "NF-e: UF do destinatário inválida." };
-  if (!/^[0-9]{7}$/.test(so(en.cMun)) || so(en.cMun).slice(0, 2) !== codigoUf(uf)) return { erro: "NF-e: código IBGE do município do destinatário inválido." };
-  if (!/^[0-9]{8}$/.test(so(en.CEP))) return { erro: "NF-e: CEP do destinatário inválido." };
-  const ie = so(x.ie);
+  if (!UFS.includes(uf)) return { erro: `${rotulo}: UF do ${quem} inválida.` };
+  if (!/^[0-9]{7}$/.test(so(en.cMun)) || so(en.cMun).slice(0, 2) !== codigoUf(uf)) return { erro: `${rotulo}: código IBGE do município do ${quem} inválido.` };
+  if (!/^[0-9]{8}$/.test(so(en.CEP))) return { erro: `${rotulo}: CEP do ${quem} inválido.` };
+  const ie = nfe ? so(x.ie) : "";
   if (ie && !/^[0-9]{2,14}$/.test(ie)) return { erro: "NF-e: inscrição estadual do destinatário inválida." };
   return {
     dest: {
@@ -135,9 +140,12 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {string} p.ambiente   'homologacao' | 'producao'
  * @param {string} [p.cpfConsumidor]  CPF ou CNPJ na nota (NFC-e)
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
+ * @param {boolean} [p.entrega]       NFC-e de entrega a domicílio (usa `destinatario`)
+ * @param {object} [p.entregaNfce]    parâmetros de entrega da loja (entregaNfce.js)
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false, ibsCbsSn = null } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false, ibsCbsSn = null, entrega = false, entregaNfce = null } = {}) {
+  const emEntrega = entrega === true && Number(modelo) === 65;
   // `permissivo`: SÓ para a Manutenção fiscal. Monta os dados mesmo com pendência de cadastro (CSOSN vazio etc.) para a pessoa corrigir
   // no editor; a conferência completa (XML + XSD) continua obrigatória ao gravar e ao transmitir.
   const avisos = [];
@@ -155,7 +163,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   // Conferência completa ANTES de montar: tudo que a SEFAZ rejeitaria por dado nosso (CNPJ, IE, IBGE, NCM, CFOP, CST, destinatário…).
-  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual, ibsCbsSn, agora: dhEmi ? new Date(dhEmi) : agora });
+  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual, ibsCbsSn, entrega: emEntrega, entregaNfce, agora: dhEmi ? new Date(dhEmi) : agora });
   if (!pre.ok) return falha(`Dados fiscais com problema: ${pre.texto}`);
   const simples = crt !== "3";
   const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
@@ -318,11 +326,11 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   } catch (err) {
     return falha(err.message);
   }
-  const dest = montarDestinatario({ modelo: Number(modelo), cpfConsumidor, destinatario });
+  const dest = montarDestinatario({ modelo: Number(modelo), cpfConsumidor, destinatario, entrega: emEntrega });
   if (dest.erro) return falha(dest.erro);
 
   // Local de destino da operação (idDest): 1 = dentro da UF do emitente; 2 = outra UF.
-  // Só a NF-e tem destinatário com endereço; a NFC-e é sempre operação interna.
+  // A NFC-e é sempre operação interna (a entrega para outro estado é barrada na validação).
   const ufDest = Number(modelo) === 55 ? String(dest.dest?.ender?.UF || "").toUpperCase() : "";
   const interestadual = !!ufDest && ufDest !== String(e.uf || "").toUpperCase();
   // Escopo decidido pelo dono (2026-11-21): NF-e só para destinatário dentro da UF do emitente (SP). O caminho interestadual
@@ -346,13 +354,16 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
 
   const dados = {
     chave,
-    ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], idDest: interestadual ? "2" : "1", cMunFG: apenasDigitos(e.codigoMunicipioIbge), cDV: chave.slice(-1), indPres: "1", indFinal: "1" },
+    ide: { cUF, cNF: cnf, natOp, mod: modelo, serie, nNF: numero, dhEmi: dh, tpAmb: AMB[ambiente], idDest: interestadual ? "2" : "1", cMunFG: apenasDigitos(e.codigoMunicipioIbge), cDV: chave.slice(-1),
+      // Entrega a domicílio: venda não presencial (4), sem intermediador (marketplace não suportado).
+      ...(emEntrega ? { indPres: "4", indIntermed: "0" } : { indPres: "1" }), indFinal: "1" },
     emit: {
       CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: normalizarInscricaoEstadual(e.inscricaoEstadual), CRT: crt,
       ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: apenasDigitos(e.codigoMunicipioIbge), xMun: e.municipio, UF: e.uf, CEP: apenasDigitos(e.cep), fone: apenasDigitos(e.telefoneFiscal) },
     },
     dest: dest.dest,
     itens,
+    ...(emEntrega ? { transp: transporteDaEntrega(entregaNfce, { documento: normalizarDocumentoFiscal(documento), emitente: e }) } : {}),
     pag: { detPag, vTroco: venda.totais.vTroco },
     infAdic: infCplFinal ? { infCpl: infCplFinal } : undefined,
     respTec: respTec || undefined,

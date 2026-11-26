@@ -41,6 +41,7 @@ const MENSAGENS = {
   CERTIFICADO_ILEGIVEL: "Não foi possível abrir o certificado guardado. Envie o certificado de novo.",
   SEM_CSC: "Cadastre o CSC na aba Emissão: ele é obrigatório na contingência.",
   SEM_SERIE: "A série da nota não foi encontrada.",
+  SEM_CONTINGENCIA_PRESENCIAL: "Nota de entrega a domicílio não sai em contingência off-line. Reenvie quando a SEFAZ voltar.",
   NAO_ASSINADA: "A nota em contingência ainda não foi gerada.",
   XML_INVALIDO: "A nota tem dados fora do padrão oficial.",
   FALHA_REGISTRO: "A SEFAZ respondeu, mas o resultado não foi gravado no sistema. Use Consultar na SEFAZ depois de corrigir (a nota NÃO é reenviada em duplicidade).",
@@ -70,6 +71,8 @@ async function emitirContingencia(body, deps, conexao) {
 }
 
 async function emitirOffline(origem, dados, xJust, deps) {
+  // Antes de abrir a contingência (que gasta um número novo): entrega a domicílio não vai off-line.
+  if (String(dados.ide.indPres ?? 1) !== "1") return falha("SEM_CONTINGENCIA_PRESENCIAL");
   const csc = await deps.segredoCsc(origem.loja_id, origem.ambiente);
   if (!csc?.csc) return falha("SEM_CSC");
   const cred = await credencialDoCofre(deps, origem.loja_id);

@@ -121,6 +121,8 @@ export function criarDeps(token) {
     },
     // 205: parâmetros do IBS/CBS do Simples da loja (falha → desligado).
     ibsCbsSn: async (lojaId) => { try { const r = await doServidor("app_fiscal_ibscbs_sn_servidor", { p_loja_id: lojaId }); return r?.ok ? r.ibscbs_sn : null; } catch { return null; } },
+    // 206: parâmetros da NFC-e de entrega da loja (falha → desligado, e a nota de entrega não é montada).
+    entregaNfce: async (lojaId) => { try { const r = await doServidor("app_fiscal_entrega_nfce_servidor", { p_loja_id: lojaId }); return r?.ok ? r.entrega_nfce : null; } catch { return null; } },
     salvarDados: (p) => doServidor("app_fiscal_documento_salvar_dados", { p_documento_id: p.documentoId, p_chave: p.chave, p_dados: p.dados }),
     // 193: manutenção fiscal. O usuário logado vem do banco com o TOKEN dele; a gravação (com log) é só do servidor.
     usuarioAtual: async () => { try { return await rpc("app_fiscal_usuario_atual", {}, token); } catch { return null; } },

@@ -204,11 +204,15 @@ export async function processarEmissao(body = {}, deps) {
   if (gravado && gravado.ok === false) {
     return falha("FALHA_REGISTRO", { detalhe: String(gravado.code || gravado.erro || "").slice(0, 80), situacao: r.situacao, cStat: r.cStat ?? null, protocolo: r.nProt || null, numero: doc.numero, serie: doc.serie, chave, podeConsultar: true });
   }
+  const semSefaz = ["indisponivel", "incerta"].includes(r.situacao);
+  // NFC-e de entrega não tem contingência off-line aqui (o off-line exige venda presencial, indPres 1).
+  const entregaSemOffline = Number(doc.modelo) === 65 && String(dados.ide.indPres) === "4";
   return {
     ok: r.situacao === "autorizada", situacao: r.situacao, numero: doc.numero, serie: doc.serie, chave,
     protocolo: r.nProt || null, cStat: r.cStat ?? null, xMotivo: r.xMotivo || null,
+    ...(semSefaz && entregaSemOffline ? { detalhe: "Nota de entrega não sai em contingência: reenvie ou consulte em Notas emitidas quando a SEFAZ voltar." } : {}),
     // SEFAZ fora/sem resposta: NFC-e sai off-line; NF-e vai pela SVC (E7).
-    podeContingencia: ["indisponivel", "incerta"].includes(r.situacao),
+    podeContingencia: semSefaz && !entregaSemOffline,
     formaContingencia: Number(doc.modelo) === 65 ? "offline" : "svc",
   };
 }

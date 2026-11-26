@@ -11,6 +11,7 @@ import { lerTesteSalvo, salvarTeste } from "../../../lib/fiscal/testeConexaoSalv
 import AssistenteAtivacaoFiscal from "./AssistenteAtivacaoFiscal";
 import ProntidaoProducao from "./ProntidaoProducao";
 import IbsCbsSimplesConfig from "./IbsCbsSimplesConfig";
+import EntregaNfceConfig from "./EntregaNfceConfig";
 import AmbienteEmissao from "./AmbienteEmissao";
 import { prontidaoProducao } from "../../../lib/fiscal/prontidaoProducao";
 
@@ -409,6 +410,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
       </section>
 
       {String(emitente?.crt || "") === "1" && <IbsCbsSimplesConfig key={lojaId} supabase={supabase} lojaId={lojaId} config={config?.ibsCbsSn} onSalvo={carregar} />}
+      {emitente?.nfceHabilitada && <EntregaNfceConfig key={`entrega-${lojaId}`} supabase={supabase} lojaId={lojaId} config={config?.entregaNfce} onSalvo={carregar} />}
     </div>
   );
 }

@@ -19,7 +19,7 @@ import { montarVendaFiscal, composicaoDaConta } from "./vendaFiscal.js";
 import { reservarDocumentoFiscal } from "./fiscalApi.js";
 import { montarDestinatario } from "./nfeDaVenda.js";
 import { normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
-import { validarAntesDeEmitir, problemaNfeForaDaUf } from "./validacaoPreEmissao.js";
+import { validarAntesDeEmitir, problemaNfeForaDaUf, problemaEntregaForaDaUf } from "./validacaoPreEmissao.js";
 
 export function emissaoPdvAtivaPorEnv(env) {
   return String(env?.VITE_FISCAL_EMISSAO_PDV ?? "").trim().toLowerCase() === "true";
@@ -54,23 +54,34 @@ export function motivoSemNota(emitente, { nfe = false } = {}) {
   return null;
 }
 
-export const NOTA_VAZIA =Object.freeze({ documento: "", nfe: false, nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
+export const NOTA_VAZIA =Object.freeze({ documento: "", nfe: false, entrega: false, nome: "", ie: "", CEP: "", xLgr: "", nro: "", xCpl: "", xBairro: "", xMun: "", UF: "", cMun: "", fone: "" });
+
+const enderecoDoCaixa = (v) => ({ xLgr: v.xLgr, nro: v.nro, xCpl: v.xCpl, xBairro: v.xBairro, cMun: v.cMun, xMun: v.xMun, UF: v.UF, CEP: v.CEP, fone: v.fone });
 
 /**
  * Confere o que o caixa digitou para a nota (E8 parte 3).
- * @returns {{ ok:boolean, erro?:string, modelo:55|65, cpf:string, destinatario:object|null }}
+ * Entrega a domicílio (NFC-e): devolve também `entrega: true` e o cliente em `destinatario`.
+ * @returns {{ ok:boolean, erro?:string, modelo:55|65, cpf:string, destinatario:object|null, entrega?:true }}
  */
-export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false, ufEmitente = "" } = {}) {
+export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false, entregaDisponivel = false, ufEmitente = "" } = {}) {
   const doc = normalizarDocumentoFiscal(v.documento);
   if (v.nfe) {
     if (!nfeDisponivel) return { ok: false, erro: "Esta loja ainda não emite NF-e." };
-    const destinatario = { documento: doc, nome: v.nome, ie: v.ie,
-      ender: { xLgr: v.xLgr, nro: v.nro, xCpl: v.xCpl, xBairro: v.xBairro, cMun: v.cMun, xMun: v.xMun, UF: v.UF, CEP: v.CEP, fone: v.fone } };
+    const destinatario = { documento: doc, nome: v.nome, ie: v.ie, ender: enderecoDoCaixa(v) };
     const r = montarDestinatario({ modelo: 55, destinatario });
     if (r.erro) return { ok: false, erro: r.erro };
     const foraDaUf = problemaNfeForaDaUf(v.UF, ufEmitente); // antes de fechar a venda
     if (foraDaUf) return { ok: false, erro: foraDaUf };
     return { ok: true, modelo: 55, cpf: "", destinatario };
+  }
+  if (v.entrega) {
+    if (!entregaDisponivel) return { ok: false, erro: "Esta loja não está com a NFC-e de entrega a domicílio ligada." };
+    const destinatario = { documento: doc, nome: v.nome, ender: enderecoDoCaixa(v) };
+    const r = montarDestinatario({ modelo: 65, destinatario, entrega: true });
+    if (r.erro) return { ok: false, erro: r.erro };
+    const foraDaUf = problemaEntregaForaDaUf(v.UF, ufEmitente);
+    if (foraDaUf) return { ok: false, erro: foraDaUf };
+    return { ok: true, modelo: 65, cpf: doc, destinatario, entrega: true };
   }
   if (!doc) return { ok: true, modelo: 65, cpf: "", destinatario: null };
   const r = montarDestinatario({ modelo: 65, cpfConsumidor: doc });
@@ -130,9 +141,10 @@ export function dadosNotaContaOperacional({ pedido, subtotal, total, detalhes = 
  */
 export async function emitirNotaDaVenda({
   supabase, emitente, pedidos = [], produtos = [], composicao = {}, pagamento = {}, formas = [],
-  config = {}, ctxFiscal = {}, cpf = "", modelo = 65, destinatario = null, ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle, tentativa = 0,
+  config = {}, ctxFiscal = {}, cpf = "", modelo = 65, destinatario = null, entrega = false, ativo = EMISSAO_FISCAL_PDV_ATIVA, fetchFn, subtle, tentativa = 0,
 } = {}) {
   const nfe = Number(modelo) === 55;
+  const emEntrega = !nfe && entrega === true;
   const ambiente = ativo ? (nfe ? ambienteNfeDaLoja(emitente) : ambienteNfceDaLoja(emitente)) : null;
   if (!ambiente) return { estado: "fora" };
 
@@ -152,7 +164,7 @@ export async function emitirNotaDaVenda({
   }
 
   // Confere os dados fiscais ANTES de gastar um número de nota: se algo estiver errado, a nota não é reservada e a tela diz o que corrigir.
-  const pre = validarAntesDeEmitir({ emitente, modelo: nfe ? 55 : 65, ambiente, venda, destinatario, cpfConsumidor: nfe ? "" : cpf, ibsCbsSn: config?.ibsCbsSn });
+  const pre = validarAntesDeEmitir({ emitente, modelo: nfe ? 55 : 65, ambiente, venda, destinatario, cpfConsumidor: nfe ? "" : cpf, ibsCbsSn: config?.ibsCbsSn, entrega: emEntrega, entregaNfce: config?.entregaNfce });
   if (!pre.ok) return { estado: "pendente", titulo: "Nota fiscal não emitida: dados fiscais com problema", detalhe: pre.texto };
 
   let reserva;
@@ -160,7 +172,7 @@ export async function emitirNotaDaVenda({
     const idempotencyKey = await chaveIdempotenciaVenda(venda.lojaId, venda.pedidosIds, subtle, tentativa);
     reserva = await reservarDocumentoFiscal(supabase, {
       lojaId: venda.lojaId, modelo: nfe ? 55 : 65, ambiente, idempotencyKey,
-      rascunho: { versao: 1, origem: "pdv", venda, cpf: nfe ? "" : normalizarDocumentoFiscal(cpf), ...(nfe ? { dest: destinatario } : {}) },
+      rascunho: { versao: 1, origem: "pdv", venda, cpf: nfe ? "" : normalizarDocumentoFiscal(cpf), ...(nfe || emEntrega ? { dest: destinatario } : {}), ...(emEntrega ? { entrega: true } : {}) },
       pedidosIds: venda.pedidosIds, valorTotal: venda.totais.vNF, qtdItens: venda.itens.length,
     });
   } catch (e) {

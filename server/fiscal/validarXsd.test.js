@@ -42,7 +42,7 @@ const MAPA = { dinheiro: "01", pix: "17", cartao_credito: "03" };
 
 const DEST_NFE = { documento: "11.222.333/0001-81", nome: "Empresa Cliente Ltda", ie: "111.222.333.444",
   ender: { xLgr: "Av Paulista", nro: "1000", xBairro: "Bela Vista", cMun: "3550308", xMun: "São Paulo", UF: "SP", CEP: "01310-100", fone: "(11) 3333-4444" } };
-async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "1", modelo = 65, cpf = "", itens, destNfe = DEST_NFE, ibpt = null, ibsCbsSn = null } = {}) {
+async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "1", modelo = 65, cpf = "", itens, destNfe = DEST_NFE, ibpt = null, ibsCbsSn = null, entregaNfce = null } = {}) {
   const venda = montarVendaFiscal({
     pedidos: [{ id: "P1", lojaId: 7, status: "delivered", items: itens || [
       { productId: 10, name: "X-Burger Duplo", price: 32.9, quantity: 2 },
@@ -54,7 +54,7 @@ async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "
   });
   expect(venda.pendencias).toEqual([]);
   const r = dadosNFeDaVenda({ venda, emitente: { ...EMIT, crt }, documento: "12345678000195", modelo, serie: 1, numero: 123, ambiente: "homologacao", dhEmi: "2026-11-15T15:30:00Z", cpfConsumidor: cpf,
-    destinatario: modelo === 55 ? destNfe : null, ibpt, ibsCbsSn,
+    destinatario: modelo === 55 || entregaNfce ? destNfe : null, ibpt, ibsCbsSn, entrega: !!entregaNfce, entregaNfce,
     permitirInterestadual: true }); // o XSD também precisa valer para o caminho interestadual, hoje desligado por padrão
   expect(r.ok, r.erro).toBe(true);
   const { xml } = montarXmlNFe(r.dados);
@@ -118,6 +118,13 @@ describe("XML gerado × XSD oficial", () => {
       ncm: { "21069090": { nf: 10, imp: 15, est: 18, mun: 0 }, "22021000": { nf: 12.5, imp: 20, est: 25, mun: 0 } } };
     for (const modelo of [65, 55]) {
       const r = await notaValida({ ibpt, modelo, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
+      expect(r.erros).toEqual([]);
+      expect(r.valido).toBe(true);
+    }
+  });
+  it("NFC-e de entrega a domicílio (indPres 4, indIntermed, enderDest e transporte) é válida no XSD", async () => {
+    for (const entregaNfce of [{ ativo: true, modFrete: "3", informarTransportador: true }, { ativo: true, modFrete: "9" }]) {
+      const r = await notaValida({ entregaNfce, pagamento: { total: 105.3, troco: 0, detalhes: [{ forma: "PIX", valor: 105.3 }] } });
       expect(r.erros).toEqual([]);
       expect(r.valido).toBe(true);
     }

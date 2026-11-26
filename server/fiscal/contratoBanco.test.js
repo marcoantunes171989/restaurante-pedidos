@@ -28,6 +28,11 @@ const CONTRATO = {
   app_fiscal_loja_servidor: ["'documento'", "'emitente'"],
   // DANFE → ação danfe
   app_fiscal_documento_para_danfe: ["'fonte'", "'xml'", "'loja_id'", "'modelo'", "'tp_emis'", "'epec_protocolo'", "'epec_dh_registro'"],
+  // configuração de venda → fiscalApi (cada migration redefine: não pode perder campo)
+  app_fiscal_config_venda: ["'mapa_meios'", "'taxa_servico_tratamento'", "'ibscbs_sn'", "'entrega_nfce'"],
+  // parâmetros por loja lidos pelo servidor de emissão
+  app_fiscal_ibscbs_sn_servidor: ["'ibscbs_sn'"],
+  app_fiscal_entrega_nfce_servidor: ["'entrega_nfce'"],
   // contingência → transmitir/EPEC
   app_fiscal_contingencia_para_transmitir: ["'xml_assinado'", "'tp_emis'", "'epec_protocolo'"],
 };

@@ -20,7 +20,8 @@ const MENSAGENS = {
   MAPA_INVALIDO: "Cada forma de pagamento precisa de um código de 2 dígitos.",
   TAXA_INVALIDA: "Escolha se a taxa de serviço entra na nota (outras despesas) ou fica fora.",
   IBSCBS_INVALIDO: "Confira os campos do IBS/CBS: CST com 3 números, cClassTrib com 6 e alíquotas em percentual.",
-  CHAVE_IDEMPOTENCIA_OBRIGATORIA: "Venda sem identificador único para a nota.",
+  ENTREGA_INVALIDA: "Confira a configuração da entrega: modalidade do frete e transportador.",
+  CHAVE_IDEMPOTENCIA_OBRIGATORIA:"Venda sem identificador único para a nota.",
   VALOR_INVALIDO: "Valor ou quantidade inválidos.",
   STATUS_NAO_PERMITE: "Este documento não pode mais ser descartado.",
   MOTIVO_OBRIGATORIO: "Informe o motivo (mínimo 3 letras).",
@@ -87,7 +88,7 @@ export async function buscarConfigFiscalVenda(supabase, lojaId) {
   try {
     const d = await chamar(supabase, "app_fiscal_config_venda", { p_loja_id: lojaId });
     return { mapaMeios: d.mapa_meios && typeof d.mapa_meios === "object" ? d.mapa_meios : {}, taxaServicoTratamento: d.taxa_servico_tratamento ?? null,
-      ...(d.ibscbs_sn ? { ibsCbsSn: d.ibscbs_sn } : {}) };
+      ...(d.ibscbs_sn ? { ibsCbsSn: d.ibscbs_sn } : {}), ...(d.entrega_nfce ? { entregaNfce: d.entrega_nfce } : {}) };
   } catch {
     return vazio;
   }
@@ -95,7 +96,13 @@ export async function buscarConfigFiscalVenda(supabase, lojaId) {
 
 /** Formato que o selo/rascunho fiscal espera (seloFiscalDaConta.config). */
 export function configVendaParaSelo(c) {
-  return { mapaMeios: c?.mapaMeios || {}, regras: c?.taxaServicoTratamento ? { taxaServico: c.taxaServicoTratamento } : {}, ...(c?.ibsCbsSn ? { ibsCbsSn: c.ibsCbsSn } : {}) };
+  return { mapaMeios: c?.mapaMeios || {}, regras: c?.taxaServicoTratamento ? { taxaServico: c.taxaServicoTratamento } : {}, ...(c?.ibsCbsSn ? { ibsCbsSn: c.ibsCbsSn } : {}), ...(c?.entregaNfce ? { entregaNfce: c.entregaNfce } : {}) };
+}
+
+/** NFC-e de entrega a domicílio da loja (migration 206). `config` no formato de normalizarEntregaNfce. */
+export async function salvarEntregaNfce(supabase, lojaId, config) {
+  await chamar(supabase, "app_fiscal_salvar_entrega_nfce", { p_loja_id: lojaId, p_config: config });
+  return true;
 }
 
 /** IBS/CBS do Simples da loja (migration 205). `config` no formato de normalizarIbsCbsSn. */

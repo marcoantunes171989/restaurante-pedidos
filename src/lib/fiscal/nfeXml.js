@@ -216,6 +216,7 @@ export const XNOME_DEST_HOMOLOGACAO = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO -
  * @param {object} d.emit    { CNPJ|CPF, xNome, xFant?, IE, CRT, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @param {object} [d.dest]  { CPF|CNPJ, xNome?, ender?{xLgr,nro,xCpl,xBairro,cMun,xMun,UF,CEP,fone}, indIEDest?, IE? }
  * @param {object[]} d.itens [{ cProd, cEAN?, xProd, NCM, CEST?, CFOP, uCom, qCom, vUnCom, vProd, vDesc?, vOutro?, icms, pis, cofins, ibscbs? }]
+ * @param {object} [d.transp]  { modFrete?, transporta?:{ CNPJ|CPF, xNome, UF } } — sem ele, modFrete 9
  * @param {object} d.pag     { detPag:[{ tPag, vPag, indPag?, xPag?, card?:{ tpIntegra, CNPJ?, tBand?, cAut? } }], vTroco? }
  * @param {object} [d.infAdic]  { infCpl? }
  * @param {object} [d.respTec]  { CNPJ, xContato, email, fone }
@@ -252,7 +253,7 @@ export function montarXmlNFe(d = {}) {
     t("tpNF", "1") + t("idDest", ide.idDest ?? "1") + t("cMunFG", ide.cMunFG) +
     t("tpImp", mod === 65 ? "4" : "1") + t("tpEmis", ide.tpEmis ?? "1") + t("cDV", ide.cDV ?? chave.slice(-1)) +
     t("tpAmb", ide.tpAmb) + t("finNFe", ide.finNFe ?? "1") + t("indFinal", ide.indFinal ?? "1") +
-    t("indPres", ide.indPres ?? "1") + t("procEmi", "0") + t("verProc", ide.verProc ?? "PedidoPrime 1.0", { texto: true }) +
+    t("indPres", ide.indPres ?? "1") + t("indIntermed", ide.indIntermed) + t("procEmi", "0") + t("verProc", ide.verProc ?? "PedidoPrime 1.0", { texto: true }) +
     contingenciaIde);
 
   // Emitente
@@ -363,7 +364,17 @@ export function montarXmlNFe(d = {}) {
   const rt = d.respTec;
   const respTec = rt ? g("infRespTec", t("CNPJ", rt.CNPJ) + t("xContato", rt.xContato, { texto: true }) + t("email", rt.email, { texto: true }) + t("fone", somenteDig(rt.fone))) : "";
 
-  const infNFe = ideXml + emitXml + destXml + detXml + totalXml + "<transp><modFrete>9</modFrete></transp>" + pagCompleto + infAdic + respTec;
+  // Transporte: sem informação = "sem ocorrência" (9). Na NFC-e, outra modalidade ou transportador só na entrega (rejeições 753 e 754).
+  const modFrete = String(d.transp?.modFrete ?? "9");
+  const tr = d.transp?.transporta;
+  const entregaDomicilio = mod === 65 && String(ide.indPres ?? "1") === "4";
+  exigir(/^[012349]$/.test(modFrete), "Modalidade do frete inválida.");
+  if (mod === 65 && !entregaDomicilio) exigir(modFrete === "9" && !tr, "NFC-e sem entrega a domicílio não informa frete nem transportador.");
+  if (entregaDomicilio) exigir(d.dest?.ender, "NFC-e de entrega a domicílio exige o cliente identificado com endereço.");
+  const transporta = tr ? g("transporta", (tr.CNPJ ? t("CNPJ", tr.CNPJ) : t("CPF", tr.CPF)) + t("xNome", tr.xNome, { texto: true, max: 60 }) + t("UF", tr.UF)) : "";
+  const transpXml = g("transp", t("modFrete", modFrete) + transporta);
+
+  const infNFe = ideXml + emitXml + destXml + detXml + totalXml + transpXml + pagCompleto + infAdic + respTec;
   // Atributos em ordem canônica (C14N ordena por nome: Id antes de versao).
   const xml = `<NFe xmlns="${LEIAUTE.namespace}"><infNFe Id="NFe${chave}" versao="${LEIAUTE.versao}">${infNFe}</infNFe></NFe>`;
   return { xml, chave, totais: { vProd: tot.vProd, vDesc: tot.vDesc, vOutro: tot.vOutro, vNF, vPag: vPagTot, vTroco: troco }, avisos };

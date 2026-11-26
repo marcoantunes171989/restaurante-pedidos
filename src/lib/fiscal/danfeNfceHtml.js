@@ -88,7 +88,7 @@ function umaVia(d, qrDataUrl, via) {
   <div class="c b">Consulte pela Chave de Acesso em</div><div class="c">${esc(d.urlChave)}</div>
   <div class="chave">${esc(chaveEmBlocos(d.chave))}</div>
   <div class="sep"></div>
-  <div class="c">${consumidor}</div>${c?.nome ? `<div class="c">${esc(c.nome)}</div>` : ""}
+  <div class="c">${consumidor}</div>${c?.nome ? `<div class="c">${esc(c.nome)}</div>` : ""}${c?.endereco ? `<div class="c">${d.entrega ? "ENTREGA A DOMICÍLIO: " : ""}${esc(c.endereco)}</div>` : ""}
   <div class="c b">NFC-e nº ${esc(d.numero)} Série ${esc(d.serie)} ${esc(dataHoraLocal(d.dhEmi))}${via === "estabelecimento" ? " · Via do Estabelecimento" : ""}</div>
   ${d.protocolo ? `<div class="c">Protocolo de autorização: ${esc(d.protocolo.nProt)}</div><div class="c">Data de autorização: ${esc(dataHoraLocal(d.protocolo.dhRecbto))}</div>` : ""}
   ${aviso}

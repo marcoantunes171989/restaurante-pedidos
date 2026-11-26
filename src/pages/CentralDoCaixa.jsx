@@ -12,6 +12,7 @@ import {
   emitirNotaDaVenda, dadosNotaContaOperacional, postarApiFiscal, dadosDaNotaNoCaixa, NOTA_VAZIA,
   EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja,
 } from "../lib/fiscal/emissaoPdv";
+import { normalizarEntregaNfce } from "../lib/fiscal/entregaNfce";
 import PdvNotaFiscalCampos from "./pdv/PdvNotaFiscalCampos";
 import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../lib/fiscal/imprimirNota";
 
@@ -127,7 +128,7 @@ export default function CentralDoCaixa({
     setNotaAviso({ marca, rotulo, nota: { estado: "emitindo", titulo: "Emitindo nota fiscal…" } });
     emitirNotaDaVenda({
       supabase, emitente: emitenteFiscal, ...dadosNota, produtos, formas: formasPagamento,
-      config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
+      config: configFiscalVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario, entrega: notaCx.entrega,
     })
       .then((n) => {
         if (n?.estado === "fora") setNotaAviso((cur) => (cur && cur.marca === marca ? null : cur)); else atualizar(n);
@@ -149,6 +150,7 @@ export default function CentralDoCaixa({
   // CPF/CNPJ do cliente (ou NF-e para empresa) — mesmo campo do PDV principal.
   const nfceNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
   const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
+  const entregaNaLoja = nfceNaLoja && normalizarEntregaNfce(configFiscalVenda?.entregaNfce).ativo;
   const [confirmacao, setConfirmacao] = useState(null); // { o, linhas, total }
   const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
   const [erroConfirmacao, setErroConfirmacao] = useState("");
@@ -163,7 +165,7 @@ export default function CentralDoCaixa({
   async function confirmarPagamento() {
     if (!confirmacao) return;
     const { o, linhas, total } = confirmacao;
-    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) { setErroConfirmacao(notaCx.erro); return; }
     if (pagandoIdsRef.current.has(o.id)) return; // trava contra clique duplo antes do re-render
     pagandoIdsRef.current.add(o.id);
@@ -276,7 +278,7 @@ export default function CentralDoCaixa({
               ))}
               <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5 text-base"><span className="font-bold">Total</span><strong>{formatCurrency(confirmacao.total)}</strong></div>
             </div>
-            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} />}
+            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} />}
             {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[#B42318]/30 bg-[#FDECEA] px-3 py-2 text-xs font-semibold text-[#B42318]">{erroConfirmacao}</p>}
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setConfirmacao(null)} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-bold text-[var(--pp-text)] hover:bg-[var(--pp-bg)] disabled:opacity-50">Voltar</button>

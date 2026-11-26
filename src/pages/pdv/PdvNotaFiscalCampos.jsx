@@ -5,11 +5,12 @@ import { buscarEnderecoPorCep } from "../../lib/fiscal/cep";
 const campo = "min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-sm text-[var(--pp-text)] focus:border-[#012E46] focus:outline-none";
 const rotulo = "text-[11px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]";
 
-export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = false }) {
+export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = false, entregaDisponivel = false, pedidoDeEntrega = false }) {
   const [cepEstado, setCepEstado] = useState({ buscando: false, erro: "" });
   const muda = (k) => (e) => onChange({ ...valor, [k]: e.target.value });
   const docDigitos = String(valor.documento || "").replace(/[^0-9A-Za-z]/g, "");
   const ehCnpj = docDigitos.length === 14;
+  const entrega = entregaDisponivel && !valor.nfe && !!valor.entrega;
 
   async function buscarCep() {
     setCepEstado({ buscando: true, erro: "" });
@@ -23,19 +24,29 @@ export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = f
     <fieldset className="mt-4 rounded-2xl border border-[var(--pp-border)] p-3">
       <legend className="px-1 text-xs font-black text-[var(--pp-text)]">Nota fiscal</legend>
       <label className="block">
-        <span className={rotulo}>CPF/CNPJ na nota (opcional)</span>
+        <span className={rotulo}>{entrega ? "CPF/CNPJ do cliente (obrigatório na entrega)" : "CPF/CNPJ na nota (opcional)"}</span>
         <input className={campo} inputMode="text" autoComplete="off" value={valor.documento} onChange={muda("documento")} placeholder="Só números" />
       </label>
       {nfeDisponivel && ehCnpj && (
         <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]">
-          <input type="checkbox" className="h-5 w-5" checked={!!valor.nfe} onChange={(e) => onChange({ ...valor, nfe: e.target.checked })} />
+          <input type="checkbox" className="h-5 w-5" checked={!!valor.nfe} onChange={(e) => onChange({ ...valor, nfe: e.target.checked, ...(e.target.checked ? { entrega: false } : {}) })} />
           Emitir NF-e para a empresa (em vez de NFC-e)
         </label>
       )}
-      {valor.nfe && (
+      {entregaDisponivel && !valor.nfe && (
+        <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]">
+          <input type="checkbox" className="h-5 w-5" checked={!!valor.entrega} onChange={(e) => onChange({ ...valor, entrega: e.target.checked })} />
+          Entrega a domicílio (a nota leva o endereço)
+        </label>
+      )}
+      {pedidoDeEntrega && entregaDisponivel && !valor.nfe && !valor.entrega && (
+        <p role="status" className="text-xs font-semibold text-[#B54708]">Pedido de entrega: marque a opção acima para a nota levar o endereço do cliente.</p>
+      )}
+      {entrega && <p className="text-xs text-[var(--pp-text-muted)]">Avise o cliente: o CPF/CNPJ e o endereço são pedidos para a nota fiscal da entrega.</p>}
+      {(valor.nfe || entrega) && (
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className="col-span-2 block"><span className={rotulo}>Razão social</span><input className={campo} value={valor.nome} onChange={muda("nome")} /></label>
-          <label className="col-span-2 block"><span className={rotulo}>Inscrição estadual (se tiver)</span><input className={campo} inputMode="numeric" value={valor.ie} onChange={muda("ie")} /></label>
+          <label className="col-span-2 block"><span className={rotulo}>{valor.nfe ? "Razão social" : "Nome do cliente"}</span><input className={campo} value={valor.nome} onChange={muda("nome")} /></label>
+          {valor.nfe && <label className="col-span-2 block"><span className={rotulo}>Inscrição estadual (se tiver)</span><input className={campo} inputMode="numeric" value={valor.ie} onChange={muda("ie")} /></label>}
           <label className="block"><span className={rotulo}>CEP</span><input className={campo} inputMode="numeric" value={valor.CEP} onChange={muda("CEP")} /></label>
           <div className="flex items-end">
             <button type="button" onClick={buscarCep} disabled={cepEstado.buscando} className="min-h-11 w-full rounded-xl bg-[#012E46] text-sm font-black text-white disabled:opacity-60">

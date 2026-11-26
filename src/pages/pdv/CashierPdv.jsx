@@ -52,6 +52,7 @@ import { produtoIdDoItem } from "../../lib/pedidoItem";
 import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
 import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, motivoSemNota, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
+import { normalizarEntregaNfce } from "../../lib/fiscal/entregaNfce";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "../../lib/fiscal/fiscalApi";
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
@@ -412,9 +413,15 @@ export default function CashierPdv({
   }), [emitenteFiscal, pedidosSel, products, subtotalSel, taxaValorSel, acrescimoSel, descontoManualSel, descontoCupom, contaSel, pagamentosPorConta, formasPagamento, configFiscalVenda, ctxFiscal]);
 
   // E8: nota fiscal da venda (CPF/CNPJ na nota e NF-e para empresa).
-  const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
+  // Os dados digitados valem só para a conta em que foram digitados: CPF e endereço de um cliente não passam para outra conta.
+  const [notaState, setNotaState] = useState({ key: null, valor: NOTA_VAZIA });
+  const chaveDaNota = contaSel?.key ?? null;
+  const notaCaixa = notaState.key === chaveDaNota ? notaState.valor : NOTA_VAZIA;
+  const setNotaCaixa = (valor) => setNotaState({ key: chaveDaNota, valor });
   const nfceNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfceDaLoja(emitenteFiscal);
   const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
+  // NFC-e de entrega a domicílio: só quando a loja ligou em Fiscal › Emissão (migration 206).
+  const entregaNaLoja = nfceNaLoja && normalizarEntregaNfce(configFiscalVenda?.entregaNfce).ativo;
   // E9 parte 2: alertas fiscais (prazos, rejeitadas, certificado) no topo do PDV.
   const alertasFiscaisPdv = useAlertasFiscais({ supabase, lojaId: lojaInfo?.id ?? emitenteFiscal?.lojaId ?? null, ativo: nfceNaLoja || nfeNaLoja });
   // E8 parte 4: com o caixa aberto, envia sozinho as notas de contingência.
@@ -1026,7 +1033,7 @@ export default function CashierPdv({
       }
       const n = await comPrazo(emitirNotaDaVenda({
         supabase, emitente, pedidos: v.pedidos, produtos: products, composicao: v.composicao, pagamento: v.pagamento, formas: formasPagamento,
-        config: configFiscalVenda, ctxFiscal, modelo: v.modelo, cpf: v.cpf, destinatario: v.destinatario,
+        config: configFiscalVenda, ctxFiscal, modelo: v.modelo, cpf: v.cpf, destinatario: v.destinatario, entrega: v.entrega,
       }), 90000, () => ({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A emissão demorou demais. Tente de novo." }));
       if (n.documentoId || ["autorizada", "contingencia"].includes(n.estado)) {
         removerVendaPendente(lojaInfo?.id, v.codigo);
@@ -1058,7 +1065,7 @@ export default function CashierPdv({
       return;
     }
     // E8: confere o CPF/CNPJ (e a NF-e) antes de fechar; corrigir ou apagar o campo libera.
-    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) {
       notify("error", notaCx.erro);
       return;
@@ -1161,14 +1168,14 @@ export default function CashierPdv({
         const lojaIdFila = lojaInfo?.id ?? null;
         guardarVendaPendente(lojaIdFila, {
           codigo: codigoPagamento, total: totalCobrar, mesa: mesaFechada, pedidos: pedidosSel, composicao: info.composicao,
-          pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, cpf: notaCx.cpf, modelo: notaCx.modelo, destinatario: notaCx.destinatario,
+          pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, cpf: notaCx.cpf, modelo: notaCx.modelo, destinatario: notaCx.destinatario, entrega: notaCx.entrega,
         });
         setVendasSemNotaVersao((v) => v + 1);
         // A emissão nunca fica eternamente em "Emitindo…": passou do prazo, a venda segue na fila para emitir de novo (sem duplicar).
         comPrazo(emitirNotaDaVenda({
           supabase, emitente: emitenteVenda, pedidos: pedidosSel, produtos: products, composicao: info.composicao,
           pagamento: { total: totalCobrar, troco: trocoSel, detalhes }, formas: formasPagamento,
-          config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario,
+          config: configVenda, ctxFiscal, modelo: notaCx.modelo, cpf: notaCx.cpf, destinatario: notaCx.destinatario, entrega: notaCx.entrega,
         }), 90000, () => ({ estado: "erro", titulo: "Nota fiscal pendente", detalhe: "A emissão demorou demais. A venda ficou em \"Venda sem nota fiscal\": use Emitir agora (não duplica a nota)." })).then((n) => {
           // A nota existe (ou o documento está reservado em Notas emitidas): sai da fila. Senão, a venda fica com o motivo.
           if (n.documentoId || ["autorizada", "contingencia", "fora"].includes(n.estado)) removerVendaPendente(lojaIdFila, codigoPagamento);
@@ -2002,6 +2009,7 @@ export default function CashierPdv({
               notaCaixa={notaCaixa}
               onNotaChange={setNotaCaixa}
               nfeDisponivel={nfeNaLoja}
+              entregaDisponivel={entregaNaLoja}
               emiteNota={nfceNaLoja}
             />
           )}

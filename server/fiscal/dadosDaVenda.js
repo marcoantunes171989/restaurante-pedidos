@@ -66,12 +66,16 @@ export async function dadosDaNota(doc, deps, agora = new Date(), { permissivo = 
 
   const emitente = await deps.emitente(doc.loja_id);
   if (!emitente?.cnpj) return { code: "SEM_EMITENTE" };
+  // NFC-e de entrega a domicílio: marcada pelo caixa; vale só se a loja ligou (parâmetro lido do banco, migration 206).
+  const entrega = doc.rascunho?.entrega === true;
   const r = dadosNFeDaVenda({
     venda, emitente: emitente.dados, documento: emitente.cnpj, modelo: Number(doc.modelo), serie: Number(doc.serie),
     numero: Number(doc.numero), ambiente: doc.ambiente, dhEmi: agora.toISOString(),
     cpfConsumidor: doc.rascunho?.cpf || "",
-    // NF-e (55): destinatário completo digitado no caixa (E8 parte 3).
+    // NF-e (55) e entrega: destinatário completo digitado no caixa (E8 parte 3).
     destinatario: doc.rascunho?.dest || null,
+    entrega,
+    entregaNfce: entrega && deps.entregaNfce ? await deps.entregaNfce(doc.loja_id) : null,
     // Tributos aproximados (Lei 12.741) pela tabela IBPT da UF da loja, se existir.
     ibpt: await (deps.tabelaIbpt || tabelaIbpt)(emitente.dados?.uf),
     // IBS/CBS do Simples: parâmetros da loja lidos do banco (migration 205); sem a função no banco, fica desligado.

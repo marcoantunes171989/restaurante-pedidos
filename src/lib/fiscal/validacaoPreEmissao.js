@@ -12,6 +12,7 @@ import {
 } from "../emitenteFiscalService.js";
 import { descricaoProdutoFiscal } from "./nfeXml.js";
 import { aplicaIbsCbsSn, pendenciasIbsCbsSn } from "./ibsCbsSimples.js";
+import { normalizarEntregaNfce } from "./entregaNfce.js";
 
 const ONDE_EMPRESA = "Fiscal › Dados da Empresa";
 const ONDE_PRODUTO = "Fiscal › Tributação › Produtos";
@@ -145,11 +146,27 @@ export function problemasDosItens(itens = [], { crt = "", modelo = 65 } = {}) {
   return p;
 }
 
+// Destinatário com endereço: NF-e e NFC-e de entrega a domicílio.
+function problemasDoDestinatario(destinatario, add, { rotulo, quem }) {
+  const d = destinatario || {};
+  const doc = validarDocumentoFiscal(d.documento);
+  if (!doc.valido) add("DEST_DOC", `${rotulo}: documento do ${quem} inválido (${doc.motivo})`);
+  if (String(d.nome ?? "").trim().length < 2) add("DEST_NOME", `${rotulo}: informe o nome${rotulo === "NF-e" ? "/razão social" : ""} do ${quem}.`);
+  const en = d.ender || {};
+  for (const [campo, rot] of [["xLgr", "logradouro"], ["nro", "número"], ["xBairro", "bairro"], ["xMun", "município"]]) {
+    if (!String(en[campo] ?? "").trim()) add("DEST_END", `${rotulo}: falta o ${rot} do ${quem}.`);
+  }
+  if (!ufValida(en.UF)) add("DEST_UF", `${rotulo}: UF do ${quem} inválida.`);
+  if (!cepValido(en.CEP)) add("DEST_CEP", `${rotulo}: CEP do ${quem} deve ter 8 números.`);
+  if (!codigoMunicipioIbgeValido(en.cMun)) add("DEST_IBGE", `${rotulo}: código IBGE do município do ${quem} deve ter 7 números.`);
+  else if (ufValida(en.UF) && !soDig(en.cMun).startsWith(codigoUf(en.UF))) add("DEST_IBGE_UF", `${rotulo}: o município do ${quem} não pertence à UF informada.`);
+}
+
 /**
  * Pagamentos e destinatário.
- * @param {object} p { modelo, cpfConsumidor, destinatario }
+ * @param {object} p { modelo, cpfConsumidor, destinatario, entrega }
  */
-export function problemasDaVenda({ modelo = 65, cpfConsumidor = "", destinatario = null, valorTotal = 0 } = {}) {
+export function problemasDaVenda({ modelo = 65, cpfConsumidor = "", destinatario = null, valorTotal = 0, entrega = false } = {}) {
   const p = [];
   const add = (codigo, msg, onde = "Caixa") => p.push({ codigo, msg, onde });
   if (Number(modelo) === 65) {
@@ -163,20 +180,10 @@ export function problemasDaVenda({ modelo = 65, cpfConsumidor = "", destinatario
     const d = validarDocumentoFiscal(cpfConsumidor);
     if (!d.valido) add("CPF_CONSUMIDOR", `CPF/CNPJ do consumidor inválido (${d.motivo})`);
   }
+  if (Number(modelo) === 65 && entrega) problemasDoDestinatario(destinatario, add, { rotulo: "Entrega", quem: "cliente" });
   if (Number(modelo) === 55) {
-    const d = destinatario || {};
-    const doc = validarDocumentoFiscal(d.documento);
-    if (!doc.valido) add("DEST_DOC", `NF-e: documento do destinatário inválido (${doc.motivo})`);
-    if (String(d.nome ?? "").trim().length < 2) add("DEST_NOME", "NF-e: informe o nome/razão social do destinatário.");
-    const en = d.ender || {};
-    for (const [campo, rot] of [["xLgr", "logradouro"], ["nro", "número"], ["xBairro", "bairro"], ["xMun", "município"]]) {
-      if (!String(en[campo] ?? "").trim()) add("DEST_END", `NF-e: falta o ${rot} do destinatário.`);
-    }
-    if (!ufValida(en.UF)) add("DEST_UF", "NF-e: UF do destinatário inválida.");
-    if (!cepValido(en.CEP)) add("DEST_CEP", "NF-e: CEP do destinatário deve ter 8 números.");
-    if (!codigoMunicipioIbgeValido(en.cMun)) add("DEST_IBGE", "NF-e: código IBGE do município do destinatário deve ter 7 números.");
-    else if (ufValida(en.UF) && !soDig(en.cMun).startsWith(codigoUf(en.UF))) add("DEST_IBGE_UF", "NF-e: o município do destinatário não pertence à UF informada.");
-    const ie = String(d.ie ?? "").trim();
+    problemasDoDestinatario(destinatario, add, { rotulo: "NF-e", quem: "destinatário" });
+    const ie = String(destinatario?.ie ?? "").trim();
     if (ie && !inscricaoEstadualValida(normalizarInscricaoEstadual(ie))) add("DEST_IE", "NF-e: Inscrição Estadual do destinatário fora do formato (números ou ISENTO).");
   }
   return p;
@@ -194,11 +201,26 @@ export function problemaNfeForaDaUf(ufDestinatario, ufEmitente) {
   return `NF-e para ${dest} (outro estado) não está habilitada: por ora a NF-e só é emitida para destinatário em ${emit}. Fale com o contador antes de liberar operação interestadual.`;
 }
 
+/** NFC-e é operação interna: entrega para outro estado não pode sair em NFC-e. */
+export function problemaEntregaForaDaUf(ufCliente, ufEmitente) {
+  const dest = String(ufCliente || "").toUpperCase();
+  const emit = String(ufEmitente || "").toUpperCase();
+  if (!ufValida(dest) || !ufValida(emit) || dest === emit) return null;
+  return `Entrega em ${dest} (outro estado) não pode sair em NFC-e: só há entrega dentro de ${emit}.`;
+}
+
 /**
  * Tudo junto. Devolve { ok, problemas, texto }: `texto` é a mensagem pronta para a tela.
  * Sem `documento` (o caixa não tem o CNPJ da loja; o servidor confere de novo com ele) a conferência do CNPJ é pulada.
  */
-export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false, ibsCbsSn = null } = {}) {
+export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false, ibsCbsSn = null, entrega = false, entregaNfce = null } = {}) {
+  const emEntrega = entrega === true && Number(modelo) === 65;
+  const problemasEntrega = [];
+  if (emEntrega) {
+    if (!normalizarEntregaNfce(entregaNfce).ativo) problemasEntrega.push({ codigo: "ENTREGA_DESLIGADA", msg: "A NFC-e de entrega a domicílio não está ligada para esta loja.", onde: "Fiscal › Emissão › Entrega a domicílio" });
+    const fora = problemaEntregaForaDaUf(destinatario?.ender?.UF, emitente?.uf);
+    if (fora) problemasEntrega.push({ codigo: "ENTREGA_FORA_UF", msg: fora, onde: "Caixa" });
+  }
   // IBS/CBS do Simples ligado e incompleto: barra antes de reservar número.
   const faltaSn = aplicaIbsCbsSn({ config: ibsCbsSn, crt: emitente?.crt, ambiente, data: agora }) ? pendenciasIbsCbsSn(ibsCbsSn) : [];
   const foraDaUf = Number(modelo) === 55 && !permitirInterestadual ? problemaNfeForaDaUf(destinatario?.ender?.UF, emitente?.uf) : null;
@@ -206,8 +228,9 @@ export function validarAntesDeEmitir({ emitente, documento = "", confereDocument
     ...problemasDaEmpresa(emitente, documento, { confereDocumento }),
     ...problemasDoCertificado({ credenciais, documento, modelo, ambiente, agora }),
     ...problemasDosItens(venda?.itens || [], { crt: emitente?.crt, modelo }),
-    ...problemasDaVenda({ modelo, cpfConsumidor, destinatario, valorTotal: venda?.totais?.vNF }),
+    ...problemasDaVenda({ modelo, cpfConsumidor, destinatario, valorTotal: venda?.totais?.vNF, entrega: emEntrega }),
     ...(foraDaUf ? [{ codigo: "DEST_FORA_UF", msg: foraDaUf, onde: "Caixa" }] : []),
+    ...problemasEntrega,
     ...(faltaSn.length ? [{ codigo: "IBSCBS_SN", msg: `IBS/CBS do Simples incompleto: falta ${faltaSn.join(", ")}.`, onde: "Fiscal › Emissão › IBS/CBS do Simples" }] : []),
   ];
   const vistos = new Set();

@@ -43,11 +43,12 @@ export function dadosDanfeNfce({ xml, documento = {}, fonte } = {}) {
     return { cProd: de(p, "cProd"), xProd: de(p, "xProd"), qCom: num(de(p, "qCom")), uCom: de(p, "uCom"),
       vUnCom: num(de(p, "vUnCom")), vProd: num(de(p, "vProd")) };
   });
-  const enderecoEmit = [
-    [de(ender, "xLgr"), de(ender, "nro"), de(ender, "xCpl")].filter(Boolean).join(", "),
-    de(ender, "xBairro"), [de(ender, "xMun"), de(ender, "UF")].filter(Boolean).join(" - "),
-    de(ender, "CEP") ? `CEP ${de(ender, "CEP")}` : null,
+  const enderecoDe = (b) => [
+    [de(b, "xLgr"), de(b, "nro"), de(b, "xCpl")].filter(Boolean).join(", "),
+    de(b, "xBairro"), [de(b, "xMun"), de(b, "UF")].filter(Boolean).join(" - "),
+    de(b, "CEP") ? `CEP ${de(b, "CEP")}` : null,
   ].filter(Boolean).join(" · ");
+  const enderecoEmit = enderecoDe(ender);
 
   return {
     chave,
@@ -60,7 +61,8 @@ export function dadosDanfeNfce({ xml, documento = {}, fonte } = {}) {
     },
     pagamentos: blocos(pag, "detPag").map((p) => ({ tPag: de(p, "tPag"), xPag: de(p, "xPag"), vPag: num(de(p, "vPag")) })),
     troco: num(de(pag, "vTroco")),
-    consumidor: dest ? { cnpj: de(dest, "CNPJ"), cpf: de(dest, "CPF"), idEstrangeiro: de(dest, "idEstrangeiro"), nome: de(dest, "xNome") } : null,
+    consumidor: dest ? { cnpj: de(dest, "CNPJ"), cpf: de(dest, "CPF"), idEstrangeiro: de(dest, "idEstrangeiro"), nome: de(dest, "xNome"), endereco: enderecoDe(bloco(dest, "enderDest")) } : null,
+    entrega: de(ide, "indPres") === "4",
     numero: Number(de(ide, "nNF")), serie: Number(de(ide, "serie")), dhEmi: de(ide, "dhEmi"),
     homologacao: de(ide, "tpAmb") === "2",
     contingencia: tpEmis !== 1 && !autorizada,
