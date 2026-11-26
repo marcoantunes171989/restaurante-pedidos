@@ -90,7 +90,8 @@ describe("atalhos: cada passo diz o que fazer e para onde ir", () => {
   it("todo passo (menos ligar) tem rótulo de ação e texto de destino", () => {
     for (const p of nova().passos) {
       expect(p.acao, p.id).toBeTruthy();
-      expect(p.destino, p.id).toMatch(/^Fiscal ›/);
+      expect(p.destino, p.id).toMatch(/^Configurações › \S/);
+      expect(p.destino, p.id).not.toMatch(/›\S/); // sempre com espaço depois do separador
     }
   });
   it("pagamentos: o cursor vai para a primeira forma sem código; sem pendência de forma, para a taxa de serviço", () => {

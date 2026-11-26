@@ -131,7 +131,7 @@ export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], p
 
       {dados.erro && <p className="mt-2 text-[12px] font-semibold text-[#C81E4A]" data-testid="vsn-erro">{dados.erro}</p>}
       {dados.avisoRegistro && <p className="mt-2 text-[12px] font-semibold text-[#B45309]" data-testid="vsn-sem-registro">{dados.avisoRegistro}</p>}
-      {!dados.carregando && !fiscal.carregando && !emissaoLigada && <p className="mt-2 text-[12px] font-semibold text-[#B45309]" data-testid="vsn-sem-emissao">A emissão de NFC-e e de NF-e desta empresa não está ligada (Fiscal › Dados da Empresa / Emissão). Ligue antes de emitir.</p>}
+      {!dados.carregando && !fiscal.carregando && !emissaoLigada && <p className="mt-2 text-[12px] font-semibold text-[#B45309]" data-testid="vsn-sem-emissao">A emissão de NFC-e e de NF-e desta empresa não está ligada (Configurações › Dados da Empresa / Emissão). Ligue antes de emitir.</p>}
       {dados.carregando && <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">Conferindo quais vendas já têm nota…</p>}
       {resultado && (
         <div role="status" className={`mt-2 flex flex-wrap items-center gap-2 text-[13px] font-semibold ${resultado.ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>
@@ -174,7 +174,7 @@ export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], p
           })}
         </ul>
       )}
-      {cupom && <CupomVendaBalcao venda={cupom} lojaInfo={lojaInfo} onFechar={() => setCupom(null)} />}
+      {cupom && <CupomVendaBalcao venda={cupom} lojaInfo={lojaInfo} emitente={fiscal.emitente} onFechar={() => setCupom(null)} />}
     </section>
   );
 }

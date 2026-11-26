@@ -59,35 +59,35 @@ export function passosAtivacao({ emitente = null, documentoLoja = "", credenciai
   const modeloSemSerie = nfce && !temSerie(65) ? 65 : nfe && !temSerie(55) ? 55 : null;
 
   const passos = [
-    { id: "empresa", titulo: "Dados fiscais da empresa", alvo: "empresa", acao: "Completar dados", destino: "Fiscal › Dados da Empresa",
+    { id: "empresa", titulo: "Dados fiscais da empresa", alvo: "empresa", acao: "Completar dados", destino: "Configurações › Dados da Empresa",
       ok: (nfce || nfe) && pendEmit.length === 0 && errosEmpresa.length === 0,
       detalhe: !(nfce || nfe) ? "Marque NFC-e (e NF-e, se usar) como habilitada no cadastro fiscal da empresa."
         : pendEmit.length ? `Falta: ${pendEmit.join(", ")}.` : errosEmpresa.length ? errosEmpresa.map((x) => x.msg).join(" ") : "Completo e conferido." },
-    { id: "certificado", titulo: "Certificado digital A1", alvo: "emissao-cert", acao: "Enviar certificado", destino: "Fiscal › Emissão › Certificado", foco: "emissao-pfx",
+    { id: "certificado", titulo: "Certificado digital A1", alvo: "emissao-cert", acao: "Enviar certificado", destino: "Configurações › Emissão › Certificado", foco: "emissao-pfx",
       ok: (sc.estado === "ok" || sc.estado === "vencendo") && !certOutroCnpj,
       detalhe: certOutroCnpj ? certOutroCnpj.msg : sc.texto },
-    { id: "csc", titulo: "CSC da NFC-e (homologação)", alvo: "emissao-csc", acao: "Cadastrar CSC", destino: "Fiscal › Emissão › CSC da NFC-e", foco: "emissao-csc-id",
+    { id: "csc", titulo: "CSC da NFC-e (homologação)", alvo: "emissao-csc", acao: "Cadastrar CSC", destino: "Configurações › Emissão › CSC da NFC-e", foco: "emissao-csc-id",
       ok: !nfce || cscHom,
       detalhe: !nfce ? "Não se aplica (loja sem NFC-e)." : cscHom ? "Guardado no cofre." : "Cadastre o ID e o código CSC que a SEFAZ forneceu (usado na contingência da NFC-e)." },
-    { id: "series", titulo: "Séries e numeração (homologação)", alvo: "emissao-series", acao: "Cadastrar série", destino: "Fiscal › Emissão › Séries", foco: "emissao-serie-num", modeloSugerido: modeloSemSerie,
+    { id: "series", titulo: "Séries e numeração (homologação)", alvo: "emissao-series", acao: "Cadastrar série", destino: "Configurações › Emissão › Séries", foco: "emissao-serie-num", modeloSugerido: modeloSemSerie,
       ok: (!nfce || temSerie(65)) && (!nfe || temSerie(55)),
       detalhe: [nfce && !temSerie(65) ? "falta a série da NFC-e" : "", nfe && !temSerie(55) ? "falta a série da NF-e" : ""].filter(Boolean).join(" e ") || "Cadastradas." },
-    { id: "pagamentos", titulo: "Pagamentos e taxa de serviço", alvo: "emissao-pag", acao: "Mapear pagamentos", destino: "Fiscal › Emissão › Pagamentos", foco: formaPendente ? `emissao-tpag-${formaPendente.id}` : "emissao-taxa",
+    { id: "pagamentos", titulo: "Pagamentos e taxa de serviço", alvo: "emissao-pag", acao: "Mapear pagamentos", destino: "Configurações › Emissão › Pagamentos", foco: formaPendente ? `emissao-tpag-${formaPendente.id}` : "emissao-taxa",
       ok: mapa.ok && taxaOk,
       detalhe: [!mapa.ok ? `Código fiscal a corrigir em: ${textoProblemasMeios(mapa)}` : "", !taxaOk ? "defina com o contador se a taxa de serviço entra na nota" : ""].filter(Boolean).join("; ") || "Configurado." },
     { id: "produtos", titulo: "Produtos com regra fiscal", alvo: "produtos",
       // Só falta o crédito do Simples (CSOSN 101)? Ele se informa em lote na mesma tela da Tributação.
       acao: semFiscal.length && semFiscal.every((x) => x.pendencias.every((t) => /Crédito do Simples/.test(t))) ? "Informar crédito do Simples" : "Corrigir produtos",
-      destino: "Fiscal › Tributação › Produtos (só os que faltam; o crédito do Simples se informa em lote ali)",
+      destino: "Configurações › Tributação › Produtos (só os que faltam; o crédito do Simples se informa em lote ali)",
       ok: ativos > 0 && semFiscal.length === 0,
       detalhe: ativos === 0 ? "Nenhum produto ativo." : semFiscal.length ? `${semFiscal.length} de ${ativos} produto(s) sem regra fiscal completa.` : `Todos os ${ativos} produtos prontos.`,
       lista: semFiscal.slice(0, 10) },
-    { id: "teste", titulo: "Teste de conexão com a SEFAZ", alvo: "emissao-cert", acao: cert ? "Testar conexão" : "Enviar certificado", destino: "Fiscal › Emissão › Certificado", foco: cert ? "emissao-testar-65" : "emissao-pfx",
+    { id: "teste", titulo: "Teste de conexão com a SEFAZ", alvo: "emissao-cert", acao: cert ? "Testar conexão" : "Enviar certificado", destino: "Configurações › Emissão › Certificado", foco: cert ? "emissao-testar-65" : "emissao-pfx",
       ok: !!teste?.ok, detalhe: teste?.ok ? "SEFAZ respondeu: em operação." : teste ? (teste.texto || "O último teste falhou.") : "Clique em \"Testar conexão\" depois de cadastrar o certificado." },
   ];
   const prontos = passos.every((p) => p.ok);
   const ligada = ["homologacao", "producao"].includes(e.nfceAmbiente);
-  passos.push({ id: "ligar", titulo: "Ligar a emissão em homologação", alvo: "ligar", acao: "Ligar", destino: "Fiscal › Emissão",
+  passos.push({ id: "ligar", titulo: "Ligar a emissão em homologação", alvo: "ligar", acao: "Ligar", destino: "Configurações › Emissão",
     ok: ligada, detalhe: ligada ? `Ligada (${e.nfceAmbiente === "producao" ? "produção" : "homologação"}).` : prontos ? "Tudo pronto: pode ligar." : "Conclua os passos acima antes." });
   return { passos, prontos, ligada, feitos: passos.filter((p) => p.ok).length, total: passos.length };
 }

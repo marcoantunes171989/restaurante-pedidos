@@ -262,7 +262,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
     if (!faltaSn.length) itens.forEach((x, i) => { itens[i] = itemComIbsCbsSn(x, ibsCbsSn, venda.itens[i]?.fiscal); });
     else avisos.push(`IBS/CBS do Simples ligado, mas incompleto: falta ${faltaSn.join(", ")}.`); // só chega aqui na manutenção
   } else if (crt === "1" && new Date(dhEmi || agora).getTime() >= Date.parse(`${INICIO_PADRAO}T00:00:00-03:00`)) {
-    avisos.push("IBS/CBS do Simples Nacional não está ligado para esta loja: confira a obrigatoriedade com o contador (Fiscal › Emissão).");
+    avisos.push("IBS/CBS do Simples Nacional não está ligado para esta loja: confira a obrigatoriedade com o contador (Configurações › Emissão).");
   }
   if (origemPadrao) avisos.push("Origem da mercadoria (orig) = 0 (nacional) nos itens sem origem cadastrada: conferir no cadastro do produto.");
   if (unidadePadrao) avisos.push("Unidade comercial = UN nos itens sem unidade cadastrada: conferir no cadastro do produto.");

@@ -43,11 +43,11 @@ export function resultadoDoEvento(e) {
 
 // Causa provável e o que fazer, por código da SEFAZ (os mais comuns na emissão). `quem`: cliente | tecnico | contador.
 const POR_CODIGO = {
-  209: { causa: "A Inscrição Estadual do emitente não passa na validação da SEFAZ.", acao: "Conferir a IE em Fiscal › Dados da Empresa (precisa ser a IE habilitada para NFC-e, com os dígitos corretos) e reenviar.", quem: "cliente" },
+  209: { causa: "A Inscrição Estadual do emitente não passa na validação da SEFAZ.", acao: "Conferir a IE em Configurações › Dados da Empresa (precisa ser a IE habilitada para NFC-e, com os dígitos corretos) e reenviar.", quem: "cliente" },
   373: { causa: "Em homologação, o 1º item da nota precisa ter a descrição oficial de teste.", acao: "O sistema já preenche essa descrição nas versões novas: reenvie a nota.", quem: "tecnico" },
   704: { causa: "A data/hora de emissão ficou antiga demais (a SEFAZ aceita poucos minutos).", acao: "Reenvie: o sistema renova a data-hora a cada nova tentativa.", quem: "cliente" },
   217: { causa: "A SEFAZ não tem registro desta nota.", acao: "Pode reenviar com segurança (o número é mantido).", quem: "cliente" },
-  778: { causa: "O NCM de um item não existe na tabela da SEFAZ.", acao: "Corrigir o NCM do produto (Fiscal › Tributação) ou, só nesta nota, usar Manutenção fiscal; depois reenviar.", quem: "cliente" },
+  778: { causa: "O NCM de um item não existe na tabela da SEFAZ.", acao: "Corrigir o NCM do produto (Configurações › Tributação) ou, só nesta nota, usar Manutenção fiscal; depois reenviar.", quem: "cliente" },
   204: { causa: "A SEFAZ já tem uma nota com este número (duplicidade).", acao: "Use Consultar na SEFAZ: a nota pode já estar autorizada.", quem: "tecnico" },
   539: { causa: "A SEFAZ já tem uma nota com esta chave (duplicidade).", acao: "Use Consultar na SEFAZ: a nota pode já estar autorizada.", quem: "tecnico" },
   301: { causa: "Uso denegado: irregularidade do emitente.", acao: "Falar com o contador: o número não pode ser reaproveitado.", quem: "contador" },

@@ -103,7 +103,7 @@ describe("conjunto", () => {
     expect(validarAntesDeEmitir({ emitente: EMIT, documento: CNPJ, venda: { itens: [ITEM] } }).ok).toBe(true);
     const r = validarAntesDeEmitir({ emitente: { ...EMIT, inscricaoEstadual: "123456789012" }, documento: CNPJ, venda: { itens: [{ ...ITEM, fiscal: { ...ITEM.fiscal, ncm: "1" } }] } });
     expect(r.ok).toBe(false);
-    expect(r.texto).toMatch(/Inscrição Estadual.*NCM.*Corrigir em: Fiscal › Dados da Empresa \/ Fiscal › Tributação › Produtos\./);
+    expect(r.texto).toMatch(/Inscrição Estadual.*NCM.*Corrigir em: Configurações › Dados da Empresa \/ Configurações › Tributação › Produtos\./);
   });
   it("texto limita a 4 problemas e conta o resto", () => {
     const muitos = Array.from({ length: 6 }, (_, i) => ({ codigo: `X${i}`, msg: `Erro ${i}.`, onde: "Tela" }));

@@ -16,6 +16,8 @@ import CancelamentoNfce from "./components/admin/fiscal/CancelamentoNfce.jsx";
 import CancelamentoNfe from "./components/admin/fiscal/CancelamentoNfe.jsx";
 import XmlsFiscais from "./components/admin/fiscal/XmlsFiscais.jsx";
 import VendasSemNotaFiscal from "./components/admin/fiscal/VendasSemNotaFiscal.jsx";
+import AbasConfiguracoes from "./components/admin/AbasConfiguracoes.jsx";
+import { abasDisponiveis, ehTelaDeConfiguracao, menuComConfiguracoesAgrupadas } from "./lib/centralConfiguracoes.js";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
   excluirFiscalNcmLote, atualizarFiscalNcmLoteAtivo,
@@ -3634,12 +3636,11 @@ export default function RestaurantePedidoApp() {
     const precoAdd = Number(o.price) || 0;
     const custoAdd = Number(o.cost) || 0;
     if (precoAdd <= 0) return notify("error", "Informe um preço de venda válido.");
-    if (custoAdd <= 0) return notify("error", "Informe o custo do produto.");
-    if (!o.time || !o.time.trim()) return notify("error", "Selecione o tempo de preparo.");
+    // Só nome, categoria e preço são obrigatórios; o resto o lojista completa quando quiser.
     const np = {
       ...o,
       name: o.name.trim(), price: precoAdd, cost: custoAdd, active: true, badge: "Admin",
-      description: o.description || "Produto cadastrado pelo administrativo.",
+      description: o.description || "", // sem texto automático: ele aparecia para o cliente no cardápio
       imageUrl: o.imageUrl || fallbackImage,
       ingredients: Array.isArray(o.ingredients) ? o.ingredients : [],
       adicionais: Array.isArray(o.adicionais) ? o.adicionais : [],
@@ -3678,7 +3679,6 @@ export default function RestaurantePedidoApp() {
   // Edição completa de produto
   async function editarProduto(pid, dados) {
     if (!canAccess(currentUser, "admin")) return notify("error", "Usuário sem permissão administrativa.");
-    if (!dados.time || !dados.time.trim()) return notify("error", "Selecione o tempo de preparo.");
     // Migration 068 — categoria obrigatória, vínculo por ID (nunca por nome)
     if (dados.categoriaId == null) return notify("error", "Selecione uma categoria para o produto.");
     setProducts((cur) => cur.map((p) => p.id === pid ? { ...p, ...dados } : p));
@@ -7560,10 +7560,10 @@ function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, o
 function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate, irParaCozinha, relatorioSub = "geral", onRelatorioSubChange = () => {} }) {
   return (
     <nav className="scrollbar-none flex-1 overflow-y-auto px-2.5 py-3 space-y-3" aria-label="Navegação principal">
-      {menu.map((g) => (
+      {menuComConfiguracoesAgrupadas(menu).map((g) => (
         <SidebarSection key={g.grupo} titulo={g.grupo}>
           {g.itens.map((it) => {
-            const sel = ativo === it.id;
+            const sel = ativo === it.id || !!it.tambem?.includes(ativo);
             const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
             const ehRelatorios = it.id === "relatorios";
             const expandido = ehRelatorios && sel;
@@ -7839,6 +7839,10 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           ) : !canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
           ) : (<SecaoErrorBoundary key={ativo}>
+          {ehTelaDeConfiguracao(ativo) && (
+            <AbasConfiguracoes abas={abasDisponiveis(itensValidos)} ativa={ativo} onAbrir={setAdminSection}
+              bloqueada={(id) => !canAccessModule(id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin })} />
+          )}
           {ativo === "dashboard"  && (precisaEmpresa ? avisoEmpresa : (
             <DashboardGerencial
               orders={dashboardOrders}
@@ -23679,7 +23683,7 @@ function ProductAdmin({ products, categories, categoriasDb = [], addProduct, tog
       />
 
       {/* ── Cards de resumo ──────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         {[
           { l: "Total de produtos", v: products.length, tom: "text-white" },
           { l: "Ativos", v: products.filter((p) => p.active).length, tom: "text-emerald-400" },
@@ -23729,8 +23733,9 @@ function ProductAdmin({ products, categories, categoriasDb = [], addProduct, tog
                     {p.precoPromocional > 0
                       ? <span><span className="text-slate-500 line-through">{formatCurrency(p.price)}</span> <span className="font-bold text-gold-300">{formatCurrency(p.precoPromocional)}</span></span>
                       : <span className="font-bold text-white">{formatCurrency(p.price)}</span>}
-                    <span className="text-emerald-300">margem {margin.toFixed(0)}%</span>
-                    <span className={estoqueBaixo ? "font-bold text-red-300" : ""}>estoque {p.estoque ?? 0}{estoqueBaixo ? " ⚠" : ""}</span>
+                    {/* Custo e estoque são opcionais: sem custo não há margem; o estoque só aparece em quem o controla ou já tem quantidade. */}
+                    {Number(p.cost) > 0 && <span className="text-emerald-300">margem {margin.toFixed(0)}%</span>}
+                    {(p.controlaEstoque || Number(p.estoque) > 0) && <span className={estoqueBaixo ? "font-bold text-red-300" : ""}>estoque {p.estoque ?? 0}{estoqueBaixo ? " ⚠" : ""}</span>}
                     {/* Canais ocultos (migration 034) */}
                     {(p.visivelTablet === false || p.visivelQr === false || p.visivelExterno === false) && (
                       <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
@@ -23906,14 +23911,15 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
   const promoNum = moedaParaNum(String(f.precoPromo));
   const margem = precoNum > 0 ? ((precoNum - custoNum) / precoNum) * 100 : 0;
   const lucro = precoNum - custoNum;
-  const markup = custoNum > 0 ? precoNum / custoNum : 0;
   const estoqueN = Number(f.estoque) || 0;
   const estoqueMinN = Number(f.estoqueMinimo) || 0;
   const estoqueSaudavel = !f.controlaEstoque || estoqueN > estoqueMinN;
   const catNome = categoriasAtivas.find((c) => c.id === f.categoriaId)?.nome || f.category || "Sem categoria";
   const opcoesTempo = TEMPOS_PREPARO.includes(f.time) || !f.time ? TEMPOS_PREPARO : [f.time, ...TEMPOS_PREPARO];
-  const fiscalPreparado = !!(fis.sku || fis.ncm || fis.cfopInterno);
-  const valido = f.name.trim() && f.categoriaId != null && precoNum > 0 && custoNum > 0 && f.time.trim() && f.imageUrl.trim() && tags.length > 0 && f.description.trim();
+  const fiscalPreparado = !!(lojaFiscalRegraId || fis.sku || fis.ncm || fis.cfopInterno);
+  // Obrigatório só o essencial para vender: nome, categoria e preço.
+  const faltam = [!f.name.trim() && "nome", f.categoriaId == null && "categoria", !(precoNum > 0) && "preço de venda"].filter(Boolean);
+  const valido = faltam.length === 0;
 
   // ── Opções / personalização (aba "Opções") ──────────────────────────
   // Tipo auto-detectado pelo nome da categoria; sticky se o admin escolher.
@@ -23995,9 +24001,19 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
 
   // ── helpers de render (funções, não componentes: seguras p/ lint) ──
   const toggle = (on, onClick) => (
-    <button type="button" onClick={onClick} className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
+    <button type="button" role="switch" aria-checked={!!on} onClick={onClick} className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? "bg-[#2F9E52]" : "bg-[var(--pp-border)]"}`}>
       <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
     </button>
+  );
+  // Bloco recolhido: o que é opcional ou avançado fica a um toque, sem encher a tela.
+  const mais = (titulo, desc, children) => (
+    <details className="group rounded-2xl border border-[var(--pp-border)] bg-white" data-testid="produto-mais">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0"><span className="block text-sm font-semibold text-[var(--pp-text)]">{titulo}</span><span className="block text-[12px] leading-snug text-[var(--pp-text-muted)]">{desc}</span></span>
+        <span aria-hidden="true" className="shrink-0 text-lg text-[var(--pp-text-muted)] transition group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="space-y-4 border-t border-[var(--pp-border)] p-3 sm:p-4">{children}</div>
+    </details>
   );
   const secao = (icon, titulo, desc, children) => (
     <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
@@ -24012,12 +24028,6 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
     <div className="flex items-start gap-2.5">
       {toggle(on, onClick)}
       <div className="min-w-0"><p className="text-[13px] font-semibold text-[var(--pp-text)]">{titulo}</p><p className="text-[11px] leading-snug text-[var(--pp-text-muted)]">{desc}</p></div>
-    </div>
-  );
-  const stat = (rotulo, valor, cor, icon) => (
-    <div className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
-      <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">{icon && <span>{icon}</span>}{rotulo}</div>
-      <p className="mt-1 text-lg font-semibold tabular-nums" style={{ color: cor }}>{valor}</p>
     </div>
   );
   const fIn = (k, label, ph, full = false) => (
@@ -24036,32 +24046,34 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
     </button>
   );
 
-  const ABAS = [["geral", "Geral"], ["comercial", "Comercial & Estoque"], ["operacao", "Operação"], ["opcoes", "Opções"], ["fiscal", "Fiscal"], ["nfe", "NF-e / NFC-e"]];
+  const ABAS = [["geral", "Produto"], ["comercial", "Preço e estoque"], ["operacao", "Venda e preparo"], ["opcoes", "Opções"], ["fiscal", "Nota fiscal"]];
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    // !mt-0: a tela de produtos usa space-y e empurrava a janela fixa 20px para baixo (o rodapé sumia no celular).
+    <div className="fixed inset-0 z-[100] !mt-0 flex items-stretch justify-center sm:items-center sm:p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      {/* No celular ocupa a tela toda; do tablet para cima vira janela. pdv-toque: sem zoom ao focar campos. */}
+      <div role="dialog" aria-modal="true" aria-label={ehEdicao ? "Editar produto" : "Cadastrar produto"} className="pdv-toque relative flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border-[var(--pp-border)] bg-white shadow-2xl sm:h-[90dvh] sm:rounded-3xl sm:border">
         {/* Cabeçalho */}
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-4 py-3 sm:px-6 sm:py-4" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
           <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525]">{ehEdicao ? "✏️" : "＋"}</span>
+            <span className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525] sm:flex">{ehEdicao ? "✏️" : "＋"}</span>
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">{ehEdicao ? "Editar produto" : "Cadastrar produto"}</h2>
-              <p className="text-[13px] text-[var(--pp-text-muted)]">{ehEdicao ? "Atualize as informações do produto no cardápio." : "Preencha as informações do novo produto."}</p></div>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">Para vender basta nome, categoria e preço.</p></div>
           </div>
           <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         {/* Abas — barra fixa (fora da rolagem), alinhada ao conteúdo, com respiro */}
-        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-6 pt-1">
+        <div role="tablist" aria-label="Partes do cadastro" className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-2 pt-1 sm:px-6">
           {ABAS.map(([id, rot]) => (
             <button key={id} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
               className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}</button>
           ))}
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-          {/* Card do produto (topo de todas as abas) */}
-          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
+        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:space-y-4 sm:px-6 sm:py-5">
+          {/* Card do produto (topo de todas as abas; no celular some para sobrar espaço) */}
+          <div className="hidden flex-wrap items-center gap-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] sm:flex">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.05)]">
               <img src={f.imageUrl || fallbackImage} alt="prévia" className="h-full w-full object-cover" />
             </div>
@@ -24078,8 +24090,8 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
 
           {/* ══ ABA GERAL ══ */}
           {aba === "geral" && (<>
-            {secao("ℹ️", "Informações principais", "Nome, categoria e descrição do produto.", <>
-              <div className="grid gap-3 sm:grid-cols-2">
+            {secao("ℹ️", "O essencial", "Os campos com * são os únicos obrigatórios.", <>
+              <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
                 <div><label className={PP_LBL}>Nome do produto *</label><input autoFocus value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: X-Salada" className={PP_INP} />
                   {(() => {
                     // A nota fiscal só aceita texto no padrão da SEFAZ (até 120 caracteres, sem emoji/aspas especiais): o sistema ajusta sozinho na emissão.
@@ -24089,34 +24101,35 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                     return <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]" data-testid="nome-na-nota">{nf ? <>Na nota fiscal sairá: <b className="text-[var(--pp-text)]">{nf}</b> (ajustado ao padrão da SEFAZ; o cardápio mantém o nome acima).</> : <span className="font-semibold text-[#C81E4A]">Este nome não tem texto válido para a nota fiscal: use letras ou números.</span>}</p>;
                   })()}
                 </div>
-                <div><label className={PP_LBL}>Tempo de preparo *</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="" disabled>Selecione...</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+                <div><label className={PP_LBL}>Preço de venda *</label><input inputMode="numeric" value={f.price} onChange={(e) => { const { display } = handleMoeda(e); set("price", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
               </div>
               <div className="mt-3"><label className={PP_LBL}>Categoria *</label>
                 {categoriasAtivas.length === 0 ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma categoria ativa. Cadastre em Cadastros → Categorias.</p>
                   : <SeletorCategoria valorId={f.categoriaId} aoMudar={(c) => setF((cur) => ({ ...cur, categoriaId: c.id, category: c.nome }))} categorias={categoriasAtivas} />}
               </div>
-              <div className="mt-3"><label className={PP_LBL}>Descrição *</label>
+              <div className="mt-3"><label className={PP_LBL}>Descrição (aparece no cardápio)</label>
                 <textarea value={f.description} onChange={(e) => set("description", e.target.value.slice(0, 500))} rows={2} placeholder="Descreva o produto…" className={`${PP_INP} resize-none`} />
                 <p className="mt-1 text-right text-[11px] text-[var(--pp-text-muted)]">{f.description.length}/500</p></div>
             </>)}
-            {secao("🖼️", "Imagem do produto", "Use uma imagem de alta qualidade para valorizar seu cardápio.", <>
+            {secao("🖼️", "Foto", "Opcional. Sem foto, o cardápio mostra uma imagem padrão.", <>
               <SeletorImagem urlAtual={f.imageUrl} onImageUrl={(u) => set("imageUrl", u)} onFileChange={setArquivoImg} uploading={uploadando} erroUpload={erroUpload} />
               <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Formatos suportados: PNG, JPG · Tamanho máximo: 2 MB</p>
             </>)}
-            {secao("🌿", "Ingredientes *", "Enter para adicionar cada item.", <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />)}
-            {secao("⭐", "Adicionais", "Extras com preço que o cliente pode adicionar ao produto.", <AdicionaisEditor value={adicionais} onChange={setAdicionais} />)}
+            {mais("Preparo, ingredientes e adicionais", "Opcional: tempo de preparo, o que vai no produto e extras pagos.", <>
+              <div className="sm:max-w-xs"><label className={PP_LBL}>Tempo de preparo</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="">Não informar</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+              {secao("🌿", "Ingredientes", "Enter para adicionar cada item. O cliente pode pedir para retirar.", <TagsInput tags={tags} setTags={setTags} placeholder="Ex.: Parmesão" />)}
+              {secao("⭐", "Adicionais", "Extras com preço que o cliente pode adicionar ao produto.", <AdicionaisEditor value={adicionais} onChange={setAdicionais} />)}
+            </>)}
           </>)}
 
           {/* ══ ABA COMERCIAL & ESTOQUE ══ */}
           {aba === "comercial" && (<>
-            {secao("🏷️", "Preço e margem", "Defina os preços e visualize a margem estimada deste produto.", <>
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-                <div><label className={PP_LBL}>Custo *</label><input inputMode="numeric" value={f.cost} onChange={(e) => { const { display } = handleMoeda(e); set("cost", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
-                <div><label className={PP_LBL}>Preço de venda *</label><input inputMode="numeric" value={f.price} onChange={(e) => { const { display } = handleMoeda(e); set("price", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
+            {secao("🏷️", "Custo e promoção", "Opcional. Com o custo informado, a margem é calculada sozinha.", <>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <div><label className={PP_LBL}>Custo</label><input inputMode="numeric" value={f.cost} onChange={(e) => { const { display } = handleMoeda(e); set("cost", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
                 <div><label className={PP_LBL}>Preço promocional</label><input inputMode="numeric" value={f.precoPromo} onChange={(e) => { const { display } = handleMoeda(e); set("precoPromo", display); }} placeholder="R$ 0,00" className={PP_INP} /></div>
-                <div className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)] px-4 py-2 text-center"><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Margem estimada</p><p className="text-lg font-semibold tabular-nums text-[#2F9E52]">{margem.toFixed(0)}%</p></div>
+                <div className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)] px-4 py-2 text-center"><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Margem estimada</p><p className="text-lg font-semibold tabular-nums text-[#2F9E52]">{precoNum > 0 && custoNum > 0 ? `${margem.toFixed(0)}% · ${formatCurrency(lucro)}` : "—"}</p></div>
               </div>
-              <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">ⓘ Margem calculada automaticamente pelo sistema.</p>
             </>)}
             {secao("📦", "Controle de estoque", "Gerencie o estoque e receba alertas quando o produto estiver com baixo estoque.", <>
               <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Controlar estoque deste produto</span>{toggle(f.controlaEstoque, () => set("controlaEstoque", !f.controlaEstoque))}</div>
@@ -24126,14 +24139,7 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 <div className={`rounded-xl border px-4 py-2 text-center ${estoqueSaudavel ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.07)]" : "border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)]"}`}><p className={`text-[12px] font-semibold ${estoqueSaudavel ? "text-[#2F9E52]" : "text-[#F38525]"}`}>🛡 {estoqueSaudavel ? "Estoque saudável" : "Estoque baixo"}</p><p className="text-[11px] text-[var(--pp-text-muted)]">{estoqueSaudavel ? "Níveis dentro do esperado." : "Abaixo do mínimo."}</p></div>
               </div>
             </>)}
-            {secao("📈", "Indicadores rápidos", "Resumo comercial e de estoque para uma visão rápida do desempenho.",
-              <div className="grid gap-3 sm:grid-cols-4">
-                {stat("Preço de venda", formatCurrency(precoNum), "#012E46", "🏷️")}
-                {stat("Lucro bruto por item", formatCurrency(lucro), "#2F9E52", "📈")}
-                {stat("Markup estimado", `${markup.toFixed(2)}x`, "#012E46", "📊")}
-                {stat("Situação do estoque", estoqueSaudavel ? "Normal" : "Baixo", estoqueSaudavel ? "#2F9E52" : "#F38525", "🛡")}
-              </div>)}
-            {secao("⚙️", "Regras comerciais", "Configure regras que impactam a precificação, visibilidade e alertas deste produto.",
+            {mais("Regras de preço e estoque", "Ajustes avançados; o padrão atende a maioria das lojas.",
               <div className="grid gap-4 sm:grid-cols-3">
                 {regra(f.permitirPromo, () => set("permitirPromo", !f.permitirPromo), "Permitir preço promocional", "Permite cadastrar e aplicar preço promocional.")}
                 {regra(f.exibirMargemAutorizados, () => set("exibirMargemAutorizados", !f.exibirMargemAutorizados), "Exibir margem apenas para usuários autorizados", "Restringe a visualização da margem do produto.")}
@@ -24143,42 +24149,33 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
 
           {/* ══ ABA OPERAÇÃO ══ */}
           {aba === "operacao" && (<>
-            {secao("⚙️", "Produção", "Defina como o produto será produzido e para onde deve ser encaminhado.", <>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div><label className={PP_LBL}>Setor de preparo</label><select value={f.setorId} onChange={(e) => set("setorId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
-                <div><label className={PP_LBL}>Impressora</label><select value={f.impressoraId} onChange={(e) => set("impressoraId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</select></div>
-                <div><label className={PP_LBL}>Tempo de preparo</label><select value={f.time || ""} onChange={(e) => set("time", e.target.value)} className={PP_INP}><option value="" disabled>Selecione...</option>{opcoesTempo.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
-                <div><label className={PP_LBL}>Prioridade de produção</label><select value={f.prioridade} onChange={(e) => set("prioridade", e.target.value)} className={PP_INP}>{["Baixa", "Normal", "Alta"].map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
-                <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 sm:col-span-2"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Exibir no painel de preparo</span>{toggle(f.exibirNoPainel, () => set("exibirNoPainel", !f.exibirNoPainel))}</div>
-              </div>
-            </>)}
-            {secao("🌐", "Disponibilidade e canais", "Controle onde e como o produto estará disponível para os clientes.", <>
+            {secao("🌐", "Onde vender", "Controle onde o produto aparece para os clientes.", <>
               <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Disponível para venda</span>{toggle(f.disponivel, () => set("disponivel", !f.disponivel))}</div>
               <p className={`${PP_LBL} mt-3`}>Visível em</p>
               <div className="flex flex-wrap gap-2">{chipCanal("visivelTablet", "📲 Tablet")}{chipCanal("visivelQr", "🔳 QR Code")}{chipCanal("visivelExterno", "🌐 Cardápio externo")}</div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <div className="flex items-center gap-2.5">{toggle(f.canalSalao, () => set("canalSalao", !f.canalSalao))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Pedido no salão</span></div>
-                <div className="flex items-center gap-2.5">{toggle(f.canalRetirada, () => set("canalRetirada", !f.canalRetirada))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Retirada / balcão</span></div>
-                <div className="flex items-center gap-2.5">{toggle(f.canalDelivery, () => set("canalDelivery", !f.canalDelivery))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Delivery</span></div>
-              </div>
             </>)}
             {secao("⭐", "Destaque do produto", "Destaque o produto para aumentar vendas e visibilidade.", <>
               <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Produto em destaque</span>{toggle(f.isFeatured, () => set("isFeatured", !f.isFeatured))}</div>
               {f.isFeatured && (<div className="mt-3"><p className={PP_LBL}>Etiqueta do destaque</p><div className="flex flex-wrap gap-2">{["Mais vendido", "Sugestão do chef", "Novo", "Especial da casa", "Promoção", "Destaque"].map((lab) => <FilterChip key={lab} size="sm" selected={f.featuredLabel === lab} label={lab} onClick={() => set("featuredLabel", lab)} />)}</div></div>)}
             </>)}
-            {secao("⚙️", "Regras operacionais", "Automatize processos e defina regras que otimizam o fluxo na cozinha e no atendimento.",
+            {mais("Cozinha e atendimento", "Setor, impressora, prioridade e regras. Vazio segue a categoria.", <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div><label className={PP_LBL}>Setor de preparo</label><select value={f.setorId} onChange={(e) => set("setorId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{setores.filter((s) => s.ativo !== false).map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}</select></div>
+                <div><label className={PP_LBL}>Impressora</label><select value={f.impressoraId} onChange={(e) => set("impressoraId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</select></div>
+                <div><label className={PP_LBL}>Prioridade de produção</label><select value={f.prioridade} onChange={(e) => set("prioridade", e.target.value)} className={PP_INP}>{["Baixa", "Normal", "Alta"].map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Exibir no painel de preparo</span>{toggle(f.exibirNoPainel, () => set("exibirNoPainel", !f.exibirNoPainel))}</div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="flex items-center gap-2.5">{toggle(f.canalSalao, () => set("canalSalao", !f.canalSalao))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Pedido no salão</span></div>
+                <div className="flex items-center gap-2.5">{toggle(f.canalRetirada, () => set("canalRetirada", !f.canalRetirada))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Retirada / balcão</span></div>
+                <div className="flex items-center gap-2.5">{toggle(f.canalDelivery, () => set("canalDelivery", !f.canalDelivery))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Delivery</span></div>
+              </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 {regra(f.impressaoAutomatica, () => set("impressaoAutomatica", !f.impressaoAutomatica), "Impressão automática ao confirmar pedido", "O item será impresso automaticamente.")}
                 {regra(f.permitirObservacoes, () => set("permitirObservacoes", !f.permitirObservacoes), "Permitir observações do cliente", "Observações serão enviadas para o painel de preparo.")}
                 {regra(f.separarFila, () => set("separarFila", !f.separarFila), "Separar item na fila de produção", "O item recebe prioridade conforme a ordem do pedido.")}
-              </div>)}
-            {secao("📊", "Resumo operacional", "Visão geral da configuração operacional deste produto.",
-              <div className="grid gap-3 sm:grid-cols-4">
-                {stat("Setor", setores.find((s) => s.id === f.setorId)?.nome || "Categoria", "#012E46", "👨‍🍳")}
-                {stat("Tempo", f.time || "—", "#012E46", "🕐")}
-                {stat("Canais", [f.visivelTablet && "Tablet", f.visivelQr && "QR", f.visivelExterno && "Externo"].filter(Boolean).join(" + ") || "—", "#012E46", "📱")}
-                {stat("Status", f.disponivel ? "Operacional" : "Indisponível", f.disponivel ? "#2F9E52" : "#C81E4A", "🛡")}
-              </div>)}
+              </div>
+            </>)}
           </>)}
 
           {/* ══ ABA OPÇÕES (personalização inteligente) ══ */}
@@ -24239,12 +24236,34 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               </div>
               <button type="button" onClick={() => addGrupo({ nome: "Novo grupo", obrigatorio: false, minSelect: 0, maxSelect: 1, opcoes: [] })}
                 className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]"><span className="text-base leading-none">＋</span> Criar grupo em branco</button>
-              <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Preço 0 aparece como “Grátis”. Diferente de <b className="font-semibold">Adicionais</b> (aba Geral), que são extras pagos avulsos.</p>
+              <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">Preço 0 aparece como “Grátis”. Diferente de <b className="font-semibold">Adicionais</b> (aba Produto), que são extras pagos avulsos.</p>
             </>)}
           </>)}
 
           {/* ══ ABA FISCAL ══ */}
           {aba === "fiscal" && (<>
+            {secao("🧾", "Imposto deste produto", "Escolha um parâmetro pronto da loja. Os parâmetros ficam em Configurações › Tributação.", <>
+              {lojaFiscalRegras.length === 0
+                ? <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-xs font-semibold text-[#8A5200]">A loja ainda não tem parâmetro fiscal. Crie em <b>Configurações › Tributação</b> (aba Biblioteca Fiscal Prime) ou deixe para depois: o produto pode ser vendido, mas não sai na nota.</p>
+                : (<>
+                    <div className="min-w-[220px]"><label className={PP_LBL}>Parâmetro fiscal</label>
+                      <select value={lojaFiscalRegraId ?? ""} onChange={(e) => setLojaFiscalRegraId(e.target.value ? Number(e.target.value) : null)} className={PP_INP} data-testid="produto-parametro-fiscal">
+                        <option value="">Escolher depois</option>
+                        {lojaFiscalRegras.map((c) => <option key={c.id} value={c.id}>{c.regraNome || `Config #${c.id}`}{c.versaoImportada ? ` (v${c.versaoImportada})` : ""}</option>)}
+                      </select>
+                    </div>
+                    {configFiscalSel && (
+                      <div className="mt-3 rounded-xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
+                        <p className="flex flex-wrap items-center gap-2 font-semibold text-[#012E46]">🔗 {configFiscalSel.regraNome || "Configuração"}
+                          <span className="rounded-full bg-[rgba(1,46,70,0.1)] px-2 py-0.5 text-[11px] font-black">v{configFiscalSel.versaoImportada}</span>
+                          {configFiscalSel.customizada && <span className="rounded-full bg-[rgba(243,133,37,0.15)] px-2 py-0.5 text-[11px] font-black text-[#F38525]">Customizada</span>}
+                        </p>
+                        <p className="mt-1">{[configFiscalSel.cfopCodigo && `CFOP ${configFiscalSel.cfopCodigo}`, (configFiscalSel.cstIcms || configFiscalSel.csosn) && `ICMS ${configFiscalSel.cstIcms || configFiscalSel.csosn} · ${Number(configFiscalSel.icmsAliquota || 0).toFixed(2)}%`, configFiscalSel.ncmCodigo && `NCM ${configFiscalSel.ncmCodigo}`].filter(Boolean).join(" · ") || "Sem parâmetros preenchidos"}</p>
+                      </div>
+                    )}
+                  </>)}
+            </>)}
+            {mais("Dados avançados (para o contador)", "NCM, vínculos, código de barras, unidade, origem e textos da nota.", <>
             {secao("🗂️", "NCM do produto", "Vincule um NCM cadastrado no módulo Fiscal. A regra de ICMS vem do NCM (Produto → NCM → ICMS) — altere a regra uma vez e reflete em todos os produtos do mesmo NCM.", <>
               {fiscalNcm.length === 0
                 ? <p className="rounded-xl border border-[rgba(243, 133, 37,0.3)] bg-[rgba(243, 133, 37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhum NCM cadastrado. Cadastre NCMs e regras de ICMS no menu lateral <b>Fiscal</b>.</p>
@@ -24270,27 +24289,6 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                       </div>
                     )}
                     <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">O NCM centraliza NCM + CEST + regra de ICMS. Os demais vínculos (CFOP, PIS, COFINS, IPI, CEST) estão logo abaixo.</p>
-                  </>)}
-            </>)}
-            {secao("📥", "Configuração fiscal da loja", "Vincule este produto a uma configuração fiscal importada da Central (Fiscal › Tributação → Minha loja). A tributação passa a vir da regra, com origem, versão e status.", <>
-              {lojaFiscalRegras.length === 0
-                ? <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-xs font-semibold text-[#F38525]">Nenhuma configuração fiscal na loja. Importe uma regra em <b>Fiscal › Tributação → Biblioteca Fiscal Prime</b>.</p>
-                : (<>
-                    <div className="min-w-[220px]"><label className={PP_LBL}>Configuração vinculada</label>
-                      <select value={lojaFiscalRegraId ?? ""} onChange={(e) => setLojaFiscalRegraId(e.target.value ? Number(e.target.value) : null)} className={PP_INP}>
-                        <option value="">Sem configuração fiscal</option>
-                        {lojaFiscalRegras.map((c) => <option key={c.id} value={c.id}>{c.regraNome || `Config #${c.id}`}{c.versaoImportada ? ` (v${c.versaoImportada})` : ""}</option>)}
-                      </select>
-                    </div>
-                    {configFiscalSel && (
-                      <div className="mt-3 rounded-xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
-                        <p className="flex flex-wrap items-center gap-2 font-semibold text-[#012E46]">🔗 {configFiscalSel.regraNome || "Configuração"}
-                          <span className="rounded-full bg-[rgba(1,46,70,0.1)] px-2 py-0.5 text-[11px] font-black">v{configFiscalSel.versaoImportada}</span>
-                          {configFiscalSel.customizada && <span className="rounded-full bg-[rgba(243,133,37,0.15)] px-2 py-0.5 text-[11px] font-black text-[#F38525]">Customizada</span>}
-                        </p>
-                        <p className="mt-1">{[configFiscalSel.cfopCodigo && `CFOP ${configFiscalSel.cfopCodigo}`, (configFiscalSel.cstIcms || configFiscalSel.csosn) && `ICMS ${configFiscalSel.cstIcms || configFiscalSel.csosn} · ${Number(configFiscalSel.icmsAliquota || 0).toFixed(2)}%`, configFiscalSel.ncmCodigo && `NCM ${configFiscalSel.ncmCodigo}`].filter(Boolean).join(" · ") || "Sem parâmetros preenchidos"}</p>
-                      </div>
-                    )}
                   </>)}
             </>)}
             {fiscalVinc && secao("🔗", "Vínculos fiscais", "Selecione os cadastros reutilizáveis do módulo Fiscal. Alterar a regra no cadastro reflete em todos os produtos vinculados.", <>
@@ -24346,10 +24344,6 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
                 <p className="mt-2 text-[11px] text-[var(--pp-text-muted)]">CFOP não é característica fixa da mercadoria — depende da operação. Deixe estes campos vazios para usar a regra fiscal.</p>
               </details>
             </>)}
-          </>)}
-
-          {/* ══ ABA NF-e / NFC-e ══ */}
-          {aba === "nfe" && (<>
             {secao("🖨️", "Informações para impressão e documentos", "Dados que aparecem no DANFE / NFC-e.", <>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div><label className={PP_LBL}>Descrição resumida no DANFE / NFC-e</label><input value={fis.descricaoDanfe || ""} onChange={(e) => setF2("descricaoDanfe", e.target.value.slice(0, 60))} placeholder="Ex.: X-Salada" className={PP_INP} /><p className="mt-1 text-right text-[11px] text-[var(--pp-text-muted)]">{(fis.descricaoDanfe || "").length}/60</p></div>
@@ -24363,14 +24357,15 @@ function ProdutoAdminModal({ modo = "criar", produto = null, categoriasAtivas = 
               </div>)}
             <div className="rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]">
               <p className="font-semibold text-[#012E46]">ⓘ Regime, ambiente e operação são da LOJA</p>
-              <p className="mt-0.5">CRT/regime tributário, ambiente e série NFC-e ficam em <b>Fiscal › Dados da Empresa</b>. Indicadores de presença, consumidor final, destino e frete pertencem à <b>operação da venda</b> — não ao produto. Aqui o produto guarda só o que é inerente à mercadoria.</p>
+              <p className="mt-0.5">Regime tributário, ambiente e série das notas ficam em <b>Configurações</b>. Presença, consumidor final, destino e frete são da <b>venda</b>, não do produto.</p>
             </div>
+            </>)}
           </>)}
         </div>
 
         {/* Rodapé */}
-        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-6 py-4">
-          {!valido && <p className="text-xs font-semibold text-[#F38525]">⚠ Preencha os campos obrigatórios da aba Geral (nome, categoria, custo, preço, preparo, imagem, ingredientes, descrição).</p>}
+        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-3 py-3 sm:px-6 sm:py-4" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
+          {!valido && <p className="text-xs font-semibold text-[#8A5200]" data-testid="produto-faltam">Falta preencher: {faltam.join(", ")}.</p>}
           {erroUpload && <p className="text-xs font-semibold text-[#C81E4A]">❌ {erroUpload}</p>}
           <div className="flex gap-2">
             <button onClick={onFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>

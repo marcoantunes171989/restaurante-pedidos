@@ -100,6 +100,47 @@ function umaVia(d, qrDataUrl, via) {
 </div>`;
 }
 
+export const AVISO_CUPOM_NAO_FISCAL = "NÃO É DOCUMENTO FISCAL";
+
+/**
+ * Cupom da tela Venda Balcão: o MESMO layout do DANFE NFC-e (cabeçalho, tabela de itens, totais e pagamentos), sem nada que é
+ * da nota: título de documento auxiliar, tributos, chave de acesso, número/série, protocolo e QR Code.
+ * @param {object} d { emitente:{cnpj,nome,endereco}, itens:[{cProd,xProd,qCom,uCom,vUnCom,vProd}], totais:{qtdItens,vProd,vAcresc,vDesc,vNF},
+ *                     pagamentos:[{forma,valor}], troco, identificacao, dhVenda }
+ */
+export function htmlCupomSemValorFiscal(d) {
+  const e = d.emitente || {};
+  const t = d.totais || {};
+  const aviso = `<div class="alerta">${AVISO_CUPOM_NAO_FISCAL}</div>`;
+  const itens = (d.itens || []).map((it) => `<tr><td>${esc(it.cProd)}</td><td>${esc(it.xProd)}</td><td class="n">${qtd(it.qCom)}</td><td>${esc(it.uCom)}</td><td class="n">${brl(it.vUnCom)}</td><td class="n">${brl(it.vProd)}</td></tr>`).join("");
+  const temAjuste = (t.vAcresc || 0) > 0 || (t.vDesc || 0) > 0;
+  return `<div class="danfe">
+  <div class="c">${so(e.cnpj) ? `<div>CNPJ: ${esc(mascaraCnpj(e.cnpj))}</div>` : ""}<div class="b">${esc(e.nome)}</div>${e.endereco ? `<div>${esc(e.endereco)}</div>` : ""}
+  <div class="b">Cupom de conferência da venda</div></div>
+  ${aviso}
+  <div class="sep"></div>
+  <table><thead><tr><th>Código</th><th>Descrição</th><th class="n">Qtde</th><th>Un</th><th class="n">Vl Unit</th><th class="n">Vl Total</th></tr></thead><tbody>${itens}</tbody></table>
+  <div class="sep"></div>
+  <div class="row"><span>Qtde. total de itens</span><span>${esc(t.qtdItens)}</span></div>
+  <div class="row"><span>Valor total R$</span><span>${brl(t.vProd)}</span></div>
+  ${(t.vAcresc || 0) > 0 ? `<div class="row"><span>Acréscimos R$</span><span>${brl(t.vAcresc)}</span></div>` : ""}
+  ${(t.vDesc || 0) > 0 ? `<div class="row"><span>Desconto R$</span><span>${brl(t.vDesc)}</span></div>` : ""}
+  ${temAjuste ? `<div class="row b"><span>Valor a Pagar R$</span><span>${brl(t.vNF)}</span></div>` : ""}
+  ${(d.pagamentos || []).length ? `<div class="row b" style="margin-top:1mm"><span>FORMA DE PAGAMENTO</span><span>VALOR PAGO R$</span></div>
+  ${d.pagamentos.map((p) => `<div class="row"><span>${esc(p.forma)}</span><span>${brl(p.valor)}</span></div>`).join("")}` : ""}
+  ${(d.troco || 0) > 0 ? `<div class="row"><span>Troco R$</span><span>${brl(d.troco)}</span></div>` : ""}
+  <div class="sep"></div>
+  ${d.identificacao ? `<div class="c">${esc(d.identificacao)}</div>` : ""}${d.dhVenda ? `<div class="c b">Venda em ${esc(dataHoraLocal(d.dhVenda))}</div>` : ""}
+  ${aviso}
+</div>`;
+}
+
+/** Página completa do cupom sem valor fiscal. `imprimir`: abre o diálogo de impressão ao carregar. */
+export function documentoCupomSemValorFiscal(d, { imprimir = false } = {}) {
+  const script = imprimir ? `<script>window.onload=function(){window.print();setTimeout(function(){window.close()},400);}</scr` + `ipt>` : "";
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cupom de conferência</title><style>${CSS_DANFE_NFCE}</style></head><body>${htmlCupomSemValorFiscal(d)}${script}</body></html>`;
+}
+
 /** Corpo HTML do DANFE (uma ou duas vias). */
 export function htmlDanfeNfce(d, { qrDataUrl = "" } = {}) {
   const lista = vias(d);

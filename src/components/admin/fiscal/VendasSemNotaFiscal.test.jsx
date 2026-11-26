@@ -104,14 +104,12 @@ describe("Venda Balcão (tela)", () => {
     expect(q("tipo-nfce").getAttribute("aria-checked")).toBe("true");
     expect(q("tipo-nfe").disabled).toBe(true);
   });
-  it("Cupom fiscal mostra produtos, taxa, total e pagamento, avisando que não é documento fiscal", async () => {
+  it("Cupom fiscal usa o layout do cupom da NFC-e (produtos, totais e pagamento), sem as informações fiscais", async () => {
     await montar({ orders: [PEDIDO("PED-A")], registros: [REGISTRO("PED-A")] });
     await clicar(q("btn-cupom"));
-    expect(q("cupom-previa").textContent).toContain("NÃO É DOCUMENTO FISCAL");
-    expect(q("cupom-itens").textContent).toContain("X-Salada");
-    expect(q("cupom-previa").textContent).toContain("Taxa de serviço");
-    expect(q("cupom-total").textContent).toContain("58,08");
-    expect(q("cupom-previa").textContent).toContain("PIX");
+    const papel = q("cupom-papel").getAttribute("srcdoc");
+    for (const texto of ["NÃO É DOCUMENTO FISCAL", "Burger Teste Ltda", "Código", "Vl Unit", "X-Salada", "Qtde. total de itens", "52,80", "Acréscimos", "5,28", "58,08", "FORMA DE PAGAMENTO", "PIX"]) expect(papel).toContain(texto);
+    for (const fiscal of ["Chave de Acesso", "Protocolo", "QR Code", "NFC-e nº", "Tributos", "Documento Auxiliar"]) expect(papel).not.toContain(fiscal);
   });
   it("venda sem o registro do fechamento: dá para consultar o cupom, mas não emitir", async () => {
     await montar({ orders: [PEDIDO("PED-A")] });

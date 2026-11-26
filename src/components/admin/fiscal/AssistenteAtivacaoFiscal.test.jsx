@@ -27,7 +27,7 @@ describe("Assistente: cada pendência leva ao lugar certo", () => {
     expect(botao("Completar dados")).toBeTruthy();
     expect(botao("Cadastrar CSC")).toBeTruthy();
     expect(botao("Mapear pagamentos")).toBeTruthy();
-    expect(container.textContent).toContain("Destino: Fiscal › Emissão › CSC da NFC-e");
+    expect(container.textContent).toContain("Destino: Configurações › Emissão › CSC da NFC-e");
   });
   it("clicar no botão chama onIr com o alvo e o passo (que traz o campo de foco)", () => {
     const onIr = vi.fn();

@@ -14,8 +14,8 @@ import { descricaoProdutoFiscal } from "./nfeXml.js";
 import { aplicaIbsCbsSn, pendenciasIbsCbsSn } from "./ibsCbsSimples.js";
 import { normalizarEntregaNfce, transporteDaEntrega, intermediadorDaEntrega } from "./entregaNfce.js";
 
-const ONDE_EMPRESA = "Fiscal › Dados da Empresa";
-const ONDE_PRODUTO = "Fiscal › Tributação › Produtos";
+const ONDE_EMPRESA = "Configurações › Dados da Empresa";
+const ONDE_PRODUTO = "Configurações › Tributação › Produtos";
 
 const CSOSN_VALIDOS = new Set(["101", "102", "103", "201", "202", "203", "300", "400", "500", "900"]);
 const CST_ICMS_VALIDOS = new Set(["00", "10", "20", "30", "40", "41", "50", "51", "60", "70", "90"]);
@@ -69,7 +69,7 @@ export function problemasDaEmpresa(emitente, documento = "", { confereDocumento 
 export function problemasDoCertificado({ credenciais = null, documento = "", modelo = 65, ambiente = "homologacao", agora = new Date() } = {}) {
   if (!Array.isArray(credenciais)) return [];
   const p = [];
-  const onde = "Fiscal › Emissão › Certificado";
+  const onde = "Configurações › Emissão › Certificado";
   const cert = credenciais.find((c) => c.tipo === "certificado_a1");
   if (!cert) return [{ codigo: "SEM_CERTIFICADO", msg: "Cadastre o certificado digital A1 da empresa.", onde }];
   if (cert.validadeFim && new Date(cert.validadeFim) < agora) p.push({ codigo: "CERT_VENCIDO", msg: "O certificado digital A1 está vencido. Envie um novo.", onde });
@@ -80,7 +80,7 @@ export function problemasDoCertificado({ credenciais = null, documento = "", mod
     p.push({ codigo: "CERT_OUTRO_CNPJ", msg: "O certificado digital pertence a outro CNPJ (a raiz do CNPJ do certificado não bate com a da empresa).", onde });
   }
   if (Number(modelo) === 65 && !credenciais.some((c) => c.tipo === "csc" && c.ambiente === ambiente && c.cadastrado !== false)) {
-    p.push({ codigo: "SEM_CSC", msg: `Cadastre o CSC da NFC-e (${ambiente === "producao" ? "produção" : "homologação"}): ele é usado no QR Code.`, onde: "Fiscal › Emissão › CSC da NFC-e" });
+    p.push({ codigo: "SEM_CSC", msg: `Cadastre o CSC da NFC-e (${ambiente === "producao" ? "produção" : "homologação"}): ele é usado no QR Code.`, onde: "Configurações › Emissão › CSC da NFC-e" });
   }
   return p;
 }
@@ -217,14 +217,14 @@ export function validarAntesDeEmitir({ emitente, documento = "", confereDocument
   const emEntrega = entrega === true && Number(modelo) === 65;
   const problemasEntrega = [];
   if (emEntrega) {
-    if (!normalizarEntregaNfce(entregaNfce).ativo) problemasEntrega.push({ codigo: "ENTREGA_DESLIGADA", msg: "A NFC-e de entrega a domicílio não está ligada para esta loja.", onde: "Fiscal › Emissão › Entrega a domicílio" });
+    if (!normalizarEntregaNfce(entregaNfce).ativo) problemasEntrega.push({ codigo: "ENTREGA_DESLIGADA", msg: "A NFC-e de entrega a domicílio não está ligada para esta loja.", onde: "Configurações › Emissão › Entrega a domicílio" });
     const fora = problemaEntregaForaDaUf(destinatario?.ender?.UF, emitente?.uf);
     if (fora) problemasEntrega.push({ codigo: "ENTREGA_FORA_UF", msg: fora, onde: "Caixa" });
     // Transportador terceiro e marketplace escolhidos na venda precisam estar completos no cadastro da loja.
     const transporte = transporteDaEntrega(entregaNfce, { documento: "", emitente: emitente || {}, quem: entregaOpcoes?.quem });
-    if (transporte.erro) problemasEntrega.push({ codigo: "ENTREGA_TRANSPORTADOR", msg: transporte.erro, onde: "Fiscal › Emissão › Entrega a domicílio" });
+    if (transporte.erro) problemasEntrega.push({ codigo: "ENTREGA_TRANSPORTADOR", msg: transporte.erro, onde: "Configurações › Emissão › Entrega a domicílio" });
     const intermed = intermediadorDaEntrega(entregaNfce, entregaOpcoes?.intermediador);
-    if (intermed?.erro) problemasEntrega.push({ codigo: "ENTREGA_MARKETPLACE", msg: intermed.erro, onde: "Fiscal › Emissão › Entrega a domicílio" });
+    if (intermed?.erro) problemasEntrega.push({ codigo: "ENTREGA_MARKETPLACE", msg: intermed.erro, onde: "Configurações › Emissão › Entrega a domicílio" });
   }
   // IBS/CBS do Simples ligado e incompleto: barra antes de reservar número.
   const faltaSn = aplicaIbsCbsSn({ config: ibsCbsSn, crt: emitente?.crt, ambiente, data: agora }) ? pendenciasIbsCbsSn(ibsCbsSn) : [];
@@ -236,7 +236,7 @@ export function validarAntesDeEmitir({ emitente, documento = "", confereDocument
     ...problemasDaVenda({ modelo, cpfConsumidor, destinatario, valorTotal: venda?.totais?.vNF, entrega: emEntrega }),
     ...(foraDaUf ? [{ codigo: "DEST_FORA_UF", msg: foraDaUf, onde: "Caixa" }] : []),
     ...problemasEntrega,
-    ...(faltaSn.length ? [{ codigo: "IBSCBS_SN", msg: `IBS/CBS do Simples incompleto: falta ${faltaSn.join(", ")}.`, onde: "Fiscal › Emissão › IBS/CBS do Simples" }] : []),
+    ...(faltaSn.length ? [{ codigo: "IBSCBS_SN", msg: `IBS/CBS do Simples incompleto: falta ${faltaSn.join(", ")}.`, onde: "Configurações › Emissão › IBS/CBS do Simples" }] : []),
   ];
   const vistos = new Set();
   const unicos = problemas.filter((x) => { const k = `${x.codigo}|${x.msg}`; if (vistos.has(k)) return false; vistos.add(k); return true; });

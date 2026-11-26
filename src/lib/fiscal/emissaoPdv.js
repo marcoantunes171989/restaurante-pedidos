@@ -48,9 +48,9 @@ export function ambienteNfeDaLoja(emitente) {
  */
 export function motivoSemNota(emitente, { nfe = false } = {}) {
   const sigla = nfe ? "NF-e" : "NFC-e";
-  if (!emitente) return `Cadastro fiscal desta empresa não carregado: a ${sigla} não foi emitida. Recarregue a página (Ctrl+F5) e confira em Fiscal › Dados da Empresa.`;
-  if ((nfe ? emitente.nfeHabilitada : emitente.nfceHabilitada) !== true) return `${sigla} não habilitada para esta empresa: ligue em Fiscal › Dados da Empresa.`;
-  if (!["homologacao", "producao"].includes(emitente.nfceAmbiente)) return `Emissão fiscal desligada (empresa em simulação): a ${sigla} não foi emitida. Para emitir, ligue a emissão em Fiscal › Emissão.`;
+  if (!emitente) return `Cadastro fiscal desta empresa não carregado: a ${sigla} não foi emitida. Recarregue a página (Ctrl+F5) e confira em Configurações › Dados da Empresa.`;
+  if ((nfe ? emitente.nfeHabilitada : emitente.nfceHabilitada) !== true) return `${sigla} não habilitada para esta empresa: ligue em Configurações › Dados da Empresa.`;
+  if (!["homologacao", "producao"].includes(emitente.nfceAmbiente)) return `Emissão fiscal desligada (empresa em simulação): a ${sigla} não foi emitida. Para emitir, ligue a emissão em Configurações › Emissão.`;
   return null;
 }
 

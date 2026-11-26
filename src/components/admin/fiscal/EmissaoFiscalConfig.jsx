@@ -192,7 +192,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
     if (alvo === "produtos" && onIrPara) return onIrPara("produtos:pendentes");
     if (alvo === "empresa") {
       if (onIrTela) return onIrTela("dados-fiscais-empresa", "empresa");
-      return aviso("assist", "erro", "Complete os dados fiscais em Fiscal › Dados da Empresa (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
+      return aviso("assist", "erro", "Complete os dados fiscais em Configurações › Dados da Empresa (CNPJ, IE, CRT, endereço e código IBGE) e marque NFC-e/NF-e como habilitada.");
     }
     if (passo?.id === "series" && passo.modeloSugerido) setSerieForm((f) => ({ ...f, modelo: passo.modeloSugerido, ambiente: "homologacao" }));
     const secao = document.getElementById(alvo)?.closest("section");

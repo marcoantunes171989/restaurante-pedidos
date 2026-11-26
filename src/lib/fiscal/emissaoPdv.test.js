@@ -219,8 +219,8 @@ describe("motivoSemNota — por que a venda não gerou nota (em vez de só o rec
   it("cadastro não carregado: pede para recarregar", () => {
     expect(motivoSemNota(null)).toMatch(/não carregado.*Ctrl\+F5/);
   });
-  it("empresa em simulação: manda ligar a emissão em Fiscal › Emissão", () => {
-    expect(motivoSemNota({ ...ok, nfceAmbiente: "simulacao" })).toMatch(/simulação.*Fiscal › Emissão/);
+  it("empresa em simulação: manda ligar a emissão em Configurações › Emissão", () => {
+    expect(motivoSemNota({ ...ok, nfceAmbiente: "simulacao" })).toMatch(/simulação.*Configurações › Emissão/);
   });
   it("NFC-e ou NF-e não habilitada", () => {
     expect(motivoSemNota({ ...ok, nfceHabilitada: false })).toMatch(/NFC-e não habilitada/);
