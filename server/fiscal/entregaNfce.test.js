@@ -42,7 +42,7 @@ const AGORA = new Date("2026-11-26T15:00:00Z");
 
 describe("parâmetros da entrega", () => {
   it("padrão: desligado, entrega própria com a loja como transportadora", () => {
-    expect(normalizarEntregaNfce(null)).toEqual({ ativo: false, modFrete: "3", informarTransportador: true });
+    expect(normalizarEntregaNfce(null)).toEqual({ ativo: false, modFrete: "3", informarTransportador: true, pedirNoCardapio: false });
     expect(normalizarEntregaNfce({ modFrete: "7" }).modFrete).toBe("3");
   });
   it("a loja só vai como transportadora na entrega própria", () => {

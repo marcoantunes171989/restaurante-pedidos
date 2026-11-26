@@ -19,6 +19,8 @@ export function normalizarEntregaNfce(config) {
     ativo: c.ativo === true,
     modFrete: MODALIDADES_FRETE.some(([v]) => v === String(c.modFrete)) ? String(c.modFrete) : "3",
     informarTransportador: c.informarTransportador !== false,
+    // O cardápio público pede o endereço na entrega (migration 207). Desligado por padrão.
+    pedirNoCardapio: c.pedirNoCardapio === true,
   };
 }
 

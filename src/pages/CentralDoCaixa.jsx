@@ -13,6 +13,8 @@ import {
   EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja,
 } from "../lib/fiscal/emissaoPdv";
 import { normalizarEntregaNfce } from "../lib/fiscal/entregaNfce";
+import { enderecoEmLinha } from "../lib/enderecoEntrega";
+import { useEnderecoDoPedido } from "../hooks/useEnderecoDoPedido";
 import PdvNotaFiscalCampos from "./pdv/PdvNotaFiscalCampos";
 import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../lib/fiscal/imprimirNota";
 
@@ -154,6 +156,7 @@ export default function CentralDoCaixa({
   const [confirmacao, setConfirmacao] = useState(null); // { o, linhas, total }
   const [notaCaixa, setNotaCaixa] = useState(NOTA_VAZIA);
   const [erroConfirmacao, setErroConfirmacao] = useState("");
+  const enderecoDoPedido = useEnderecoDoPedido(supabase, confirmacao ? [confirmacao.o] : []);
 
   function finalizar(o, linhas, total) {
     if (pagandoIdsRef.current.has(o.id)) return;
@@ -278,7 +281,8 @@ export default function CentralDoCaixa({
               ))}
               <div className="flex justify-between border-t border-[var(--pp-border)] pt-1.5 text-base"><span className="font-bold">Total</span><strong>{formatCurrency(confirmacao.total)}</strong></div>
             </div>
-            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} />}
+            {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: confirmacao.o.customer } : null} />}
+            {enderecoDoPedido && !(entregaNaLoja) && <p className="mt-3 text-xs text-[var(--pp-text-body)]">Entregar em: <b>{enderecoEmLinha(enderecoDoPedido)}</b></p>}
             {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[#B42318]/30 bg-[#FDECEA] px-3 py-2 text-xs font-semibold text-[#B42318]">{erroConfirmacao}</p>}
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setConfirmacao(null)} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-bold text-[var(--pp-text)] hover:bg-[var(--pp-bg)] disabled:opacity-50">Voltar</button>

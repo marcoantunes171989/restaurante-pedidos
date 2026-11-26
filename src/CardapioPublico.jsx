@@ -4,8 +4,10 @@ import {
   escutarLojaPublica, escutarPedidos,
   buscarClientePorTelefone, upsertCliente, criarChamado,
   rpcCriarPedidoPublicoV2, rpcSetoresPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
-  rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa,
+  rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa, supabase,
 } from "./lib/supabase";
+import { ENDERECO_VAZIO, problemaDoEndereco, enderecoEmLinha, lojaPedeEndereco, criarPedidoEntrega } from "./lib/enderecoEntrega";
+import EnderecoEntregaCampos from "./components/EnderecoEntregaCampos";
 import { cardapioViaRpc } from "./lib/authMode";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
@@ -194,6 +196,9 @@ export default function CardapioPublico() {
   const [etapa, setEtapa]         = useState("welcome"); // welcome | cardapio
   const [tipoPedido, setTipoPedido] = useState(""); // pedido externo: local | retirada | entrega (config_externo)
   const [formaPagto, setFormaPagto] = useState(""); // forma de pagamento: pix | cartao | dinheiro (config_externo)
+  // Endereço de entrega (migration 207): só quando a loja pede. Fica na memória da página, não no aparelho.
+  const [endereco, setEndereco] = useState(ENDERECO_VAZIO);
+  const [lojaComEndereco, setLojaComEndereco] = useState(null); // id da loja que pede o endereço
   const [agora, setAgora] = useState(() => new Date()); // relógio p/ reavaliar aberto/fechado ao vivo
   const [comboRemover, setComboRemover] = useState(null); // item de combo aguardando confirmação de remoção
   const [itemRemover, setItemRemover] = useState(null); // item avulso (não-combo) aguardando confirmação de remoção
@@ -417,6 +422,14 @@ export default function CardapioPublico() {
   ].filter(Boolean);
   const minimoExterno = parseMoedaBR(cfgExt.pedidoMinimo); // número em reais (0 = sem mínimo)
   const usarPedidoWhatsapp = modoExterno && cfgExt.pedidoViaWhatsapp === true && numeroWhatsAppValido(cfgExt.whatsappNumero);
+  const pedeEnderecoAgora = modoExterno && tipoPedido === "entrega" && loja?.id != null && lojaComEndereco === loja.id;
+  const lojaIdEndereco = modoExterno && cfgExt.entrega === true ? loja?.id : null;
+  useEffect(() => {
+    if (lojaIdEndereco == null) return undefined;
+    let vivo = true;
+    lojaPedeEndereco(supabase, lojaIdEndereco).then((sim) => { if (vivo) setLojaComEndereco(sim ? lojaIdEndereco : null); });
+    return () => { vivo = false; };
+  }, [lojaIdEndereco]);
   // Horário de funcionamento — FONTE ÚNICA: loja.funcionamento (migration 110),
   // com fallback do legado config_externo.horarios (canal externo). Avaliado no
   // fuso da loja pelo serviço de domínio (não recalcula aqui). QR de mesa é canal
@@ -1253,6 +1266,8 @@ export default function CardapioPublico() {
       // Pedido externo (link de divulgação): exige NOME + TELEFONE
       if (!cliente.trim()) return setMsg({ t: "error", m: "Informe o seu nome." });
       if (telDig.length < 10) return setMsg({ t: "error", m: "Informe um telefone válido (com DDD)." });
+      const erroEndereco = pedeEnderecoAgora ? problemaDoEndereco(endereco) : null;
+      if (erroEndereco) return setMsg({ t: "error", m: erroEndereco });
       // Reserva a aba ainda dentro do clique do cliente. A URL final só será
       // aplicada depois que o Pedido Prime confirmar a gravação do pedido.
       if (usarPedidoWhatsapp) janelaWhatsapp = window.open("about:blank", "_blank");
@@ -1266,6 +1281,7 @@ export default function CardapioPublico() {
         createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         items: itens, lojaId: loja.id,
         pagamentoForma: formaSel?.label ?? null, pagamentoMomento: momentoPagto, pagamentoTrocoPara: trocoParaNum, observation: obsPedido,
+        ...(pedeEnderecoAgora ? { enderecoEntrega: enderecoEmLinha(endereco) } : {}),
       };
     } else {
       // Pedido na mesa (QR da mesa): exige mesa + comanda
@@ -1305,12 +1321,14 @@ export default function CardapioPublico() {
       // o catch abaixo mostra um erro controlado ao cliente — SEM fallback
       // para o RPC legado (pub_criar_pedido, hoje fechado para anon/
       // authenticated) e SEM inserção direta pelo navegador.
-      const r = await rpcCriarPedidoPublicoV2({
+      // Entrega com endereço (a loja pede): função própria, que cria o pedido pelas mesmas regras e grava o endereço junto.
+      const dadosPedido = {
         lojaId: loja.id, canal: modoExterno ? "externo" : "interno", itens: itensV2,
         mesaNumero, mesaId, comanda: novo.command, cliente: novo.customer, telefone: novo.clienteTelefone || "",
         tipoEntrega: tipoEntregaSel, formaPagamentoId: formaSel?.id ?? null,
         trocoPara: trocoParaNum, observacaoPedido: obsPedido,
-      });
+      };
+      const r = pedeEnderecoAgora ? await criarPedidoEntrega(supabase, { ...dadosPedido, endereco }) : await rpcCriarPedidoPublicoV2(dadosPedido);
       if (r) pedidoId = r;
       // A Pesquisa de Satisfação NÃO aparece agora — só quando o pedido CONCLUIR
       // (pago + retirado/entregue). Registra o pedido como pendente de pesquisa.
@@ -1326,7 +1344,7 @@ export default function CardapioPublico() {
           else window.location.href = urlWhatsapp;
         }
       }
-      setCart([]); setTrocoResposta(""); setTrocoValor(""); setObservacaoPedido(""); setAba("conta");
+      setCart([]); setTrocoResposta(""); setTrocoValor(""); setObservacaoPedido(""); setEndereco(ENDERECO_VAZIO); setAba("conta");
       setMsg({ t: "success", m: usarPedidoWhatsapp
         ? "Pedido registrado. O WhatsApp foi aberto para continuar o atendimento com a empresa."
         : modoExterno && tipoPedido === "local"
@@ -2333,6 +2351,7 @@ export default function CardapioPublico() {
                       <input autoComplete="name" value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome completo"
                         className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-xs text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
                   </div>
+                  {pedeEnderecoAgora && <EnderecoEntregaCampos valor={endereco} onChange={setEndereco} />}
                   <label className="block">
                     <span className="mb-1 flex items-center justify-between gap-2 text-[11px] font-bold text-[var(--client-text-secondary)]">
                       <span>Observação do pedido <span className="font-normal text-[var(--client-text-muted)]">(opcional)</span></span>

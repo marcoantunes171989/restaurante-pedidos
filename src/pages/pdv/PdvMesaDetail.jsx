@@ -28,6 +28,7 @@ export default function PdvMesaDetail({
   onAlterarQtd,
   onRemoverItem,
   produtosBloqueados = false,
+  enderecoEntrega = "",
   className = "",
 }) {
   if (!conta) {
@@ -140,6 +141,11 @@ export default function PdvMesaDetail({
               {conta.telefone && <span className="font-semibold tabular-nums text-[var(--pp-text-body)]">{conta.telefone}</span>}
               {conta.telefone && comandasTxt && <span> · </span>}
               {comandasTxt}
+            </p>
+          )}
+          {enderecoEntrega && (
+            <p className="break-words text-[11px] text-[var(--pp-text-body)]" data-testid="endereco-do-pedido">
+              <span className="font-semibold text-[var(--pp-text-muted)]">Entregar em:</span> <span className="font-bold text-[var(--pp-text)]">{enderecoEntrega}</span>
             </p>
           )}
         </div>

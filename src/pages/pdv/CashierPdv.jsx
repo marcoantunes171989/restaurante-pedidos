@@ -53,6 +53,8 @@ import { composicaoDaConta } from "../../lib/fiscal/vendaFiscal";
 import { seloFiscalDaConta, PREVIA_FISCAL_PDV_ATIVA } from "../../lib/fiscal/seloFiscal";
 import { emitirNotaDaVenda, EMISSAO_FISCAL_PDV_ATIVA, ambienteNfceDaLoja, ambienteNfeDaLoja, postarApiFiscal, dadosDaNotaNoCaixa, motivoSemNota, NOTA_VAZIA } from "../../lib/fiscal/emissaoPdv";
 import { normalizarEntregaNfce } from "../../lib/fiscal/entregaNfce";
+import { enderecoEmLinha } from "../../lib/enderecoEntrega";
+import { useEnderecoDoPedido } from "../../hooks/useEnderecoDoPedido";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "../../lib/fiscal/fiscalApi";
 import { useEnvioFiscalAutomatico } from "../../hooks/useEnvioFiscalAutomatico";
 import { useAlertasFiscais } from "../../hooks/useAlertasFiscais";
@@ -422,6 +424,8 @@ export default function CashierPdv({
   const nfeNaLoja = EMISSAO_FISCAL_PDV_ATIVA && !!supabase && !!ambienteNfeDaLoja(emitenteFiscal);
   // NFC-e de entrega a domicílio: só quando a loja ligou em Fiscal › Emissão (migration 206).
   const entregaNaLoja = nfceNaLoja && normalizarEntregaNfce(configFiscalVenda?.entregaNfce).ativo;
+  // Endereço que o cliente informou no cardápio. Em pagamento de várias entregas juntas não vale (são clientes diferentes).
+  const enderecoDoPedido = useEnderecoDoPedido(supabase, contaSel?.multiPagamento ? [] : pedidosSel);
   // E9 parte 2: alertas fiscais (prazos, rejeitadas, certificado) no topo do PDV.
   const alertasFiscaisPdv = useAlertasFiscais({ supabase, lojaId: lojaInfo?.id ?? emitenteFiscal?.lojaId ?? null, ativo: nfceNaLoja || nfeNaLoja });
   // E8 parte 4: com o caixa aberto, envia sozinho as notas de contingência.
@@ -1930,6 +1934,7 @@ export default function CashierPdv({
               recebido={recebidoEfetivo}
               agora={agora}
               mesaLivre={mesaLivreSel}
+              enderecoEntrega={enderecoEmLinha(enderecoDoPedido)}
               onEditarCliente={temConta && !contaSel?.multiPagamento ? () => setModal("cliente") : undefined}
               onIncluirProduto={temConta && !contaSel?.multiPagamento ? () => setModal("incluir") : undefined}
               onAlterarQtd={contaSel?.multiPagamento ? undefined : alterarQtdItem}
@@ -1991,6 +1996,7 @@ export default function CashierPdv({
           )}
           {passo === 2 && (
             <PdvPassoFechar
+              pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: contaSel?.cliente } : null}
               conta={contaSel}
               subtotal={subtotalSel}
               taxaPct={taxaPct}

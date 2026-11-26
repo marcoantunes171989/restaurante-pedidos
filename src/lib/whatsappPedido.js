@@ -26,6 +26,7 @@ export function montarMensagemPedidoWhatsApp({ pedido, pedidoId, total, formaPag
     `Cliente: ${pedido.customer || "Cliente"}`,
     `WhatsApp do cliente: ${pedido.clienteTelefone || "Não informado"}`,
     `Modalidade: ${String(pedido.table || "Pedido externo").replace(/^Externo\s*·\s*/i, "")}`,
+    ...(pedido.enderecoEntrega ? [`Endereço de entrega: ${pedido.enderecoEntrega}`] : []),
     "",
     "*ITENS*",
   ];

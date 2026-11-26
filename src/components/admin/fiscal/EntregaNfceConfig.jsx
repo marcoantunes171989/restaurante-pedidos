@@ -49,6 +49,12 @@ export default function EntregaNfceConfig({ supabase, lojaId, config, onSalvo })
             Informar a própria loja como transportadora na nota
           </label>
         )}
+        {x.ativo && (
+          <label className={marca}>
+            <input id="entrega-cardapio" type="checkbox" className="h-5 w-5" checked={x.pedirNoCardapio} onChange={(e) => muda("pedirNoCardapio", e.target.checked)} />
+            Pedir o endereço no cardápio público (pedido de entrega)
+          </label>
+        )}
         <p className="text-[12px] text-[var(--pp-text-muted)]">
           Venda por marketplace (iFood e outros) e dados de transportador terceiro ainda não são informados na nota. Se a SEFAZ estiver fora do ar,
           a nota de entrega não sai em contingência: reenvie depois.

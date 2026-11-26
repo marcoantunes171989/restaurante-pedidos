@@ -1,11 +1,12 @@
 // E8 parte 3: "CPF/CNPJ na nota" e NF-e para empresa, no confirmar fechamento.
 import { useState } from "react";
 import { buscarEnderecoPorCep } from "../../lib/fiscal/cep";
+import { completarComEnderecoDoPedido, enderecoEmLinha } from "../../lib/enderecoEntrega";
 
 const campo = "min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 text-sm text-[var(--pp-text)] focus:border-[#012E46] focus:outline-none";
 const rotulo = "text-[11px] font-bold uppercase tracking-wide text-[var(--pp-text-muted)]";
 
-export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = false, entregaDisponivel = false, pedidoDeEntrega = false }) {
+export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = false, entregaDisponivel = false, pedidoDeEntrega = false, pedidoComEndereco = null }) {
   const [cepEstado, setCepEstado] = useState({ buscando: false, erro: "" });
   const muda = (k) => (e) => onChange({ ...valor, [k]: e.target.value });
   const docDigitos = String(valor.documento || "").replace(/[^0-9A-Za-z]/g, "");
@@ -35,12 +36,15 @@ export default function PdvNotaFiscalCampos({ valor, onChange, nfeDisponivel = f
       )}
       {entregaDisponivel && !valor.nfe && (
         <label className="mt-2 flex min-h-11 items-center gap-2 text-sm font-semibold text-[var(--pp-text-body)]">
-          <input type="checkbox" className="h-5 w-5" checked={!!valor.entrega} onChange={(e) => onChange({ ...valor, entrega: e.target.checked })} />
+          <input type="checkbox" className="h-5 w-5" checked={!!valor.entrega} onChange={(e) => onChange(e.target.checked ? completarComEnderecoDoPedido({ ...valor, entrega: true }, pedidoComEndereco) : { ...valor, entrega: false })} />
           Entrega a domicílio (a nota leva o endereço)
         </label>
       )}
       {pedidoDeEntrega && entregaDisponivel && !valor.nfe && !valor.entrega && (
         <p role="status" className="text-xs font-semibold text-[#B54708]">Pedido de entrega: marque a opção acima para a nota levar o endereço do cliente.</p>
+      )}
+      {entregaDisponivel && !valor.nfe && !valor.entrega && pedidoComEndereco && (
+        <p className="text-xs text-[var(--pp-text-body)]">Endereço informado no pedido: <b>{enderecoEmLinha(pedidoComEndereco.endereco)}</b>. Ao marcar, os campos já vêm preenchidos.</p>
       )}
       {entrega && <p className="text-xs text-[var(--pp-text-muted)]">Avise o cliente: o CPF/CNPJ e o endereço são pedidos para a nota fiscal da entrega.</p>}
       {(valor.nfe || entrega) && (
