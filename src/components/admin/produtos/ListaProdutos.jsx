@@ -17,7 +17,7 @@ function CartaoProduto({ p, imagemPadrao, usaParametroFiscal, onEditar, onOpcoes
   return (
     <article className={`flex flex-col gap-2.5 rounded-2xl border bg-white p-3 transition hover:border-[#012E46]/40 ${p.active ? "border-[var(--pp-border)]" : "border-dashed border-[var(--pp-border)]"}`} data-testid="cartao-produto">
       <div className="flex items-start gap-3">
-        <img src={p.imageUrl || imagemPadrao || undefined} alt="" className={`h-16 w-16 shrink-0 rounded-xl object-cover ${p.active ? "" : "opacity-50 grayscale"}`} />
+        <img src={p.imageUrl || imagemPadrao || undefined} alt="" loading="lazy" decoding="async" className={`h-16 w-16 shrink-0 rounded-xl object-cover ${p.active ? "" : "opacity-50 grayscale"}`} />
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 text-[14px] font-bold leading-snug text-[var(--pp-text)]">{p.name}</h3>
           <p className="truncate text-[12px] text-[var(--pp-text-muted)]">{p.category}</p>
@@ -75,7 +75,7 @@ export default function ListaProdutos({ produtos = [], categorias = [], imagemPa
       <div className="sticky -top-4 z-10 -mx-1 flex gap-2 bg-white px-1 py-2 sm:-top-5 lg:-top-6">
         <div className="relative min-w-0 flex-1">
           <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]" />
-          <input value={filtro.busca} onChange={(e) => mudar({ busca: e.target.value })} aria-label="Buscar produto" placeholder="Buscar por nome ou categoria"
+          <input value={filtro.busca} onChange={(e) => mudar({ busca: e.target.value })} aria-label="Buscar produto" placeholder="Buscar produto"
             className="min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-white pl-10 pr-10 text-sm text-[var(--pp-text)] outline-none focus:border-[#012E46]" />
           {filtro.busca && <button type="button" onClick={() => mudar({ busca: "" })} aria-label="Limpar busca" className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[var(--pp-text-muted)]"><X size={15} /></button>}
         </div>

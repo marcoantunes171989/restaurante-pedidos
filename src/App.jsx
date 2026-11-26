@@ -19,6 +19,7 @@ import VendasSemNotaFiscal from "./components/admin/fiscal/VendasSemNotaFiscal.j
 import AbasConfiguracoes from "./components/admin/AbasConfiguracoes.jsx";
 import ListaProdutos from "./components/admin/produtos/ListaProdutos.jsx";
 import InputAoSair from "./components/admin/produtos/InputAoSair.jsx";
+import { useJanelaNoCelular } from "./lib/useJanelaNoCelular.js";
 import { abasDisponiveis, ehTelaDeConfiguracao, menuComConfiguracoesAgrupadas } from "./lib/centralConfiguracoes.js";
 import {
   fetchProdutos,  inserirProduto,  atualizarProduto,  escutarProdutos,  atualizarProdutosFiscalLote,
@@ -20740,7 +20741,7 @@ function TagsInput({ tags, setTags, placeholder = "Adicionar + Enter" }) {
           {tags.map((t) => (
             <span key={t} className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.06)] px-3 py-1.5 text-sm font-semibold text-[#012E46]">
               {t}
-              <button type="button" aria-label={`Remover ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="relative flex h-6 w-6 items-center justify-center rounded-full bg-[rgba(1, 46, 70,0.15)] text-xs text-[#012E46] transition before:absolute before:-inset-2 before:content-[''] hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
+              <button type="button" aria-label={`Remover ${t}`} onClick={() => setTags(tags.filter((x) => x !== t))} className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(1, 46, 70,0.15)] text-xs text-[#012E46] transition before:absolute before:-inset-2 before:content-[''] hover:bg-[rgba(200,30,74,0.2)] hover:text-[#C81E4A]">✕</button>
             </span>
           ))}
         </div>
@@ -20776,9 +20777,9 @@ function AdicionaisEditor({ value = [], onChange }) {
         <div className="mt-2 space-y-1.5">
           {value.map((a, i) => (
             <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
-              <span className="text-sm font-semibold text-[var(--pp-text)]">{a.nome}</span>
-              <span className="flex items-center gap-2 text-sm"><span className="font-semibold text-[#2F9E52]">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
-                <button type="button" aria-label={`Remover ${a.nome}`} onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(200,30,74,0.12)] text-xs text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.24)]">✕</button></span>
+              <span className="min-w-0 break-words text-sm font-semibold text-[var(--pp-text)]">{a.nome}</span>
+              <span className="flex shrink-0 items-center gap-2 text-sm"><span className="font-semibold text-[#2F9E52]">{(Number(a.preco) || 0) > 0 ? formatCurrency(Number(a.preco)) : "Grátis"}</span>
+                <button type="button" aria-label={`Remover ${a.nome}`} onClick={() => onChange(value.filter((_, idx) => idx !== i))} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[rgba(200,30,74,0.12)] text-xs text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.24)]">✕</button></span>
             </div>
           ))}
         </div>
@@ -23665,7 +23666,7 @@ function SeletorImagem({ urlAtual, onImageUrl, onFileChange, uploading = false, 
               value={previa ? "" : (urlAtual || "")}
               onChange={(e) => { setPrevia(""); onFileChange(null); onImageUrl(e.target.value); }}
               placeholder="ou cole uma URL de imagem..."
-              className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-8 pr-3 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]"
+              className="min-h-11 w-full rounded-xl border border-[var(--pp-border)] bg-white py-2.5 pl-8 pr-3 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[rgba(1, 46, 70,0.12)] placeholder:text-[var(--pp-text-muted)]"
             />
           </div>
         </div>
@@ -23688,9 +23689,13 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
   };
   const op = produto?.operacao || {};
   const [aba, setAba] = useState(abaInicial);
-  const abaRef = useRef(null);
-  // No celular as abas rolam de lado: a aba aberta fica sempre visível.
-  useEffect(() => { abaRef.current?.scrollIntoView?.({ block: "nearest", inline: "center" }); }, [aba]);
+  // Cada aba começa do topo.
+  const conteudoRef = useRef(null);
+  useEffect(() => { if (conteudoRef.current) conteudoRef.current.scrollTop = 0; }, [aba]);
+  // Celular: a janela ocupa só a área visível (teclado aberto) e o fundo não rola junto.
+  const { estilo: estiloJanela, baixa } = useJanelaNoCelular();
+  // Abrir o teclado sozinho no toque cobre metade da tela: o foco automático é só para quem usa mouse.
+  const [focarNome] = useState(() => modo === "criar" && !!window.matchMedia?.("(pointer: fine)").matches);
   const [f, setF] = useState(() => ({
     name: produto?.name || "", category: produto?.category || "", categoriaId: produto?.categoriaId ?? null,
     price: produto ? toDisplay(produto.price) : "", cost: produto ? toDisplay(produto.cost) : "",
@@ -23854,17 +23859,21 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
         <span className="min-w-0"><span className="block text-sm font-semibold text-[var(--pp-text)]">{titulo}</span><span className="block text-[12px] leading-snug text-[var(--pp-text-muted)]">{desc}</span></span>
         <span aria-hidden="true" className="shrink-0 text-lg text-[var(--pp-text-muted)] transition group-open:rotate-180">⌄</span>
       </summary>
-      <div className="space-y-4 border-t border-[var(--pp-border)] p-3 sm:p-4">{children}</div>
+      <div className="space-y-3 border-t border-[var(--pp-border)] p-2 sm:space-y-4 sm:p-4">{children}</div>
     </details>
   );
   const secao = (icon, titulo, desc, children) => (
-    <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
+    <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] sm:p-4">
       <div className="mb-3 flex items-start gap-2.5">
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.08)] text-[13px] text-[#012E46]">{icon}</span>
         <div className="min-w-0"><h4 className="text-sm font-semibold text-[var(--pp-text)]">{titulo}</h4>{desc && <p className="text-[12px] leading-snug text-[var(--pp-text-muted)]">{desc}</p>}</div>
       </div>
       {children}
     </section>
+  );
+  // Linha "texto + chave": o texto quebra de linha e nunca encosta na chave.
+  const linha = (rotulo, on, onClick) => (
+    <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5 sm:px-4"><span className="min-w-0 text-sm font-semibold text-[var(--pp-text-body)]">{rotulo}</span>{toggle(on, onClick, rotulo)}</div>
   );
   const regra = (on, onClick, titulo, desc) => (
     <div className="flex items-start gap-2.5">
@@ -23888,32 +23897,33 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
     </button>
   );
 
-  const ABAS = [["geral", "Produto"], ["comercial", "Preço e estoque"], ["operacao", "Venda e preparo"], ["opcoes", "Opções"], ["fiscal", "Nota fiscal"]];
+  // [id, nome completo, nome curto do celular] — no celular as cinco cabem na tela, sem rolar de lado.
+  const ABAS = [["geral", "Produto", "Produto"], ["comercial", "Preço e estoque", "Preço"], ["operacao", "Venda e preparo", "Venda"], ["opcoes", "Opções", "Opções"], ["fiscal", "Nota fiscal", "Nota"]];
 
   return (
     // !mt-0: a tela de produtos usa space-y e empurrava a janela fixa 20px para baixo (o rodapé sumia no celular).
-    <div className="fixed inset-0 z-[100] !mt-0 flex items-stretch justify-center sm:items-center sm:p-4">
-      <button type="button" aria-label="Fechar" tabIndex={-1} onClick={tentarFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      {/* No celular ocupa a tela toda; do tablet para cima vira janela. pdv-toque: sem zoom ao focar campos. */}
-      <div role="dialog" aria-modal="true" aria-label={ehEdicao ? "Editar produto" : "Cadastrar produto"} className="pdv-toque relative flex h-[100dvh] w-full max-w-4xl flex-col overflow-hidden border-[var(--pp-border)] bg-white shadow-2xl sm:h-[90dvh] sm:rounded-3xl sm:border">
+    <div style={estiloJanela} className="fixed inset-0 z-[100] !mt-0 flex items-stretch justify-center sm:items-center sm:p-4">
+      <button type="button" aria-label="Fechar" tabIndex={-1} onClick={tentarFechar} className="absolute inset-0 bg-black/50 sm:backdrop-blur-sm" />
+      {/* No celular ocupa a área visível; do tablet para cima vira janela. pdv-toque: sem zoom ao focar campos. */}
+      <div role="dialog" aria-modal="true" aria-label={ehEdicao ? "Editar produto" : "Cadastrar produto"} className={`pdv-toque relative flex h-full w-full max-w-4xl flex-col overflow-hidden border-[var(--pp-border)] bg-white shadow-2xl sm:rounded-3xl sm:border ${baixa ? "" : "sm:h-[95%]"}`}>
         {/* Cabeçalho */}
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-4 py-3 sm:px-6 sm:py-4" style={{ paddingTop: "max(12px, env(safe-area-inset-top))" }}>
+        <div className={`flex shrink-0 items-center justify-between gap-3 border-b border-[var(--pp-border)] px-4 sm:px-6 ${baixa ? "py-1" : "py-2.5 sm:py-3"}`} style={{ paddingTop: `max(${baixa ? 4 : 10}px, env(safe-area-inset-top))` }}>
           <div className="flex min-w-0 items-center gap-3">
             <span className="hidden h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525] sm:flex">{ehEdicao ? "✏️" : "＋"}</span>
             <div className="min-w-0"><h2 className="truncate text-lg font-semibold text-[var(--pp-text)]">{ehEdicao ? "Editar produto" : "Cadastrar produto"}</h2>
-              <p className="truncate text-[13px] text-[var(--pp-text-muted)]">{ehEdicao ? produto?.name : "Para vender basta nome, categoria e preço."}</p></div>
+              {!baixa && <p className="truncate text-[13px] text-[var(--pp-text-muted)]">{ehEdicao ? produto?.name : "Para vender basta nome, categoria e preço."}</p>}</div>
           </div>
           <button type="button" aria-label="Fechar janela" onClick={tentarFechar} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1, 46, 70,0.04)]">✕</button>
         </div>
         {/* Abas — barra fixa (fora da rolagem), alinhada ao conteúdo, com respiro */}
-        <div role="tablist" aria-label="Partes do cadastro" className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-2 pt-1 sm:px-6">
-          {ABAS.map(([id, rot]) => (
-            <button key={id} ref={aba === id ? abaRef : undefined} type="button" role="tab" aria-selected={aba === id} onClick={() => setAba(id)}
-              className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-3 text-[13px] font-semibold transition ${aba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}>{rot}{id === "geral" && !valido && <span aria-label="falta preencher" className="ml-1.5 inline-block h-2 w-2 rounded-full bg-[#F38525] align-middle" />}</button>
+        <div role="tablist" aria-label="Partes do cadastro" className="grid shrink-0 grid-cols-5 border-b border-[var(--pp-border)] bg-white px-1 sm:flex sm:gap-1 sm:px-6">
+          {ABAS.map(([id, rot, curto]) => (
+            <button key={id} type="button" role="tab" aria-label={rot} aria-selected={aba === id} onClick={() => setAba(id)}
+              className={`relative min-h-11 min-w-0 whitespace-nowrap border-b-2 px-0.5 text-[12px] font-semibold transition sm:px-3.5 sm:text-[13px] ${aba === id ? "border-[#012E46] text-[#012E46]" : "border-transparent text-[var(--pp-text-muted)] hover:text-[var(--pp-text-body)]"}`}><span className="sm:hidden">{curto}</span><span className="hidden sm:inline">{rot}</span>{id === "geral" && !valido && <span aria-label="falta preencher" className="absolute right-0.5 top-2 h-2 w-2 rounded-full bg-[#F38525] sm:static sm:ml-1.5 sm:inline-block sm:align-middle" />}</button>
           ))}
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:space-y-4 sm:px-6 sm:py-5">
+        <div ref={conteudoRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-2 py-3 sm:space-y-4 sm:px-6 sm:py-5" data-testid="produto-conteudo">
           {/* Card do produto (topo de todas as abas; no celular some para sobrar espaço) */}
           <div className="hidden flex-wrap items-center gap-4 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] sm:flex">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-[rgba(1, 46, 70,0.05)]">
@@ -23925,7 +23935,7 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
               {f.description && <p className="mt-0.5 truncate text-[12px] text-[var(--pp-text-muted)]">{f.description}</p>}
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <button type="button" onClick={() => set("active", !f.active)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold transition ${f.active ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>{f.active ? "✓ Produto ativo" : "○ Inativo"}</button>
+              <button type="button" onClick={() => set("active", !f.active)} className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold transition ${f.active ? "border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.1)] text-[#2F9E52]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>{f.active ? "✓ Produto ativo" : "○ Inativo"}</button>
               <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold ${fiscalPreparado ? "border-[rgba(1, 46, 70,0.25)] bg-[rgba(1, 46, 70,0.08)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]"}`}>📄 {fiscalPreparado ? "Fiscal preparado" : "Fiscal pendente"}</span>
             </div>
           </div>
@@ -23934,7 +23944,7 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
           {aba === "geral" && (<>
             {secao("ℹ️", "O essencial", "Os campos com * são os únicos obrigatórios.", <>
               <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
-                <div><label className={PP_LBL}>Nome do produto *</label><input autoFocus value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: X-Salada" className={PP_INP} />
+                <div><label className={PP_LBL}>Nome do produto *</label><input autoFocus={focarNome} value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: X-Salada" className={PP_INP} />
                   {(() => {
                     // A nota fiscal só aceita texto no padrão da SEFAZ (até 120 caracteres, sem emoji/aspas especiais): o sistema ajusta sozinho na emissão.
                     const nf = descricaoProdutoFiscal(f.name);
@@ -23974,7 +23984,7 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
               </div>
             </>)}
             {secao("📦", "Controle de estoque", "Gerencie o estoque e receba alertas quando o produto estiver com baixo estoque.", <>
-              <div className="mb-3 flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Controlar estoque deste produto</span>{toggle(f.controlaEstoque, () => set("controlaEstoque", !f.controlaEstoque))}</div>
+              <div className="mb-3">{linha("Controlar estoque deste produto", f.controlaEstoque, () => set("controlaEstoque", !f.controlaEstoque))}</div>
               <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                 <div><label className={PP_LBL}>Estoque atual</label><input value={f.estoque} onChange={(e) => set("estoque", e.target.value.replace(/\D/g, ""))} placeholder="0" className={PP_INP} /></div>
                 <div><label className={PP_LBL}>Estoque mínimo — alerta</label><input value={f.estoqueMinimo} onChange={(e) => set("estoqueMinimo", e.target.value.replace(/\D/g, ""))} placeholder="0" disabled={!f.controlaEstoque} className={`${PP_INP} disabled:opacity-50`} /></div>
@@ -23992,12 +24002,12 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
           {/* ══ ABA OPERAÇÃO ══ */}
           {aba === "operacao" && (<>
             {secao("🌐", "Onde vender", "Controle onde o produto aparece para os clientes.", <>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Disponível para venda</span>{toggle(f.disponivel, () => set("disponivel", !f.disponivel))}</div>
+              {linha("Disponível para venda", f.disponivel, () => set("disponivel", !f.disponivel))}
               <p className={`${PP_LBL} mt-3`}>Visível em</p>
               <div className="flex flex-wrap gap-2">{chipCanal("visivelTablet", "📲 Tablet")}{chipCanal("visivelQr", "🔳 QR Code")}{chipCanal("visivelExterno", "🌐 Cardápio externo")}</div>
             </>)}
             {secao("⭐", "Destaque do produto", "Destaque o produto para aumentar vendas e visibilidade.", <>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Produto em destaque</span>{toggle(f.isFeatured, () => set("isFeatured", !f.isFeatured))}</div>
+              {linha("Produto em destaque", f.isFeatured, () => set("isFeatured", !f.isFeatured))}
               {f.isFeatured && (<div className="mt-3"><p className={PP_LBL}>Etiqueta do destaque</p><div className="flex flex-wrap gap-2">{["Mais vendido", "Sugestão do chef", "Novo", "Especial da casa", "Promoção", "Destaque"].map((lab) => <FilterChip key={lab} size="sm" selected={f.featuredLabel === lab} label={lab} onClick={() => set("featuredLabel", lab)} />)}</div></div>)}
             </>)}
             {mais("Cozinha e atendimento", "Setor, impressora, prioridade e regras. Vazio segue a categoria.", <>
@@ -24006,11 +24016,11 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
                 <div><label className={PP_LBL}>Impressora</label><select value={f.impressoraId} onChange={(e) => set("impressoraId", e.target.value ? Number(e.target.value) : "")} className={PP_INP}><option value="">— da categoria —</option>{impressoras.filter((i) => i.ativo !== false).map((i) => <option key={i.id} value={i.id}>{i.nome}</option>)}</select></div>
                 <div><label className={PP_LBL}>Prioridade de produção</label><select value={f.prioridade} onChange={(e) => set("prioridade", e.target.value)} className={PP_INP}>{["Baixa", "Normal", "Alta"].map((p) => <option key={p} value={p}>{p}</option>)}</select></div>
               </div>
-              <div className="flex items-center justify-between rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5"><span className="text-sm font-semibold text-[var(--pp-text-body)]">Exibir no painel de preparo</span>{toggle(f.exibirNoPainel, () => set("exibirNoPainel", !f.exibirNoPainel))}</div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="flex items-center gap-2.5">{toggle(f.canalSalao, () => set("canalSalao", !f.canalSalao))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Pedido no salão</span></div>
-                <div className="flex items-center gap-2.5">{toggle(f.canalRetirada, () => set("canalRetirada", !f.canalRetirada))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Retirada / balcão</span></div>
-                <div className="flex items-center gap-2.5">{toggle(f.canalDelivery, () => set("canalDelivery", !f.canalDelivery))}<span className="text-[13px] font-semibold text-[var(--pp-text-body)]">Delivery</span></div>
+              {linha("Exibir no painel de preparo", f.exibirNoPainel, () => set("exibirNoPainel", !f.exibirNoPainel))}
+              <div className="grid gap-5 sm:grid-cols-3 sm:gap-3">
+                <div className="flex items-center gap-2.5">{toggle(f.canalSalao, () => set("canalSalao", !f.canalSalao), "Pedido no salão")}<span className="min-w-0 text-[13px] font-semibold text-[var(--pp-text-body)]">Pedido no salão</span></div>
+                <div className="flex items-center gap-2.5">{toggle(f.canalRetirada, () => set("canalRetirada", !f.canalRetirada), "Retirada / balcão")}<span className="min-w-0 text-[13px] font-semibold text-[var(--pp-text-body)]">Retirada / balcão</span></div>
+                <div className="flex items-center gap-2.5">{toggle(f.canalDelivery, () => set("canalDelivery", !f.canalDelivery), "Delivery")}<span className="min-w-0 text-[13px] font-semibold text-[var(--pp-text-body)]">Delivery</span></div>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 {regra(f.impressaoAutomatica, () => set("impressaoAutomatica", !f.impressaoAutomatica), "Impressão automática ao confirmar pedido", "O item será impresso automaticamente.")}
@@ -24036,7 +24046,7 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
               <div className="flex flex-wrap gap-2">
                 {sugestoes.map((p) => (
                   <button key={p.nome} type="button" onClick={() => addGrupo(p)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#F38525] transition hover:bg-[rgba(243, 133, 37,0.12)]">
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[rgba(243, 133, 37,0.35)] bg-[rgba(243, 133, 37,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#F38525] transition hover:bg-[rgba(243, 133, 37,0.12)]">
                     <span className="text-base leading-none">＋</span>{p.nome}
                     {p.obrigatorio && <span className="rounded-full bg-[rgba(1, 46, 70,0.1)] px-1.5 py-0.5 text-[10px] font-semibold text-[#012E46]">obrigatório</span>}
                   </button>
@@ -24050,11 +24060,12 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
                   const ops = opcoesDe(g);
                   const nd = novaOpcao[chaveGrupo(g)] || { nome: "", precoDelta: "" };
                   return (
-                    <div key={chaveGrupo(g)} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)]">
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="min-w-[150px] flex-1 basis-full sm:basis-0"><label className={PP_LBL}>Nome do grupo</label><InputAoSair valor={g.nome} onConfirmar={(v) => editGrupo(g, { nome: v })} aria-label="Nome do grupo" className={PP_INP} /></div>
-                        <div className="w-20"><label className={PP_LBL}>Mínimo</label><InputAoSair inputMode="numeric" valor={g.minSelect} onConfirmar={(v) => editGrupo(g, { minSelect: Number(String(v).replace(/\D/g, "")) || 0 })} aria-label="Mínimo de escolhas" className={PP_INP} /></div>
-                        <div className="w-20"><label className={PP_LBL}>Máximo</label><InputAoSair inputMode="numeric" valor={g.maxSelect} onConfirmar={(v) => editGrupo(g, { maxSelect: Number(String(v).replace(/\D/g, "")) || 1 })} aria-label="Máximo de escolhas" className={PP_INP} /></div>
+                    <div key={chaveGrupo(g)} className="rounded-2xl border border-[var(--pp-border)] bg-white p-2.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.04)] sm:p-3.5">
+                      {/* Celular: duas colunas alinhadas; do tablet para cima, uma linha só. */}
+                      <div className="grid grid-cols-2 items-end gap-2 sm:flex">
+                        <div className="col-span-2 min-w-0 sm:flex-1"><label className={PP_LBL}>Nome do grupo</label><InputAoSair valor={g.nome} onConfirmar={(v) => editGrupo(g, { nome: v })} aria-label="Nome do grupo" className={PP_INP} /></div>
+                        <div className="min-w-0 sm:w-20"><label className={PP_LBL}>Mínimo</label><InputAoSair inputMode="numeric" valor={g.minSelect} onConfirmar={(v) => editGrupo(g, { minSelect: Number(String(v).replace(/\D/g, "")) || 0 })} aria-label="Mínimo de escolhas" className={PP_INP} /></div>
+                        <div className="min-w-0 sm:w-20"><label className={PP_LBL}>Máximo</label><InputAoSair inputMode="numeric" valor={g.maxSelect} onConfirmar={(v) => editGrupo(g, { maxSelect: Number(String(v).replace(/\D/g, "")) || 1 })} aria-label="Máximo de escolhas" className={PP_INP} /></div>
                         <button type="button" aria-pressed={!!g.obrigatorio} onClick={() => editGrupo(g, { obrigatorio: !g.obrigatorio })} className={`min-h-11 rounded-xl border px-3 py-2.5 text-xs font-semibold transition ${g.obrigatorio ? "border-[#012E46] bg-[#012E46] text-white" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)]"}`}>{g.obrigatorio ? "Obrigatório" : "Opcional"}</button>
                         {/* Excluir o grupo apaga as opções dele: pede um segundo toque. */}
                         <button type="button" aria-label={grupoExcluindo === chaveGrupo(g) ? `Confirmar exclusão do grupo ${g.nome}` : `Excluir o grupo ${g.nome}`} onBlur={() => setGrupoExcluindo(null)}
@@ -24064,9 +24075,9 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
                       <div className="mt-2.5 space-y-1.5">
                         {ops.map((o) => (
                           <div key={ehEdicao ? o.id : o._tid} className="flex items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2">
-                            <span className="flex-1 truncate text-sm text-[var(--pp-text)]">{o.nome}</span>
+                            <span className="min-w-0 flex-1 break-words text-sm text-[var(--pp-text)]">{o.nome}</span>
                             <span className="text-xs font-semibold text-[#2F9E52]">{o.precoDelta > 0 ? `+ ${formatCurrency(o.precoDelta)}` : (o.precoDelta < 0 ? formatCurrency(o.precoDelta) : "Grátis")}</span>
-                            <button type="button" aria-label={`Remover a opção ${o.nome}`} onClick={() => removeOpcaoG(g, o)} className="grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[var(--pp-text-muted)] transition hover:text-[#C81E4A]">🗑</button>
+                            <button type="button" aria-label={`Remover a opção ${o.nome}`} onClick={() => removeOpcaoG(g, o)} className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--pp-text-muted)] transition hover:text-[#C81E4A]">🗑</button>
                           </div>
                         ))}
                       </div>
@@ -24171,7 +24182,7 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
               <div className="mt-3 rounded-xl border border-[rgba(1, 46, 70,0.2)] bg-[rgba(1, 46, 70,0.05)] p-3 text-[12px] text-[var(--pp-text-body)]"><p className="font-semibold text-[#012E46]">ⓘ Tributação centralizada</p><p className="mt-0.5">CRT/regime, CFOP, CST e alíquotas são resolvidos pela <b>Regra Fiscal</b> da loja e pela <b>operação</b> da venda — não pelo produto. Vincule o produto a uma configuração fiscal acima.</p></div>
               {/* Tributação manual permanece disponível como LEGADO/exceção — dados no JSONB do produto, nunca apagados. Prefira a regra fiscal. */}
               <details className="mt-3 rounded-xl border border-[var(--pp-border)] bg-white p-3">
-                <summary className="cursor-pointer text-[12px] font-semibold text-[var(--pp-text-body)]">Tributação manual do produto (legado — sobrepõe a regra; use só em exceção)</summary>
+                <summary className="min-h-11 cursor-pointer content-center text-[12px] font-semibold text-[var(--pp-text-body)]">Tributação manual do produto (legado — sobrepõe a regra; use só em exceção)</summary>
                 <div className="mt-3 grid gap-3 sm:grid-cols-4">
                   {fSel("cstIcms", "CST / CSOSN ICMS", ["102 - Tributada pelo Simples", "101 - Tributada com permissão de crédito", "500 - ICMS cobrado por ST", "00 - Tributada integralmente"])}
                   {fIn("aliquotaIcms", "Alíquota ICMS (%)", "18,00")}
@@ -24209,21 +24220,26 @@ function ProdutoAdminModal({ modo = "criar", abaInicial = "geral", produto = nul
         </div>
 
         {/* Rodapé */}
-        <div className="shrink-0 space-y-2 border-t border-[var(--pp-border)] px-3 py-3 sm:px-6 sm:py-4" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
-          {!valido && <button type="button" onClick={() => setAba("geral")} className="block text-left text-xs font-semibold text-[#8A5200] underline-offset-2 hover:underline" data-testid="produto-faltam">Falta preencher: {faltam.join(", ")}.</button>}
-          {confirmarSaida && (
-            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-xl border border-[#F38525] bg-[#FEF1E3] px-3 py-2" data-testid="produto-descartar">
-              <p className="min-w-0 flex-1 basis-40 text-[13px] font-semibold text-[#8A5200]">Há alterações sem salvar. Sair mesmo assim?</p>
-              <button type="button" onClick={() => setConfirmarSaida(false)} className="min-h-11 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px] font-bold text-[#012E46]">Continuar editando</button>
-              <button type="button" onClick={onFechar} className="min-h-11 rounded-xl bg-[#B42318] px-3 text-[13px] font-bold text-white">Descartar</button>
-            </div>
-          )}
+        <div className={`shrink-0 space-y-1.5 border-t border-[var(--pp-border)] px-3 sm:px-6 ${baixa ? "py-1.5" : "py-2.5 sm:py-3"}`} style={{ paddingBottom: `max(${baixa ? 6 : 10}px, env(safe-area-inset-bottom))` }}>
+          {!valido && !baixa && <button type="button" onClick={() => setAba("geral")} className="block min-h-8 text-left text-xs font-semibold text-[#8A5200] underline-offset-2 hover:underline" data-testid="produto-faltam">Falta preencher: {faltam.join(", ")}.</button>}
           {erroUpload && <p className="text-xs font-semibold text-[#C81E4A]">❌ {erroUpload}</p>}
           <div className="flex gap-2">
-            <button type="button" onClick={tentarFechar} className="rounded-xl border border-[var(--pp-border)] bg-white px-5 py-2.5 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Cancelar</button>
-            <PrimeButton onClick={handleSalvar} disabled={!valido || uploadando || salvando} className="flex-1">{uploadando ? "⏳ Enviando imagem…" : salvando ? "Salvando…" : (ehEdicao ? "💾 Salvar alterações" : "＋ Cadastrar produto")}</PrimeButton>
+            <button type="button" onClick={tentarFechar} className="min-h-11 rounded-xl border border-[var(--pp-border)] bg-white px-4 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] sm:px-5">Cancelar</button>
+            <PrimeButton onClick={handleSalvar} disabled={!valido || uploadando || salvando} className="min-w-0 flex-1">{uploadando ? "⏳ Enviando imagem…" : salvando ? "Salvando…" : (ehEdicao ? "💾 Salvar alterações" : "＋ Cadastrar produto")}</PrimeButton>
           </div>
         </div>
+        {/* A pergunta fica por cima da janela: não aperta o formulário nem empurra os botões. */}
+        {confirmarSaida && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center overflow-y-auto bg-black/60 p-4">
+            <div role="alertdialog" aria-modal="true" aria-label="Descartar alterações" className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-4 shadow-2xl" data-testid="produto-descartar">
+              <p className="text-center text-[15px] font-semibold text-[var(--pp-text)]">Há alterações sem salvar. Sair mesmo assim?</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" autoFocus onClick={() => setConfirmarSaida(false)} className="min-h-11 flex-1 basis-32 rounded-xl border border-[var(--pp-border)] bg-white px-3 text-[13px] font-bold text-[#012E46]">Continuar editando</button>
+                <button type="button" onClick={onFechar} className="min-h-11 flex-1 basis-32 rounded-xl bg-[#B42318] px-3 text-[13px] font-bold text-white">Descartar</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -24240,7 +24256,7 @@ function SeletorCategoria({ valorId, aoMudar, categorias }) {
         const ativo = valorId === c.id;
         return (
           <button key={c.id} type="button" onClick={() => aoMudar(c)}
-            className={`group inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-tight transition active:scale-95 ${
+            className={`group inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-tight transition active:scale-95 ${
               ativo
                 ? "border-[#012E46] bg-[#012E46] text-white shadow-[0_2px_6px_rgba(1, 46, 70,0.22)]"
                 : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:border-[#012E46] hover:text-[#012E46]"
