@@ -151,15 +151,29 @@ export function problemasDaVenda({ modelo = 65, cpfConsumidor = "", destinatario
 }
 
 /**
+ * Escopo decidido pelo dono (2026-11-21): NF-e só para destinatário na UF do emitente. Precisa barrar ANTES de reservar o
+ * número (e de fechar a venda): em SP número queimado não se recupera. UF ausente ou inválida é tratada por outras regras.
+ * @returns {string|null} mensagem para a tela
+ */
+export function problemaNfeForaDaUf(ufDestinatario, ufEmitente) {
+  const dest = String(ufDestinatario || "").toUpperCase();
+  const emit = String(ufEmitente || "").toUpperCase();
+  if (!ufValida(dest) || !ufValida(emit) || dest === emit) return null;
+  return `NF-e para ${dest} (outro estado) não está habilitada: por ora a NF-e só é emitida para destinatário em ${emit}. Fale com o contador antes de liberar operação interestadual.`;
+}
+
+/**
  * Tudo junto. Devolve { ok, problemas, texto }: `texto` é a mensagem pronta para a tela.
  * Sem `documento` (o caixa não tem o CNPJ da loja; o servidor confere de novo com ele) a conferência do CNPJ é pulada.
  */
-export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date() } = {}) {
+export function validarAntesDeEmitir({ emitente, documento = "", confereDocumento = !!normalizarDocumentoFiscal(documento), modelo = 65, ambiente = "homologacao", venda = null, destinatario = null, cpfConsumidor = "", credenciais = null, agora = new Date(), permitirInterestadual = false } = {}) {
+  const foraDaUf = Number(modelo) === 55 && !permitirInterestadual ? problemaNfeForaDaUf(destinatario?.ender?.UF, emitente?.uf) : null;
   const problemas = [
     ...problemasDaEmpresa(emitente, documento, { confereDocumento }),
     ...problemasDoCertificado({ credenciais, documento, modelo, ambiente, agora }),
     ...problemasDosItens(venda?.itens || [], { crt: emitente?.crt, modelo }),
     ...problemasDaVenda({ modelo, cpfConsumidor, destinatario }),
+    ...(foraDaUf ? [{ codigo: "DEST_FORA_UF", msg: foraDaUf, onde: "Caixa" }] : []),
   ];
   const vistos = new Set();
   const unicos = problemas.filter((x) => { const k = `${x.codigo}|${x.msg}`; if (vistos.has(k)) return false; vistos.add(k); return true; });

@@ -174,21 +174,26 @@ describe("NF-e para destinatário de outra UF", () => {
     expect(r.dados.itens.every((i) => String(i.CFOP).startsWith("5"))).toBe(true);
   });
   it("destinatário em outro estado com IE: idDest 2, CFOP 6xxx e aviso", () => {
-    const r = dadosNFeDaVenda({ ...NFE, venda: venda(), destinatario: DEST("RJ", "3304557") });
+    const r = dadosNFeDaVenda({ ...NFE, permitirInterestadual: true, venda: venda(), destinatario: DEST("RJ", "3304557") });
     expect(r.ok, r.erro).toBe(true);
     expect(r.dados.ide.idDest).toBe("2");
     expect(r.dados.itens.map((i) => i.CFOP)).toEqual(["6102", "6102"]);
     expect(montarXmlNFe(r.dados).xml).toContain("<idDest>2</idDest>");
     expect(r.avisos.some((a) => /interestadual.*RJ/i.test(a))).toBe(true);
   });
+  it("por padrão a NF-e fora da UF do emitente é recusada (escopo: só SP)", () => {
+    const r = dadosNFeDaVenda({ ...NFE, venda: venda(), destinatario: DEST("RJ", "3304557") });
+    expect(r.ok).toBe(false);
+    expect(r.erro).toMatch(/RJ.*não está habilitada.*SP/);
+  });
   it("outro estado sem IE (não contribuinte) → recusa por causa do DIFAL", () => {
-    const r = dadosNFeDaVenda({ ...NFE, venda: venda(), destinatario: DEST("MG", "3106200", "") });
+    const r = dadosNFeDaVenda({ ...NFE, permitirInterestadual: true, venda: venda(), destinatario: DEST("MG", "3106200", "") });
     expect(r.ok).toBe(false);
     expect(r.erro).toMatch(/DIFAL/);
   });
   it("CFOP sem equivalente seguro → pede o CFOP 6xxx no produto", () => {
     const v = venda({ ctxFiscal: { lojaFiscalRegras: [{ ...REGRA, cfopCodigo: "5667" }] } });
-    const r = dadosNFeDaVenda({ ...NFE, venda: v, destinatario: DEST("RJ", "3304557") });
+    const r = dadosNFeDaVenda({ ...NFE, permitirInterestadual: true, venda: v, destinatario: DEST("RJ", "3304557") });
     expect(r.ok).toBe(false);
     expect(r.erro).toMatch(/6xxx/);
   });

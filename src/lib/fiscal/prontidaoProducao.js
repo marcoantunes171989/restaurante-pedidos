@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  Prontidão para emitir NFC-e em PRODUÇÃO (nota com valor fiscal).
+//  Prontidão para emitir NFC-e (e NF-e, quando habilitada) em PRODUÇÃO (nota com valor fiscal).
 //  Funções puras: recebem o que a tela Emissão já carrega e devolvem uma lista de itens (ok / falta / aviso) para a pessoa
 //  enxergar, em um lugar só, tudo que impede ou arrisca a produção. NÃO liga nada: quem liga é o assistente (trava 186 no banco).
 //
@@ -42,11 +42,12 @@ export function produtosComProblemaDeProducao({ produtos = [], regrasLoja = [], 
  * @param {{faltas?:string[], liberada?:boolean, emProducao?:boolean}|null} p.producao  retorno da RPC da trava (186)
  * @param {{ok:boolean}|null} p.teste           último teste de conexão (homologação)
  * @param {{ok:boolean, modelo?:number}|null} p.testeProducao  último teste de conexão com a SEFAZ de PRODUÇÃO
+ * @param {{ok:boolean}|null} p.testeProducaoNfe  último teste de conexão da NF-e em PRODUÇÃO (só conta com a NF-e habilitada)
  * @returns {{ pronto:boolean, bloqueios:number, avisos:number, itens:Array<{id,rotulo,ok,bloqueia,dica}> }}
  */
 export function prontidaoProducao({
   emitente = null, documentoLoja = "", credenciais = [], series = [], formas = [], config = {}, produtos = [], regrasLoja = [], ctxFiscal = {},
-  producao = null, testeProducao = null, agora = new Date(),
+  producao = null, testeProducao = null, testeProducaoNfe = null, agora = new Date(),
 } = {}) {
   const crt = String(emitente?.crt || "");
   const cert = credenciais.find((c) => c.tipo === "certificado_a1") || null;
@@ -60,7 +61,9 @@ export function prontidaoProducao({
   const prods = produtosComProblemaDeProducao({ produtos, regrasLoja, ctxFiscal, crt });
   const mei = crt === "4";
   // A trava também cobra a NF-e quando ela está habilitada: se a loja só emite NFC-e, a saída é desabilitar a NF-e.
-  const faltaNfe = faltasBanco.filter((f) => /NF-e/.test(f) && !/NFC-e/.test(f));
+  // Com a NF-e habilitada a série tem item próprio (serie-nfe), então a falta de série não é repetida (nem contada) aqui.
+  const nfeLigada = emitente?.nfeHabilitada === true;
+  const faltaNfe = faltasBanco.filter((f) => /NF-e/.test(f) && !/NFC-e/.test(f) && !(nfeLigada && /^S[ée]rie/i.test(f)));
 
   const itens = [
     { id: "nfce", rotulo: "NFC-e habilitada no cadastro da empresa", ok: emitente?.nfceHabilitada === true, bloqueia: true, dica: "Habilite a NFC-e em Dados da Empresa." },
@@ -76,7 +79,14 @@ export function prontidaoProducao({
       dica: prods.length ? `${prods.length} produto(s) com problema, por exemplo: ${prods.slice(0, 3).map((x) => `${x.nome} (${x.problemas[0]})`).join("; ")}.` : "" },
     { id: "conexao", rotulo: "Teste de conexão com a SEFAZ de PRODUÇÃO feito com sucesso", ok: testeProducao?.ok === true, bloqueia: false, dica: "Use o botão Testar conexão (produção) na seção do certificado. É só uma consulta de status." },
   ];
-  if (faltaNfe.length) itens.splice(1, 0, { id: "nfe", rotulo: "NF-e habilitada exige série e nota de teste próprias", ok: false, bloqueia: true, dica: `${faltaNfe.join(" ")} Se a loja só emite NFC-e, desabilite a NF-e em Dados da Empresa.` });
+  if (faltaNfe.length) itens.splice(1, 0, { id: "nfe", rotulo: nfeLigada ? "Pelo menos 1 NF-e autorizada em homologação neste ambiente" : "NF-e habilitada exige série e nota de teste próprias", ok: false, bloqueia: true, dica: `${faltaNfe.join(" ")} Se a loja só emite NFC-e, desabilite a NF-e em Dados da Empresa.` });
+  // NF-e habilitada: série própria de produção (a trava 186 exige) e teste de conexão do serviço da NF-e, que é outro endereço da SEFAZ.
+  if (emitente?.nfeHabilitada === true) {
+    itens.push(
+      { id: "serie-nfe", rotulo: "Série da NF-e em PRODUÇÃO (numeração que não colide com outro emissor)", ok: series.some((s) => Number(s.modelo) === 55 && s.ambiente === AMB && s.ativa), bloqueia: true, dica: "Cadastre a série e o próximo número da NF-e em produção em Séries e numeração. Se a loja só emite NFC-e, desabilite a NF-e em Dados da Empresa." },
+      { id: "conexao-nfe", rotulo: "Teste de conexão da NF-e com a SEFAZ de PRODUÇÃO feito com sucesso", ok: testeProducaoNfe?.ok === true, bloqueia: false, dica: "Use o botão NF-e (produção) na seção do certificado. É só uma consulta de status." },
+    );
+  }
   const bloqueios = itens.filter((i) => !i.ok && i.bloqueia).length;
   const avisos = itens.filter((i) => !i.ok && !i.bloqueia).length;
   return { pronto: bloqueios === 0 && avisos === 0, bloqueios, avisos, itens, produtosComProblema: prods, emProducao: producao?.emProducao === true };

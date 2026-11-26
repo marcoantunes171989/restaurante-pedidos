@@ -115,6 +115,13 @@ describe("processarEmissao — proteção da 1ª nota real (produção)", () => 
     expect(d.registrar).not.toHaveBeenCalled();
     expect(d.enviar).not.toHaveBeenCalled();
   });
+  it("NF-e (modelo 55): a 1ª nota real também tem o limite e a consulta recebe o modelo", async () => {
+    const d = deps({ documento: vi.fn().mockResolvedValue({ ...DOC_PROD(52.8), modelo: 55, rascunho: { dados: { ...DADOS, ide: { ...DADOS.ide, mod: 55, tpAmb: 1 } } } }), primeiraNotaProducao: vi.fn().mockResolvedValue(true) });
+    const r = await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);
+    expect(d.primeiraNotaProducao).toHaveBeenCalledWith(7, 55);
+    expect(r).toMatchObject({ ok: false, code: "PRIMEIRA_NOTA_LIMITE" });
+    expect(d.registrar).not.toHaveBeenCalled();
+  });
   it("1ª nota de produção dentro do limite: segue para a SEFAZ", async () => {
     const d = prod(30);
     await processarEmissao({ acao: "emitir", documentoId: "d1" }, d);

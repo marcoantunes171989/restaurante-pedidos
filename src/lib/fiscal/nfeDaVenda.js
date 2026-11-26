@@ -9,7 +9,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { tributosAproximados } from "./ibpt.js";
-import { validarAntesDeEmitir } from "./validacaoPreEmissao.js";
+import { validarAntesDeEmitir, problemaNfeForaDaUf } from "./validacaoPreEmissao.js";
 import { codigoUf, normalizarDocumentoFiscal, validarDocumentoFiscal, pendenciasEmitenteNfce, UFS, avisoInscricaoEstadual, normalizarInscricaoEstadual } from "../emitenteFiscalService.js";
 
 // Cadastros antigos podem ter máscara (CEP 01001-000, IBGE, telefone): o leiaute só aceita números.
@@ -134,7 +134,7 @@ const AMB = { producao: 1, homologacao: 2 };
  * @param {object} [p.destinatario]   NF-e: { documento, nome, ie?, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @returns {{ ok:boolean, erro?:string, dados?:object, chave?:string, avisos:string[] }}
  */
-export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false } = {}) {
+export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, numero, ambiente, dhEmi, cNF, cpfConsumidor, destinatario = null, natOp = "Venda de mercadoria", respTec = null, infCpl = "", ibpt = null, agora = new Date(), permissivo = false, permitirInterestadual = false } = {}) {
   // `permissivo`: SÓ para a Manutenção fiscal. Monta os dados mesmo com pendência de cadastro (CSOSN vazio etc.) para a pessoa corrigir
   // no editor; a conferência completa (XML + XSD) continua obrigatória ao gravar e ao transmitir.
   const avisos = [];
@@ -152,7 +152,7 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   const faltas = pendenciasEmitenteNfce(e, documento).filter((p) => p !== "Série NFC-e");
   if (faltas.length) return falha(`Cadastro fiscal da empresa incompleto: falta ${faltas.join(", ")}.`);
   // Conferência completa ANTES de montar: tudo que a SEFAZ rejeitaria por dado nosso (CNPJ, IE, IBGE, NCM, CFOP, CST, destinatário…).
-  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor });
+  const pre = permissivo ? { ok: true } : validarAntesDeEmitir({ emitente: e, documento, modelo, ambiente, venda, destinatario, cpfConsumidor, permitirInterestadual });
   if (!pre.ok) return falha(`Dados fiscais com problema: ${pre.texto}`);
   const simples = crt !== "3";
   const avisoIe = avisoInscricaoEstadual(e.uf, e.inscricaoEstadual);
@@ -307,6 +307,11 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
   // Só a NF-e tem destinatário com endereço; a NFC-e é sempre operação interna.
   const ufDest = Number(modelo) === 55 ? String(dest.dest?.ender?.UF || "").toUpperCase() : "";
   const interestadual = !!ufDest && ufDest !== String(e.uf || "").toUpperCase();
+  // Escopo decidido pelo dono (2026-11-21): NF-e só para destinatário dentro da UF do emitente (SP). O caminho interestadual
+  // continua no código e testado, mas fica desligado: só liga com `permitirInterestadual` (nenhum chamador passa hoje).
+  if (interestadual && !permitirInterestadual) {
+    return falha(problemaNfeForaDaUf(ufDest, e.uf));
+  }
   if (interestadual) {
     if (dest.dest?.indIEDest === "9") {
       return falha(`NF-e para ${ufDest} (outro estado) a destinatário sem Inscrição Estadual exige o grupo do ICMS interestadual (DIFAL), ainda não suportado pelo emissor. Confirme o tratamento com o contador.`);

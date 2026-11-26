@@ -163,7 +163,7 @@ export default function CentralDoCaixa({
   async function confirmarPagamento() {
     if (!confirmacao) return;
     const { o, linhas, total } = confirmacao;
-    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) { setErroConfirmacao(notaCx.erro); return; }
     if (pagandoIdsRef.current.has(o.id)) return; // trava contra clique duplo antes do re-render
     pagandoIdsRef.current.add(o.id);

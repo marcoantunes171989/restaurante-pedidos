@@ -152,12 +152,12 @@ export async function processarEmissao(body = {}, deps) {
   const c = await credencial(deps, doc.loja_id);
   if (c.erro) return falha(c.erro);
 
-  // Proteção da 1ª nota real (produção, NFC-e): em SP número queimado não se recupera, então a primeira nota da loja tem teto de valor.
+  // Proteção da 1ª nota real (produção, NFC-e e NF-e; cada modelo tem a sua primeira): em SP número queimado não se recupera, então a primeira nota da loja tem teto de valor.
   // Falha aberta: se a consulta não responder, não bloqueia a venda (a trava principal é a do banco, migration 186).
-  if (doc.ambiente === "producao" && Number(doc.modelo) === 65 && deps.primeiraNotaProducao) {
+  if (doc.ambiente === "producao" && [55, 65].includes(Number(doc.modelo)) && deps.primeiraNotaProducao) {
     const limite = Number(deps.limitePrimeiraNota ?? 30);
     let primeira;
-    try { primeira = (await deps.primeiraNotaProducao(doc.loja_id)) === true; } catch { primeira = false; }
+    try { primeira = (await deps.primeiraNotaProducao(doc.loja_id, Number(doc.modelo))) === true; } catch { primeira = false; }
     if (primeira && Number(doc.valor_total) > limite) return falha("PRIMEIRA_NOTA_LIMITE", { limite });
   }
 

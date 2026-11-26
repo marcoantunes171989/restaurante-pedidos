@@ -19,7 +19,7 @@ import { montarVendaFiscal, composicaoDaConta } from "./vendaFiscal.js";
 import { reservarDocumentoFiscal } from "./fiscalApi.js";
 import { montarDestinatario } from "./nfeDaVenda.js";
 import { normalizarDocumentoFiscal } from "../emitenteFiscalService.js";
-import { validarAntesDeEmitir } from "./validacaoPreEmissao.js";
+import { validarAntesDeEmitir, problemaNfeForaDaUf } from "./validacaoPreEmissao.js";
 
 export function emissaoPdvAtivaPorEnv(env) {
   return String(env?.VITE_FISCAL_EMISSAO_PDV ?? "").trim().toLowerCase() === "true";
@@ -60,7 +60,7 @@ export const NOTA_VAZIA =Object.freeze({ documento: "", nfe: false, nome: "", ie
  * Confere o que o caixa digitou para a nota (E8 parte 3).
  * @returns {{ ok:boolean, erro?:string, modelo:55|65, cpf:string, destinatario:object|null }}
  */
-export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false } = {}) {
+export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false, ufEmitente = "" } = {}) {
   const doc = normalizarDocumentoFiscal(v.documento);
   if (v.nfe) {
     if (!nfeDisponivel) return { ok: false, erro: "Esta loja ainda não emite NF-e." };
@@ -68,6 +68,8 @@ export function dadosDaNotaNoCaixa(v = NOTA_VAZIA, { nfeDisponivel = false } = {
       ender: { xLgr: v.xLgr, nro: v.nro, xCpl: v.xCpl, xBairro: v.xBairro, cMun: v.cMun, xMun: v.xMun, UF: v.UF, CEP: v.CEP, fone: v.fone } };
     const r = montarDestinatario({ modelo: 55, destinatario });
     if (r.erro) return { ok: false, erro: r.erro };
+    const foraDaUf = problemaNfeForaDaUf(v.UF, ufEmitente); // antes de fechar a venda
+    if (foraDaUf) return { ok: false, erro: foraDaUf };
     return { ok: true, modelo: 55, cpf: "", destinatario };
   }
   if (!doc) return { ok: true, modelo: 65, cpf: "", destinatario: null };

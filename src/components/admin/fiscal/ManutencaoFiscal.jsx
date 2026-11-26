@@ -26,7 +26,8 @@ export default function ManutencaoFiscal({ nota, buscar, supabase, mensagemEmiss
   const [aba, setAba] = useState("campos");
   const [salvando, setSalvando] = useState("");
   const [resultado, setResultado] = useState(null);
-  const [log, setLog] = useState({ chave: "", linhas: [], erro: "" });
+  const [concluida, setConcluida] = useState(false); // retransmissão deu certo: não há mais o que editar
+  const [log,setLog] = useState({ chave: "", linhas: [], erro: "" });
   const chaveLog = `${nota.id}|${resultado?.texto || ""}`;
   const buscarRef = useRef(buscar);
   useEffect(() => { buscarRef.current = buscar; });
@@ -83,7 +84,8 @@ export default function ManutencaoFiscal({ nota, buscar, supabase, mensagemEmiss
         setResultado({ ok, texto });
         setMotivo("");
         onConcluido?.({ ok, texto });
-        if (!r.emissao?.ok) await abrir(); // continua editável: mostra os dados já gravados
+        if (r.emissao?.ok) { setEdits({}); setConcluida(true); } // some o editor: nada de "alterações a gravar" numa nota já transmitida
+        else await abrir(); // continua editável: mostra os dados já gravados
       }
     } catch { setResultado({ ok: false, texto: "Não foi possível gravar agora. Tente novamente." }); } finally { setSalvando(""); }
   }
@@ -135,7 +137,7 @@ export default function ManutencaoFiscal({ nota, buscar, supabase, mensagemEmiss
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-[13px] font-bold text-[var(--pp-text)]">Manutenção fiscal da {sigla} nº {nota.numero}</p>
-          <p className="text-[11px] text-[var(--pp-text-muted)]">Altere os campos permitidos, grave e transmita de novo. Tudo fica registrado no log (usuário, data e motivo). Cinza = travado.</p>
+          <p className="text-[11px] text-[var(--pp-text-muted)]">{concluida ? "Nota retransmitida. Feche para voltar à lista; o log fica em Detalhes e histórico." : "Altere os campos permitidos, grave e transmita de novo. Tudo fica registrado no log (usuário, data e motivo). Cinza = travado."}</p>
         </div>
         <button type="button" className={botaoLeve} onClick={onFechar}>Fechar</button>
       </div>
@@ -143,7 +145,9 @@ export default function ManutencaoFiscal({ nota, buscar, supabase, mensagemEmiss
       {estado.carregando && <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">Abrindo os dados da nota…</p>}
       {estado.erro && <p className="mt-2 text-[12px] font-semibold text-[#C81E4A]" data-testid="manutencao-erro">{estado.erro}</p>}
 
-      {estado.base && (
+      {concluida && resultado && <p role="status" data-testid="manutencao-resultado" className={`mt-2 text-[12px] font-semibold ${resultado.ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{resultado.texto}</p>}
+
+      {estado.base && !concluida && (
         <>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <div className="inline-flex overflow-hidden rounded-xl border border-[var(--pp-border)]" role="group" aria-label="Seções da manutenção">

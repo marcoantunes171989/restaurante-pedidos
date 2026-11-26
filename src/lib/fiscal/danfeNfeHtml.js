@@ -43,6 +43,7 @@ body{margin:0;background:#fff;color:#000;font-family:"Times New Roman",Times,ser
 .r{display:block;font-size:6pt;text-transform:uppercase}
 .v{display:block;font-size:10pt;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .n{text-align:right}
+.v.longo{font-size:8pt;line-height:1.1;white-space:normal;overflow-wrap:anywhere}
 .emit .nome{font-size:12pt;font-weight:700}.emit .end{font-size:8pt;font-weight:700}
 .danfe{text-align:center}.danfe .t{font-size:12pt;font-weight:700}.danfe .s{font-size:8pt}.danfe .b{font-size:10pt;font-weight:700}
 .chave{font-weight:700;font-size:10pt;letter-spacing:.2mm}
@@ -55,6 +56,13 @@ table.itens td{border-left:1px solid #000;border-right:1px solid #000;border-bot
 
 function campo(rotulo, valor, extra = "") {
   return `<div class="c ${extra}"><span class="r">${esc(rotulo)}</span><span class="v">${esc(valor)}</span></div>`;
+}
+
+// Textos que não podem sair cortados (nome do destinatário, até 60 caracteres no leiaute; modalidade do frete): acima do
+// limite, letra menor e quebra de linha em vez de reticências.
+function campoLongo(rotulo, valor, limite = 40) {
+  const longo = String(valor ?? "").length > limite ? " longo" : "";
+  return `<div class="c"><span class="r">${esc(rotulo)}</span><span class="v${longo}">${esc(valor)}</span></div>`;
 }
 
 function cabecalho(d, folha, total) {
@@ -84,7 +92,7 @@ function cabecalho(d, folha, total) {
 function destinatario(d) {
   const x = d.destinatario || {}, en = x.ender || {};
   return `<div class="bloco">Destinatário / remetente</div>
-  <div class="g" style="grid-template-columns:118fr 46fr 32fr">${campo("Nome / razão social", x.nome)}${campo("CNPJ / CPF", doc(x.cnpj, x.cpf))}${campo("Data da emissão", data(d.dhEmi))}</div>
+  <div class="g" style="grid-template-columns:118fr 46fr 32fr">${campoLongo("Nome / razão social", x.nome)}${campo("CNPJ / CPF", doc(x.cnpj, x.cpf))}${campo("Data da emissão", data(d.dhEmi))}</div>
   <div class="g" style="grid-template-columns:90fr 48fr 26fr 32fr">${campo("Endereço", [[en.xLgr, en.nro].filter(Boolean).join(", "), en.xCpl].filter(Boolean).join(" - "))}${campo("Bairro / distrito", en.xBairro)}${campo("CEP", cep(en.CEP))}${campo("Data da saída/entrada", d.dhSaiEnt ? data(d.dhSaiEnt) : "")}</div>
   <div class="g" style="grid-template-columns:78fr 38fr 12fr 36fr 32fr">${campo("Município", en.xMun)}${campo("Fone / fax", en.fone || "")}${campo("UF", en.UF)}${campo("Inscrição estadual", x.ie || "")}${campo("Hora da saída/entrada", d.dhSaiEnt ? hora(d.dhSaiEnt) : "")}</div>`;
 }
@@ -95,7 +103,7 @@ function imposto(d) {
   <div class="g" style="grid-template-columns:repeat(5,1fr) 1fr">${campo("Base de cálc. do ICMS", brl(t.vBC), "n")}${campo("Valor do ICMS", brl(t.vICMS), "n")}${campo("Base de cálc. ICMS S.T.", brl(t.vBCST), "n")}${campo("Valor do ICMS subst.", brl(t.vST), "n")}${campo("Valor total dos produtos", brl(t.vProd), "n")}<div class="c" style="border:0"></div></div>
   <div class="g" style="grid-template-columns:repeat(6,1fr)">${campo("Valor do frete", brl(t.vFrete), "n")}${campo("Valor do seguro", brl(t.vSeg), "n")}${campo("Desconto", brl(t.vDesc), "n")}${campo("Outras despesas", brl(t.vOutro), "n")}${campo("Valor do IPI", brl(t.vIPI), "n")}${campo("Valor total da nota", brl(t.vNF), "n")}</div>
   <div class="bloco">Transportador / volumes transportados</div>
-  <div class="g" style="grid-template-columns:90fr 56fr 50fr">${campo("Nome / razão social", "")}${campo("Frete por conta", FRETE[d.modFrete] || d.modFrete || "")}${campo("CNPJ / CPF", "")}</div>`;
+  <div class="g" style="grid-template-columns:90fr 56fr 50fr">${campo("Nome / razão social", "")}${campoLongo("Frete por conta", FRETE[d.modFrete] || d.modFrete || "", 24)}${campo("CNPJ / CPF", "")}</div>`;
 }
 
 function itens(lista) {

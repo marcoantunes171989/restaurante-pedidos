@@ -4,7 +4,7 @@ import { formatCurrency } from "./pdvHelpers";
  * Estado da barra inferior do PDV (funções puras, testáveis):
  *   sem conta → "Escolha uma conta"; passo 1 → "Receber R$ …"; passo 2 → "Falta R$ …" / "Continuar para fechar"; passo 3 → "Fechar conta e imprimir NFC-e".
  */
-export function acaoPrincipal({ temConta, passo, temItens, restante, podeFechar, total, emiteNota }) {
+export function acaoPrincipal({ temConta, passo, temItens, restante, podeFechar, total, emiteNota, nfe = false }) {
   if (!temConta) return { texto: "Escolha uma conta", desabilitado: true, tom: "neutro", acao: null };
   if (passo === 0) return { texto: `Receber ${formatCurrency(total)}`, desabilitado: !temItens, tom: "laranja", acao: "receber" };
   if (passo === 1) {
@@ -12,7 +12,8 @@ export function acaoPrincipal({ temConta, passo, temItens, restante, podeFechar,
       ? { texto: `Falta ${formatCurrency(restante)}`, desabilitado: true, tom: "neutro", acao: null }
       : { texto: "Continuar para fechar", desabilitado: !podeFechar, tom: "verde", acao: "continuar" };
   }
-  return { texto: emiteNota ? "Fechar conta e imprimir NFC-e" : "Fechar conta", desabilitado: !podeFechar, tom: "verde", acao: "fechar" };
+  // `nfe`: o operador marcou "Emitir NF-e para a empresa"; a nota que sai é a NF-e (DANFE A4), não a NFC-e.
+  return { texto: emiteNota ? `Fechar conta e imprimir ${nfe ? "NF-e" : "NFC-e"}` : "Fechar conta", desabilitado: !podeFechar, tom: "verde", acao: "fechar" };
 }
 
 export function frasePasso({ temConta, passo, temItens, restante }) {

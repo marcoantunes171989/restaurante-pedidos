@@ -54,7 +54,8 @@ async function notaValida({ ajustes = {}, pagamento, regras = REGRAS_SN, crt = "
   });
   expect(venda.pendencias).toEqual([]);
   const r = dadosNFeDaVenda({ venda, emitente: { ...EMIT, crt }, documento: "12345678000195", modelo, serie: 1, numero: 123, ambiente: "homologacao", dhEmi: "2026-11-15T15:30:00Z", cpfConsumidor: cpf,
-    destinatario: modelo === 55 ? destNfe : null, ibpt });
+    destinatario: modelo === 55 ? destNfe : null, ibpt,
+    permitirInterestadual: true }); // o XSD também precisa valer para o caminho interestadual, hoje desligado por padrão
   expect(r.ok, r.erro).toBe(true);
   const { xml } = montarXmlNFe(r.dados);
   return validarNFeXsd(comAssinaturaDeTeste(xml, r.chave));

@@ -1058,7 +1058,7 @@ export default function CashierPdv({
       return;
     }
     // E8: confere o CPF/CNPJ (e a NF-e) antes de fechar; corrigir ou apagar o campo libera.
-    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
+    const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfeDisponivel: nfeNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) {
       notify("error", notaCx.erro);
       return;
@@ -2011,7 +2011,8 @@ export default function CashierPdv({
       <PdvBarraAcao
         estado={{
           temConta, passo, temItens: pedidosSel.some((o) => (o.items || []).length > 0), restante: restanteSel, podeFechar,
-          total: totalCobrar > 0 ? totalCobrar : totalSel, emiteNota: nfceNaLoja,
+          total: totalCobrar > 0 ? totalCobrar : totalSel,
+          emiteNota: nfceNaLoja || (nfeNaLoja && !!notaCaixa.nfe), nfe: nfeNaLoja && !!notaCaixa.nfe,
         }}
         fechando={processando}
         onFuncoes={() => setPaletaAberta(true)}

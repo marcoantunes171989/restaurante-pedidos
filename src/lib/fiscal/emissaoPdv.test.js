@@ -123,6 +123,11 @@ describe("CPF/CNPJ na nota e NF-e (E8 parte 3)", () => {
     expect(dadosDaNotaNoCaixa({ ...NFE_OK, cMun: "3304557" }, { nfeDisponivel: true }).erro).toMatch(/IBGE/);
     expect(dadosDaNotaNoCaixa({ ...NFE_OK, nome: "" }, { nfeDisponivel: true }).erro).toMatch(/razão social/);
   });
+  it("NF-e para outro estado é recusada no caixa, antes de fechar a venda", () => {
+    const fora = { ...NFE_OK, UF: "RJ", cMun: "3304557" };
+    expect(dadosDaNotaNoCaixa(fora, { nfeDisponivel: true, ufEmitente: "SP" }).erro).toMatch(/RJ.*não está habilitada.*SP/);
+    expect(dadosDaNotaNoCaixa(NFE_OK, { nfeDisponivel: true, ufEmitente: "SP" }).ok).toBe(true);
+  });
   it("ambiente da NF-e segue o da loja e exige NF-e habilitada", () => {
     expect(ambienteNfeDaLoja({ nfeHabilitada: true, nfceAmbiente: "homologacao" })).toBe("homologacao");
     expect(ambienteNfeDaLoja({ nfeHabilitada: false, nfceAmbiente: "homologacao" })).toBeNull();
@@ -141,6 +146,16 @@ describe("emitirNotaDaVenda — NF-e", () => {
     expect(p).toMatchObject({ p_modelo: 55 });
     expect(p.p_rascunho.dest).toEqual(dest);
     expect(p.p_rascunho.cpf).toBe("");
+  });
+  it("destinatário de outro estado: nenhum número é reservado", async () => {
+    const s = supa();
+    const fetchFn = vi.fn();
+    const fora = { ...dest, ender: { ...dest.ender, UF: "RJ", cMun: "3304557" } };
+    const r = await emitirNotaDaVenda({ ...BASE, emitente: { ...EMIT55, uf: "SP" }, supabase: s, modelo: 55, destinatario: fora, fetchFn });
+    expect(r).toMatchObject({ estado: "pendente" });
+    expect(r.detalhe).toMatch(/não está habilitada/);
+    expect(s.rpc).not.toHaveBeenCalled();
+    expect(fetchFn).not.toHaveBeenCalled();
   });
   it("SEFAZ fora → SVC; SVC fora → EPEC", async () => {
     const fetchFn = resposta(

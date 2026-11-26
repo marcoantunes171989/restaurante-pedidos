@@ -81,3 +81,20 @@ describe("faltas da NF-e não se confundem com as da NFC-e", () => {
     expect(nfe.dica).toMatch(/desabilite a NF-e/);
   });
 });
+
+describe("NF-e habilitada pede série e teste próprios", () => {
+  const comNfe = (extra = {}) => base({ emitente: { ...EMITENTE, nfeHabilitada: true }, ...extra });
+  it("sem NF-e habilitada os itens da NF-e não aparecem", () => {
+    expect(prontidaoProducao(base()).itens.map((i) => i.id)).not.toEqual(expect.arrayContaining(["serie-nfe"]));
+    expect(prontidaoProducao(base()).itens.map((i) => i.id)).not.toContain("conexao-nfe");
+  });
+  it("série 65 não vale para a NF-e: bloqueia; teste da NFC-e não vale para a NF-e: avisa", () => {
+    const r = prontidaoProducao(comNfe());
+    expect(r.itens.find((i) => i.id === "serie-nfe")).toMatchObject({ ok: false, bloqueia: true });
+    expect(r.itens.find((i) => i.id === "conexao-nfe")).toMatchObject({ ok: false, bloqueia: false });
+  });
+  it("com série 55 de produção e teste da NF-e: pronto", () => {
+    const r = prontidaoProducao(comNfe({ series: [SERIE, { ...SERIE, modelo: 55 }], testeProducaoNfe: { ok: true } }));
+    expect(r).toMatchObject({ pronto: true, bloqueios: 0, avisos: 0 });
+  });
+});
