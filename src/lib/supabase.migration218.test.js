@@ -37,6 +37,13 @@ describe("migration 218: limites e fechamento no servidor", () => {
     expect(m220).toMatch(/revoke all on function public\.app_pedido_marcar_pago\(text, text, text\) from public, anon, authenticated;/);
     expect(m220).toMatch(/revoke insert on public\.tab_pagamentos from anon, authenticated;/);
   });
+  it("a 220 também fecha o checkout antigo, que o app não usa e aceita valores sem limite", () => {
+    for (const fn of ["app_checkout_begin", "app_checkout_commit", "app_registrar_pagamento_v2"]) {
+      expect(m220).toContain(fn);
+      expect(app + ler("src/lib/supabase.js")).not.toContain(fn);
+    }
+    expect(m220).toMatch(/revoke all on function %s from public, anon, authenticated/);
+  });
 });
 
 describe("migration 219: taxa pública do cardápio", () => {

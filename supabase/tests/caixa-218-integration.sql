@@ -176,7 +176,17 @@ select public.t_vale('visitante lê só a taxa; parâmetros seguem fechados',
   and not has_function_privilege('anon', 'public.app_pp_config_caixa(jsonb)', 'execute'));
 
 -- ── 220: fecha o caminho antigo ──
+-- Funções antigas de checkout (existem em alguns bancos), abertas ao usuário logado.
+create function public.app_checkout_begin(p_loja_id bigint, p_pedido_ids text[]) returns jsonb language sql security definer as $$ select '{}'::jsonb $$;
+create function public.app_checkout_commit(p_operation_id uuid, p_payload jsonb) returns jsonb language sql security definer as $$ select '{}'::jsonb $$;
+grant execute on function public.app_checkout_begin(bigint, text[]), public.app_checkout_commit(uuid, jsonb) to authenticated;
 \i supabase/migrations/220_caixa_fecha_caminho_antigo.sql
+\i supabase/migrations/220_caixa_fecha_caminho_antigo.sql
+select public.t_vale('checkout antigo fechado para o navegador e mantido para o servidor',
+  not has_function_privilege('authenticated', 'public.app_checkout_begin(bigint, text[])', 'execute')
+  and not has_function_privilege('authenticated', 'public.app_checkout_commit(uuid, jsonb)', 'execute')
+  and not has_function_privilege('anon', 'public.app_checkout_commit(uuid, jsonb)', 'execute')
+  and has_function_privilege('service_role', 'public.app_checkout_commit(uuid, jsonb)', 'execute'));
 select public.t_vale('navegador não marca pago nem insere pagamento',
   not has_function_privilege('authenticated', 'public.app_pedido_marcar_pago(text, text, text)', 'execute')
   and not has_table_privilege('authenticated', 'public.tab_pagamentos', 'insert'));
