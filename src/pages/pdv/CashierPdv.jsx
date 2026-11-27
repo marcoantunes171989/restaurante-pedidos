@@ -63,7 +63,8 @@ import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../../lib/fiscal/imprimirNota";
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
 import { cobraTaxaServico } from "../../lib/taxaServico";
-import { emCentavos, limiteEmReais, resumoDosPedidos, valorDaTaxa } from "../../lib/parametrosCaixa";
+import { emCentavos, limiteEmReais, resumoDosPedidos, totalDoPedido, valorDaTaxa } from "../../lib/parametrosCaixa";
+import { pontosDaVenda, pontosDoCliente } from "../../lib/fidelidade";
 import { useParametrosCaixa } from "../../hooks/useParametrosCaixa";
 import {
   abrirCupomTermico,
@@ -465,9 +466,12 @@ export default function CashierPdv({
   );
 
   const formaEhPontos = !!formaAtual?.pontos;
-  // Pontos ganhos: sobre o valor efetivamente pago em dinheiro/cartão/etc.
+  // Pontos ganhos: sobre o total pago (sem a parte paga com pontos) — a mesma conta do crédito.
   const pontosGanhar = (fidAtiva && telefoneConta && valorPorPonto > 0)
-    ? Math.floor(Math.max(0, Math.min(recebidoEfetivo, totalCobrar) - pontosJaUsados) / valorPorPonto)
+    ? pontosDoCliente(pontosDaVenda({
+      pedidos: contaSel?.pedidos || [], total: Math.min(recebidoEfetivo, totalCobrar), pagoComPontos: pontosJaUsados,
+      valorPorPonto, valorDoPedido: (o) => totalDoPedido(o, SERVICE_FEE),
+    }), telefoneConta)
     : 0;
 
   // Fechamento: exige o total coberto pelas parcelas registradas.

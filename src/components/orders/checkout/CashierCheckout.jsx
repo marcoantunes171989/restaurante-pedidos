@@ -3,6 +3,7 @@ import { cobraTaxaServico } from "../../../lib/taxaServico";
 import { X, Utensils, CalendarClock, Star } from "lucide-react";
 import { formatCurrency } from "../../../App";
 import { usePagamentoConta } from "./usePagamentoConta";
+import { pontosPor } from "../../../lib/fidelidade";
 import CheckoutTopBar from "./CheckoutTopBar";
 import CheckoutQuickLookup from "./CheckoutQuickLookup";
 import CheckoutItemsTable from "./CheckoutItemsTable";
@@ -38,7 +39,7 @@ export default function CashierCheckout({
   // Pontos que o cliente identificado ganha nesta compra (incentivo no fechamento).
   const valorPorPontoCx = Number(fidCaixa?.valorPorPonto) || 0;
   const clienteIdent = !!(fidCaixa?.ativo && o.clienteTelefone);
-  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? Math.floor((total / (1 + pctTaxa / 100)) / valorPorPontoCx) : 0;
+  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? pontosPor(total, valorPorPontoCx) : 0;
   const opcoesPag = maxPontosReais > 0 ? [...opcoes, "Pontos"] : opcoes;
   const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, percentual: pctTaxa });
   const [entrada, setEntrada] = useState(""); // dígitos em centavos, aplicados à forma ativa

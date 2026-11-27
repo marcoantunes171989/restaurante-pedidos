@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { cobraTaxaServico } from "../../lib/taxaServico";
 import { textoDoPercentual } from "../../lib/parametrosCaixa";
+import { pontosPor } from "../../lib/fidelidade";
 import { User, Phone, Loader2, CreditCard, Check } from "lucide-react";
 import { formatCurrency } from "../../App";
 import AccountStatusBadge from "./AccountStatusBadge";
@@ -41,7 +42,7 @@ export default function AccountCard({
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
   // Pontos que o cliente identificado ganha ao pagar esta conta (incentivo).
   const valorPorPontoAc = Number(fidCaixa?.valorPorPonto) || 0;
-  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? Math.floor((total / (1 + pctTaxa / 100)) / valorPorPontoAc) : 0;
+  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? pontosPor(total, valorPorPontoAc) : 0;
   const opcoesPag = maxPontosReais > 0 && !pago ? [...opcoes, "Pontos"] : opcoes;
 
   // Estado do formulário de pagamento (múltiplas formas) — lógica compartilhada

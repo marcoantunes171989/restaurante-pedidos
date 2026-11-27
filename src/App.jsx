@@ -74,6 +74,7 @@ import { usandoSupabaseAuth } from "./lib/authMode";
 import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
 import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
 import { useCobranca } from "./hooks/useCobranca";
+import { pontosDaVenda, pontosPor } from "./lib/fidelidade";
 import ParametrosCaixa from "./components/admin/ParametrosCaixa";
 import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe, emitirNfceSimulada, formatarChaveNfce } from "./lib/nfceService";
@@ -2649,10 +2650,12 @@ export default function RestaurantePedidoApp() {
         return Object.entries(porF).sort((a, b) => b[1] - a[1]).map(([f]) => f).join(" + ") || null;
       })();
       let noServidor = false; // o servidor conferiu a conta e gravou pedidos, pagamento, caixa e cupom de uma vez
+      let totalDoServidor = null; // total que o servidor cobrou (base dos pontos de fidelidade)
       if (fechamento) {
         try {
           const r = await fecharContaNoServidor(supabase, { ...fechamento, parcelas: info.detalhes, manterStatus, caixaId: caixaAberto?.id ?? null });
           noServidor = !r.ausente;
+          totalDoServidor = r.data?.total ?? null;
         } catch (err) {
           console.error("Pagamento recusado:", err);
           notify("error", mensagemDeRecusaDoCaixa(err) || `Não foi possível registrar o pagamento: ${err?.message || "erro"}. Confira a conta antes de repetir.`);
@@ -2706,14 +2709,15 @@ export default function RestaurantePedidoApp() {
                 const ptsResgate = Math.min(saldoAtual, Math.round(valorPontos * pontosPorReal));
                 if (ptsResgate > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cliConta.id, pontos: -ptsResgate, tipo: "redeem", descricao: `Pagamento com pontos ${formatCurrency(valorPontos)}` }); setFidTransacoes((cur) => [t, ...cur]); }
               }
-              // 2) Ganho: pontos sobre o valor pago — exceto a parcela paga em pontos.
+              // 2) Ganho: pontos sobre o TOTAL PAGO — exceto a parcela paga em pontos.
               if (fidRegraAtual.valorPorPonto > 0) {
-                const porCliente = {};
-                alvo.forEach((o) => { if (o.clienteTelefone) porCliente[o.clienteTelefone] = (porCliente[o.clienteTelefone] || 0) + orderTotal(o); });
-                if (telConta && porCliente[telConta] != null) porCliente[telConta] = Math.max(0, porCliente[telConta] - valorPontos);
-                for (const [tel, valor] of Object.entries(porCliente)) {
+                const valorDoPedido = (o) => totalDoPedido(o, parametrosTablet.taxaServico);
+                const porCliente = pontosDaVenda({
+                  pedidos: alvo, total: totalDoServidor ?? info?.total ?? alvo.reduce((s, o) => s + valorDoPedido(o), 0),
+                  pagoComPontos: valorPontos, valorPorPonto: fidRegraAtual.valorPorPonto, valorDoPedido,
+                });
+                for (const [tel, { valor, pontos: pts }] of Object.entries(porCliente)) {
                   const cli = clientes.find((c) => c.telefone === tel && (c.lojaId == null || c.lojaId === lojaAtual));
-                  const pts = Math.floor(valor / fidRegraAtual.valorPorPonto);
                   if (cli && pts > 0) { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId: cli.id, pontos: pts, tipo: "earn", descricao: `Compra ${formatCurrency(valor)}` }); setFidTransacoes((cur) => [t, ...cur]); }
                 }
               }
@@ -4939,8 +4943,8 @@ function TabletView({
   // atualiza em tempo real quando a regra muda (fidCaixa vem de fidRegraAtual).
   const valorPorPontoTab = Number(fidCaixa?.valorPorPonto) || 0;
   const fidAtivoTab = !!fidCaixa?.ativo && valorPorPontoTab > 0;
-  const pontosGanharCartTab = fidAtivoTab ? Math.floor(subtotal / valorPorPontoTab) : 0;
-  const pontosContaTab = fidAtivoTab ? Math.floor(currentTableSubtotal / valorPorPontoTab) : 0;
+  const pontosGanharCartTab = fidAtivoTab ? pontosPor(total, valorPorPontoTab) : 0; // sobre o total, com a taxa
+  const pontosContaTab = fidAtivoTab ? pontosPor(currentTableTotal, valorPorPontoTab) : 0;
   // Etapa de preparo mais avançada entre os pedidos da mesa (0..3; -1 = nenhum).
   const ORDEM_TAB = ["received", "preparing", "ready", "delivered"];
   const stepIdxTab = currentTableOrders.length ? Math.max(0, ...currentTableOrders.map((o) => ORDEM_TAB.indexOf(o.status))) : -1;

@@ -9,8 +9,9 @@ import {
 import { ENDERECO_VAZIO, problemaDoEndereco, enderecoEmLinha, lojaPedeEndereco, criarPedidoEntrega } from "./lib/enderecoEntrega";
 import EnderecoEntregaCampos from "./components/EnderecoEntregaCampos";
 import { cardapioViaRpc } from "./lib/authMode";
-import { resumoDosPedidos, textoDoPercentual } from "./lib/parametrosCaixa";
+import { resumoDosPedidos, textoDoPercentual, valorDaTaxa } from "./lib/parametrosCaixa";
 import { useTaxaPublica } from "./hooks/useTaxaPublica";
+import { pontosPor } from "./lib/fidelidade";
 import { nomeLembrado, lembrarNome } from "./lib/nomeNoAparelho";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
@@ -1115,12 +1116,14 @@ export default function CardapioPublico() {
   // atual em R$. Só quando há regra ativa (leitura pública, migration 074).
   const valorPorPontoPub = Number(fidRegraPub?.valorPorPonto) || 0;
   const pontosPorRealPub = Number(fidRegraPub?.pontosPorReal) || 100;
-  const pontosGanharCart = valorPorPontoPub > 0 ? Math.floor(totalCart / valorPorPontoPub) : 0;
+  // Pontos sobre o total a pagar: o consumo no local (mesa ou pedido externo "local") soma a taxa de serviço.
+  const carrinhoComTaxa = !modoExterno || tipoPedido === "local";
+  const pontosGanharCart = pontosPor(totalCart + (carrinhoComTaxa ? valorDaTaxa(totalCart, taxaPct) : 0), valorPorPontoPub);
   // Pontos da CONTA — considera SOMENTE os pedidos ainda NÃO quitados (os já
   // pagos já creditaram). Recalcula a cada item adicionado/cancelado/pago e a
   // cada mudança da regra (fidRegraPub atualiza em tempo real).
-  const subtotalAberto = meusPedidos.reduce((s, o) => o.paymentStatus === "paid" ? s : s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
-  const pontosGanharConta = valorPorPontoPub > 0 ? Math.floor(subtotalAberto / valorPorPontoPub) : 0;
+  const totalAberto = resumoDosPedidos(meusPedidos.filter((o) => o.paymentStatus !== "paid"), taxaPct).total;
+  const pontosGanharConta = pontosPor(totalAberto, valorPorPontoPub);
   const clienteIdentificado = telDig.length >= 10;
   const reaisEmPontosSaldo = saldoPontos > 0 ? Math.floor((saldoPontos / pontosPorRealPub) * 100) / 100 : 0;
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
@@ -1434,9 +1437,9 @@ export default function CardapioPublico() {
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
     const subtotalPedido = (o) => o.items.reduce((a, i) => a + i.price * i.quantity, 0);
     const subtotalC = pedidosC.reduce((s, o) => s + subtotalPedido(o), 0);
-    // Base dos pontos: só pedidos ainda NÃO quitados (os pagos já creditaram).
-    const subtotalAbertoC = pedidosC.reduce((s, o) => o.paymentStatus === "paid" ? s : s + subtotalPedido(o), 0);
     const { taxa: taxaC, total: totalC } = resumoDosPedidos(pedidosC, taxaPct);
+    // Base dos pontos: o total a pagar; com a conta em aberto, só os pedidos ainda NÃO quitados (os pagos já creditaram).
+    const totalAbertoC = resumoDosPedidos(pedidosC.filter((o) => o.paymentStatus !== "paid"), taxaPct).total;
     const itensC = pedidosC.reduce((s, o) => s + o.items.reduce((a, i) => a + (i.quantity || 0), 0), 0);
     // Agrupa os pedidos por DIA (sem agrupar por comanda) — cada dia vira uma
     // seção com seu próprio subtotal + taxa, na mesma ordem cronológica.
@@ -1552,10 +1555,10 @@ export default function CardapioPublico() {
                   <span className={`text-sm font-bold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{pagaC ? "Total pago" : "Total"}</span>
                   <span className={`text-xl font-black ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
                 </div>
-                {valorPorPontoPub > 0 && Math.floor((pagaC ? subtotalC : subtotalAbertoC) / valorPorPontoPub) > 0 && (
+                {valorPorPontoPub > 0 && pontosPor(pagaC ? totalC : totalAbertoC, valorPorPontoPub) > 0 && (
                   <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2 text-xs font-bold text-[var(--client-primary-hover)]">
                     <span className="inline-flex items-center gap-1"><CkIconEstrela width={12} height={12} className="shrink-0" /> {pagaC ? "Pontos creditados" : "Pontos desta conta"}</span>
-                    <span>+{Math.floor((pagaC ? subtotalC : subtotalAbertoC) / valorPorPontoPub).toLocaleString("pt-BR")} pts</span>
+                    <span>+{pontosPor(pagaC ? totalC : totalAbertoC, valorPorPontoPub).toLocaleString("pt-BR")} pts</span>
                   </div>
                 )}
               </div>
