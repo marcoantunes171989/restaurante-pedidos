@@ -1067,7 +1067,8 @@ export default function RestaurantePedidoApp() {
           aplicarLogin(u, { silencioso: true, forcarHome: pousoHomePosLogin });
         } else {
           limparMarcadoresSessaoLocal();
-          if (usandoSupabaseAuth()) try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+          // Usuário inativado perde o acesso em todos os aparelhos.
+          if (usandoSupabaseAuth()) try { await logoutSupabaseAuth({ todosOsAparelhos: u?.active === false }); } catch { /* ignore */ }
           forcarUrlLogin();
         }
       } finally {
@@ -1920,7 +1921,7 @@ export default function RestaurantePedidoApp() {
     if (!credOk || credOk.active === false) {
       registrarLoginNegado({ email, motivo: credOk ? "Usuário inativo" : "Perfil não encontrado/validável" });
       limparMarcadoresSessaoLocal();
-      try { await logoutSupabaseAuth(); } catch { /* ignore */ }
+      try { await logoutSupabaseAuth({ todosOsAparelhos: credOk?.active === false }); } catch { /* ignore */ }
       return notify("error", credOk
         ? "Usuário inativo, entre em contato com o administrador do sistema."
         : "E-mail ou senha incorretos.");

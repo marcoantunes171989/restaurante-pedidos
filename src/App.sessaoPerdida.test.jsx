@@ -14,7 +14,10 @@ const fake = vi.hoisted(() => {
     id: 7, nome: "Operador Teste", email: EMAIL, perfil: "Operador", ativo: true,
     ids_acesso: ["panel"], loja_id: 1, cargo_id: null, super_admin: false, permissoes_acoes: {},
   };
-  const estado = { sessao: null, erroSessao: null, falhaDados: false, signOuts: 0, ouvintes: new Set(), chamadas: [] };
+  const estado = {
+    sessao: null, erroSessao: null, falhaDados: false, usuarioAtivo: true,
+    signOuts: 0, escopos: [], ouvintes: new Set(), chamadas: [],
+  };
 
   // Qualquer encadeamento (.select().eq().range()...) termina no mesmo resultado.
   function consulta(resultado) {
@@ -32,7 +35,9 @@ const fake = vi.hoisted(() => {
   function responder(nome) {
     if (estado.falhaDados) return semRede();
     if (!estado.sessao) return { data: null, error: { message: "permission denied", code: "42501" } };
-    if (nome === "app_usuario_sessao" || nome === "app_listar_usuarios") return { data: [USUARIO], error: null };
+    if (nome === "app_usuario_sessao" || nome === "app_listar_usuarios") {
+      return { data: [{ ...USUARIO, ativo: estado.usuarioAtivo }], error: null };
+    }
     if (nome === "app_sessao_iniciar") return { data: "sessao-acesso-1", error: null };
     if (nome === "app_sessao_heartbeat") return { data: "active", error: null };
     return { data: [], error: null };
@@ -52,13 +57,17 @@ const fake = vi.hoisted(() => {
         estado.ouvintes.add(callback);
         return { data: { subscription: { unsubscribe: () => estado.ouvintes.delete(callback) } } };
       },
-      signOut: async () => {
+      signOut: async (opcoes) => {
         estado.signOuts += 1;
+        estado.escopos.push(opcoes?.scope ?? "global"); // padrão da biblioteca
         estado.sessao = null;
         estado.ouvintes.forEach((callback) => callback("SIGNED_OUT", null));
         return { error: null };
       },
-      signInWithPassword: async () => ({ data: null, error: { message: "Invalid login credentials" } }),
+      signInWithPassword: async () => {
+        estado.sessao = { access_token: "token-de-teste", user: { email: EMAIL } };
+        return { data: { session: estado.sessao }, error: null };
+      },
     },
   };
   return { EMAIL, estado, cliente };
@@ -81,10 +90,12 @@ async function avancar(ms) {
 const naTelaDeLogin = () => !!container.querySelector("#login-email");
 const aviso = () => container.querySelector("#login-mensagem")?.textContent || "";
 
-async function abrirApp() {
-  sessionStorage.setItem("pp_sessao_ativa", "1");
-  sessionStorage.setItem("pp_sessao_email", fake.EMAIL);
-  window.history.replaceState({}, "", "/app/painel");
+async function abrirApp({ abaNova = false } = {}) {
+  if (!abaNova) {
+    sessionStorage.setItem("pp_sessao_ativa", "1");
+    sessionStorage.setItem("pp_sessao_email", fake.EMAIL);
+  }
+  window.history.replaceState({}, "", abaNova ? "/login" : "/app/painel");
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -110,7 +121,9 @@ beforeEach(() => {
   fake.estado.sessao = SESSAO_VALIDA;
   fake.estado.erroSessao = null;
   fake.estado.falhaDados = false;
+  fake.estado.usuarioAtivo = true;
   fake.estado.signOuts = 0;
+  fake.estado.escopos.length = 0;
   fake.estado.ouvintes.clear();
 });
 
@@ -216,5 +229,60 @@ describe("recarregar a página (F5) com a aba marcada como logada", () => {
     expect(aviso()).toMatch(AVISO_SEM_CONEXAO);
     expect(fake.estado.signOuts).toBe(0);
     expect(sessionStorage.getItem("pp_sessao_ativa")).toBe("1");
+  });
+});
+
+// O signOut() da biblioteca é global por padrão: desconectava a conta em todos
+// os aparelhos. Sair (ou abrir uma aba nova) encerra só a sessão deste navegador.
+describe("alcance da saída", () => {
+  const botao = (inicio) => [...container.querySelectorAll("button")].find((b) => b.textContent.trim().startsWith(inicio));
+  const clicar = async (alvo) => {
+    expect(alvo).toBeDefined();
+    await act(async () => { alvo.click(); });
+    await avancar(1000);
+  };
+  async function preencher(seletor, valor) {
+    const campo = container.querySelector(seletor);
+    const definir = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+    await act(async () => { definir.call(campo, valor); campo.dispatchEvent(new Event("input", { bubbles: true })); });
+  }
+
+  it("botão Sair: só neste navegador", async () => {
+    await abrirLogado();
+    await clicar(botao("Sair"));
+    expect(fake.estado.escopos).toEqual(["local"]);
+  });
+
+  it("aba nova sem marcador, com sessão salva: só neste navegador", async () => {
+    await abrirApp({ abaNova: true });
+    expect(naTelaDeLogin()).toBe(true);
+    expect(fake.estado.escopos).toEqual(["local"]);
+  });
+
+  it("voltar ao site, na tela de login: só neste navegador", async () => {
+    fake.estado.sessao = null;
+    await abrirApp({ abaNova: true });
+    await clicar([...container.querySelectorAll("button")].find((b) => /voltar/i.test(b.textContent)));
+    expect(fake.estado.escopos).toEqual(["local"]);
+  });
+
+  it("usuário inativado: ao recarregar, continua saindo de todos os aparelhos", async () => {
+    fake.estado.usuarioAtivo = false;
+    await abrirApp();
+    await avancar(5000);
+    expect(naTelaDeLogin()).toBe(true);
+    expect(fake.estado.escopos).toEqual(["global"]);
+  });
+
+  it("usuário inativado: ao tentar entrar, continua saindo de todos os aparelhos", async () => {
+    fake.estado.sessao = null;
+    fake.estado.usuarioAtivo = false;
+    await abrirApp({ abaNova: true });
+    await preencher("#login-email", fake.EMAIL);
+    await preencher("#login-senha", "senha-de-teste");
+    await act(async () => { container.querySelector("form").requestSubmit(); });
+    await avancar(1000);
+    expect(aviso()).toMatch(/Usuário inativo/);
+    expect(fake.estado.escopos).toEqual(["global"]);
   });
 });

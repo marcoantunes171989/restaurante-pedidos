@@ -2306,8 +2306,11 @@ export function mapUsuarioDb(r) {
     permissoesAcoes: r.permissoes_acoes ?? {},
   }
 }
-export async function logoutSupabaseAuth() {
-  try { await supabase.auth.signOut() } catch {}
+// Por padrão encerra só a sessão deste navegador. O signOut() da biblioteca é
+// global e desconectaria a conta em todos os aparelhos (caixa, cozinha, tablet);
+// isso fica restrito a quem pedir, como no usuário inativado.
+export async function logoutSupabaseAuth({ todosOsAparelhos = false } = {}) {
+  try { await supabase.auth.signOut({ scope: todosOsAparelhos ? 'global' : 'local' }) } catch {}
 }
 // Garante que a sessão (JWT) já esteja anexada antes de carregar os dados.
 // Faz polling curto: no cold start o getSession() às vezes ainda está vazio.
