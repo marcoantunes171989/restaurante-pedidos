@@ -9,6 +9,8 @@ import {
 import { ENDERECO_VAZIO, problemaDoEndereco, enderecoEmLinha, lojaPedeEndereco, criarPedidoEntrega } from "./lib/enderecoEntrega";
 import EnderecoEntregaCampos from "./components/EnderecoEntregaCampos";
 import { cardapioViaRpc } from "./lib/authMode";
+import { resumoDosPedidos, textoDoPercentual } from "./lib/parametrosCaixa";
+import { useTaxaPublica } from "./hooks/useTaxaPublica";
 import { nomeLembrado, lembrarNome } from "./lib/nomeNoAparelho";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
@@ -182,6 +184,7 @@ export default function CardapioPublico() {
   const [observacaoPedido, setObservacaoPedido] = useState("");
   const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
+  const taxaPct = useTaxaPublica(supabase, loja?.id ?? null, aba); // taxa de serviço da empresa
   const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
   const [survey, setSurvey]       = useState(null); // pesquisa de satisfação na finalização: { pedidoId, mesa, origem }
   const [welcomeSlide, setWelcomeSlide] = useState(0); // slide ativo do carrossel de destaques (tela de boas-vindas)
@@ -1102,8 +1105,9 @@ export default function CardapioPublico() {
     if (alvo) setSurvey({ pedidoId: alvo.id, mesa: alvo.table, origem: (alvo.table === "Externo" || /^EXT-/.test(alvo.command || "")) ? "externo" : "mesa" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, survey, aba, detalhe]);
-  const subtotal = meusPedidos.reduce((s, o) => s + o.items.reduce((a, i) => a + i.price * i.quantity, 0), 0);
-  const totalMesa = subtotal * 1.1;
+  const resumoMesa = resumoDosPedidos(meusPedidos, taxaPct); // mesma conta do caixa
+  const subtotal = resumoMesa.subtotal;
+  const totalMesa = resumoMesa.total;
   const totalCart = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const economiaCart = cart.reduce((s, i) => s + (Number(i.economiaUnit) || 0) * i.quantity, 0);
   const qtdCart = cart.reduce((s, i) => s + i.quantity, 0);
@@ -1425,7 +1429,6 @@ export default function CardapioPublico() {
   // Mostra os pedidos/itens vinculados à comanda escaneada. Independe do canal
   // externo estar habilitado (é consulta, não pedido) — por isso vem antes.
   if (consultaComanda) {
-    const TAXA_PCT = 0.1; // taxa de serviço padrão (mesma do cupom não fiscal)
     const pedidosC = orders
       .filter((o) => o.command === comanda && o.status !== "cancelled")
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
@@ -1433,8 +1436,7 @@ export default function CardapioPublico() {
     const subtotalC = pedidosC.reduce((s, o) => s + subtotalPedido(o), 0);
     // Base dos pontos: só pedidos ainda NÃO quitados (os pagos já creditaram).
     const subtotalAbertoC = pedidosC.reduce((s, o) => o.paymentStatus === "paid" ? s : s + subtotalPedido(o), 0);
-    const taxaC = subtotalC * TAXA_PCT;
-    const totalC = subtotalC + taxaC;
+    const { taxa: taxaC, total: totalC } = resumoDosPedidos(pedidosC, taxaPct);
     const itensC = pedidosC.reduce((s, o) => s + o.items.reduce((a, i) => a + (i.quantity || 0), 0), 0);
     // Agrupa os pedidos por DIA (sem agrupar por comanda) — cada dia vira uma
     // seção com seu próprio subtotal + taxa, na mesma ordem cronológica.
@@ -1503,7 +1505,7 @@ export default function CardapioPublico() {
                         {rotuloDiaConsulta(dia.iso)}
                         <span className="rounded-full bg-[var(--client-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--client-text-secondary)]">{dia.pedidos.length} pedido{dia.pedidos.length > 1 ? "s" : ""}</span>
                       </span>
-                      <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]">{formatCurrency(dia.subtotal * (1 + TAXA_PCT))}</span>
+                      <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]">{formatCurrency(resumoDosPedidos(dia.pedidos, taxaPct).total)}</span>
                     </div>
                     {dia.pedidos.map((o) => {
                       const s = estiloStatusCliente(o.status);
@@ -1545,7 +1547,7 @@ export default function CardapioPublico() {
               {/* Totais */}
               <div className="mt-3 space-y-1.5 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5">
                 <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Subtotal</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotalC)}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço ({Math.round(TAXA_PCT * 100)}%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(taxaC)}</span></div>
+                {taxaC > 0 && <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço ({textoDoPercentual(taxaPct)}%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(taxaC)}</span></div>}
                 <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2">
                   <span className={`text-sm font-bold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{pagaC ? "Total pago" : "Total"}</span>
                   <span className={`text-xl font-black ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
@@ -2626,7 +2628,7 @@ export default function CardapioPublico() {
               {/* Resumo financeiro */}
               <div className="mt-3 space-y-1.5 border-t border-[var(--client-border)] pt-3.5">
                 <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Subtotal</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotal)}</span></div>
-                <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço (10%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(subtotal * 0.1)}</span></div>
+                {resumoMesa.taxa > 0 && <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço ({textoDoPercentual(taxaPct)}%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(resumoMesa.taxa)}</span></div>}
                 <div className="flex items-center justify-between pt-1">
                   <span className={`text-sm font-bold ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{contaPaga ? "Total pago" : "Total em aberto"}</span>
                   <span className={`text-xl font-black ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalMesa)}</span>

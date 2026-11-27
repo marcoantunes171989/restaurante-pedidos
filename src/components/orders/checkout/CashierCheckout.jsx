@@ -25,8 +25,10 @@ import CheckoutFooterActions from "./CheckoutFooterActions";
 export default function CashierCheckout({
   o, totalCom, opcoes = [], usuarioNome = "", nivelAcesso = "", lojaInfo,
   indicadores, haTxt = () => "", onFecharConta, fechando = false, onFechar, fidCaixa = null,
+  taxaPercentual = null, // taxa de serviço da empresa para esta conta
 }) {
   const total = totalCom(o);
+  const pctTaxa = cobraTaxaServico(o.table) ? (taxaPercentual ?? 10) : 0;
   // Fidelidade: saldo do cliente identificado + R$ que os pontos cobrem.
   const pontosPorReal = Number(fidCaixa?.pontosPorReal) || 100;
   const saldoPontos = (fidCaixa?.ativo && o.clienteTelefone) ? (fidCaixa.saldoPorTelefone?.[o.clienteTelefone] || 0) : 0;
@@ -36,9 +38,9 @@ export default function CashierCheckout({
   // Pontos que o cliente identificado ganha nesta compra (incentivo no fechamento).
   const valorPorPontoCx = Number(fidCaixa?.valorPorPonto) || 0;
   const clienteIdent = !!(fidCaixa?.ativo && o.clienteTelefone);
-  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? Math.floor((total / (cobraTaxaServico(o.table) ? 1.1 : 1)) / valorPorPontoCx) : 0;
+  const pontosGanhar = (clienteIdent && valorPorPontoCx > 0) ? Math.floor((total / (1 + pctTaxa / 100)) / valorPorPontoCx) : 0;
   const opcoesPag = maxPontosReais > 0 ? [...opcoes, "Pontos"] : opcoes;
-  const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, semTaxa: !cobraTaxaServico(o.table) });
+  const { linhas, soma, restante, valido, sub, taxa, toggleForma, setLinhas, formaAtiva } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, percentual: pctTaxa });
   const [entrada, setEntrada] = useState(""); // dígitos em centavos, aplicados à forma ativa
   const [pessoas, setPessoas] = useState(2);
 
@@ -111,7 +113,7 @@ export default function CashierCheckout({
             </section>
 
             <CheckoutItemsTable itens={o.items || []} />
-            <CheckoutSummary subtotal={sub} taxa={taxa} total={total} pago={soma} restante={restante} />
+            <CheckoutSummary subtotal={sub} taxa={taxa} percentual={pctTaxa} total={total} pago={soma} restante={restante} />
           </div>
 
           {/* Coluna direita */}

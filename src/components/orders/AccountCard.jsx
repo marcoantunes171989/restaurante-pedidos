@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { cobraTaxaServico } from "../../lib/taxaServico";
+import { textoDoPercentual } from "../../lib/parametrosCaixa";
 import { User, Phone, Loader2, CreditCard, Check } from "lucide-react";
 import { formatCurrency } from "../../App";
 import AccountStatusBadge from "./AccountStatusBadge";
@@ -10,8 +11,8 @@ import { usePagamentoConta } from "./checkout/usePagamentoConta";
 /**
  * Card de conta do Caixa (tema claro) — porta 1:1 a lógica financeira de
  * ContaCard (antigo src/pages/CentralDoCaixa.jsx, tema escuro): mesmo
- * cálculo de subtotal/taxa de serviço (10%, calculado de trás pra
- * frente a partir do total), mesma validação de múltiplas formas de
+ * cálculo de subtotal/taxa de serviço (percentual da empresa, calculado de
+ * trás pra frente a partir do total), mesma validação de múltiplas formas de
  * pagamento (soma tem que bater exatamente com o total, sem troco —
  * nunca foi essa a regra aqui), mesmo toggle de forma de pagamento,
  * mesmo parse de valor em centavos. Nada disso foi alterado — só a
@@ -21,9 +22,11 @@ import { usePagamentoConta } from "./checkout/usePagamentoConta";
 export default function AccountCard({
   o, categoria, totalCom, haTxt, numeroPedido, telMascarado, opcoes,
   pagando, onFinalizar, retirando, onRetirar, onAbrirCheckout, destacado = false, cardRef, fidCaixa = null,
+  taxaPercentual = null, // taxa de serviço da empresa para esta conta
 }) {
   const [aberto, setAberto] = useState(false);
   const total = totalCom(o);
+  const pctTaxa = cobraTaxaServico(o.table) ? (taxaPercentual ?? 10) : 0;
   const pago = categoria === "pago";
   const externo = o.table === "Externo" || /^EXT-/.test(o.command || "");
   const origem = { l: externo ? "Delivery" : "Mesa / QR" };
@@ -38,12 +41,12 @@ export default function AccountCard({
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
   // Pontos que o cliente identificado ganha ao pagar esta conta (incentivo).
   const valorPorPontoAc = Number(fidCaixa?.valorPorPonto) || 0;
-  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? Math.floor((total / (cobraTaxaServico(o.table) ? 1.1 : 1)) / valorPorPontoAc) : 0;
+  const pontosGanhar = (fidCaixa?.ativo && o.clienteTelefone && valorPorPontoAc > 0) ? Math.floor((total / (1 + pctTaxa / 100)) / valorPorPontoAc) : 0;
   const opcoesPag = maxPontosReais > 0 && !pago ? [...opcoes, "Pontos"] : opcoes;
 
   // Estado do formulário de pagamento (múltiplas formas) — lógica compartilhada
   // com a tela PDV (usePagamentoConta), escondida atrás de "Receber".
-  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, semTaxa: !cobraTaxaServico(o.table) });
+  const { linhas, soma, restante, valido, sub, taxa, fmtMoeda, toggleForma, editarValor } = usePagamentoConta(total, { formaPontos: "Pontos", maxReais: maxPontosReais, percentual: pctTaxa });
 
   const itensVisiveis = (o.items || []).slice(0, 3);
   const itensExtra = (o.items || []).length - itensVisiveis.length;
@@ -129,7 +132,7 @@ export default function AccountCard({
           </div>
           <div className="space-y-0.5 border-t border-[var(--pp-border)] pt-2 text-xs">
             <div className="flex flex-wrap justify-between gap-x-2 text-[var(--pp-text-muted)]"><span>Subtotal</span><span className="tabular-nums text-[var(--pp-text)]">{formatCurrency(sub)}</span></div>
-            <div className="flex flex-wrap justify-between gap-x-2 text-[var(--pp-text-muted)]"><span>Taxa de serviço (10%)</span><span className="tabular-nums text-[var(--pp-text)]">{formatCurrency(taxa)}</span></div>
+            {pctTaxa > 0 && <div className="flex flex-wrap justify-between gap-x-2 text-[var(--pp-text-muted)]"><span>Taxa de serviço ({textoDoPercentual(pctTaxa)}%)</span><span className="tabular-nums text-[var(--pp-text)]">{formatCurrency(taxa)}</span></div>}
             <div className="flex flex-wrap justify-between gap-x-2 text-sm font-black"><span className="text-[var(--pp-text)]">Total</span><span className="tabular-nums text-[var(--pp-success-text)]">{formatCurrency(total)}</span></div>
           </div>
 

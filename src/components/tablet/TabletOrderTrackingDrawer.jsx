@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { X, Receipt, RefreshCcw, Ban, Check, Star } from "lucide-react";
 import { formatCurrency, statusMap, STATUS_TABLET_LABEL } from "../../App";
 import { useFocusTrap } from "../../lib/useFocusTrap";
+import { textoDoPercentual } from "../../lib/parametrosCaixa";
 
 function StatusBadge({ status }) {
   const s = statusMap[status];
@@ -14,7 +15,7 @@ function StatusBadge({ status }) {
 // cancelamento só na fila/preparo) — só a apresentação foi reescrita.
 export default function TabletOrderTrackingDrawer({
   tableNumber, porComanda, currentTableCancelled = [],
-  currentTableSubtotal, currentTableTotal,
+  currentTableSubtotal, currentTableTotal, taxaPercentual = 10,
   podeFecharConta, contaSolicitada, onSolicitarFechamento,
   orderStage = -1, statusConta = null, tomConta = "info", pontosConta = 0,
   onCancelarPedido, onFechar,
@@ -154,7 +155,7 @@ export default function TabletOrderTrackingDrawer({
 
         <div className="shrink-0 space-y-2 border-t border-[var(--client-border)] bg-[var(--client-background-soft)] px-5 py-4">
           <div className="flex justify-between text-sm text-[var(--client-text-secondary)]"><span>Subtotal</span><span className="font-bold text-[var(--client-text-primary)]">{formatCurrency(currentTableSubtotal)}</span></div>
-          <div className="flex justify-between text-sm text-[var(--client-text-secondary)]"><span>Taxa de serviço (10%)</span><span className="font-bold text-[var(--client-text-primary)]">{formatCurrency(currentTableSubtotal * 0.1)}</span></div>
+          {taxaPercentual > 0 && <div className="flex justify-between text-sm text-[var(--client-text-secondary)]"><span>Taxa de serviço ({textoDoPercentual(taxaPercentual)}%)</span><span className="font-bold text-[var(--client-text-primary)]">{formatCurrency(currentTableTotal - currentTableSubtotal)}</span></div>}
           <div className="h-px bg-[var(--client-border)]" />
           <div className="flex justify-between text-lg font-black text-[var(--client-text-primary)]"><span>Total da mesa</span><span className="text-[var(--client-success)]">{formatCurrency(currentTableTotal)}</span></div>
           {comandasArr.length > 1 && (

@@ -34,7 +34,6 @@ import {
   ehPedidoExterno,
   formaPermiteTroco,
   formatCurrency,
-  lerConfigTaxaServico,
   nomeClienteDe,
   normalizarBusca,
   numeroMesaDe,
@@ -64,6 +63,8 @@ import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../../lib/fiscal/imprimirNota";
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
 import { cobraTaxaServico } from "../../lib/taxaServico";
+import { emCentavos, limiteEmReais, valorDaTaxa } from "../../lib/parametrosCaixa";
+import { useParametrosCaixa } from "../../hooks/useParametrosCaixa";
 import {
   abrirCupomTermico,
   htmlComprovanteCompletoPagamento,
@@ -142,7 +143,6 @@ export default function CashierPdv({
   separarItensPedidos = async () => {},
   notify = () => {},
   validarCupom = async () => ({ ok: false, motivo: "Cupons indisponíveis." }),
-  consumirCupom = async () => ({ ok: true }),
   onSair,
   // Etapa 1c (fiscal): emitente da loja, contexto de regras e configuração de venda.
   emitenteFiscal = null,
@@ -151,7 +151,9 @@ export default function CashierPdv({
   supabase = null,
 }) {
   const versaoApp = useVersaoApp();
-  const SERVICE_FEE = lerConfigTaxaServico(lojaInfo?.id);
+  // Taxa e limites vêm da empresa (migration 218); o servidor confere tudo de novo no fechamento.
+  const { parametros: parametrosCaixa } = useParametrosCaixa(supabase, lojaInfo?.id ?? null);
+  const SERVICE_FEE = parametrosCaixa.taxaServico;
   const taxaPct = SERVICE_FEE.enabled && SERVICE_FEE.chargingRule !== "nao_cobrar" ? SERVICE_FEE.percent : 0;
 
   const [canal, setCanal] = useState("mesa");
@@ -361,15 +363,18 @@ export default function CashierPdv({
   const taxaRemovida = !!ajusteSel.taxaRemovida || !cobraTaxaServico(contaSel?.mesa);
   const acrescimoSel = Math.max(0, Number(ajusteSel.acrescimo) || 0);
   const descontoManualSel = Math.max(0, Number(ajusteSel.desconto) || 0);
-  const taxaValorSel = taxaRemovida ? 0 : subtotalSel * (taxaPct / 100);
-  // Total da conta com taxa (se mantida), acréscimo e desconto manual.
-  const totalSel = Math.max(0, subtotalSel + taxaValorSel + acrescimoSel - descontoManualSel);
+  const taxaValorSel = taxaRemovida ? 0 : valorDaTaxa(subtotalSel, taxaPct);
+  // Total da conta com taxa (se mantida), acréscimo e desconto manual. Em centavos, como no servidor.
+  const totalSel = Math.max(0, emCentavos(subtotalSel) + emCentavos(taxaValorSel) + emCentavos(acrescimoSel) - emCentavos(descontoManualSel)) / 100;
+  const limiteDescontoSel = limiteEmReais(parametrosCaixa.desconto, subtotalSel);
+  const limiteAcrescimoSel = limiteEmReais(parametrosCaixa.acrescimo, subtotalSel);
+  const motivoAjusteSel = String(ajusteSel.motivo || "");
   const taxasSel = totalSel - subtotalSel;
 
   // Cupom validado para esta conta — o desconto reduz o que será cobrado.
   const cupomSel = (contaSel && cupomPorConta[contaSel.key]) || null;
   const descontoCupom = Math.min(Number(cupomSel?.desconto) || 0, totalSel);
-  const totalCobrar = Math.max(0, totalSel - descontoCupom);
+  const totalCobrar = Math.max(0, emCentavos(totalSel) - emCentavos(descontoCupom)) / 100;
 
   function patchAjuste(patch) {
     if (!contaSel) return;
@@ -1068,6 +1073,24 @@ export default function CashierPdv({
       notify("error", "Valor inválido para fechamento. Registre recebimentos que cubram o total.");
       return;
     }
+    // Limites da empresa: a conta pode ter mudado depois que o desconto ou o acréscimo foi lançado.
+    if (emCentavos(descontoManualSel) > emCentavos(limiteDescontoSel)) {
+      notify("error", `Desconto acima do limite da empresa. Máximo nesta conta: ${formatCurrency(limiteDescontoSel)}.`);
+      return;
+    }
+    if (emCentavos(acrescimoSel) > emCentavos(limiteAcrescimoSel)) {
+      notify("error", `Acréscimo acima do limite da empresa. Máximo nesta conta: ${formatCurrency(limiteAcrescimoSel)}.`);
+      return;
+    }
+    if ((descontoManualSel > 0 || acrescimoSel > 0) && motivoAjusteSel.trim().length < 3) {
+      notify("error", "Informe o motivo do desconto ou do acréscimo.");
+      setAjusteModal(descontoManualSel > 0 ? "desconto" : "acrescimo");
+      return;
+    }
+    if (emCentavos(totalCobrar) < 1) {
+      notify("error", "A venda não pode ficar zerada. Reduza o desconto ou remova o cupom.");
+      return;
+    }
     // E8: confere o CPF/CNPJ (e a NF-e) antes de fechar; corrigir ou apagar o campo libera.
     const notaCx = nfceNaLoja || nfeNaLoja ? dadosDaNotaNoCaixa(notaCaixa, { nfceDisponivel: nfceNaLoja, nfeDisponivel: nfeNaLoja, entregaDisponivel: entregaNaLoja, ufEmitente: emitenteFiscal?.uf }) : { ok: true, modelo: 65, cpf: "", destinatario: null };
     if (!notaCx.ok) {
@@ -1083,23 +1106,6 @@ export default function CashierPdv({
     const contaKey = contaSel.key;
     const mesaFechada = contaSel.mesa;
     try {
-      // Cupom: reconfere a disponibilidade AGORA e consome uma unidade. Se
-      // acabou entre a aplicação e o fechamento, o pagamento não segue.
-      if (cupomSel?.id) {
-        const uso = await consumirCupom({
-          cupomId: cupomSel.id,
-          valorConta: totalSel,
-          valorDesconto: descontoCupom,
-          mesa: mesaFechada,
-          comandas: [...contaSel.comandas],
-          clienteTelefone: contaSel.telefone || null,
-          canal: canalDaConta(contaSel),
-        });
-        if (!uso?.ok) {
-          notify("error", uso?.motivo || "Cupom indisponível. Remova o cupom para concluir o pagamento.");
-          return;
-        }
-      }
       // Cada parcela vai como uma linha de detalhe — é assim que tab_pagamentos,
       // o movimento de caixa e o relatório por forma conseguem separar o split.
       const detalhes = pagamentosSel.map((p) => ({ forma: p.forma, valor: p.valor }));
@@ -1110,6 +1116,19 @@ export default function CashierPdv({
         detalhes,
         comandas: [...contaSel.comandas],
         ...(descontoCupom > 0 ? { desconto: descontoCupom, cupom: cupomSel?.codigo } : {}),
+        // O servidor refaz a conta com estes dados e só então grava (migration 218).
+        fechamento: {
+          pedidoIds: pedidosSel.map((o) => o.id),
+          desconto: descontoManualSel, acrescimo: acrescimoSel, taxaRemovida: !!ajusteSel.taxaRemovida,
+          motivo: motivoAjusteSel.trim() || null, cupomCodigo: cupomSel?.codigo || null, canal: canalDaConta(contaSel),
+        },
+        // Banco sem a 218: o cupom é consumido pelo caminho anterior, no fechamento.
+        ...(cupomSel?.id ? {
+          cupomPendente: {
+            cupomId: cupomSel.id, valorConta: totalSel, valorDesconto: descontoCupom, mesa: mesaFechada,
+            comandas: [...contaSel.comandas], clienteTelefone: contaSel.telefone || null, canal: canalDaConta(contaSel),
+          },
+        } : {}),
         // Composição completa da conta (aditivo) — base do rascunho da nota
         // fiscal (src/lib/fiscal/vendaFiscal.js). Não muda o que é cobrado.
         composicao: composicaoDaConta({
@@ -1118,6 +1137,7 @@ export default function CashierPdv({
         }),
       };
       const baixa = await baixarComandas(contaSel.comandas, info);
+      if (baixa?.recusado) return; // nada foi gravado: a conta e os recebimentos continuam na tela
       auditar("finalizar_pagamento", "comanda", null, {
         mesa: info.mesa,
         comandas: contaSel.comandas,
@@ -1126,6 +1146,7 @@ export default function CashierPdv({
         ...(descontoCupom > 0 ? { cupom: cupomSel?.codigo, descontoCupom } : {}),
         ...(descontoManualSel > 0 ? { descontoManual: descontoManualSel } : {}),
         ...(acrescimoSel > 0 ? { acrescimo: acrescimoSel } : {}),
+        ...(motivoAjusteSel.trim() ? { motivo: motivoAjusteSel.trim() } : {}),
         ...(taxaRemovida ? { taxaRemovida: true } : {}),
       });
       const codigoPagamento = `PAG-${Date.now().toString().slice(-8)}`;
@@ -2198,8 +2219,11 @@ export default function CashierPdv({
         <PdvModalAjuste
           tipo={ajusteModal}
           valorAtual={ajusteModal === "desconto" ? descontoManualSel : ajusteModal === "acrescimo" ? acrescimoSel : 0}
+          compra={ajusteModal === "cupom" ? null : subtotalSel}
+          limite={ajusteModal === "acrescimo" ? parametrosCaixa.acrescimo : parametrosCaixa.desconto}
+          motivoAtual={motivoAjusteSel}
           processando={cupomProcessando}
-          onConfirmar={(v) => { if (ajusteModal === "cupom") aplicarCupom(v, () => setAjusteModal(null)); else { patchAjuste(ajusteModal === "desconto" ? { desconto: v } : { acrescimo: v }); setAjusteModal(null); } }}
+          onConfirmar={(v, motivo) => { if (ajusteModal === "cupom") aplicarCupom(v, () => setAjusteModal(null)); else { patchAjuste({ ...(ajusteModal === "desconto" ? { desconto: v } : { acrescimo: v }), motivo }); setAjusteModal(null); } }}
           onRemover={() => { patchAjuste(ajusteModal === "desconto" ? { desconto: 0 } : { acrescimo: 0 }); setAjusteModal(null); }}
           onFechar={() => setAjusteModal(null)}
         />

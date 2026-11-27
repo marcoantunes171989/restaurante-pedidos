@@ -1,12 +1,13 @@
 import { MinusCircle, PlusCircle } from "lucide-react";
 import { formatCurrency } from "../../../App";
+import { textoDoPercentual } from "../../../lib/parametrosCaixa";
 
 // "Resumo financeiro" do PDV — coluna esquerda com os componentes do valor
-// (subtotal, taxa de serviço 10%, desconto, acréscimos) e, à direita, o bloco
+// (subtotal, taxa de serviço da empresa, desconto, acréscimos) e, à direita, o bloco
 // de destaque com o TOTAL GERAL (petróleo), o valor já pago e o saldo restante
 // (laranja). Desconto/acréscimos são fiéis ao mockup, porém 0,00 nesta fase
 // (persistência entra depois). Os demais valores são reais.
-export default function CheckoutSummary({ subtotal, taxa, desconto = 0, acrescimo = 0, total, pago = 0, restante }) {
+export default function CheckoutSummary({ subtotal, taxa, percentual = 10, desconto = 0, acrescimo = 0, total, pago = 0, restante }) {
   return (
     <section className="grid grid-cols-1 gap-4 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04)] md:p-5 lg:grid-cols-2">
       {/* Componentes do valor */}
@@ -18,7 +19,7 @@ export default function CheckoutSummary({ subtotal, taxa, desconto = 0, acrescim
             <dd className="tabular-nums text-[var(--pp-text)]">{formatCurrency(subtotal)}</dd>
           </div>
           <div className="flex justify-between gap-2">
-            <dt className="text-[var(--pp-text-body)]">Taxa de serviço (10%)</dt>
+            <dt className="text-[var(--pp-text-body)]">Taxa de serviço ({textoDoPercentual(percentual)}%)</dt>
             <dd className="tabular-nums text-[var(--pp-text)]">{formatCurrency(taxa)}</dd>
           </div>
           <div className="flex justify-between gap-2">

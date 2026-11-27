@@ -5,8 +5,8 @@ import { useState } from "react";
  * card do Caixa (AccountCard) e a tela PDV de fechamento (CashierCheckout).
  * Porta 1:1 as regras que já existiam inline no AccountCard — NENHUM cálculo
  * financeiro foi alterado:
- *   • subtotal = total / 1.1 (taxa de serviço de 10% calculada de trás pra
- *     frente a partir do total);
+ *   • subtotal calculado de trás pra frente a partir do total, com o
+ *     percentual da taxa de serviço da empresa (10 quando não informado);
  *   • a soma das formas de pagamento tem que bater EXATAMENTE com o total
  *     (sem troco — nunca foi a regra aqui);
  *   • valores digitados são interpretados em centavos.
@@ -20,9 +20,8 @@ export function usePagamentoConta(total, opcoesPontos = null) {
   const formaPontos = opcoesPontos?.formaPontos || "Pontos";
   const maxPontosReais = Math.max(0, Math.round((Number(opcoesPontos?.maxReais) || 0) * 100) / 100);
 
-  // semTaxa: retirada/entrega externa — o total já é o subtotal (sem os 10%).
-  const sub = Math.round((opcoesPontos?.semTaxa ? total : total / 1.1) * 100) / 100;
-  const taxa = Math.round((total - sub) * 100) / 100;
+  // semTaxa: retirada/entrega externa — o total já é o subtotal.
+  const { sub, taxa } = resumoConta(total, { semTaxa: !!opcoesPontos?.semTaxa, percentual: opcoesPontos?.percentual });
 
   const soma = Math.round(linhas.reduce((s, l) => s + (Number(l.valor) || 0), 0) * 100) / 100;
   const restante = Math.round((total - soma) * 100) / 100;
@@ -55,8 +54,9 @@ export function usePagamentoConta(total, opcoesPontos = null) {
 
 // Mesmo derivador de subtotal/taxa isolado, para quem só precisa exibir o resumo
 // sem gerenciar formas de pagamento (útil em resumos read-only).
-export function resumoConta(total, { semTaxa = false } = {}) {
-  const sub = Math.round((semTaxa ? total : total / 1.1) * 100) / 100;
+export function resumoConta(total, { semTaxa = false, percentual = 10 } = {}) {
+  const pct = semTaxa ? 0 : Number(percentual) || 0;
+  const sub = Math.round((total / (1 + pct / 100)) * 100) / 100;
   const taxa = Math.round((total - sub) * 100) / 100;
   return { sub, taxa };
 }

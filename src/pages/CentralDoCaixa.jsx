@@ -70,6 +70,7 @@ export default function CentralDoCaixa({
   fidCaixa = null,
   // E8: nota fiscal da venda também no caixa Operacional (antes só no PDV principal).
   subtotalDe = null,
+  taxaDe = null, // percentual da taxa de serviço da empresa para o pedido
   supabase = null,
   emitenteFiscal = null,
   configFiscalVenda = undefined,
@@ -180,7 +181,7 @@ export default function CentralDoCaixa({
     try {
       const detalhes = linhas.map((l) => ({ forma: l.forma, valor: Number(l.valor) || 0 }));
       const dadosNota = dadosNotaContaOperacional({ pedido: o, subtotal: subtotalDe ? subtotalDe(o) : total, total, detalhes });
-      const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao }, { manterStatus: true, somenteId: o.id });
+      const baixa = await baixarComandas([o.command], { forma: detalhes.map((d) => d.forma).join(" + "), total, valor: total, detalhes, mesa: o.table, lojaId: lojaInfo?.id, composicao: dadosNota.composicao, fechamento: { pedidoIds: [o.id] } }, { manterStatus: true, somenteId: o.id });
       // Só emite se o pagamento foi gravado (recusa — sem permissão, já pago — não devolve objeto). Falha só em estoque/histórico não impede a NFC-e.
       if (baixa && typeof baixa === "object" && (!baixa.erro || baixa.pagamentoGravado === true)) {
         const balcao = notaCx.balcao === true;
@@ -264,6 +265,7 @@ export default function CentralDoCaixa({
                   o={o}
                   categoria={categoria}
                   totalCom={totalCom}
+                  taxaPercentual={taxaDe ? taxaDe(o) : null}
                   haTxt={haTxt}
                   numeroPedido={numeroPedido}
                   telMascarado={telMascarado}
@@ -323,6 +325,7 @@ export default function CentralDoCaixa({
         <CashierCheckout
           o={contaCheckout}
           totalCom={totalCom}
+          taxaPercentual={taxaDe ? taxaDe(contaCheckout) : null}
           opcoes={opcoes}
           usuarioNome={usuarioNome}
           nivelAcesso={nivelAcesso}

@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 
 export const ABAS_CONFIGURACOES = Object.freeze([
-  { id: "config", rotulo: "Geral", ajuda: "Taxa de serviço e preferências deste aparelho." },
+  { id: "config", rotulo: "Geral", ajuda: "Taxa de serviço e limites de desconto e acréscimo do caixa." },
   { id: "minhaempresa", rotulo: "Minha empresa", ajuda: "Dados e funcionamento da sua loja." },
   { id: "dados-fiscais-empresa", rotulo: "Dados da Empresa", ajuda: "O que sai na nota: CNPJ, inscrição, endereço e regime." },
   { id: "emissao-fiscal", rotulo: "Emissão", ajuda: "Certificado, numeração, pagamentos, entrega e ligar a emissão." },

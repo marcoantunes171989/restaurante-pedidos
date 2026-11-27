@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { ShoppingCart, X, QrCode, Minus, Plus, Loader2, CheckCircle2, Receipt, RefreshCcw, Check, Star, ChevronRight } from "lucide-react";
 import { formatCurrency } from "../../App";
+import { textoDoPercentual } from "../../lib/parametrosCaixa";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 
 // Conteúdo do carrinho — usado tanto no painel lateral permanente
@@ -9,7 +10,7 @@ import { useFocusTrap } from "../../lib/useFocusTrap";
 // validação de comanda, envio) já vem pronta via props — este componente
 // só formata a apresentação.
 export default function TabletCartPanel({
-  cart, subtotal, serviceFee, total, economiaCart = 0, message,
+  cart, subtotal, serviceFee, total, taxaPercentual = 10, economiaCart = 0, message,
   mesaSelecionada, tableNumber, dadosCompletos, onTrocarMesa,
   customerName, setCustomerName,
   commandCode, comandaValida, onAbrirScanner, podeEscanear,
@@ -173,7 +174,7 @@ export default function TabletCartPanel({
       <div className="shrink-0 space-y-3 border-t border-[var(--client-border)] bg-[var(--client-background-soft)] px-4 py-3.5">
         <div className="space-y-1.5 rounded-xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-3 text-sm">
           <div className="flex justify-between text-[var(--client-text-secondary)]"><span>Subtotal</span><span className="font-bold text-[var(--client-text-primary)]">{formatCurrency(subtotal)}</span></div>
-          <div className="flex justify-between text-[var(--client-text-secondary)]"><span>Taxa de serviço (10%)</span><span className="font-bold text-[var(--client-text-primary)]">{formatCurrency(serviceFee)}</span></div>
+          {taxaPercentual > 0 && <div className="flex justify-between text-[var(--client-text-secondary)]"><span>Taxa de serviço ({textoDoPercentual(taxaPercentual)}%)</span><span className="font-bold text-[var(--client-text-primary)]">{formatCurrency(serviceFee)}</span></div>}
           {economiaCart > 0 && <div className="flex justify-between text-[var(--client-success)]"><span>Economia (promoções)</span><span className="font-bold">− {formatCurrency(economiaCart)}</span></div>}
           <div className="h-px bg-[var(--client-border)]" />
           <div className="flex items-center justify-between"><span className="text-base font-black text-[var(--client-text-primary)]">Total</span><span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(total)}</span></div>

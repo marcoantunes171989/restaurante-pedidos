@@ -827,7 +827,8 @@ describe("R0H-C5C6 Ponto 2 — marcar pago documenta a exceção da state machin
   it("baixarComandas (App.jsx) chama marcarPagoPedido com status='entregue' incondicional ao status atual (evidência da exceção real, não simulada)", () => {
     const idxFn = appJs.indexOf("async function baixarComandas(");
     expect(idxFn).toBeGreaterThan(-1);
-    const corpo = appJs.slice(idxFn, idxFn + 3600);
+    // Corpo inteiro da função: o caminho direto ficou como reserva do fechamento no servidor (migration 218).
+    const corpo = appJs.slice(idxFn, appJs.indexOf("async function registrarComandas(", idxFn));
     expect(corpo).toMatch(/marcarPagoPedido\(o\.id, formaLabel \|\| null, manterStatus \? null : "entregue"\)/);
     // `alvo` (pedidos afetados) filtra por paymentStatus e deixa de fora SÓ o cancelado (trava da migration 212:
     // cancelado não recebe pagamento). Recebido e em preparo continuam elegíveis — a exceção documentada permanece.

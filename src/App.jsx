@@ -72,6 +72,9 @@ import {
   supabase,
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
+import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
+import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
+import ParametrosCaixa from "./components/admin/ParametrosCaixa";
 import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe, emitirNfceSimulada, formatarChaveNfce } from "./lib/nfceService";
 import { rotuloFonteFiscal } from "./lib/fiscalService";
@@ -1705,7 +1708,10 @@ export default function RestaurantePedidoApp() {
   }, [activeProducts, selectedCategory]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const serviceFee = subtotal * 0.1;
+  // Tablet do salão: taxa de serviço da empresa, a mesma que o caixa cobra.
+  const { parametros: parametrosTablet } = useParametrosCaixa(supabase, currentUser ? lojaAtual : null);
+  const taxaPercentualMesa = taxaDaMesa(parametrosTablet.taxaServico, currentTable);
+  const serviceFee = valorDaTaxa(subtotal, taxaPercentualMesa);
   const total = subtotal + serviceFee;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const economiaCart = cart.reduce((s, i) => s + (Number(i.economiaUnit) || 0) * i.quantity, 0);
@@ -1715,7 +1721,7 @@ export default function RestaurantePedidoApp() {
   // Cancelados da mesa (mostrados no acompanhamento, sem entrar no total)
   const currentTableCancelled = orders.filter((o) => o.table === currentTable && o.status === "cancelled");
   const currentTableSubtotal = currentTableOrders.reduce((sum, o) => sum + orderTotal(o), 0);
-  const currentTableTotal = currentTableSubtotal + currentTableSubtotal * 0.1;
+  const currentTableTotal = currentTableSubtotal + valorDaTaxa(currentTableSubtotal, taxaPercentualMesa);
 
   // Pedidos ativos = excluindo os já entregues (apenas para exibição na cozinha/painel)
   const activeOrders = orders.filter((o) => o.status !== "delivered" && o.status !== "cancelled");
@@ -2616,7 +2622,10 @@ export default function RestaurantePedidoApp() {
     if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para finalizar pagamento.");
     // somenteId: paga exatamente UM pedido (preciso, mesmo sem comanda — caso de delivery externo);
     // senão, fecha todos os pedidos das comandas informadas.
-    const ehAlvo = (o) => somenteId ? o.id === somenteId : comandas.includes(o.command);
+    // Fechamento no servidor (migration 218): valem exatamente os pedidos que a tela somou.
+    const fechamento = dbReady && info?.fechamento?.pedidoIds?.length ? info.fechamento : null;
+    const idsDaConta = fechamento ? new Set(fechamento.pedidoIds) : null;
+    const ehAlvo = (o) => idsDaConta ? idsDaConta.has(o.id) : somenteId ? o.id === somenteId : comandas.includes(o.command);
     // Trava de idempotência por chave do alvo: 2ª chamada concorrente para o MESMO
     // pedido/comanda (duplo clique, re-render, callback repetido) é ignorada enquanto
     // a 1ª ainda está em andamento — evita duplicar baixa/estoque/financeiro.
@@ -2639,19 +2648,41 @@ export default function RestaurantePedidoApp() {
         det.forEach((d) => { const f = String(d.forma || "").trim() || "Pagamento"; porF[f] = (porF[f] || 0) + (Number(d.valor) || 0); });
         return Object.entries(porF).sort((a, b) => b[1] - a[1]).map(([f]) => f).join(" + ") || null;
       })();
+      let noServidor = false; // o servidor conferiu a conta e gravou pedidos, pagamento, caixa e cupom de uma vez
+      if (fechamento) {
+        try {
+          const r = await fecharContaNoServidor(supabase, { ...fechamento, parcelas: info.detalhes, manterStatus, caixaId: caixaAberto?.id ?? null });
+          noServidor = !r.ausente;
+        } catch (err) {
+          console.error("Pagamento recusado:", err);
+          notify("error", mensagemDeRecusaDoCaixa(err) || `Não foi possível registrar o pagamento: ${err?.message || "erro"}. Confira a conta antes de repetir.`);
+          try { const ords = await fetchPedidos(); if (Array.isArray(ords) && ords.length > 0) setOrders(ords); } catch { /* a atualização periódica cobre */ }
+          return { alertas: [], erro: true, recusado: true, pagamentoGravado: false };
+        }
+      }
+      // Banco sem a migration 218: o cupom é consumido pelo caminho anterior, antes de marcar o pagamento.
+      if (!noServidor && info?.cupomPendente) {
+        const uso = await consumirCupomCaixa(info.cupomPendente);
+        if (!uso?.ok) {
+          notify("error", uso?.motivo || "Cupom indisponível. Remova o cupom para concluir o pagamento.");
+          return { alertas: [], erro: true, recusado: true, pagamentoGravado: false };
+        }
+      }
       setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid" && o.status !== "cancelled") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
       let alertasEstoque = [];
-      let pagamentoGravado = false; // os pedidos já constam como PAGOS no banco (o que a nota fiscal exige), mesmo que estoque/histórico falhem depois
+      let pagamentoGravado = noServidor; // os pedidos já constam como PAGOS no banco (o que a nota fiscal exige), mesmo que estoque/histórico falhem depois
       let falhaGravacao = null; // erro real ao gravar a venda no banco (antes só ia para o console e a tela dizia "sucesso")
       if (dbReady) {
         try {
-          await Promise.all(alvo.map((o) => marcarPagoPedido(o.id, formaLabel || null, manterStatus ? null : "entregue")));
-          pagamentoGravado = true;
+          if (!noServidor) {
+            await Promise.all(alvo.map((o) => marcarPagoPedido(o.id, formaLabel || null, manterStatus ? null : "entregue")));
+            pagamentoGravado = true;
+          }
           const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
           alertasEstoque = r?.alertas || [];
-          if (info) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
+          if (info && !noServidor) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
           // Caixa aberto: registra a venda como movimento (por forma de pagamento). Tolerante.
-          if (info && caixaAberto) {
+          if (info && caixaAberto && !noServidor) {
             try {
               const formas = Array.isArray(info.detalhes) && info.detalhes.length ? info.detalhes : [{ forma: "Pagamento", valor: info.total }];
               await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
@@ -4539,7 +4570,7 @@ export default function RestaurantePedidoApp() {
               commandCode={commandCode} setCommandCode={setCommandCode}
               addToCart={addToCart} removeFromCart={removeFromCart}
               addConfiguredToCart={addConfiguredToCart}
-              subtotal={subtotal} serviceFee={serviceFee} total={total}
+              subtotal={subtotal} serviceFee={serviceFee} total={total} taxaPercentual={taxaPercentualMesa}
               handleSendOrder={handleSendOrder} requestBill={requestBill}
               currentTableOrders={currentTableOrders}
               currentTableCancelled={currentTableCancelled}
@@ -4605,7 +4636,7 @@ export default function RestaurantePedidoApp() {
           </div>
         )}
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
-        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} emitenteFiscal={emitenteFiscalLoja} ctxFiscal={ctxFiscalPdv} configFiscalVenda={configFiscalVendaLoja} supabase={supabase} />}
+        {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} onSair={logout} emitenteFiscal={emitenteFiscalLoja} ctxFiscal={ctxFiscalPdv} configFiscalVenda={configFiscalVendaLoja} supabase={supabase} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
         {activeTab === "admin" && canAccess(currentUser, "admin") && <ContextoDadosVendas.Provider value={{
           carregando: cargaVendas.carregando,
@@ -4630,7 +4661,7 @@ function TabletView({
   cart, tableNumber, setTableNumber,
   customerName, setCustomerName, commandCode, setCommandCode,
   addToCart, removeFromCart, addConfiguredToCart,
-  subtotal, serviceFee, total,
+  subtotal, serviceFee, total, taxaPercentual = 10,
   handleSendOrder, requestBill, message, onAbrirScanner,
   currentTableOrders = [], currentTableCancelled = [], cancelarPedidoTablet = () => {}, currentTableSubtotal = 0, currentTableTotal = 0,
   lojaInfo, mesas = [], dispositivos = [], orders = [], fidCaixa = null,
@@ -5074,7 +5105,7 @@ function TabletView({
         {/* ── Carrinho (painel lateral permanente — desktop/tablet-paisagem) ── */}
         <aside className="hidden w-[340px] shrink-0 flex-col border-l border-[var(--client-border)] lg:flex xl:w-[380px]">
           <TabletCartPanel
-            cart={cart} subtotal={subtotal} serviceFee={serviceFee} total={total} economiaCart={economiaCart} message={message}
+            cart={cart} subtotal={subtotal} serviceFee={serviceFee} total={total} taxaPercentual={taxaPercentual} economiaCart={economiaCart} message={message}
             mesaSelecionada={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
             onTrocarMesa={() => setTrocarMesaAberto(true)}
             customerName={customerName} setCustomerName={setCustomerName}
@@ -5097,7 +5128,7 @@ function TabletView({
         <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[rgba(33,24,20,0.45)] backdrop-blur-sm sm:items-center sm:p-4 lg:hidden" onClick={() => setCarrinhoAberto(false)}>
           <div onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] shadow-[var(--client-shadow-floating)] sm:max-w-lg sm:rounded-[28px]">
             <TabletCartPanel
-              cart={cart} subtotal={subtotal} serviceFee={serviceFee} total={total} economiaCart={economiaCart} message={message}
+              cart={cart} subtotal={subtotal} serviceFee={serviceFee} total={total} taxaPercentual={taxaPercentual} economiaCart={economiaCart} message={message}
               mesaSelecionada={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
               onTrocarMesa={() => setTrocarMesaAberto(true)}
               customerName={customerName} setCustomerName={setCustomerName}
@@ -5118,7 +5149,7 @@ function TabletView({
       {verConta && (
         <TabletOrderTrackingDrawer
           tableNumber={tableNumber} porComanda={porComanda} currentTableCancelled={currentTableCancelled}
-          currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal}
+          currentTableSubtotal={currentTableSubtotal} currentTableTotal={currentTableTotal} taxaPercentual={taxaPercentual}
           podeFecharConta={podeFecharConta} contaSolicitada={contaSolicitada}
           orderStage={stepIdxTab} statusConta={statusTabletConta} tomConta={tomTabletConta} pontosConta={pontosContaTab}
           onSolicitarFechamento={() => { setVerConta(false); setConfirmarConta(true); }}
@@ -6999,13 +7030,10 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
   // Reinicia a paginação quando qualquer filtro muda.
   const comReset = (setter) => (v) => { setter(v); setPagina(1); };
 
-  // Percentual da taxa de serviço configurado para a loja — o mesmo que o Caixa
-  // aplica e imprime no cupom. Só entra no cálculo quando a cobrança está
-  // habilitada e não está marcada como "não cobrar"; assim os valores exibidos
-  // refletem o que realmente sai no cupom.
-  const SERVICE_FEE_CONFIG = lerConfigTaxaServico(lojaId);
-  const taxaPercent = (SERVICE_FEE_CONFIG.enabled && SERVICE_FEE_CONFIG.chargingRule !== "nao_cobrar")
-    ? (Number(SERVICE_FEE_CONFIG.percent) || 0) : 0;
+  // Taxa de serviço da empresa — a mesma que o Caixa aplica e o servidor confere no
+  // fechamento (cobrança desligada, "não cobrar", retirada e entrega externas: zero).
+  const { parametros: parametrosCaixa } = useParametrosCaixa(supabase, lojaId);
+  const taxaServico = parametrosCaixa.taxaServico;
 
   // Uma linha por PEDIDO (sem agrupar por comanda). Cada linha mantém o formato
   // de "grupo" (pedidos: [o]) para reaproveitar detalhes/PDF/CSV, mas representa
@@ -7015,7 +7043,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
       const iso = o.createdAtISO;
       const ultima = o.updatedAtISO || o.prontoEmISO || o.preparoEmISO || o.createdAtISO;
       const total = orderTotal(o);
-      const taxa = total * taxaPercent / 100;
+      const taxa = valorDaTaxa(total, taxaDaMesa(taxaServico, o.table));
       const totalComTaxa = total + taxa;
       const itens = (o.items || []).reduce((a, it) => a + (it.quantity || 0), 0);
       const mins = iso ? Math.max(0, Math.round((agora - new Date(iso).getTime()) / 60000)) : 0;
@@ -7030,7 +7058,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
         total, taxa, totalComTaxa, itens, mins, sit, finalizado, duracao, movMs,
       };
     });
-  }, [orders, agora, taxaPercent]);
+  }, [orders, agora, taxaServico]);
 
   const abertos = grupos.filter((g) => ABERTAS_KEYS.includes(g.sit));
   const mediaMin = abertos.length ? abertos.reduce((s, g) => s + g.mins, 0) / abertos.length : 0;
@@ -8412,7 +8440,8 @@ function OperacaoMobileView({ fiscalVendaPdv = null, orders = [], updateOrderSta
     });
     return map;
   }, [orders]);
-  const totalCom = (o) => totalComTaxa(o);
+  const { parametros: parametrosCaixa } = useParametrosCaixa(supabase, lojaInfo?.id ?? null);
+  const totalCom = (o) => totalDoPedido(o, parametrosCaixa.taxaServico);
   const novos = ativos.filter((o) => o.status === "received");
   const emPreparo = ativos.filter((o) => o.status === "preparing");
   const prontos = ativos.filter((o) => o.status === "ready");
@@ -8606,6 +8635,7 @@ function OperacaoMobileView({ fiscalVendaPdv = null, orders = [], updateOrderSta
         nivelAcesso={nivelAcesso}
         contas={contas}
         totalCom={totalCom}
+        taxaDe={(o) => taxaDaMesa(parametrosCaixa.taxaServico, o.table)}
         formasPagamento={formasPagamento}
         baixarComandas={baixarComandas}
         confirmarRetirada={confirmarRetirada}
@@ -17065,40 +17095,41 @@ function ConfiguracoesAdmin({ lojaInfo }) {
       <PageHeader
         icone={<IconConfig />}
         titulo="Configurações"
-        descricao="Preferências do sistema. As alterações ficam salvas neste aparelho."
+        descricao="Parâmetros do caixa da empresa: taxa de serviço e limites de desconto e acréscimo."
       />
 
-      {/* Taxa de serviço */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-        <h3 className="page-title text-base font-bold tracking-tight text-white">Taxa de serviço</h3>
-        <p className="mt-1 text-sm text-slate-400">Configure como a taxa de serviço será sugerida/cobrada no caixa. A regra definida aqui será aplicada automaticamente no fechamento.</p>
-        <label className="mt-4 flex items-center justify-between gap-2 cursor-pointer">
-          <span className="text-sm font-bold text-slate-200">Cobrar taxa de serviço</span>
-          <input type="checkbox" checked={taxaCfg.enabled} onChange={(e) => atualizarTaxa({ enabled: e.target.checked })} className="h-5 w-5 accent-[#012E46]" />
-        </label>
-        <label className="mt-3 block">
-          <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Percentual da taxa</span>
-          <input type="number" min="0" max="100" step="1" value={taxaCfg.percent}
-            onChange={(e) => atualizarTaxa({ percent: Math.max(0, Number(e.target.value) || 0) })}
-            className="w-32 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white outline-none focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/10" />
-        </label>
-        <div className="mt-3">
-          <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Regra de cobrança</span>
-          <div className="flex flex-wrap gap-2">
-            {[["fixa", "Fixa"], ["opcional", "Opcional"], ["nao_cobrar", "Não cobrar"]].map(([id, label]) => (
-              <FilterChip key={id} size="sm" selected={taxaCfg.chargingRule === id} label={label} onClick={() => atualizarTaxa({ chargingRule: id })} />
-            ))}
+      <ParametrosCaixa key={lojaInfo?.id ?? "sem-loja"} supabase={supabase} lojaId={lojaInfo?.id ?? null} semBanco={(
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h3 className="page-title text-base font-bold tracking-tight text-white">Taxa de serviço</h3>
+          <p className="mt-1 text-sm text-slate-400">Configure como a taxa de serviço será sugerida/cobrada no caixa. A regra definida aqui será aplicada automaticamente no fechamento.</p>
+          <label className="mt-4 flex items-center justify-between gap-2 cursor-pointer">
+            <span className="text-sm font-bold text-slate-200">Cobrar taxa de serviço</span>
+            <input type="checkbox" checked={taxaCfg.enabled} onChange={(e) => atualizarTaxa({ enabled: e.target.checked })} className="h-5 w-5 accent-[#012E46]" />
+          </label>
+          <label className="mt-3 block">
+            <span className="mb-1 block text-xs font-bold uppercase tracking-widest text-slate-500">Percentual da taxa</span>
+            <input type="number" min="0" max="100" step="1" value={taxaCfg.percent}
+              onChange={(e) => atualizarTaxa({ percent: Math.max(0, Number(e.target.value) || 0) })}
+              className="w-32 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-white outline-none focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/10" />
+          </label>
+          <div className="mt-3">
+            <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Regra de cobrança</span>
+            <div className="flex flex-wrap gap-2">
+              {[["fixa", "Fixa"], ["opcional", "Opcional"], ["nao_cobrar", "Não cobrar"]].map(([id, label]) => (
+                <FilterChip key={id} size="sm" selected={taxaCfg.chargingRule === id} label={label} onClick={() => atualizarTaxa({ chargingRule: id })} />
+              ))}
+            </div>
+          </div>
+          <div className="mt-3">
+            <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Estratégia no pagamento parcial</span>
+            <div className="flex flex-wrap gap-2">
+              {[["proporcional_itens", "Proporcional aos itens"], ["proporcional_valor", "Proporcional ao valor"], ["manual", "Manual"], ["nao_ratear", "Não ratear"]].map(([id, label]) => (
+                <FilterChip key={id} size="sm" selected={taxaCfg.partialStrategy === id} label={label} onClick={() => atualizarTaxa({ partialStrategy: id })} />
+              ))}
+            </div>
           </div>
         </div>
-        <div className="mt-3">
-          <span className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500">Estratégia no pagamento parcial</span>
-          <div className="flex flex-wrap gap-2">
-            {[["proporcional_itens", "Proporcional aos itens"], ["proporcional_valor", "Proporcional ao valor"], ["manual", "Manual"], ["nao_ratear", "Não ratear"]].map(([id, label]) => (
-              <FilterChip key={id} size="sm" selected={taxaCfg.partialStrategy === id} label={label} onClick={() => atualizarTaxa({ partialStrategy: id })} />
-            ))}
-          </div>
-        </div>
-      </div>
+      )} />
     </main>
   );
 }
