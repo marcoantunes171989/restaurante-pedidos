@@ -6,6 +6,7 @@ import { ACCESS_SESSION_KEY } from './accessControl/constants.js'
 import { pedidosRealtimeGuard } from './pedidosRealtimeGuard'
 import { aoAssinar, emLote } from './tempoReal'
 import { completarPaginas, lerAte } from './leituraPaginada'
+import { estadoSessaoAuth } from './sessaoAuth'
 
 // Configuração fail-closed: vem SOMENTE de variáveis de ambiente. Sem fallback
 // embutido — se a URL ou a chave estiverem ausentes/inválidas, falha explicitamente
@@ -2322,6 +2323,10 @@ export async function aguardarSessao(timeoutMs = 2500) {
     }
     return data?.session ?? null
   } catch { return null }
+}
+// "presente" | "ausente" | "indefinida" (falha de rede): ver lib/sessaoAuth.js.
+export async function verificarSessaoAuth() {
+  return estadoSessaoAuth(supabase.auth)
 }
 // E-mail do usuário da sessão atual (para restaurar o login após reload).
 export async function getSessionEmail() {

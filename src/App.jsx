@@ -64,7 +64,7 @@ import {
   escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
-  loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
+  loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail, verificarSessaoAuth,
   validarLoginNoBanco, fetchUsuarioPorEmail,
   gerenciarUsuarioAuth, mapUsuarioDb, SENHA_MIN_AUTH,
   persistirUsuarioCampos, criarUsuarioNoBanco,
@@ -135,8 +135,10 @@ import { rotuloPeriodoSelecionado } from "./lib/periodos.js";
 import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
+import { useSessaoAuthPerdida } from "./hooks/useSessaoAuthPerdida";
+import { MSG_SESSAO_ENCERRADA, MSG_SESSAO_SEM_CONEXAO } from "./lib/sessaoAuth";
 import { useAccessPageTracking } from "./hooks/useAccessPageTracking";
-import { encerrarSessaoAcesso, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
+import { encerrarSessaoAcesso, limparSessionToken, registrarLoginNegado, verificarDispositivoBloqueado } from "./lib/accessControl/api";
 import { MSG_DISPOSITIVO_BLOQUEADO } from "./lib/accessControl/constants";
 import { resolverTelaAcesso } from "./lib/accessControl/screens";
 import { obterDeviceIdEstavel } from "./lib/accessControl/deviceInfo";
@@ -916,7 +918,7 @@ export default function RestaurantePedidoApp() {
         // Mesas: sem Realtime direto (tab_mesas fechada a clientes na
         // migration 122) — ver useEffect dedicado perto de addMesa/editarMesa.
         try { unsubs.push(escutarClientes(setClientes)); } catch {}
-        try { unsubs.push(escutarDispositivos(setDispositivos)); } catch {}
+        // Aparelhos: releitura periódica no useEffect abaixo (só com usuário logado).
         try { unsubs.push(escutarComandas(setComandas)); } catch {}
         try { unsubs.push(escutarAssinaturas(setAssinaturas)); } catch {}
         try { unsubs.push(escutarPromocoes(setPromocoes)); } catch {}
@@ -1020,6 +1022,26 @@ export default function RestaurantePedidoApp() {
           return;
         }
 
+        // Falha de rede não desloga: marcadores e JWT ficam para o próximo
+        // recarregamento; a tela de login só explica o que houve.
+        const manterSessaoParaRecarregar = () => {
+          forcarUrlLogin();
+          setMessage({ type: "error", text: MSG_SESSAO_SEM_CONEXAO });
+        };
+        const estadoAuth = usandoSupabaseAuth() ? await verificarSessaoAuth() : null;
+        if (estadoAuth === "ausente") {
+          limparMarcadoresSessaoLocal();
+          limparSessionToken();
+          forcarUrlLogin();
+          setMessage({ type: "error", text: MSG_SESSAO_ENCERRADA });
+          return;
+        }
+        // Sessão sem confirmação, ou confirmada mas sem os dados carregados.
+        if (estadoAuth === "indefinida" || (estadoAuth === "presente" && !dbReady)) {
+          manterSessaoParaRecarregar();
+          return;
+        }
+
         const email = emailJwt || emailSalvo || null;
         if (!email || !dbReady) {
           limparMarcadoresSessaoLocal();
@@ -1031,7 +1053,12 @@ export default function RestaurantePedidoApp() {
 
         let u = users.find((x) => (x.email || "").toLowerCase() === email.toLowerCase());
         if (!u) {
-          try { u = await fetchUsuarioPorEmail(email); } catch { u = null; }
+          let falhaNaLeitura = false;
+          try { u = await fetchUsuarioPorEmail(email); } catch { u = null; falhaNaLeitura = true; }
+          if (falhaNaLeitura && usandoSupabaseAuth()) {
+            manterSessaoParaRecarregar();
+            return;
+          }
           if (u) setUsers((cur) => (cur.some((x) => x.id === u.id) ? cur : [...cur, u]));
         }
         if (u && u.active !== false) {
@@ -1064,11 +1091,17 @@ export default function RestaurantePedidoApp() {
     return () => window.removeEventListener("popstate", prenderLogin);
   }, [authResolved, currentUser]);
 
+  // Releituras periódicas param no login: sem sessão elas só gerariam 401.
+  useEffect(() => {
+    if (!dbReady || !currentUser?.id) return undefined;
+    return escutarDispositivos(setDispositivos);
+  }, [dbReady, currentUser?.id]);
+
   // ── Atualização quase imediata: cozinha, painel e PDV ────────
   // Realtime (WebSocket) cobre o instantâneo; este polling de 1.5s
   // garante atualização mesmo se o Realtime falhar/atrasar.
   useEffect(() => {
-    if (!dbReady) return;
+    if (!dbReady || !currentUser?.id) return;
     const abasComPoll = new Set(["kitchen", "panel", "cashier", "opmobile"]);
     if (!abasComPoll.has(activeTab)) return;
     let ativo = true;
@@ -1082,13 +1115,13 @@ export default function RestaurantePedidoApp() {
     atualizar();
     const intervalo = setInterval(atualizar, 1500);
     return () => { ativo = false; clearInterval(intervalo); };
-  }, [dbReady, activeTab]);
+  }, [dbReady, activeTab, currentUser?.id]);
 
   // Produtos (estoque/disponibilidade) só chegavam por Realtime. Se a publicação Realtime de tab_produtos não
   // estiver ativa no ambiente, o PDV e o cardápio ficavam com o estoque antigo depois da venda. Releitura leve
   // a cada 6 s nas telas operacionais e ao voltar para a aba do navegador.
   useEffect(() => {
-    if (!dbReady) return;
+    if (!dbReady || !currentUser?.id) return;
     const abasComPoll = new Set(["kitchen", "panel", "cashier", "opmobile", "tablet"]);
     if (!abasComPoll.has(activeTab)) return;
     let ativo = true;
@@ -1102,7 +1135,7 @@ export default function RestaurantePedidoApp() {
     const intervalo = setInterval(atualizarProdutos, 6000);
     document.addEventListener("visibilitychange", atualizarProdutos);
     return () => { ativo = false; clearInterval(intervalo); document.removeEventListener("visibilitychange", atualizarProdutos); };
-  }, [dbReady, activeTab]);
+  }, [dbReady, activeTab, currentUser?.id]);
 
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState("Todos");
@@ -1495,6 +1528,17 @@ export default function RestaurantePedidoApp() {
       // segunda execução de logout não pode ser criada por cima da primeira.
       if (logoutEmAndamentoRef.current) return;
       Promise.resolve(logoutRef.current()).catch(() => { /* ignore */ });
+    },
+  });
+  // A tela logada só continua enquanto a sessão do Supabase Auth existir (saída
+  // em outra aba, renovação recusada, armazenamento apagado). Falha de rede não
+  // encerra nada. Passa pelo mesmo logout() e explica o motivo no login.
+  useSessaoAuthPerdida(currentUser, {
+    ativo: usandoSupabaseAuth(),
+    suprimir: () => logoutEmAndamentoRef.current || !currentUserRef.current,
+    aoPerder: async () => {
+      await logoutRef.current();
+      setMessage({ type: "error", text: MSG_SESSAO_ENCERRADA });
     },
   });
   // Permanência por tela (usuário + dispositivo + rota atual)
@@ -1934,6 +1978,7 @@ export default function RestaurantePedidoApp() {
       setLojaContextoHydrated(false);
       setOpmobileTab("central");
       setCozinhaSetorInicial(null);
+      currentUserRef.current = null; // já vale antes do próximo render
       setCurrentUser(null);
       setActiveTab("tablet");
       setMessage({ type: "", text: "" });
