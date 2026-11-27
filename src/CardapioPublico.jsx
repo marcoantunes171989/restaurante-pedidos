@@ -2,13 +2,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLojaPublica, fetchProdutosPublicos, fetchCategoriasPublicas, fetchGruposOpcoesPublicos, fetchOpcoesPublicas, fetchPromocoesPublicas,
   escutarLojaPublica, escutarPedidos,
-  buscarClientePorTelefone, upsertCliente, criarChamado,
-  rpcCriarPedidoPublicoV2, rpcSetoresPublico, rpcUpsertClientePublico, rpcBuscarClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
+  upsertCliente, criarChamado,
+  rpcCriarPedidoPublicoV2, rpcSetoresPublico, rpcUpsertClientePublico, rpcPedidosComanda, rpcPedidosCliente, rpcSolicitarContaPublico, rpcSaldoFidelidade, rpcFidelidadeRegra, rpcCriarChamadoPublico,
   rpcPesquisaSatisfacao, inserirPesquisaSatisfacao, rpcStatusMesa, supabase,
 } from "./lib/supabase";
 import { ENDERECO_VAZIO, problemaDoEndereco, enderecoEmLinha, lojaPedeEndereco, criarPedidoEntrega } from "./lib/enderecoEntrega";
 import EnderecoEntregaCampos from "./components/EnderecoEntregaCampos";
 import { cardapioViaRpc } from "./lib/authMode";
+import { nomeLembrado, lembrarNome } from "./lib/nomeNoAparelho";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
 import SatisfactionSurvey from "./components/SatisfactionSurvey";
@@ -179,7 +180,6 @@ export default function CardapioPublico() {
   const [cliente, setCliente]     = useState("");
   const [telefone, setTelefone]   = useState("");
   const [observacaoPedido, setObservacaoPedido] = useState("");
-  const clienteSalvoRef = useRef(false); // telefone já tem cadastro (write-only, não usado na renderização)
   const modoExterno = !mesaURL; // link geral (divulgação) → pedido externo (delivery/retirada)
   const [aba, setAba]             = useState(null); // null | 'carrinho' | 'conta'
   const [qrModal, setQrModal]     = useState(null); // dataURL do QR do cardápio (botão "Ver QR")
@@ -968,19 +968,15 @@ export default function CardapioPublico() {
   };
 
   const telDig = telefone.replace(/\D/g, "");
-  // Identifica o cliente pelo telefone e auto-carrega o nome (via RPC no modo
-  // RLS estrito; SELECT direto no modo legacy).
+  // Preenche o nome de quem já informou este telefone NESTE aparelho. O banco não
+  // devolve nome a partir de telefone para quem não tem login (migration 216).
   useEffect(() => {
-    if (!modoExterno || !loja || telDig.length < 10) { clienteSalvoRef.current = false; return; }
-    let vivo = true;
-    const t = setTimeout(async () => {
-      const c = cardapioViaRpc()
-        ? await rpcBuscarClientePublico({ lojaId: loja.id, telefone: telDig })
-        : await buscarClientePorTelefone(loja.id, telDig);
-      if (!vivo) return;
-      if (c && c.nome) { setCliente(capitalizarNome(c.nome)); clienteSalvoRef.current = true; } else { clienteSalvoRef.current = false; }
+    if (!modoExterno || !loja || telDig.length < 10) return;
+    const t = setTimeout(() => {
+      const nome = nomeLembrado(loja.id, telDig);
+      if (nome) setCliente(capitalizarNome(nome));
     }, 500);
-    return () => { vivo = false; clearTimeout(t); };
+    return () => clearTimeout(t);
   }, [telDig, modoExterno, loja?.id]);
 
   // Fidelidade: saldo de pontos do cliente identificado (leitura pública). Só
@@ -1025,13 +1021,12 @@ export default function CardapioPublico() {
   // forem informados (sem esperar o pedido) — alimenta o CRM da empresa.
   useEffect(() => {
     if (!modoExterno || !loja || telDig.length < 10 || cliente.trim().length < 2) return;
-    let vivo = true;
     const t = setTimeout(async () => {
+      lembrarNome(loja.id, telDig, cliente);
       try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); }
       catch {}
-      if (vivo) clienteSalvoRef.current = true;
     }, 900);
-    return () => { vivo = false; clearTimeout(t); };
+    return () => clearTimeout(t);
   }, [telDig, cliente, modoExterno, loja?.id]);
 
   // Acessibilidade: aplica a escala de texto à raiz do documento (font-size em %),
@@ -1272,6 +1267,7 @@ export default function CardapioPublico() {
       // aplicada depois que o Pedido Prime confirmar a gravação do pedido.
       if (usarPedidoWhatsapp) janelaWhatsapp = window.open("about:blank", "_blank");
       setEnviando(true);
+      lembrarNome(loja.id, telDig, cliente);
       try { await (cardapioViaRpc() ? rpcUpsertClientePublico({ lojaId: loja.id, nome: cliente.trim(), telefone: telDig }) : upsertCliente({ nome: cliente.trim(), telefone: telDig, lojaId: loja.id })); } catch {}
       const rotuloTipo = { local: "Consumo no local", retirada: "Retirada", entrega: "Entrega" }[opc.id] || "Externo";
       novo = {
