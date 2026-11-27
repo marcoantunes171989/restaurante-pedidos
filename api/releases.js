@@ -93,8 +93,7 @@ function registryDiagnosticPayload(result) {
 }
 
 // Reaplica a MESMA condição de autorização de api/ambientes.js
-// (e api/landing-analytics.js / isSuperAdmin): bypass da conta-raiz por
-// e-mail, OU super_admin === true, OU (sem loja própria + ids_acesso
+// (e api/landing-analytics.js / isSuperAdmin): super_admin === true, OU (sem loja própria + ids_acesso
 // contendo "admin"). Nenhuma flag do frontend é confiável.
 async function checkAuth(req) {
   const auth = req.headers.authorization || req.headers.Authorization || "";
@@ -115,14 +114,11 @@ async function checkAuth(req) {
 
   const operator = operatorFromUser(user);
   if (!operator.email) return { status: 401, error: "Token inválido." };
-  if (operator.email === "admin@restaurante.com") {
-    return { status: 200, operator };
-  }
-
+  // No ilike, "_" e "%" são curingas: sem o escape, um e-mail parecido casaria com o de outra pessoa.
   let rows;
   try {
     const response = await fetch(
-      `${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(operator.email)}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`,
+      `${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(operator.email.replace(/[\\%_*]/g, "\\$&"))}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`,
       { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}` } },
     );
     if (!response.ok) return { status: 500, error: "Erro interno ao validar operador." };

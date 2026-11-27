@@ -106,11 +106,15 @@ function semSegredo(valor) {
   return valor;
 }
 
+// No `ilike`, `_` também é curinga: a linha só vale se o e-mail for exatamente o pedido.
 async function restSelectUsuarioPorEmail(email) {
+  const alvo = String(email || "").trim().toLowerCase();
+  if (!alvo) return null;
   const rows = await rest(
-    `/tab_usuarios?${filtroEmail(email)}&select=${COLS_USUARIO_SEGURAS}`,
+    `/tab_usuarios?${filtroEmail(alvo)}&select=${COLS_USUARIO_SEGURAS}`,
   );
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  const lista = Array.isArray(rows) ? rows : [];
+  return lista.find((r) => String(r?.email || "").trim().toLowerCase() === alvo) || null;
 }
 
 async function upsertTabUsuario(row) {
@@ -163,8 +167,8 @@ async function confirmarAuthProvisionado(authId, emailEsperado) {
   }
 }
 
-async function deleteTabUsuarioPorEmail(email) {
-  await rest(`/tab_usuarios?${filtroEmail(email)}`, {
+async function deleteTabUsuarioPorId(id) {
+  await rest(`/tab_usuarios?id=eq.${encodeURIComponent(id)}`, {
     method: "DELETE",
     prefer: "return=minimal",
   });
@@ -291,6 +295,40 @@ async function restSelectUsuarioPorId(id) {
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
+const RECUSA_OUTRA_EMPRESA = {
+  criar: "Só é possível cadastrar usuários da sua empresa.",
+  atualizar: "Só é possível editar usuários da sua empresa.",
+  perfil: "Só é possível editar usuários da sua empresa.",
+  excluir: "Só é possível excluir usuários da sua empresa.",
+};
+
+// Quem não é administrador geral só mexe em acessos da própria empresa. Confere a
+// empresa pedida e cada conta que o pedido alcança (id, e-mail atual e e-mail novo),
+// porque cada ação localiza o alvo por um desses campos. Devolve a recusa ou null.
+async function recusaAoOperadorDeLoja(operador, { acao, lojaId, usuarioId, emails }) {
+  if (operador.superAdmin) return null;
+  const outraEmpresa = RECUSA_OUTRA_EMPRESA[acao];
+  if (lojaId != null && !podeGerenciarLoja(operador, lojaId)) return outraEmpresa;
+
+  const alvos = [];
+  if (acao === "perfil" && usuarioId != null) {
+    const linha = await restSelectUsuarioPorId(usuarioId);
+    if (linha) alvos.push(linha);
+  }
+  for (const e of new Set(emails.filter((v) => v.includes("@")))) {
+    const linha = await restSelectUsuarioPorEmail(e);
+    if (linha) alvos.push(linha);
+    else if (await encontrarAuthPorEmail(e)) {
+      return "Só é possível usar um e-mail sem acesso anterior ou de um usuário da sua empresa. Fale com o administrador geral.";
+    }
+  }
+  if (alvos.some((u) => !podeGerenciarLoja(operador, u.loja_id))) return outraEmpresa;
+  if (alvos.some((u) => u.super_admin)) {
+    return "Só é possível alterar um administrador geral com acesso de administrador geral.";
+  }
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
     res.statusCode = 204;
@@ -341,6 +379,15 @@ export default async function handler(req, res) {
     if (acao !== "perfil" && (!email || !email.includes("@"))) {
       return json(res, 400, { error: "E-mail inválido." });
     }
+    // Curingas de busca não fazem parte de um e-mail válido aqui.
+    if ([email, emailAnterior].some((e) => /[%*\\]/.test(e))) {
+      return json(res, 400, { error: "E-mail inválido." });
+    }
+
+    const recusa = await recusaAoOperadorDeLoja(operador, {
+      acao, lojaId, usuarioId, emails: [email, emailAnterior],
+    });
+    if (recusa) return json(res, 403, { error: recusa });
 
     if (acao === "criar") {
       if (!podeGerenciarLoja(operador, lojaId)) {
@@ -613,8 +660,8 @@ export default async function handler(req, res) {
     if (authUser) {
       await authAdmin(`/admin/users/${authUser.id}`, { method: "DELETE" });
     }
-    if (persistirPerfil) {
-      await deleteTabUsuarioPorEmail(email);
+    if (persistirPerfil && rowApp) {
+      await deleteTabUsuarioPorId(rowApp.id);
     }
     return json(res, 200, { ok: true, removido: !!authUser, perfilRemovido: persistirPerfil });
   } catch (e) {

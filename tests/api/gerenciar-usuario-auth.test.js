@@ -569,3 +569,126 @@ describe("gerenciar-usuario-auth (Vercel) — não referencia mais o projeto fix
     expect(src).not.toMatch(/rwnzggjxhxnfrhstbxkm/);
   });
 });
+
+describe("gerenciar-usuario-auth (Vercel) — operador de loja não alcança conta de fora", () => {
+  const linha = (extra) => ({
+    id: 80, email: "alvo@demo.com", loja_id: OPERADOR_LOJA, ativo: true, super_admin: false,
+    ids_acesso: ["cashier"], nome: "Alvo", perfil: "Operador", cargo_id: null, permissoes_acoes: {},
+    ...extra,
+  });
+  const porEmail = (email, linhas) => ({
+    method: "GET",
+    test: (url) => url.startsWith(`${SUPABASE_URL}/rest/v1/tab_usuarios?email=ilike.${encEmail(email)}`),
+    respond: () => ({ status: 200, body: linhas }),
+  });
+  const porId = (id, linhas) => ({
+    method: "GET",
+    test: (url) => url.startsWith(`${SUPABASE_URL}/rest/v1/tab_usuarios?id=eq.${id}&`),
+    respond: () => ({ status: 200, body: linhas }),
+  });
+  const authCom = (usuarios) => ({
+    method: "GET",
+    test: (url) => url.startsWith(`${SUPABASE_URL}/auth/v1/admin/users?`),
+    respond: () => ({ status: 200, body: { users: usuarios } }),
+  });
+
+  async function chamar(body, rotas, { superAdmin = false } = {}) {
+    const { fn, calls } = makeFetchMock([...rotasOperador(operadorRow({ superAdmin })), ...rotas]);
+    vi.stubGlobal("fetch", fn);
+    const res = makeRes();
+    await handler(makeReq(body), res);
+    return { res, escritas: calls.filter((c) => c.method !== "GET") };
+  }
+
+  function esperaRecusa({ res, escritas }) {
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toMatch(/^Só é possível/);
+    expect(escritas).toEqual([]);
+  }
+
+  it("não move um usuário para outra empresa", async () => {
+    esperaRecusa(await chamar(
+      { acao: "perfil", usuarioId: 80, lojaId: 999 },
+      [porId(80, [linha()])],
+    ));
+  });
+
+  it("não altera o administrador geral, mesmo cadastrado na mesma empresa", async () => {
+    esperaRecusa(await chamar(
+      { acao: "perfil", usuarioId: 80, senha: "tentativa123" },
+      [porId(80, [linha({ super_admin: true })])],
+    ));
+  });
+
+  it("não exclui o administrador geral", async () => {
+    esperaRecusa(await chamar(
+      { acao: "excluir", email: "alvo@demo.com" },
+      [porEmail("alvo@demo.com", [linha({ super_admin: true })])],
+    ));
+  });
+
+  it("não regrava o acesso de outra empresa pelo cadastro de usuário", async () => {
+    esperaRecusa(await chamar(
+      { acao: "criar", email: "alvo@demo.com", senha: "tentativa123", lojaId: OPERADOR_LOJA },
+      [porEmail("alvo@demo.com", [linha({ loja_id: 999 })])],
+    ));
+  });
+
+  it("não assume um acesso que existe no Auth sem cadastro no sistema", async () => {
+    esperaRecusa(await chamar(
+      { acao: "criar", email: "orfao@demo.com", senha: "tentativa123", lojaId: OPERADOR_LOJA },
+      [porEmail("orfao@demo.com", []), authCom([{ id: "auth-orfao", email: "orfao@demo.com" }])],
+    ));
+  });
+
+  it("não troca a senha da vítima informando um e-mail anterior inexistente", async () => {
+    esperaRecusa(await chamar(
+      { acao: "atualizar", email: "vitima@demo.com", emailAnterior: "nao.existe@demo.com", senha: "tentativa123" },
+      [
+        porEmail("nao.existe@demo.com", []),
+        porEmail("vitima@demo.com", [linha({ email: "vitima@demo.com", loja_id: 999 })]),
+        authCom([]),
+      ],
+    ));
+  });
+
+  it("não aponta um usuário próprio para o e-mail de outra empresa", async () => {
+    esperaRecusa(await chamar(
+      { acao: "perfil", usuarioId: 80, email: "vitima@demo.com", senha: "tentativa123" },
+      [porId(80, [linha()]), porEmail("vitima@demo.com", [linha({ id: 81, email: "vitima@demo.com", loja_id: 999 })])],
+    ));
+  });
+
+  it.each(["%@demo.com", "al*@demo.com", "al\\vo@demo.com"])("recusa curinga no e-mail: %s", async (email) => {
+    const { res, escritas } = await chamar({ acao: "excluir", email }, []);
+    expect(res.statusCode).toBe(400);
+    expect(escritas).toEqual([]);
+  });
+
+  it("não confunde e-mails parecidos: '_' não casa com outra letra", async () => {
+    const { res, escritas } = await chamar(
+      { acao: "excluir", email: "a_vo@demo.com" },
+      [porEmail("a_vo@demo.com", [linha({ email: "alvo@demo.com" })]), authCom([])],
+      { superAdmin: true },
+    );
+    expect(res.statusCode).toBe(200);
+    expect(escritas).toEqual([]);
+  });
+
+  it("exclui o usuário da própria empresa pelo id", async () => {
+    const { res, escritas } = await chamar(
+      { acao: "excluir", email: "alvo@demo.com" },
+      [
+        porEmail("alvo@demo.com", [linha()]),
+        authCom([]),
+        {
+          method: "DELETE",
+          test: (url) => url === `${SUPABASE_URL}/rest/v1/tab_usuarios?id=eq.80`,
+          respond: () => ({ status: 204, body: null }),
+        },
+      ],
+    );
+    expect(res.statusCode).toBe(200);
+    expect(escritas.map((c) => c.method)).toEqual(["DELETE"]);
+  });
+});
