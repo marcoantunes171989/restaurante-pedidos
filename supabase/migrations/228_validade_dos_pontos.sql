@@ -320,8 +320,10 @@ begin
       'valorUsado', (select coalesce(sum(valor_venda * case when pontos > 0 then -1 else 1 end), 0) from filtrados where grupo = 'usado'),
       'vencidos', (select coalesce(-sum(pontos), 0) from filtrados where grupo = 'vencido'),
       'clientes', (select count(distinct cliente_id) from filtrados),
+      -- Até o fim do 30º dia (Brasília): quem lança com 30 dias de prazo já aparece no mesmo dia.
       'aVencer', (select coalesce(sum(l.restante), 0) from public.tab_fidelidade_lote l
-                   where l.loja_id = p_loja_id and l.restante > 0 and l.expira_em > now() and l.expira_em <= now() + interval '30 days'),
+                   where l.loja_id = p_loja_id and l.restante > 0 and l.expira_em > now()
+                     and l.expira_em < (((now() at time zone 'America/Sao_Paulo')::date + 31)::timestamp at time zone 'America/Sao_Paulo')),
       'emCirculacao', (select coalesce(sum(t.pontos), 0) from public.tab_fidelidade_transacoes t where t.loja_id = p_loja_id)),
     'porDia', coalesce((select jsonb_agg(to_jsonb(d) order by d.dia) from (
         select (quando at time zone 'America/Sao_Paulo')::date as dia,

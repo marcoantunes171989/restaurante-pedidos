@@ -126,9 +126,20 @@ insert into public.loja_fiscal_documento (loja_id, modelo, numero, status, pedid
 select public.t_vale('relatório separa usados e vencidos e liga à venda e à nota',
   (r #>> '{resumo,vencidos}')::int = (select -sum(pontos) from public.tab_fidelidade_transacoes where loja_id = 1 and tipo = 'expire')
   and (r #>> '{resumo,usados}')::int = (select -sum(pontos) from public.tab_fidelidade_transacoes where loja_id = 1 and tipo = 'redeem')
-  and (r #>> '{resumo,aVencer}')::int = (select coalesce(sum(restante), 0) from public.tab_fidelidade_lote where loja_id = 1 and restante > 0 and expira_em > now() and expira_em <= now() + interval '30 days')
+  and (r #>> '{resumo,aVencer}')::int = (select coalesce(sum(restante), 0) from public.tab_fidelidade_lote where loja_id = 1 and restante > 0 and expira_em > now()
+        and (expira_em at time zone 'America/Sao_Paulo')::date <= (now() at time zone 'America/Sao_Paulo')::date + 30)
   and jsonb_array_length(r -> 'porDia') >= 1)
   from (select public.app_pontos_relatorio(1) as r) x;
+-- Fronteira do indicador: o 30º dia inteiro conta (mesmo lançado hoje); o 31º não.
+create function public.t_a_vencer() returns int language sql as $$ select (public.app_pontos_relatorio(1) #>> '{resumo,aVencer}')::int $$;
+create function public.t_fim_do_dia(p_dias integer) returns timestamptz language sql as $$
+  select (((now() at time zone 'America/Sao_Paulo')::date + p_dias + 1)::timestamp at time zone 'America/Sao_Paulo') - interval '1 second' $$;
+select public.t_a_vencer() as av \gset
+select public.t_vale('lançado hoje com 30 dias já aparece em "vencem em 30 dias"',
+  (select expira_em = public.t_fim_do_dia(30) and restante > 0 from public.tab_fidelidade_lote where lote_id = :e) and :av >= public.t_resta(:e));
+update public.tab_fidelidade_lote set expira_em = public.t_fim_do_dia(31) where lote_id = :e;
+select public.t_vale('o que vence no 31º dia não entra', public.t_a_vencer() = :av - public.t_resta(:e));
+update public.tab_fidelidade_lote set expira_em = public.t_fim_do_dia(30) where lote_id = :e;
 select public.t_vale('valor em reais dos pontos usados desconta os estornos',
   (public.app_pontos_relatorio(1, p_tipo => 'usado') #>> '{resumo,valorUsado}')::numeric = 0.50); -- V1, B2 e B4 foram estornadas: sobra só B5
 select public.t_vale('busca pelo número da nota acha o resgate',
