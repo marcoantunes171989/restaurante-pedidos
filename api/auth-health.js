@@ -58,8 +58,9 @@ async function operadorAdmin(req) {
     const email = String(user?.email || "").trim().toLowerCase();
     if (!email) return false;
     // Consulta mínima em tab_usuarios (com service role) — só flags de acesso.
+    // No ilike, "_" e "%" são curingas: sem o escape, um e-mail parecido casaria com o de outra pessoa.
     const q = await fetch(
-      `${url}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,ids_acesso,perfil&limit=1`,
+      `${url}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email.replace(/[\\%_*]/g, "\\$&"))}&select=ativo,super_admin,ids_acesso,perfil&limit=1`,
       { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}`, accept: "application/json" } },
     );
     if (!q.ok) return false;

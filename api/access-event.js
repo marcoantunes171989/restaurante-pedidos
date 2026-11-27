@@ -66,7 +66,8 @@ export default async function handler(req, res) {
   const row = {
     session_id: null,
     user_id: null,
-    loja_id: body.lojaId != null ? Number(body.lojaId) : null,
+    // Rota sem login: quem chama não escolhe a empresa em cuja auditoria o registro aparece.
+    loja_id: null,
     event_type: eventType,
     route: body.route || "/login",
     description: body.description || "Tentativa de login negada",

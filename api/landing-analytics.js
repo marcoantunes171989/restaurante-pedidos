@@ -29,11 +29,8 @@ async function isSuperAdmin(req) {
   const user = await userResponse.json();
   const email = clean(user?.email, 160)?.toLowerCase();
   if (!email) return false;
-  // Conta-raiz criada pela migration 013. Como o e-mail vem do JWT validado
-  // diretamente pelo Supabase, não dependemos de uma segunda consulta para
-  // reconhecer o administrador principal.
-  if (email === "admin@restaurante.com") return true;
-  const response = await fetch(`${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`, {
+  // No ilike, "_" e "%" são curingas: sem o escape, um e-mail parecido casaria com o de outra pessoa.
+  const response = await fetch(`${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email.replace(/[\\%_*]/g, "\\$&"))}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`, {
     headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}` },
   });
   if (!response.ok) return false;
