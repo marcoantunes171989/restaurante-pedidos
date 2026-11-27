@@ -3,6 +3,7 @@ import { atalhoDePeriodo, baixarBytes, baixarLote, buscarXmls, intervaloDoPeriod
 import { baixarXml, nomeArquivoXml } from "../../../lib/fiscal/xmlNota";
 import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
 import XmlDaNota from "./XmlDaNota";
+import FiltroPeriodo from "../../FiltroPeriodo.jsx";
 
 // Tela "XMLs fiscais": pesquisar os XMLs guardados (NFC-e e NF-e) por período, chave de acesso e qualquer conteúdo das tags,
 // selecionar várias notas e exportar em ZIP (um arquivo por nota, nome = chave de acesso).
@@ -17,6 +18,7 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
   const inicial = atalhoDePeriodo("mes");
   const [de, setDe] = useState(inicial.de);
   const [ate, setAte] = useState(inicial.ate);
+  const [periodo, setPeriodo] = useState("mes");
   const [modelo, setModelo] = useState("");
   const [termo, setTermo] = useState("");
   const [estado, setEstado] = useState({ buscou: false, carregando: false, erro: "", notas: [], total: 0, truncado: false });
@@ -35,7 +37,8 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
       setEstado({ buscou: true, carregando: false, erro: "", ...r });
     } catch (err) { setEstado((s) => ({ ...s, buscou: true, carregando: false, erro: err.message, notas: [] })); }
   }
-  function atalho(id) { const p = atalhoDePeriodo(id); setDe(p.de); setAte(p.ate); }
+  // "Datas" mantém o que está nos campos; os demais atalhos preenchem De e Até.
+  function atalho(id) { setPeriodo(id); if (id === "periodo") return; const p = atalhoDePeriodo(id); setDe(p.de); setAte(p.ate); }
 
   const visiveis = useMemo(() => aplicarCanceladas(estado.notas, canceladas).notas, [estado.notas, canceladas]);
   const incluirEventos = aplicarCanceladas(estado.notas, canceladas).incluirEventos;
@@ -75,14 +78,12 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
       <form onSubmit={pesquisar} className="mt-3 space-y-2" data-testid="xmls-form">
         <div className="flex flex-wrap items-end gap-2">
           <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">De</span>
-            <input type="date" value={de} onChange={(e) => setDe(e.target.value)} className={`${campo} mt-0.5 block`} data-testid="xmls-de" /></label>
+            <input type="date" value={de} onChange={(e) => { setDe(e.target.value); setPeriodo("periodo"); }} className={`${campo} mt-0.5 block`} data-testid="xmls-de" /></label>
           <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Até</span>
-            <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} className={`${campo} mt-0.5 block`} data-testid="xmls-ate" /></label>
+            <input type="date" value={ate} onChange={(e) => { setAte(e.target.value); setPeriodo("periodo"); }} className={`${campo} mt-0.5 block`} data-testid="xmls-ate" /></label>
           <label className="block"><span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Tipo</span>
             <select value={modelo} onChange={(e) => setModelo(e.target.value)} className={`${campo} mt-0.5 block`} data-testid="xmls-modelo"><option value="">NFC-e e NF-e</option><option value="65">Só NFC-e</option><option value="55">Só NF-e</option></select></label>
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Atalhos de período">
-            {[["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["mes", "Este mês"]].map(([id, rot]) => <button key={id} type="button" className={botaoLeve} onClick={() => atalho(id)}>{rot}</button>)}
-          </div>
+          <FiltroPeriodo semDatas valor={periodo} onMudar={atalho} className="w-full lg:w-auto" />
         </div>
         <div className="flex flex-wrap gap-2">
           <input type="search" value={termo} onChange={(e) => setTermo(e.target.value)} aria-label="Pesquisar por chave de acesso ou conteúdo do XML" data-testid="xmls-busca"

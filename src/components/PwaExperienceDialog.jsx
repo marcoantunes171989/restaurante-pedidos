@@ -176,7 +176,7 @@ export default function PwaExperienceDialog({ status, visivel, so, navegador, on
           aria-labelledby="pwa-dialog-titulo"
           aria-describedby="pwa-dialog-mensagem"
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-[var(--pp-border)] bg-[var(--pp-surface)] shadow-[0_20px_60px_rgba(43,35,32,0.25)] sm:max-h-[85vh] sm:w-[520px] sm:max-w-[calc(100vw-48px)] sm:rounded-[22px]"
+          className="pointer-events-auto flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-[var(--pp-border)] bg-[var(--pp-surface)] shadow-[0_20px_60px_rgba(43,35,32,0.25)] sm:max-h-[85dvh] sm:w-[520px] sm:max-w-[calc(100vw-48px)] sm:rounded-[22px]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-[var(--pp-border)] p-4">

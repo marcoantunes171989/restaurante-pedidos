@@ -305,7 +305,7 @@ export default function SetorImpressorasAdmin({
       {criando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="Fechar" onClick={() => setCriando(false)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+          <div className="relative flex max-h-[88dvh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"><Printer className="h-[18px] w-[18px]" /></span>
@@ -325,7 +325,7 @@ export default function SetorImpressorasAdmin({
       {editando && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button aria-label="Fechar" onClick={() => setEditando(null)} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="relative flex max-h-[88vh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+          <div className="relative flex max-h-[88dvh] w-full max-w-md flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(243, 133, 37,0.12)] text-[#F38525]"><Printer className="h-[18px] w-[18px]" /></span>

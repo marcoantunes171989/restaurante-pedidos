@@ -34,7 +34,7 @@ export default function TabletOrderTrackingDrawer({
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-[rgba(33,24,20,0.45)] backdrop-blur-sm sm:items-center sm:p-4" onClick={onFechar}>
       <div ref={containerRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="acompanhar-titulo"
-        className="flex max-h-[90vh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] sm:rounded-[28px]"
+        className="flex max-h-[90dvh] w-full max-w-[560px] flex-col overflow-hidden rounded-t-[28px] border border-[var(--client-border)] bg-[var(--client-surface)] shadow-[var(--client-shadow-floating)] sm:rounded-[28px]"
         style={{ width: "calc(100% - 24px)" }}>
 
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--client-border)] px-5 py-4">

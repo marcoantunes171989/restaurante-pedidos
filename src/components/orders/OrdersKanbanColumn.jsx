@@ -21,7 +21,7 @@ export default function OrdersKanbanColumn({ variante, titulo, vazio, pedidos = 
       {pedidos.length === 0 ? (
         <OrdersEmptyState variante={variante} titulo={vazio} />
       ) : (
-        <div className="flex max-h-[65vh] flex-col gap-3 overflow-y-auto pr-0.5">
+        <div className="flex max-h-[65dvh] flex-col gap-3 overflow-y-auto pr-0.5">
           {pedidos.map((o) => renderCard(o, variante))}
         </div>
       )}

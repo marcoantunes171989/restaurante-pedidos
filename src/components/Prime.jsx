@@ -137,14 +137,14 @@ export function ActiveFiltersSummary({ grupos, onClearAll, className = "" }) {
 // Cabeçalho de página: título (Sora), descrição curta, indicadores e ação principal
 export function PageHeader({ icone = null, titulo, descricao, indicadores = [], acao = null }) {
   return (
-    <header className="pp-page-header rounded-[1.5rem] border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(1,46,70,0.05)] sm:p-5">
+    <header className="pp-page-header rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-[0_1px_2px_rgba(1,46,70,0.05)] sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h1 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
-            {icone && <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
+          <h1 className="page-title flex items-center gap-2.5 text-xl font-semibold tracking-tight text-[#012E46]">
+            {icone && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#012E46]/[0.07] text-[#012E46] [&>svg]:h-[18px] [&>svg]:w-[18px]">{icone}</span>}
             {titulo}
           </h1>
-          {descricao && <p className="mt-1 text-sm leading-6 text-[var(--pp-text-muted)]">{descricao}</p>}
+          {descricao && <p className="mt-1 text-[13px] leading-5 text-[#667085]">{descricao}</p>}
         </div>
         {acao && <div className="pp-page-header-action shrink-0">{acao}</div>}
       </div>
@@ -207,10 +207,10 @@ export function StatCard({ rotulo, valor, sub = null, variacao = null, tom = "ne
 // Estado vazio padrão — mensagem útil no lugar de "Sem dados"
 export function EmptyState({ icone = null, titulo = "Nenhuma informação encontrada para este período.", dica = "Altere os filtros ou aguarde novas movimentações.", acao = null }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-      {icone && <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-slate-500 [&>svg]:h-6 [&>svg]:w-6">{icone}</span>}
-      <p className="text-sm font-semibold text-slate-300">{titulo}</p>
-      <p className="max-w-sm text-xs leading-5 text-slate-500">{dica}</p>
+    <div className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#D0D5DD] px-4 py-10 text-center">
+      {icone && <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#012E46]/[0.07] text-[#012E46] [&>svg]:h-6 [&>svg]:w-6">{icone}</span>}
+      <p className="text-sm font-semibold text-[#475467]">{titulo}</p>
+      <p className="max-w-sm text-xs leading-5 text-[#667085]">{dica}</p>
       {acao && <div className="mt-2">{acao}</div>}
     </div>
   );

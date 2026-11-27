@@ -259,7 +259,7 @@ export default function ImpressoesCozinhaAdmin({
           {totalPaginas > 1 && (
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--pp-border)] pt-3">
               <p className="text-[11px] text-[var(--pp-text-muted)]">Página {paginaAtual} de {totalPaginas} · {lista.length} registro(s)</p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
                 <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={paginaAtual <= 1} aria-label="Página anterior" className="flex h-8 min-w-[32px] items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white px-2 text-sm font-semibold text-[var(--pp-text-body)] transition hover:bg-[rgba(1, 46, 70,0.04)] disabled:cursor-not-allowed disabled:opacity-40">‹</button>
                 {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
                   <button key={n} onClick={() => setPagina(n)} className={`flex h-8 min-w-[32px] items-center justify-center rounded-lg px-2 text-xs font-semibold transition ${n === paginaAtual ? "bg-[#F38525] text-[#012E46]" : "border border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[rgba(1, 46, 70,0.04)]"}`}>{n}</button>

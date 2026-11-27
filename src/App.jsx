@@ -73,7 +73,6 @@ import {
   fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
   escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
-  perguntarCopilotoIA,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
   loginSupabaseAuth, logoutSupabaseAuth, aguardarSessao, getSessionEmail,
   validarLoginNoBanco, fetchUsuarioPorEmail,
@@ -132,7 +131,7 @@ import TelaManutencao from "./components/TelaManutencao";
 import { useStatusSistema } from "./hooks/useStatusSistema";
 import { deveBloquearPorManutencao } from "./lib/sistemaStatus";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconCozinha, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
-import { PageHeader, PrimeButton, EmptyState, FilterChip, FilterGroup, FiltersPanel, ActiveFiltersSummary } from "./components/Prime";
+import { PageHeader, PrimeButton, EmptyState, FilterChip } from "./components/Prime";
 import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
 import CentralDoCaixa from "./pages/CentralDoCaixa";
@@ -141,20 +140,12 @@ import ResumoFiscalCaixa from "./components/fiscal/ResumoFiscalCaixa";
 import AlertasFiscais from "./components/fiscal/AlertasFiscais";
 import { useAlertasFiscais } from "./hooks/useAlertasFiscais";
 import { EMISSAO_FISCAL_PDV_ATIVA } from "./lib/fiscal/emissaoPdv";
-import ImpressoesCozinhaAdmin from "./pages/admin/ImpressoesCozinhaAdmin";
-import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
-import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
-import LandingAnalyticsAdmin from "./pages/admin/LandingAnalyticsAdmin";
-import DashboardGerencial from "./pages/admin/DashboardGerencial";
-import RelatorioVisaoGeral from "./pages/admin/relatorios/RelatorioVisaoGeral.jsx";
-import RelatorioVendas from "./pages/admin/relatorios/RelatorioVendas.jsx";
 import { AvisoErro, BarraDeAcoes, BotaoAcao, Carregando, Cartao, Composicao, Dado, GradeIndicadores, GraficoColunas, GraficoTendencia, Indicador, Paginador, Ranking, SituacaoDados, Vazio } from "./components/graficos/Graficos.jsx";
 import { ContextoDadosVendas, useDadosVendas } from "./components/graficos/contextoDados.js";
-import { agruparVisitas, canalDoPedido, chaveDia, concentracao, distribuicaoPorValor, ehPago, intervaloAnterior, mapaDeProdutos, margemDosPedidos, media as mediaDe, mediana, pedidosNoIntervalo, percentil, resumoVendas, rotuloComparacao, situacaoEstoque, variacaoPct } from "./lib/relatorios/analiseVendas.js";
+import { agruparVisitas, intervaloPeriodo, canalDoPedido, chaveDia, concentracao, distribuicaoPorValor, ehPago, intervaloAnterior, mapaDeProdutos, margemDosPedidos, media as mediaDe, mediana, pedidosNoIntervalo, percentil, resumoVendas, rotuloComparacao, situacaoEstoque, variacaoPct } from "./lib/relatorios/analiseVendas.js";
 import { baixarCsv, escHtml } from "./lib/relatorios/exportacao.js";
-import AmbientesAdmin from "./pages/admin/AmbientesAdmin";
-import ControleAtualizacaoAdmin from "./pages/admin/ControleAtualizacaoAdmin";
-import AtualizarProducaoAdmin from "./pages/admin/AtualizarProducaoAdmin";
+import FiltroPeriodo from "./components/FiltroPeriodo.jsx";
+import { rotuloPeriodoSelecionado } from "./lib/periodos.js";
 import LojaCadastroModal from "./components/admin/loja/LojaCadastroModal";
 import { normalizarFuncionamento, gradeDoCanal, avaliarFuncionamentoLoja } from "./lib/horarioFuncionamentoService";
 import { useUserSessionHeartbeat } from "./hooks/useUserSessionHeartbeat";
@@ -185,7 +176,7 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
-import { CircleHelp, ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket, AlertTriangle, Copy, Crown, Eye, MessageCircle, Package, Phone, Printer, Repeat, SlidersHorizontal, Snowflake, UserPlus, Users, Archive, FileText, Mail, MessageSquare, ThumbsUp, XCircle } from "lucide-react";
+import { CircleHelp, ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Store, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket, ChevronDown, LogOut, AlertTriangle, Copy, Crown, Eye, MessageCircle, Package, Phone, Printer, Repeat, SlidersHorizontal, Snowflake, UserPlus, Users, Archive, FileText, Mail, MessageSquare, ThumbsUp, XCircle } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -193,6 +184,19 @@ export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba959
 // exibidos no menu e no título contextual da tela. Ids/paths/slugs continuam
 // vindo exclusivamente de src/lib/relatoriosNav.js (RELATORIOS_IDS), nunca
 // duplicados aqui.
+// Telas do painel baixadas só quando abertas (o login e a operação carregam mais rápido).
+const ImpressoesCozinhaAdmin = React.lazy(() => import("./pages/admin/ImpressoesCozinhaAdmin"));
+const SetorImpressorasAdmin = React.lazy(() => import("./pages/admin/SetorImpressorasAdmin"));
+const ControleAcessosAdmin = React.lazy(() => import("./pages/admin/ControleAcessosAdmin"));
+const LandingAnalyticsAdmin = React.lazy(() => import("./pages/admin/LandingAnalyticsAdmin"));
+const DashboardGerencial = React.lazy(() => import("./pages/admin/DashboardGerencial"));
+const RelatorioVisaoGeral = React.lazy(() => import("./pages/admin/relatorios/RelatorioVisaoGeral.jsx"));
+const RelatorioVendas = React.lazy(() => import("./pages/admin/relatorios/RelatorioVendas.jsx"));
+const AmbientesAdmin = React.lazy(() => import("./pages/admin/AmbientesAdmin"));
+const CopilotoIA = React.lazy(() => import("./pages/admin/CopilotoIA.jsx"));
+const ControleAtualizacaoAdmin = React.lazy(() => import("./pages/admin/ControleAtualizacaoAdmin"));
+const AtualizarProducaoAdmin = React.lazy(() => import("./pages/admin/AtualizarProducaoAdmin"));
+
 const RELATORIOS_SUBMENU_LABELS = {
   geral: "Visão geral",
   vendas: "Vendas",
@@ -839,56 +843,55 @@ export default function RestaurantePedidoApp() {
         setUsers(usrs);
         setAccesses(accs);
         setOrders(ords);
-        // Formas de pagamento e categorias (tabelas podem não existir ainda — não bloqueiam)
-        try { setFormasPagamento(await fetchFormasPagamento()); } catch { /* migration 006 pendente */ }
-        try { setCategoriasDb(await fetchCategorias()); } catch { /* migration 010 pendente */ }
-        try { setLojas(await fetchLojas()); } catch { /* migration 011 pendente */ }
-        try { setCargos(await fetchCargos()); } catch { /* migration 014 pendente */ }
-        // Mesas (migration 122): app_listar_mesas exige a loja em foco
-        // (obrigatória para super, derivada do JWT p/ não-super) — não dá pra
-        // buscar "tudo" uma vez só como os demais módulos. Carga e refresh
-        // ficam no useEffect dedicado logo após a definição de lojaAtual.
-        try { setClientes(await fetchClientes()); } catch { /* migration 028 pendente */ }
-        try { setDispositivos(await fetchDispositivos()); } catch { /* migration 024 pendente */ }
-        try { setComandas(await fetchComandas()); setComandasCarregadas(true); } catch { /* migration 019 pendente */ }
-        try { setPlanos(await fetchPlanos()); } catch { /* migration 037 pendente */ }
-        try { setAssinaturas(await fetchAssinaturas()); } catch { /* migration 037 pendente */ }
-        try { setPlanoModulos(await fetchPlanoModulos()); } catch { /* migration 037 pendente */ }
-        try { setPromocoes(await fetchPromocoes()); } catch { /* migration 039 pendente */ }
-        // Cupons (migration 121): app_listar_cupons exige a loja em foco
-        // (obrigatória para super, derivada do JWT p/ não-super) — não dá pra
-        // buscar "tudo" uma vez só como os demais módulos. Carga e refresh
-        // ficam no useEffect dedicado logo após a definição de lojaAtual.
-        try { setGruposOpcoes(await fetchGruposOpcoes()); } catch { /* migration 040 pendente */ }
-        try { setOpcoes(await fetchOpcoes()); } catch { /* migration 040 pendente */ }
-        try { setFiscalIcms(await fetchFiscalIcms()); } catch { /* migration 081 pendente */ }
-        try { setFiscalNcm(await fetchFiscalNcm()); } catch { /* migration 081 pendente */ }
-        try { setFiscalCfop(await fetchFiscalCfop()); } catch { /* migration 082 pendente */ }
-        try { setFiscalPis(await fetchFiscalPis()); } catch { /* migration 082 pendente */ }
-        try { setFiscalCofins(await fetchFiscalCofins()); } catch { /* migration 082 pendente */ }
-        try { setFiscalIpi(await fetchFiscalIpi()); } catch { /* migration 082 pendente */ }
-        try { setFiscalCest(await fetchFiscalCest()); } catch { /* migration 082 pendente */ }
-        try { setFiscalLoteLog(await fetchFiscalLoteLog()); } catch { /* migration 084 pendente */ }
-        try { setCatNcm(await fetchCatNcm()); } catch { /* migration 085 pendente */ }
-        try { setCatCest(await fetchCatCest()); } catch { /* migration 085 pendente */ }
-        try { setCatCfop(await fetchCatCfop()); } catch { /* migration 085 pendente */ }
-        try { setCatCstIcms(await fetchCatCstIcms()); } catch { /* migration 085 pendente */ }
-        try { setCatCsosn(await fetchCatCsosn()); } catch { /* migration 085 pendente */ }
-        try { setCatCstPis(await fetchCatCstPis()); } catch { /* migration 085 pendente */ }
-        try { setCatCstCofins(await fetchCatCstCofins()); } catch { /* migration 085 pendente */ }
-        try { setFiscalRegras(await fetchFiscalRegras()); } catch { /* migration 086 pendente */ }
-        try { setFiscalRegraVersoes(await fetchFiscalRegraVersoes()); } catch { /* migration 086 pendente */ }
-        try { setLojaFiscalRegras(await fetchLojaFiscalRegras()); } catch { /* migration 087 pendente */ }
-        try { setFiscalTemplates(await fetchFiscalTemplates()); } catch { /* migration 104 pendente */ }
-        try { setFiscalTemplateRegras(await fetchFiscalTemplateRegras()); } catch { /* migration 104 pendente */ }
-        try { setSetoresCozinha(await fetchSetoresCozinha()); } catch { /* migration 041 pendente */ }
-        try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch { /* migration 077 pendente */ }
-        try { setCaixas(await fetchCaixas(null)); } catch { /* migration 042 pendente */ }
-        try { setFidRegras(await fetchFidelidadeRegras()); } catch { /* migration 043 pendente */ }
-        try { setFidRecompensas(await fetchFidelidadeRecompensas()); } catch { /* migration 043 pendente */ }
-        try { setFidTransacoes(await fetchFidelidadeTransacoes(null)); } catch { /* migration 043 pendente */ }
-        try { setChamados(await fetchChamados(null)); } catch { /* migration 044 pendente */ }
-        try { setAuditoria(await fetchAuditoria(null)); } catch { /* migration 045 pendente */ }
+        // Dados complementares em paralelo (antes eram mais de trinta buscas em fila).
+        // Cada um é tolerante: tabela de uma migration pendente não impede os demais.
+        // Mesas e cupons ficam nos efeitos próprios (dependem da loja em foco).
+        const opcional = (buscar, aplicar) => Promise.resolve().then(buscar).then(aplicar).catch(() => {});
+        const complementares = Promise.all([
+          opcional(fetchFormasPagamento, setFormasPagamento),
+          opcional(fetchCategorias, setCategoriasDb),
+          opcional(fetchLojas, setLojas),
+          opcional(fetchCargos, setCargos),
+          opcional(fetchClientes, setClientes),
+          opcional(fetchDispositivos, setDispositivos),
+          opcional(fetchComandas, (lista) => { setComandas(lista); setComandasCarregadas(true); }),
+          opcional(fetchPlanos, setPlanos),
+          opcional(fetchAssinaturas, setAssinaturas),
+          opcional(fetchPlanoModulos, setPlanoModulos),
+          opcional(fetchPromocoes, setPromocoes),
+          opcional(fetchGruposOpcoes, setGruposOpcoes),
+          opcional(fetchOpcoes, setOpcoes),
+          opcional(fetchFiscalIcms, setFiscalIcms),
+          opcional(fetchFiscalNcm, setFiscalNcm),
+          opcional(fetchFiscalCfop, setFiscalCfop),
+          opcional(fetchFiscalPis, setFiscalPis),
+          opcional(fetchFiscalCofins, setFiscalCofins),
+          opcional(fetchFiscalIpi, setFiscalIpi),
+          opcional(fetchFiscalCest, setFiscalCest),
+          opcional(fetchFiscalLoteLog, setFiscalLoteLog),
+          opcional(fetchCatNcm, setCatNcm),
+          opcional(fetchCatCest, setCatCest),
+          opcional(fetchCatCfop, setCatCfop),
+          opcional(fetchCatCstIcms, setCatCstIcms),
+          opcional(fetchCatCsosn, setCatCsosn),
+          opcional(fetchCatCstPis, setCatCstPis),
+          opcional(fetchCatCstCofins, setCatCstCofins),
+          opcional(fetchFiscalRegras, setFiscalRegras),
+          opcional(fetchFiscalRegraVersoes, setFiscalRegraVersoes),
+          opcional(fetchLojaFiscalRegras, setLojaFiscalRegras),
+          opcional(fetchFiscalTemplates, setFiscalTemplates),
+          opcional(fetchFiscalTemplateRegras, setFiscalTemplateRegras),
+          opcional(fetchSetoresCozinha, setSetoresCozinha),
+          opcional(() => fetchImpressoesCozinha(lojaAtual), setImpressoesCozinha),
+          opcional(() => fetchCaixas(null), setCaixas),
+          opcional(fetchFidelidadeRegras, setFidRegras),
+          opcional(fetchFidelidadeRecompensas, setFidRecompensas),
+          opcional(() => fetchFidelidadeTransacoes(null), setFidTransacoes),
+          opcional(() => fetchChamados(null), setChamados),
+          opcional(() => fetchAuditoria(null), setAuditoria),
+        ]);
+        // Uma busca travada não segura a abertura: segue após 8 s e aplica quando chegar.
+        await Promise.race([complementares, new Promise((seguir) => setTimeout(seguir, 8000))]);
         setDbReady(true);
         setLoading(false);
 
@@ -4396,10 +4399,6 @@ export default function RestaurantePedidoApp() {
               </div>
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <span className="inline-flex rounded-full border border-gold-400/30 bg-gold-400/10 px-4 py-2 text-sm font-semibold text-gold-200">Sistema para restaurantes • Acesso controlado</span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${dbReady ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-amber-400/30 bg-amber-500/10 text-amber-200"}`}>
-                  <span className={`h-2 w-2 rounded-full ${dbReady ? "bg-emerald-400" : "bg-amber-400"}`} />
-                  {dbReady ? "Supabase conectado" : "Modo local"}
-                </span>
               </div>
               <h1 className="max-w-4xl text-3xl font-black tracking-tight text-white sm:text-5xl">Pedido digital completo para restaurante</h1>
               <p className="mt-3 text-sm leading-6 text-slate-300">Usuário logado: <strong className="text-white">{currentUser.name}</strong> • Perfil: {currentUser.role}</p>
@@ -5022,7 +5021,7 @@ function TabletView({
       {/* ── Gaveta/bottom-sheet do carrinho — tablet-retrato/celular ── */}
       {carrinhoAberto && (
         <div className="fixed inset-0 z-[90] flex items-end justify-end bg-[rgba(33,24,20,0.45)] backdrop-blur-sm lg:hidden" onClick={() => setCarrinhoAberto(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-[28px] shadow-[var(--client-shadow-floating)] sm:max-w-md sm:rounded-[28px]">
+          <div onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] shadow-[var(--client-shadow-floating)] sm:max-w-md sm:rounded-[28px]">
             <TabletCartPanel
               cart={cart} subtotal={subtotal} serviceFee={serviceFee} total={total} economiaCart={economiaCart} message={message}
               mesaSelecionada={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
@@ -5756,12 +5755,6 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
         <AvisoPagamentoPendenteModal pedido={avisoPagamentoPendente} onFechar={() => setAvisoPagamentoPendente(null)} />
       )}
 
-      {/* ── Rodapé ────────────────────────────────────────────── */}
-      <footer className="shrink-0 flex flex-wrap items-center justify-between gap-1 border-t border-[#E5E7EB] bg-white px-6 py-2">
-        <span className="text-xs text-[#667085]">⚡ Atualização em tempo real via Supabase</span>
-        <span className="text-xs text-[#667085]">Pedidos salvos automaticamente no banco de dados</span>
-        <span className="text-xs text-[#667085]">Sistema Restaurante — Cozinha</span>
-      </footer>
     </div>
   );
 }
@@ -5954,7 +5947,7 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
         <div className="flex items-center gap-[1vw]">
           <div className="flex items-center justify-center"
             style={{ width: "clamp(36px,4vw,60px)", height: "clamp(36px,4vw,60px)" }}>
-            <LogoPP size={60} className="h-full w-full" />
+            <LogoPP size={60} className="!h-full !w-full" />
           </div>
           <div>
             <p className="font-black uppercase tracking-[0.25em] text-[#F38525] leading-none" style={{ fontSize: "clamp(8px,0.85vw,13px)" }}>
@@ -6143,13 +6136,6 @@ function PanelView({ groupedOrders, products = [], lojaInfo }) {
         })}
       </div>
 
-      {/* ── Rodapé ────────────────────────────────────────────── */}
-      <footer className="shrink-0 flex flex-wrap items-center justify-between gap-1 border-t border-[#E5E7EB] bg-white px-[2vw]"
-        style={{ paddingTop: "clamp(4px,0.8vh,10px)", paddingBottom: "clamp(4px,0.8vh,10px)" }}>
-        <span className="text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>🔄 Atualização automática a cada 15s</span>
-        <span className="text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Pedidos prontos → retire no balcão</span>
-        <span className="text-[#667085]" style={{ fontSize: "clamp(7px,0.65vw,10px)" }}>Sistema Restaurante — Painel Público</span>
-      </footer>
     </div>
   );
 }
@@ -6278,15 +6264,17 @@ function SelectEmpresaFoco({ lojas = [], valor, onChange }) {
 // Não cria lançamentos/contas: só agrega receitas, em aberto e formas de
 // pagamento a partir dos pedidos (orders). Aditivo, sem novas tabelas.
 function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = [] }) {
-  const [preset, setPreset] = useState("30d");
-  const agora = Date.now();
-  const dias = { hoje: 1, "7d": 7, "30d": 30, tudo: null };
-  const filtrados = orders.filter((o) => {
+  const [preset, setPreset] = useState("30");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
+  const noPeriodo = (iso) => {
     if (preset === "tudo") return true;
-    if (!o.createdAtISO) return false;
-    if (preset === "hoje") return new Date(o.createdAtISO).toDateString() === new Date().toDateString();
-    return (agora - new Date(o.createdAtISO).getTime()) / 86400000 <= dias[preset];
-  });
+    if (!iso) return false;
+    const [a, b] = intervaloPeriodo(preset, ini, fim);
+    const data = new Date(iso);
+    return data >= a && data <= b;
+  };
+  const filtrados = orders.filter((o) => noPeriodo(o.createdAtISO));
   const pagos = filtrados.filter((o) => o.paymentStatus === "paid");
   const abertos = filtrados.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled");
   const receita = pagos.reduce((s, o) => s + orderTotal(o), 0);
@@ -6296,7 +6284,6 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
   pagos.forEach((o) => { const f = (o.pagamentoForma || "Não informado"); porForma[f] = (porForma[f] || 0) + orderTotal(o); });
   const formas = Object.entries(porForma).map(([nome, valor]) => ({ nome, valor })).sort((a, b) => b.valor - a.valor);
   const maxForma = Math.max(1, ...formas.map((f) => f.valor));
-  const CHIPS = [["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["tudo", "Tudo"]];
   const PALETA_FORMAS = ["#012E46", "#0B5B75", "#23879D", "#2E7D62", "#5A7180", "#F38525"];
 
   // ── Programa de Pontos (Fidelidade) — reflete a REGRA ATUAL em tempo real.
@@ -6305,12 +6292,6 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
   const fidAtivo = !!fidRegra && fidRegra.ativo !== false;
   const vppFin = Number(String(fidRegra?.valorPorPonto ?? 1).replace(",", ".")) || 1;   // R$ por 1 ponto
   const pprFin = Number(String(fidRegra?.pontosPorReal ?? 100).replace(",", ".")) || 100; // pts por R$ 1,00
-  const noPeriodo = (iso) => {
-    if (preset === "tudo") return true;
-    if (!iso) return false;
-    if (preset === "hoje") return new Date(iso).toDateString() === new Date().toDateString();
-    return (agora - new Date(iso).getTime()) / 86400000 <= dias[preset];
-  };
   const fidEmitidosTot = fidTransacoes.reduce((s, t) => s + (t.tipo === "earn" ? (Number(t.pontos) || 0) : 0), 0);
   const fidResgatadosTot = Math.abs(fidTransacoes.reduce((s, t) => s + (t.tipo === "redeem" ? (Number(t.pontos) || 0) : 0), 0));
   const fidCirculante = Math.max(0, fidEmitidosTot - fidResgatadosTot);           // saldo de pontos em circulação
@@ -6333,19 +6314,7 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
     <main className="space-y-5">
       <PageHeader icone={<IconPagamento />} titulo="Visão Financeira"
         descricao="Receitas, valores em aberto e formas de pagamento — consolidados dos pedidos do período." />
-      {/* Filtro de período — controle segmentado ENQUADRADO: botões emoldurados,
-          largura igual, 2 colunas no celular e 4 no desktop (responsivo). */}
-      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#DDE4E8] bg-[#F7F9FA] p-2 sm:grid-cols-4">
-        {CHIPS.map(([id, l]) => {
-          const on = preset === id;
-          return (
-            <button key={id} type="button" onClick={() => setPreset(id)} aria-pressed={on}
-              className={`min-h-10 rounded-xl border px-3 py-2 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525] ${on ? "border-[#012E46] bg-[#012E46] text-white shadow-sm" : "border-[#DDE4E8] bg-white text-[#475467] hover:border-[#AFC2CC] hover:bg-[#F7F9FA]"}`}>
-              {l}
-            </button>
-          );
-        })}
-      </div>
+      <FiltroPeriodo valor={preset} onMudar={setPreset} ini={ini} fim={fim} onIni={setIni} onFim={setFim} />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <CardMetrica compact titulo="Receitas (pago)" valor={formatCurrency(receita)} sub={`${pagos.length} pedidos pagos`} cor="text-emerald-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>} />
         <CardMetrica compact titulo="Valores em aberto" valor={formatCurrency(emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-gold-400" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
@@ -6429,7 +6398,7 @@ function LancamentoModal({ inicial, contexto = "todos", onFechar, onSalvar, salv
       : "Registre uma receita, despesa ou movimentação financeira da empresa.";
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="tema-claro-area flex w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92dvh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <h3 className="page-title text-lg font-bold text-white">{tituloModal}</h3>
@@ -6573,7 +6542,7 @@ function LancamentosAdmin({ lojaId = null, orders = [], modo = "todos" }) {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-2">
           {[["todos", "Todos"], ["receita", "Receitas"], ["despesa", "Despesas"]].map(([id, l]) => (
             <FilterChip key={id} size="sm" selected={filtroTipo === id} label={l} onClick={() => setFiltroTipo(id)} />
@@ -6688,7 +6657,7 @@ function CommandPalette({ open, onClose, sections = [], onNavigate, onSair }) {
             className="w-full bg-transparent text-sm text-[#012E46] outline-none placeholder:text-slate-400" />
           <span className="shrink-0 rounded-md border border-[var(--pp-border)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--pp-text-muted)]">ESC</span>
         </div>
-        <div ref={listRef} className="max-h-[58vh] space-y-1 overflow-y-auto p-2">
+        <div ref={listRef} className="max-h-[58dvh] space-y-1 overflow-y-auto p-2">
           {itens.length === 0 ? (
             <p className="px-3 py-10 text-center text-sm text-[var(--pp-text-muted)]">Nada encontrado para “{q}”.</p>
           ) : itens.map((it, i) => {
@@ -7145,7 +7114,6 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
         </label>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:flex xl:items-center">
           {[
-            { rot: "Período", val: periodo, set: setPeriodo, ops: [["hoje", "Hoje"], ["ontem", "Ontem"], ["7", "7 dias"], ["15", "15 dias"], ["30", "30 dias"], ["periodo", "Período"], ["todos", "Todos"]] },
             { rot: "Status", val: filtro, set: setFiltro, ops: [["em_andamento", "Em andamento"], ["todas", "Todos"], ["aberta", "Abertas"], ["em_preparo", "Em preparo"], ["pronta", "Prontas"], ["aguardando_pagamento", "Aguard. pagamento"], ["finalizada", "Finalizadas"], ["cancelada", "Canceladas"]] },
             { rot: "Origem", val: origem, set: setOrigem, ops: [["todas", "Todas"], ["local", "Local"], ["externo", "Externo"]] },
             { rot: "Ordenação", val: ordenacao, set: setOrdenacao, ops: [["recentes", "Mais recentes"], ["antigas", "Mais antigas"], ["maior", "Maior valor"], ["menor", "Menor valor"]] },
@@ -7159,24 +7127,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
               </div>
             </label>
           ))}
-          {periodo === "periodo" && (
-            <>
-              <label className={`${selBox} col-span-2 sm:col-span-1`}>
-                <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data inicial</span>
-                  <input type="date" value={periodoIni} max={periodoFim || undefined} onChange={(e) => comReset(setPeriodoIni)(e.target.value)}
-                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
-                </div>
-              </label>
-              <label className={`${selBox} col-span-2 sm:col-span-1`}>
-                <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data final</span>
-                  <input type="date" value={periodoFim} min={periodoIni || undefined} onChange={(e) => comReset(setPeriodoFim)(e.target.value)}
-                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
-                </div>
-              </label>
-            </>
-          )}
+          <FiltroPeriodo valor={periodo === "todos" ? "tudo" : periodo} onMudar={(v) => comReset(setPeriodo)(v === "tudo" ? "todos" : v)} ini={periodoIni} fim={periodoFim} onIni={comReset(setPeriodoIni)} onFim={comReset(setPeriodoFim)} className="col-span-full" />
           <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(1, 46, 70,0.35)] bg-[rgba(1, 46, 70,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.12)]">Limpar filtros</button>
         </div>
       </div>
@@ -7336,7 +7287,7 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
         const etapas = [["Recebido → Preparo", t.recebidoPreparo], ["Preparo → Pronto", t.preparoPronto], ["Pronto → Finalização", t.prontoFim]].filter(([, v]) => v != null);
         return (
           <div className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(15,23,42,0.5)] p-4 backdrop-blur-sm" onClick={() => setDetalhe(null)}>
-            <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
+            <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="flex max-h-[86dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
               <div className="flex items-start justify-between gap-3 border-b border-[var(--pp-border)] p-5">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -7500,95 +7451,78 @@ const SidebarSubItem = React.memo(function SidebarSubItem({ label, selected, onC
 });
 const cxSidebar = (...c) => c.filter(Boolean).join(" ");
 
-// Grupo de itens com rótulo — usado dentro do menu (Visão Geral, Operação…).
-function SidebarSection({ titulo, children }) {
+// Grupo do menu (Visão Geral, Operação…): só um fica aberto por vez. A altura
+// anima pela grade (0fr → 1fr), sem medir nada em JavaScript.
+function SidebarSection({ titulo, aberto, temAtivo, onAlternar, children }) {
+  const id = React.useId();
   return (
     <div>
-      <p className="px-3 mb-1 text-[9.5px] font-bold uppercase tracking-widest text-white/55">{titulo}</p>
-      <div className="space-y-0.5">{children}</div>
+      <button type="button" onClick={onAlternar} aria-expanded={aberto} aria-controls={id}
+        className="flex min-h-[38px] w-full items-center gap-2 rounded-xl px-3 text-left text-[10.5px] font-semibold uppercase tracking-widest transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-white/80"
+        style={{ color: aberto || temAtivo ? "#FFFFFF" : "rgba(255,255,255,0.66)", background: aberto ? "rgba(255,255,255,0.05)" : undefined }}>
+        <span className="min-w-0 flex-1 truncate">{titulo}</span>
+        {!aberto && temAtivo && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F38525]" aria-hidden="true" />}
+        <ChevronDown className={cxSidebar("h-4 w-4 shrink-0 transition-transform duration-300", aberto && "rotate-180")} aria-hidden="true" />
+      </button>
+      <div id={id} className="pp-grupo" data-aberto={aberto ? "true" : "false"} inert={!aberto}>
+        <div><div className="space-y-0.5 py-1">{children}</div></div>
+      </div>
     </div>
   );
 }
 
-// Rodapé — selo de assinatura + ação de sair (fim da hierarquia do Sidebar).
-// Estilo neutro (não usa --pp-danger): "Sair" não é um status de pedido
-// nem um erro — as 4 cores semânticas ficam reservadas exclusivamente ao
-// fluxo de pedidos, com o mesmo significado nas três superfícies.
-// Rodapé — agora reúne, próximos entre si (abaixo do menu), a IDENTIDADE do
-// usuário logado + selo de assinatura + ação de sair. Fontes menores para um
-// acabamento mais elegante/gourmet, mantendo contraste AA (branco no petróleo).
+// Usuário no topo: nome visível e, ao tocar, os dados da conta e a saída.
 function AdminUserActions({ currentUser, isSuperAdmin, lojaInfo, onSair }) {
   const nome = currentUser?.name || "Usuário";
   const iniciais = nome.split(/\s+/).slice(0, 2).map((parte) => parte.charAt(0)).join("").toUpperCase();
-  return (
-    <div className="flex min-w-0 items-center gap-2 font-[inherit]">
-      <div className="hidden min-w-0 text-right sm:block">
-        <p className="max-w-52 truncate text-[11px] font-bold leading-4 text-[#012E46]">{nome}</p>
-        <p className="max-w-52 truncate text-[10px] font-normal leading-3.5 text-[#637985]">
-          {isSuperAdmin ? "Administrador geral" : (lojaInfo?.nome || currentUser?.role || "Usuário")}
-        </p>
-      </div>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#012E46] text-xs font-extrabold tracking-wide text-white shadow-sm" aria-hidden="true">
-        {iniciais || "U"}
-      </div>
-      <button type="button" onClick={onSair} aria-label="Sair do sistema" title="Sair do sistema"
-        className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#012E46] bg-[#012E46] px-2.5 text-[11px] font-bold text-white transition hover:border-[#0B4561] hover:bg-[#0B4561] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
-        <span aria-hidden="true">↪</span><span className="hidden sm:inline">Sair</span>
-      </button>
-    </div>
-  );
-}
-
-function AdminStatusBar({ currentUser, lojaInfo }) {
-  const [agora, setAgora] = useState(() => new Date());
+  const papel = isSuperAdmin ? "Administrador geral" : (currentUser?.role || "Usuário");
   const versao = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
+  const [aberto, setAberto] = useState(false);
+  const raizRef = useRef(null);
+  const botaoRef = useRef(null);
   useEffect(() => {
-    const timer = window.setInterval(() => setAgora(new Date()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  const dataHora = agora.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  return (
-    <footer className="flex min-h-9 shrink-0 items-center justify-between gap-3 border-t border-[#DDE4E8] bg-[#F7F9FA] px-3 py-1.5 font-[inherit] text-[10.5px] font-medium leading-4 text-[#526A76] sm:px-5 sm:text-[11px]" aria-label="Informações do sistema">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#012E46]"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />PostgreSQL</span>
-        <span className="hidden max-w-52 truncate md:inline">Empresa: <b className="font-semibold text-[#012E46]">{lojaInfo?.nome || "Nenhuma selecionada"}</b></span>
-        <span className="hidden max-w-44 truncate lg:inline">Usuário: <b className="font-semibold text-[#012E46]">{currentUser?.name || "—"}</b></span>
-      </div>
-      <div className="flex shrink-0 items-center gap-3 tabular-nums">
-        <time className="font-medium text-[#012E46]" dateTime={agora.toISOString()}>{dataHora}</time>
-        <span className="hidden text-[10.5px] font-semibold text-[#012E46] sm:inline">v{versao}</span>
-      </div>
-    </footer>
+    if (!aberto) return undefined;
+    const fora = (e) => { if (!raizRef.current?.contains(e.target)) setAberto(false); };
+    const tecla = (e) => { if (e.key === "Escape") { setAberto(false); botaoRef.current?.focus(); } };
+    document.addEventListener("pointerdown", fora);
+    document.addEventListener("keydown", tecla);
+    return () => { document.removeEventListener("pointerdown", fora); document.removeEventListener("keydown", tecla); };
+  }, [aberto]);
+  const avatar = (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#012E46] text-xs font-semibold tracking-wide" style={{ color: "#FFFFFF" }} aria-hidden="true">
+      {iniciais || "U"}
+    </span>
   );
-}
-
-// Mantido temporariamente como referência visual para instalações antigas; o
-// layout atual usa AdminUserActions no topo e AdminStatusBar no rodapé.
-// eslint-disable-next-line no-unused-vars
-function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, onSair }) {
   return (
-    <div className="shrink-0 border-t border-white/10 p-2.5 space-y-2">
-      {currentUser && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.04] px-2.5 py-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-[12px] font-black text-white/85 uppercase select-none" aria-hidden="true">
-            {(currentUser.name || "U").charAt(0)}
+    <div ref={raizRef} className="relative min-w-0 font-[inherit]">
+      <button ref={botaoRef} type="button" onClick={() => setAberto((v) => !v)} aria-haspopup="menu" aria-expanded={aberto} aria-label={`Conta de ${nome}`} data-testid="menu-usuario"
+        className="flex min-h-11 max-w-full items-center gap-2 rounded-full border border-[#E1E7EB] bg-white py-1 pl-1 pr-2.5 text-left transition-colors duration-150 hover:bg-[#F7F9FA] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F38525]">
+        {avatar}
+        <span className="min-w-0">
+          <span className="block max-w-[10rem] truncate text-[13px] font-semibold leading-4 text-[#012E46] sm:max-w-56">{nome}</span>
+          <span className="hidden max-w-56 truncate text-[11px] leading-4 text-[#667085] sm:block">{lojaInfo?.nome || papel}</span>
+        </span>
+        <ChevronDown className={cxSidebar("h-4 w-4 shrink-0 text-[#667085] transition-transform duration-200", aberto && "rotate-180")} aria-hidden="true" />
+      </button>
+      {aberto && (
+        <div role="menu" className="pp-menu absolute right-0 top-full z-[90] mt-2 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-[#E1E7EB] bg-white shadow-[0_18px_40px_-12px_rgba(1,46,70,0.28)]">
+          <div className="flex items-center gap-3 border-b border-[#EEF2F4] p-3">
+            {avatar}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-[#012E46]">{nome}</p>
+              {currentUser?.email && <p className="truncate text-xs text-[#667085]">{currentUser.email}</p>}
+              <p className="truncate text-xs text-[#667085]">{papel}{lojaInfo?.nome ? ` · ${lojaInfo.nome}` : ""}</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[12px] font-black text-white leading-tight">{currentUser.name}</p>
-            <p className="truncate text-[9.5px] text-white/55 leading-tight">{currentUser.role || "Usuário"}</p>
+          <div className="p-1.5">
+            <button type="button" role="menuitem" onClick={() => { setAberto(false); onSair(); }}
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-sm font-semibold text-[#C81E4A] transition-colors hover:bg-[#FDF2F5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C81E4A]">
+              <LogOut className="h-4 w-4" aria-hidden="true" /> Sair do sistema
+            </button>
           </div>
-          {isSuperAdmin ? (
-            <span className="shrink-0 rounded-full bg-[rgba(243, 133, 37,0.15)] px-1.5 py-0.5 text-[8.5px] font-black uppercase tracking-wide text-[var(--pp-nav-accent)]">Admin</span>
-          ) : lojaInfo ? (
-            <span className="shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[8.5px] font-black text-white/55">{lojaInfo.prefixo}</span>
-          ) : null}
+          <p className="border-t border-[#EEF2F4] px-3 py-2 text-[11px] text-[#667085]" data-testid="versao-sistema">Versão {versao}</p>
         </div>
       )}
-      <TrialBadge assinatura={assinaturaAtual} />
-      <button onClick={onSair}
-        className="flex w-full min-h-[36px] items-center justify-center gap-1 rounded-xl border border-white/15 bg-transparent py-2 text-[12px] font-bold text-white/75 hover:bg-white/10 transition active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40">
-        ← Sair
-      </button>
     </div>
   );
 }
@@ -7596,10 +7530,17 @@ function SidebarFooter({ currentUser, isSuperAdmin, lojaInfo, assinaturaAtual, o
 // Menu de navegação — monta as seções a partir de SidebarSection + SidebarItem
 // (nenhum outro componente deve renderizar itens de menu fora deste par).
 function SidebarNavItems({ menu, ativo, setAdminSection, canAccessModule, assinaturaAtual, planoAtual, planoModulos, isSuperAdmin, onNavigate, irParaCozinha, relatorioSub = "geral", onRelatorioSubChange = () => {} }) {
+  const grupos = menuComConfiguracoesAgrupadas(menu);
+  const contem = (g) => g.itens.some((i) => i.id === ativo || !!i.tambem?.includes(ativo));
+  const grupoAtivo = grupos.find(contem)?.grupo ?? grupos[0]?.grupo;
+  const [grupoAberto, setGrupoAberto] = useState(grupoAtivo);
+  // Ao navegar (busca rápida, atalhos), o grupo da tela atual passa a ser o aberto.
+  useEffect(() => { setGrupoAberto(grupoAtivo); }, [grupoAtivo]);
   return (
-    <nav className="scrollbar-none flex-1 overflow-y-auto px-2.5 py-3 space-y-3" aria-label="Navegação principal">
-      {menuComConfiguracoesAgrupadas(menu).map((g) => (
-        <SidebarSection key={g.grupo} titulo={g.grupo}>
+    <nav className="scrollbar-none flex-1 overflow-y-auto overscroll-contain px-2.5 py-2 space-y-1" aria-label="Navegação principal">
+      {grupos.map((g) => (
+        <SidebarSection key={g.grupo} titulo={g.grupo} aberto={grupoAberto === g.grupo} temAtivo={contem(g)}
+          onAlternar={() => setGrupoAberto((atual) => (atual === g.grupo ? null : g.grupo))}>
           {g.itens.map((it) => {
             const sel = ativo === it.id || !!it.tambem?.includes(ativo);
             const bloq = !canAccessModule(it.id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin });
@@ -7876,7 +7817,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
             <ModuloBloqueado slug={ADMIN_COZINHA_NAV.id} />
           ) : !canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
             <ModuloBloqueado slug={ativo} />
-          ) : (<SecaoErrorBoundary key={ativo}>
+          ) : (<SecaoErrorBoundary key={ativo}><React.Suspense fallback={<Carregando rotulo="Abrindo a tela…" />}>
           {ehTelaDeConfiguracao(ativo) && (
             <AbasConfiguracoes abas={abasDisponiveis(itensValidos)} ativa={ativo} onAbrir={setAdminSection}
               bloqueada={(id) => !canAccessModule(id, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin })} />
@@ -7891,7 +7832,17 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
               irParaRelatorio={(sub) => { setAdminSection("relatorios"); onRelatorioSubChange(sub); }}
             />
           ))}
-          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
+          {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : (
+            <CopilotoIA
+              key={lojaInfo?.id}
+              orders={dashboardOrders}
+              products={dashboardProducts}
+              pesquisas={filtrarPorLojaEstrita(pesquisas, lojaInfo?.id)}
+              lojaNome={lojaInfo?.nome || ""}
+              irPara={setAdminSection}
+              irParaRelatorio={(sub) => { setAdminSection("relatorios"); onRelatorioSubChange(sub); }}
+            />
+          ))}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} aba={relatorioSub} onAbaChange={onRelatorioSubChange} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
@@ -8084,9 +8035,8 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
               emitenteFiscalApi={emitenteFiscalApi}
             />
           )}
-          </SecaoErrorBoundary>)}
+          </React.Suspense></SecaoErrorBoundary>)}
         </div>
-        <AdminStatusBar currentUser={currentUser} lojaInfo={lojaInfo} />
       </div>
     </div>
   );
@@ -8095,23 +8045,6 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
 // ════════════════════════════════════════════════════════════
 //  Filtro de período + seletor de datas
 // ════════════════════════════════════════════════════════════
-function intervaloPeriodo(periodo, ini, fim) {
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const fimHoje = new Date(); fimHoje.setHours(23, 59, 59, 999);
-  switch (periodo) {
-    case "hoje":   return [hoje, fimHoje];
-    case "ontem": { const o = new Date(hoje); o.setDate(o.getDate() - 1); const of = new Date(o); of.setHours(23,59,59,999); return [o, of]; }
-    case "7":  { const d = new Date(hoje); d.setDate(d.getDate() - 6);  return [d, fimHoje]; }
-    case "15": { const d = new Date(hoje); d.setDate(d.getDate() - 14); return [d, fimHoje]; }
-    case "30": { const d = new Date(hoje); d.setDate(d.getDate() - 29); return [d, fimHoje]; }
-    case "periodo": {
-      const a = ini ? new Date(ini + "T00:00:00") : new Date(0);
-      const b = fim ? new Date(fim + "T23:59:59") : fimHoje;
-      return [a, b];
-    }
-    default: return [new Date(0), fimHoje];
-  }
-}
 function filtrarPedidosPorPeriodo(orders, periodo, ini, fim) {
   if (periodo === "tudo") return orders;
   const [a, b] = intervaloPeriodo(periodo, ini, fim);
@@ -8127,302 +8060,33 @@ function filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim) {
   return pesquisas.filter((p) => { if (!p.criadoEmISO) return true; const d = new Date(p.criadoEmISO); return d >= a && d <= b; });
 }
 
-// ── Helpers de data (YYYY-MM-DD) ─────────────────────────────
-function dataHojeStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 function formatarDataBR(s) {
   if (!s) return "";
   const [y, m, d] = s.split("-");
   return `${d}/${m}/${y}`;
 }
 
-// ── Calendário minimalista (datas futuras desabilitadas) ──────
-function CalendarioMinimalista({ valor, onChange, max, min, placeholder = "Selecionar", alinhar = "esquerda" }) {
-  const [aberto, setAberto] = useState(false);
-  const ref = useRef(null);
-  const baseRef = valor ? new Date(valor + "T00:00:00") : new Date();
-  const [vista, setVista] = useState({ ano: baseRef.getFullYear(), mes: baseRef.getMonth() });
-
-  useEffect(() => {
-    const fn = (e) => { if (ref.current && !ref.current.contains(e.target)) setAberto(false); };
-    document.addEventListener("mousedown", fn);
-    return () => document.removeEventListener("mousedown", fn);
-  }, []);
-  // Ao abrir, posiciona o mês na data selecionada (ou hoje)
-  useEffect(() => {
-    if (!aberto) return;
-    const b = valor ? new Date(valor + "T00:00:00") : new Date();
-    setVista({ ano: b.getFullYear(), mes: b.getMonth() });
-  }, [aberto]);
-
-  const meses = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const diasSemana = ["D", "S", "T", "Q", "Q", "S", "S"];
-  const primeiroDiaSemana = new Date(vista.ano, vista.mes, 1).getDay();
-  const diasNoMes = new Date(vista.ano, vista.mes + 1, 0).getDate();
-  const maxDate = max ? new Date(max + "T23:59:59") : null;
-  const minDate = min ? new Date(min + "T00:00:00") : null;
-  const podeProximo = !maxDate || new Date(vista.ano, vista.mes + 1, 1) <= maxDate;
-
-  const desabilitado = (dia) => {
-    const d = new Date(vista.ano, vista.mes, dia);
-    if (maxDate && d > maxDate) return true;
-    if (minDate && d < minDate) return true;
-    return false;
-  };
-  const ehSelecionado = (dia) => valor === `${vista.ano}-${String(vista.mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-
-  function selecionar(dia) {
-    if (desabilitado(dia)) return;
-    onChange(`${vista.ano}-${String(vista.mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`);
-    setAberto(false);
-  }
-  function navegar(delta) {
-    setVista((v) => {
-      const novo = new Date(v.ano, v.mes + delta, 1);
-      return { ano: novo.getFullYear(), mes: novo.getMonth() };
-    });
-  }
-
-  const IconCalendario = ({ className = "h-3.5 w-3.5" }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="4.5" width="18" height="16" rx="3" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
-    </svg>
-  );
-
-  return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setAberto((a) => !a)}
-        className={`flex h-[30px] items-center gap-2 rounded-full border bg-white px-3 text-xs font-bold outline-none transition ${aberto ? "border-[#9BB4C0] text-[#012E46]" : "border-[#E5E7EB] text-[#475467] hover:bg-[#F8FAFC] hover:border-[#D0D5DD]"}`}>
-        <span className={aberto ? "text-[#012E46]" : "text-[#012E46]/70"}><IconCalendario /></span>
-        <span className={valor ? "" : "text-[#98A2B3]"}>{valor ? formatarDataBR(valor) : placeholder}</span>
-      </button>
-
-      {aberto && (
-        <div className={`absolute top-full z-[120] mt-2 w-64 rounded-2xl border border-[#E5E7EB] bg-white p-3 shadow-[0_12px_32px_rgba(16,24,40,0.10)] ${alinhar === "direita" ? "right-0" : "left-0"}`}>
-          {/* Cabeçalho do mês */}
-          <div className="mb-2 flex items-center justify-between">
-            <button type="button" onClick={() => navegar(-1)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#667085] hover:bg-[#F3F4F6] transition">‹</button>
-            <span className="text-sm font-black text-[#182230]">{meses[vista.mes]} {vista.ano}</span>
-            <button type="button" onClick={() => podeProximo && navegar(1)} disabled={!podeProximo}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#667085] hover:bg-[#F3F4F6] transition disabled:opacity-25 disabled:cursor-not-allowed">›</button>
-          </div>
-          {/* Dias da semana */}
-          <div className="mb-1 grid grid-cols-7 gap-0.5 text-center">
-            {diasSemana.map((d, i) => (
-              <span key={i} className="py-1 text-[10px] font-black uppercase text-[#98A2B3]">{d}</span>
-            ))}
-          </div>
-          {/* Grade de dias */}
-          <div className="grid grid-cols-7 gap-0.5">
-            {Array.from({ length: primeiroDiaSemana }).map((_, i) => <span key={"e" + i} />)}
-            {Array.from({ length: diasNoMes }).map((_, i) => {
-              const dia = i + 1;
-              const off = desabilitado(dia);
-              const sel = ehSelecionado(dia);
-              return (
-                <button key={dia} type="button" disabled={off} onClick={() => selecionar(dia)}
-                  className={`flex h-8 items-center justify-center rounded-lg text-xs font-bold transition ${
-                    sel ? "border border-[#9BB4C0] bg-[#E8EDF0] text-[#012E46]"
-                    : off ? "text-[#D0D5DD] cursor-not-allowed"
-                    : "text-[#475467] hover:bg-[#F3F4F6]"}`}>
-                  {dia}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function SeletorPeriodo({ periodo, setPeriodo, ini, setIni, fim, setFim }) {
-  const opcoes = [
-    { id: "hoje", label: "Hoje" }, { id: "ontem", label: "Ontem" },
-    { id: "7", label: "7 dias" }, { id: "15", label: "15 dias" }, { id: "30", label: "30 dias" },
-    { id: "tudo", label: "Tudo" }, { id: "periodo", label: "Período" },
-  ];
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
-      {opcoes.map((o) => (
-        <FilterChip key={o.id} size="sm" selected={periodo === o.id} label={o.label} onClick={() => setPeriodo(o.id)} />
-      ))}
-      {periodo === "periodo" && (
-        <div className="flex flex-wrap items-center gap-2">
-          <CalendarioMinimalista valor={ini} onChange={setIni} max={dataHojeStr()} placeholder="Data inicial" />
-          <span className="text-xs text-[#667085]">até</span>
-          <CalendarioMinimalista valor={fim} onChange={setFim} max={dataHojeStr()} min={ini || undefined} placeholder="Data final" alinhar="direita" />
-        </div>
-      )}
-    </div>
-  );
+  return <FiltroPeriodo valor={periodo} onMudar={setPeriodo} ini={ini} fim={fim} onIni={setIni} onFim={setFim} />;
 }
 
-// ════════════════════════════════════════════════════════════
-//  Helpers de análise de vendas (a partir dos pedidos)
-// ════════════════════════════════════════════════════════════
-function analisarVendas(orders, products) {
-  // Cancelados não entram em faturamento, em aberto, produtos vendidos, etc.
-  const validos = orders.filter((o) => o.status !== "cancelled");
-  const pagos = validos.filter((o) => o.paymentStatus === "paid");
-  const faturamento = pagos.reduce((s, o) => s + totalComTaxa(o), 0); // com taxa
-  const faturamentoSemTaxa = pagos.reduce((s, o) => s + orderTotal(o), 0);
-  const emAberto = validos.filter((o) => o.paymentStatus !== "paid").reduce((s, o) => s + totalComTaxa(o), 0);
-  const ticket = pagos.length ? faturamento / pagos.length : 0;
-
-  // Produtos mais vendidos — considera VENDAS REALIZADAS (pedidos pagos),
-  // mantendo consistência com o faturamento e com o drill-down de cupons.
-  const porProduto = {};
-  pagos.forEach((o) => o.items.forEach((it) => {
-    if (!porProduto[it.name]) porProduto[it.name] = { nome: it.name, qtd: 0, valor: 0 };
-    porProduto[it.name].qtd += it.quantity;
-    porProduto[it.name].valor += it.price * it.quantity;
-  }));
-  const topProdutos = Object.values(porProduto).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
-
-  // Por categoria (cruza nome do item com categoria do produto) — também só pagos
-  const catDe = {};
-  products.forEach((p) => { catDe[p.name] = p.category; });
-  const porCategoria = {};
-  pagos.forEach((o) => o.items.forEach((it) => {
-    const cat = catDe[it.name] || "Outros";
-    if (!porCategoria[cat]) porCategoria[cat] = { categoria: cat, valor: 0, qtd: 0 };
-    porCategoria[cat].valor += it.price * it.quantity;
-    porCategoria[cat].qtd += it.quantity;
-  }));
-  const categorias = Object.values(porCategoria).sort((a, b) => b.valor - a.valor);
-
-  return { pagos, faturamento, faturamentoSemTaxa, emAberto, ticket, topProdutos, categorias, totalPedidos: validos.length };
-}
-
-// Barra horizontal simples (sem biblioteca externa)
-function BarraHorizontal({ label, valor, max, sufixo = "", cor = "bg-blue-500" }) {
-  const pct = max > 0 ? (valor / max) * 100 : 0;
-  return (
-    <div className="pp-chart-container">
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className="text-slate-500 truncate pr-2">{label}</span>
-        <span className="font-black text-dash-navy shrink-0">{sufixo === "R$" ? formatCurrency(valor) : `${valor}${sufixo}`}</span>
-      </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-full rounded-full ${cor} transition-all duration-700`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
-// Tons do ícone de KPI — green/rose/blue já usam os tokens brand.* oficiais
-// (success/danger/info); gold/violet seguem em hex fixo até existir token
-// dedicado para acento dourado premium e violeta (ver relatório de migração).
-const CARD_METRICA_TONES = {
-  green:  "bg-brand-successSoft text-brand-success",
-  rose:   "bg-brand-dangerSoft text-brand-danger",
-  blue:   "bg-brand-infoSoft text-brand-info",
-  gold:   "bg-[#FFF7E0] text-[#9A6A00]",
-  violet: "bg-[#F5F3FF] text-[#7C3AED]",
-  // Paleta exclusiva do Dashboard Gerencial (aditivo — não altera os tons acima)
-  dashPrimary: "bg-blue-500/10 text-blue-500",
-  dashSuccess: "bg-emerald-500/10 text-emerald-500",
-  dashWarning: "bg-amber-500/10 text-amber-500",
-  dashInfo:    "bg-violet-500/10 text-violet-500",
-  dashDanger:  "bg-red-500/10 text-red-500",
-  // Paleta OFICIAL Pedido Prime (laranja=ação, petróleo=institucional, verde=sucesso)
-  marcaPetroleo: "bg-[#012E46]/10 text-[#012E46]",
-  marcaLaranja:  "bg-[#F38525]/12 text-[#F38525]",
-  marcaVerde:    "bg-[#5E8C31]/12 text-[#5E8C31]",
-};
 // `compact` (aditivo, default false) — versão mais enxuta e elegante do card,
 // usada no Dashboard Gerencial (fonte/altura menores). As demais telas seguem
 // idênticas ao passar sem a prop.
-function CardMetrica({ titulo, valor, sub, cor = "text-brand-ink", icon, variacao = null, tone = "gold", compact = false }) {
-  const toneCls = CARD_METRICA_TONES[tone] || CARD_METRICA_TONES.gold;
+function CardMetrica({ titulo, valor, sub, icon, variacao = null, compact = false }) {
   return (
-    <div className={`h-full border border-brand-border bg-white ${compact ? "rounded-2xl p-4" : "rounded-3xl p-5"}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className={`font-bold uppercase tracking-widest text-brand-inkMuted ${compact ? "text-[10.5px]" : "text-xs"}`}>{titulo}</p>
-        {icon && <span className={`flex shrink-0 items-center justify-center rounded-full text-sm ${compact ? "h-8 w-8 [&>svg]:h-4 [&>svg]:w-4" : "h-10 w-10 [&>svg]:h-[18px] [&>svg]:w-[18px]"} ${toneCls}`}>{icon}</span>}
+    <div className={`flex h-full min-w-0 flex-col rounded-2xl border border-[#E5E7EB] bg-white shadow-[0_1px_2px_rgba(1,46,70,0.05)] ${compact ? "p-3 sm:p-4" : "p-4 sm:p-5"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 text-[10.5px] font-semibold uppercase leading-snug tracking-wider text-[#667085]">{titulo}</p>
+        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#012E46]/[0.07] text-sm text-[#012E46] [&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">{icon}</span>}
       </div>
-      <p className={`page-title font-bold ${compact ? "mt-1.5 text-[22px] leading-tight" : "mt-2 text-3xl"} ${cor}`}>{valor}</p>
+      <p className="mt-1 text-xl font-semibold leading-tight tracking-tight tabular-nums text-[#012E46] [overflow-wrap:anywhere]">{valor}</p>
       {variacao != null && (
-        <p className={`mt-1 text-[11px] font-semibold ${variacao >= 0 ? "text-brand-success" : "text-brand-danger"}`}>
+        <p className="mt-1 text-[11px] font-semibold" style={{ color: variacao >= 0 ? "#1F7A3D" : "#C81E4A" }}>
           {variacao >= 0 ? "▲ +" : "▼ "}{variacao.toFixed(0)}% em relação ao período anterior
         </p>
       )}
-      {sub && <p className={`mt-1 text-brand-inkMuted ${compact ? "text-[11px]" : "text-xs"}`}>{sub}</p>}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Dashboard gerencial
-// ════════════════════════════════════════════════════════════
-// ── Gráfico de rosca (donut) em SVG, sem biblioteca ──
-// Componente único, reutilizado por TODOS os donuts/pizza do projeto (Dashboard
-// "Vendas por Categoria"/"Status dos Pedidos" e Relatórios "Faturamento por
-// categoria" — varredura confirmou não existir nenhum outro donut no projeto).
-// Paleta padrão dentro da lista oficial; vermelho fica reservado para
-// erro/cancelado/crítico e não entra no ciclo automático.
-const CORES_GRAF = ["#012E46", "#10B981", "#F38525", "#8B5CF6", "#012E46", "#64748B"];
-// corCentral/legendaColorida/interativo têm o padrão de referência (usado por
-// todos os donuts); ainda são sobrescrevíveis caso uma tela futura precise de
-// um comportamento diferente, sem duplicar a configuração em cada chamada.
-function DonutChart({ dados, label = "", corCentral = "#0D1B2A", legendaColorida = true, interativo = true }) {
-  const [ativo, setAtivo] = useState(null);
-  const total = dados.reduce((s, d) => s + d.valor, 0);
-  if (total === 0) return (
-    <div className="flex h-48 flex-col items-center justify-center gap-1 text-center">
-      <p className="text-sm font-semibold text-slate-400">Nenhuma venda encontrada para este período.</p>
-      <p className="text-xs text-slate-500">Altere o filtro de datas ou aguarde novas movimentações.</p>
-    </div>
-  );
-  const R = 70, C = 2 * Math.PI * R;
-  let acc = 0;
-  const corDe = (d, i) => d.cor || CORES_GRAF[i % CORES_GRAF.length];
-  return (
-    <div className="pp-chart-container flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-      <svg viewBox="0 0 180 180" className="h-44 w-44 -rotate-90 overflow-visible">
-        {dados.map((d, i) => {
-          const frac = d.valor / total;
-          const dash = frac * C;
-          const el = (
-            <circle key={i} cx="90" cy="90" r={R} fill="none" stroke={corDe(d, i)} strokeWidth="26"
-              strokeDasharray={`${dash} ${C - dash}`} strokeDashoffset={-acc}
-              className={interativo ? "pp-chart-focus-svg" : undefined}
-              tabIndex={interativo ? 0 : undefined} aria-label={interativo ? `${d.label}: ${formatCurrency(d.valor)} (${((d.valor / total) * 100).toFixed(0)}%)` : undefined}
-              style={interativo ? { cursor: "pointer", opacity: ativo == null || ativo === i ? 1 : 0.35 } : undefined}
-              onMouseEnter={interativo ? () => setAtivo(i) : undefined} onMouseLeave={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined}
-              onFocus={interativo ? () => setAtivo(i) : undefined} onBlur={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined} />
-          );
-          acc += dash;
-          return el;
-        })}
-        <text x="90" y="90" className="rotate-90" textAnchor="middle" dominantBaseline="middle" fill={corCentral} style={{ transform: "rotate(90deg)", transformOrigin: "90px 90px", fontSize: "13px", fontWeight: "900" }}>{label}</text>
-      </svg>
-      {/* position:relative só na coluna da legenda — o painel de detalhe vira
-          overlay absoluto (pp-chart-tooltip-overlay) e nunca empurra a
-          legenda nem desalinha o donut ao lado (evita o "pulo" no hover). */}
-      <div className="relative space-y-1.5">
-        {dados.map((d, i) => {
-          const cor = corDe(d, i);
-          return (
-            <div key={i} className={`flex items-center gap-2 text-sm ${interativo ? "cursor-pointer" : ""}`}
-              onMouseEnter={interativo ? () => setAtivo(i) : undefined} onMouseLeave={interativo ? () => setAtivo((c) => (c === i ? null : c)) : undefined}>
-              <span className="h-3 w-3 rounded-sm" style={{ background: cor }} />
-              <span className={legendaColorida ? "font-semibold" : "text-slate-500"} style={legendaColorida ? { color: cor } : undefined}>{d.label}</span>
-              <span className={`font-black ${legendaColorida ? "" : "text-dash-navy"}`} style={legendaColorida ? { color: cor } : undefined}>{((d.valor / total) * 100).toFixed(0)}%</span>
-            </div>
-          );
-        })}
-        {interativo && ativo != null && dados[ativo] && (
-          <GraficoTooltip className="pp-chart-tooltip-overlay left-0 right-0 top-full mt-1.5">
-            <p className="font-bold" style={{ color: "#334155" }}>{dados[ativo].label}</p>
-            <p className="font-black" style={{ color: corDe(dados[ativo], ativo) }}>{formatCurrency(dados[ativo].valor)} · {((dados[ativo].valor / total) * 100).toFixed(0)}%</p>
-          </GraficoTooltip>
-        )}
-      </div>
+      {sub && <p className="mt-1 text-[11px] leading-snug text-[#667085]">{sub}</p>}
     </div>
   );
 }
@@ -8934,1581 +8598,6 @@ function OperacaoMobileView({ fiscalVendaPdv = null, orders = [], updateOrderSta
       <OperationalBottomNav items={navItems} active={tab} onNavigate={(id) => setTab(id)} />
     </div>
     </div>
-  );
-}
-
-// Gráfico de barras por horário — paleta média cíclica, com destaque
-// dourado no melhor horário (mantém o insight visual do pico de vendas).
-// Abrevia valores grandes em BRL ("R$ 1,2 mil"); mantém formato cheio abaixo de R$ 1.000.
-function formatarMoedaAbrev(v) {
-  if (v >= 1000) {
-    const mil = v / 1000;
-    const casas = mil < 10 ? 1 : 0;
-    return `R$ ${mil.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas })} mil`;
-  }
-  return formatCurrency(v);
-}
-// Tooltip único, tema claro — reutilizado por todos os gráficos do projeto
-// que exibem um balão de detalhe (hoje: BarrasHora). Mesmo raio/sombra dos
-// cards do sistema (ver Painel), fundo branco, borda e paleta oficiais.
-function GraficoTooltip({ children, className = "" }) {
-  return (
-    <div role="tooltip" className={`rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 text-left text-[11px] leading-snug text-[#334155] shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-// Gráfico "Faturamento por horário" — barras com tooltip acessível (hover, foco
-// por teclado ou toque, sem depender de hover) e cor semântica por barra:
-// cinza = sem venda, terracota = melhor horário, verde = acima da média,
-// azul = padrão. Ver Design System (chart tokens) — nenhuma cor aleatória.
-const ALTURA_TRACK_HORA = 150;
-// paleta: opcional — sobrescreve as cores padrão sem afetar quem não a passa
-// (ex.: Relatórios). O Dashboard Gerencial injeta a paleta oficial da tela.
-const PALETA_BARRAS_HORA_PADRAO = { semVenda: "#94A3B8", pico: "#C4322B", acimaMedia: "#3F7D5A", padrao: "#012E46", grade: "#E5E7EB", texto: "#64748B", textoValor: "#475467" };
-function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
-  const [ativo, setAtivo] = useState(null);
-  const p = { ...PALETA_BARRAS_HORA_PADRAO, ...paleta };
-  const comVendas = dados.filter((d) => d.valor > 0);
-  if (comVendas.length === 0) {
-    return (
-      <div className="flex h-[200px] flex-col items-center justify-center gap-1 text-center">
-        <p className="text-sm font-semibold text-[#64748B]">Nenhum faturamento encontrado para o período selecionado.</p>
-      </div>
-    );
-  }
-  const max = Math.max(1, ...dados.map((d) => d.valor));
-  const maxVal = Math.max(...dados.map((d) => d.valor));
-  const media = comVendas.reduce((s, d) => s + d.valor, 0) / comVendas.length;
-  const corDe = (d) => {
-    if (d.valor <= 0) return p.semVenda;
-    if (d.valor === maxVal) return p.pico;
-    if (d.valor >= media) return p.acimaMedia;
-    return p.padrao;
-  };
-  const melhorLabel = dados.find((d) => d.valor === maxVal)?.label || "";
-  return (
-    <div className="pp-chart-container">
-      {/* Valores acima das barras — ocultos em telas muito estreitas p/ evitar colisão; dado continua no tooltip/aria-label */}
-      <div className="flex items-end justify-between gap-1 sm:gap-1.5">
-        {dados.map((d, i) => (
-          <span key={i} className="hidden w-full truncate text-center font-bold leading-none sm:block" style={{ fontSize: 9, color: p.textoValor }}>
-            {d.valor > 0 ? formatarMoedaAbrev(d.valor) : ""}
-          </span>
-        ))}
-      </div>
-      {/* Trilho das barras — altura fixa, grid horizontal discreto + tooltip por barra */}
-      <div className="relative mt-1 flex items-end justify-between gap-1 sm:gap-1.5" style={{ height: ALTURA_TRACK_HORA }}>
-        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between" aria-hidden="true">
-          {[0, 1, 2, 3].map((i) => <div key={i} className="border-t" style={{ borderColor: p.grade }} />)}
-        </div>
-        {dados.map((d, i) => {
-          const alturaPx = d.valor > 0 ? Math.max(4, (d.valor / max) * ALTURA_TRACK_HORA) : 0;
-          const aberto = ativo === i;
-          const diffPct = d.valor > 0 && media > 0 ? Math.round(((d.valor - media) / media) * 100) : null;
-          return (
-            <div key={i} className="relative min-w-[10px] flex-1 sm:min-w-[16px]" style={{ height: ALTURA_TRACK_HORA }}>
-              <button type="button"
-                className="pp-chart-focus absolute bottom-0 left-0 right-0 rounded-t-md transition-[height] duration-200 ease-out motion-reduce:transition-none"
-                style={{ height: alturaPx, backgroundColor: corDe(d) }}
-                onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
-                onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}
-                onClick={() => setAtivo(i)}
-                aria-label={`${d.label}: ${d.valor > 0 ? formatCurrency(d.valor) : "sem faturamento"}${d.qtd ? `, ${d.qtd} pedido${d.qtd > 1 ? "s" : ""}` : ""}`}>
-                {aberto && (
-                  <GraficoTooltip className="pp-chart-tooltip-overlay bottom-[calc(100%+8px)] left-1/2 w-max max-w-[180px] -translate-x-1/2">
-                    <p className="font-bold" style={{ color: "#0D1B2A" }}>{d.label}</p>
-                    <p className="mt-0.5 font-black" style={{ color: d.valor > 0 ? "#012E46" : "#64748B" }}>{d.valor > 0 ? formatCurrency(d.valor) : "Sem faturamento"}</p>
-                    {d.qtd > 0 && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} pedido{d.qtd > 1 ? "s" : ""} · ticket médio {formatCurrency(d.valor / d.qtd)}</p>}
-                    {diffPct != null && (
-                      <p className="mt-0.5 font-semibold" style={{ color: diffPct >= 0 ? "#10B981" : "#64748B" }}>{diffPct >= 0 ? "▲" : "▼"} {Math.abs(diffPct)}% vs. média do período</p>
-                    )}
-                  </GraficoTooltip>
-                )}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      {/* Horários — no mobile mostra alternado para não colidir; dado completo segue no aria-label/tooltip */}
-      <div className="mt-1 flex justify-between gap-1 sm:gap-1.5">
-        {dados.map((d, i) => (
-          <span key={i} className={`w-full truncate text-center leading-none ${i % 2 !== 0 ? "hidden sm:block" : ""}`} style={{ fontSize: 9, color: p.texto }}>{d.label}</span>
-        ))}
-      </div>
-      <p className="sr-only">Melhor horário de venda: {melhorLabel}, {formatCurrency(maxVal)}.</p>
-    </div>
-  );
-}
-
-// Card de painel padrão do dashboard (título + descrição curta opcional + ação)
-function Painel({ titulo, descricao = null, acao = null, children, className = "" }) {
-  return (
-    <div className={`rounded-[20px] border border-brand-border bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.06)] ${className}`}>
-      <div className="mb-4 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="page-title text-base font-bold text-brand-ink">{titulo}</h3>
-          {descricao && <p className="mt-0.5 text-xs text-brand-inkSoft">{descricao}</p>}
-        </div>
-        {acao}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Copiloto de Gestão (IA Gerencial) — análise heurística dos dados
-//  reais (vendas, CRM, operação, riscos) → resumo + insights + ações.
-//  100% local (sem enviar dados a terceiros), determinístico e instantâneo.
-// ════════════════════════════════════════════════════════════
-const META_TICKET_IA = 45;
-function analisarGestaoIA(ctx) {
-  const { fat, emAberto, ticket, totalPedidos, comparativo, produtoTop, melhorHora, semEstoque = [],
-    cancelados = [], valorPerdido = 0, motivoPrincipal = "—", clientesPeriodo = 0, clientesCadastrados = 0,
-    mesasCriticas = 0, tempoMedioPrep = null, taxaEntrega = 0, pctIdentificado = 0,
-    vips = [], inativos = [], novosClientes = 0, produtosParados = [], periodoLabel = "período",
-    margemPct = null, mediaSatisfacao = null, npsSatisfacao = null, respostasSatisfacao = 0 } = ctx;
-  const fmt = formatCurrency;
-  const insights = []; const acoes = [];
-  // impacto é inferido da severidade (crit/warn = alto/médio impacto de negócio; pos/info = baixo,
-  // são leitura de contexto). acaoId (opcional) é a seção do admin para o link "Ver detalhes"/o KPI relacionado.
-  const IMPACTO_POR_SEV = { crit: "alto", warn: "médio", pos: "baixo", info: "baixo" };
-  const addIns = (cat, sev, texto, acaoId = null) => insights.push({ cat, sev, texto, impacto: IMPACTO_POR_SEV[sev], acaoId });
-  const addAct = (prio, texto, motivo, area, kpiId = null) => acoes.push({ prio, texto, motivo, area, kpiId, impacto: prio === "alta" ? "Alto" : prio === "media" ? "Médio" : "Baixo" });
-
-  // ── VENDAS ──────────────────────────────────────────────
-  if (comparativo?.faturamento != null) {
-    const v = Math.round(comparativo.faturamento);
-    if (v >= 10) addIns("Vendas", "pos", `Faturamento ${v >= 0 ? "+" : ""}${v}% vs. período anterior — tendência de alta.`);
-    else if (v <= -10) { addIns("Vendas", "crit", `Faturamento ${v}% vs. período anterior — queda relevante.`); addAct("alta", "Ativar promoção/combo e campanha de retorno para reverter a queda de vendas.", `Faturamento caiu ${v}%.`, "Vendas", "faturamento"); }
-    else addIns("Vendas", "info", `Faturamento estável (${v >= 0 ? "+" : ""}${v}%) frente ao período anterior.`);
-  }
-  if (ticket > 0 && ticket < META_TICKET_IA) { addIns("Vendas", "warn", `Ticket médio ${fmt(ticket)} abaixo da meta (${fmt(META_TICKET_IA)}).`); addAct("alta", produtoTop ? `Criar combo do "${produtoTop.nome}" + bebida/acompanhamento para elevar o ticket.` : "Criar combos e sugestões de acompanhamento para elevar o ticket.", `Ticket ${fmt(ticket)} < meta ${fmt(META_TICKET_IA)}.`, "Vendas", "ticket"); }
-  else if (ticket >= META_TICKET_IA) addIns("Vendas", "pos", `Ticket médio ${fmt(ticket)} acima da meta — bom aproveitamento por pedido.`);
-
-  // ── PRODUTOS ────────────────────────────────────────────
-  if (produtoTop) addIns("Produtos", "info", `Carro-chefe: ${produtoTop.nome} (${produtoTop.qtd} un.). Use como âncora de combos e destaques.`, "products");
-  if (produtosParados.length > 0) { addIns("Produtos", "warn", `${produtosParados.length} produto(s) ativo(s) sem vendas no ${periodoLabel}.`, "products"); addAct("media", `Dar destaque/promoção aos produtos parados: ${produtosParados.slice(0, 3).join(", ")}${produtosParados.length > 3 ? "…" : ""}.`, "Itens encalhados imobilizam cardápio e estoque.", "Produtos", "produtosParados"); }
-
-  // ── OPERAÇÃO ────────────────────────────────────────────
-  if (melhorHora?.valor > 0) { addIns("Operação", "info", `Pico de vendas às ${melhorHora.label} (${fmt(melhorHora.valor)}).`); addAct("media", `Reforçar equipe e estoque no horário de pico (${melhorHora.label}).`, "Concentração de demanda no pico.", "Operação"); }
-  if (mesasCriticas > 0) addIns("Operação", "warn", `${mesasCriticas} mesa(s) aberta(s) há +40 min — risco de giro lento.`, "mesas");
-  if (tempoMedioPrep != null && tempoMedioPrep > 25) { addIns("Operação", "warn", `Tempo médio de preparo alto: ${tempoMedioPrep} min.`); addAct("media", "Revisar fluxo da cozinha/mise en place no pico para reduzir o tempo de preparo.", "Espera longa reduz satisfação e giro.", "Operação", "tempoPreparo"); }
-  if (taxaEntrega > 0 && taxaEntrega < 80) addIns("Operação", "info", `Taxa de conclusão dos pedidos em ${taxaEntrega}%.`);
-
-  // ── CLIENTES / CRM ─────────────────────────────────────
-  if (pctIdentificado < 0.6 && totalPedidos > 0) { addIns("Clientes", "warn", `Apenas ${Math.round(pctIdentificado * 100)}% dos pedidos têm cliente identificado.`, "crm"); addAct("alta", "Incentivar o cadastro (nome + telefone) no caixa/tablet — base de CRM para campanhas.", "Sem identificação não há CRM nem recompra dirigida.", "Clientes", "clientesId"); }
-  else if (totalPedidos > 0) addIns("Clientes", "pos", `${Math.round(pctIdentificado * 100)}% dos pedidos identificam o cliente — boa base de CRM.`);
-  if (inativos.length > 0) { addIns("Clientes", "warn", `${inativos.length} cliente(s) inativo(s) (sem comprar há +30 dias).`, "crm"); addAct("alta", `Disparar campanha de retorno (CRM) para os ${inativos.length} inativos com um mimo/cupom.`, "Reativar inativos custa menos que captar novos.", "Clientes", "clientesInativos"); }
-  if (vips.length > 0) { addIns("Clientes", "pos", `${vips.length} cliente(s) VIP. Top: ${vips[0].nome || "cliente"} (${fmt(vips[0].total)}).`, "crm"); addAct("media", "Programa de fidelidade/benefício exclusivo para os VIPs reterem e elevarem o gasto.", "VIPs concentram boa parte do faturamento.", "Clientes"); }
-  if (novosClientes > 0) addIns("Clientes", "pos", `${novosClientes} novo(s) cliente(s) cadastrado(s) no ${periodoLabel}.`);
-  if (clientesCadastrados > 0 && clientesPeriodo > 0) addIns("Clientes", "info", `${clientesPeriodo} de ${clientesCadastrados} clientes compraram no ${periodoLabel} (${Math.round((clientesPeriodo / clientesCadastrados) * 100)}% da base ativa).`);
-
-  // ── ESTOQUE ─────────────────────────────────────────────
-  if (semEstoque.length > 0) { addIns("Estoque", "crit", `${semEstoque.length} produto(s) abaixo do estoque mínimo.`, "products"); addAct("alta", `Repor estoque: ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`, "Ruptura de estoque = venda perdida.", "Estoque", "estoqueCritico"); }
-  else addIns("Estoque", "pos", "Todos os produtos com estoque adequado.");
-
-  // ── FINANCEIRO ──────────────────────────────────────────
-  const pctAberto = fat + emAberto > 0 ? emAberto / (fat + emAberto) : 0;
-  if (emAberto > 0 && pctAberto >= 0.1) { addIns("Financeiro", "warn", `${fmt(emAberto)} em aberto (${Math.round(pctAberto * 100)}% do previsto).`, "caixa"); addAct("alta", "Revisar comandas em aberto e cobrar/fechar antes do fim do expediente.", "Valores em aberto viram inadimplência/perda.", "Financeiro"); }
-  const taxaCancel = totalPedidos > 0 ? cancelados.length / totalPedidos : 0;
-  if (taxaCancel >= 0.05) { addIns("Financeiro", "crit", `Cancelamentos em ${Math.round(taxaCancel * 100)}% (${fmt(valorPerdido)} perdidos). Motivo principal: ${motivoPrincipal}.`); addAct("alta", `Atacar a causa dos cancelamentos (${motivoPrincipal}).`, `Perda de ${fmt(valorPerdido)} no ${periodoLabel}.`, "Financeiro"); }
-  if (margemPct != null) {
-    if (margemPct < 20) { addIns("Financeiro", "warn", `Margem estimada de ${margemPct.toFixed(0)}% — abaixo do saudável para o setor.`, "products"); addAct("media", "Revisar preços/custo dos itens de menor margem ou priorizar os mais rentáveis nas vitrines.", `Margem estimada de ${margemPct.toFixed(0)}%.`, "Financeiro", "margem"); }
-    else addIns("Financeiro", "pos", `Margem estimada de ${margemPct.toFixed(0)}% no ${periodoLabel}.`, "products");
-  }
-
-  // ── SATISFAÇÃO ──────────────────────────────────────────
-  if (respostasSatisfacao > 0 && mediaSatisfacao != null) {
-    if (mediaSatisfacao < 3.5) { addIns("Satisfação", "crit", `Satisfação média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s) — abaixo do esperado.`, "satisfacao"); addAct("alta", "Investigar os comentários e perguntas com pior nota na aba Satisfação.", `Média de satisfação em ${mediaSatisfacao.toFixed(1)}/5.`, "Satisfação", "satisfacao"); }
-    else if (mediaSatisfacao < 4) addIns("Satisfação", "warn", `Satisfação média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s) — espaço para melhora.`, "satisfacao");
-    else addIns("Satisfação", "pos", `Satisfação média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s).`, "satisfacao");
-    if (npsSatisfacao != null && npsSatisfacao < 0) addIns("Satisfação", "warn", `NPS negativo (${npsSatisfacao}) — mais detratores que promotores.`, "satisfacao");
-  } else {
-    addIns("Satisfação", "info", "Sem pesquisas de satisfação respondidas no período.", "satisfacao");
-  }
-
-  // ── ALERTAS CRÍTICOS (separados dos insights — só os riscos reais) ──
-  const alertasCriticos = [];
-  const addAlerta = (titulo, desc, sev = "crit") => alertasCriticos.push({ titulo, desc, sev });
-  if (comparativo?.faturamento != null && Math.round(comparativo.faturamento) <= -10) addAlerta("Queda relevante de vendas", `Faturamento ${Math.round(comparativo.faturamento)}% vs. período anterior.`);
-  if (semEstoque.length > 0) addAlerta("Estoque abaixo do mínimo", `${semEstoque.length} produto(s): ${semEstoque.slice(0, 3).map((p) => p.name).join(", ")}${semEstoque.length > 3 ? "…" : ""}.`);
-  if (tempoMedioPrep != null && tempoMedioPrep > 25) addAlerta("Tempo de preparo elevado", `Média de ${tempoMedioPrep} min por pedido no ${periodoLabel}.`, "warn");
-  if (mesasCriticas > 0) addAlerta("Comandas abertas há muito tempo", `${mesasCriticas} mesa(s) aberta(s) há mais de 40 minutos.`, "warn");
-  if (produtosParados.length > 0) addAlerta("Produtos sem venda", `${produtosParados.length} produto(s) ativo(s) sem nenhuma venda no ${periodoLabel}.`, "warn");
-  if (inativos.length > 0) addAlerta("Clientes inativos", `${inativos.length} cliente(s) sem comprar há mais de 30 dias.`, "warn");
-  if (respostasSatisfacao > 0 && mediaSatisfacao != null && mediaSatisfacao < 3.5) addAlerta("Satisfação abaixo do esperado", `Média de ${mediaSatisfacao.toFixed(1)}/5 em ${respostasSatisfacao} resposta(s) no ${periodoLabel}.`, "warn");
-
-  // ── SCORE DE SAÚDE — regras locais, transparentes e determinísticas (a IA
-  // não participa deste cálculo; ela só interpreta o resultado já pronto). ──
-  const REGRAS_SCORE = [
-    { peso: 10, desc: "Faturamento em alta (+10) ou queda relevante (-12) vs. período anterior" },
-    { peso: -10, desc: "Valores em aberto ≥10% do previsto (-5 a -10)" },
-    { peso: -10, desc: "Produtos com estoque abaixo do mínimo (até -10)" },
-    { peso: -10, desc: "Taxa de cancelamento ≥5%" },
-    { peso: 6, desc: "Ticket médio acima (+4) ou abaixo (-6) da meta" },
-    { peso: -5, desc: "Mesas abertas há mais de 40 minutos" },
-    { peso: 4, desc: "% de pedidos com cliente identificado acima/abaixo de 60%" },
-    { peso: -3, desc: "Clientes inativos (+30 dias sem comprar)" },
-    { peso: 6, desc: "Margem estimada abaixo de 20% (-6), quando há custo cadastrado" },
-    { peso: 5, desc: "Satisfação média abaixo de 3,5/5, quando há respostas" },
-  ];
-  let score = 72;
-  if (comparativo?.faturamento != null) score += comparativo.faturamento > 0 ? 10 : (comparativo.faturamento < -10 ? -12 : 0);
-  if (pctAberto >= 0.15) score -= 10; else if (pctAberto >= 0.1) score -= 5;
-  if (semEstoque.length > 0) score -= Math.min(10, semEstoque.length * 3);
-  if (taxaCancel >= 0.05) score -= 10;
-  if (ticket > 0 && ticket < META_TICKET_IA) score -= 6; else if (ticket >= META_TICKET_IA) score += 4;
-  if (mesasCriticas > 0) score -= 5;
-  if (pctIdentificado >= 0.6) score += 4; else if (totalPedidos > 0) score -= 4;
-  if (inativos.length > 0) score -= 3;
-  if (margemPct != null && margemPct < 20) score -= 6;
-  if (respostasSatisfacao > 0 && mediaSatisfacao != null && mediaSatisfacao < 3.5) score -= 5;
-  score = Math.max(5, Math.min(100, Math.round(score)));
-  // Diagnóstico em 3 níveis (Saudável/Atenção/Crítico), conforme padrão da tela.
-  const nivel = score >= 60 ? "Saudável" : score >= 40 ? "Atenção" : "Crítico";
-
-  // ── RESUMO (linguagem natural) + resultado positivo/risco/oportunidade em destaque ──
-  const tend = comparativo?.faturamento == null ? "" : comparativo.faturamento > 5 ? ` (${comparativo.faturamento >= 0 ? "+" : ""}${Math.round(comparativo.faturamento)}% vs. anterior, em alta)` : comparativo.faturamento < -5 ? ` (${Math.round(comparativo.faturamento)}% vs. anterior, em queda)` : " (estável vs. anterior)";
-  const partes = [];
-  partes.push(`No ${periodoLabel}, o faturamento pago foi ${fmt(fat)}${tend}, em ${totalPedidos} pedido(s), ticket médio ${fmt(ticket)}.`);
-  if (produtoTop) partes.push(`O ${produtoTop.nome} é o carro-chefe.`);
-  if (melhorHora?.valor > 0) partes.push(`O pico de vendas é às ${melhorHora.label}.`);
-  const riscos = [];
-  if (emAberto > 0) riscos.push(`${fmt(emAberto)} em aberto`);
-  if (semEstoque.length) riscos.push(`${semEstoque.length} item(ns) com estoque baixo`);
-  if (inativos.length) riscos.push(`${inativos.length} cliente(s) inativo(s)`);
-  if (riscos.length) partes.push(`Atenção a: ${riscos.join(", ")}.`);
-  const acaoTop = acoes.find((x) => x.prio === "alta") || acoes[0];
-  if (acaoTop) partes.push(`Prioridade agora: ${acaoTop.texto}`);
-  const resumo = partes.join(" ");
-
-  const positivos = insights.filter((i) => i.sev === "pos");
-  const criticosOuAlerta = insights.filter((i) => i.sev === "crit" || i.sev === "warn");
-  const resultadoPositivo = positivos.sort((x, y) => (x.cat === "Vendas" ? -1 : 0) - (y.cat === "Vendas" ? -1 : 0))[0]?.texto || "Sem destaque positivo claro neste período.";
-  const principalRisco = alertasCriticos[0]?.desc ? `${alertasCriticos[0].titulo}: ${alertasCriticos[0].desc}` : (criticosOuAlerta[0]?.texto || "Nenhum risco relevante identificado.");
-  const principalOportunidade = (produtosParados.length > 0 && `Promover os ${produtosParados.length} produto(s) sem venda no ${periodoLabel}.`)
-    || (inativos.length > 0 && `Reativar os ${inativos.length} cliente(s) inativos.`)
-    || (ticket > 0 && ticket < META_TICKET_IA && "Elevar o ticket médio com combos e sugestões.")
-    || "Nenhuma oportunidade de alto impacto identificada além da operação atual.";
-
-  const ordPrio = { alta: 0, media: 1, baixa: 2 };
-  acoes.sort((x, y) => ordPrio[x.prio] - ordPrio[y.prio]);
-  return { score, nivel, resumo, resultadoPositivo, principalRisco, principalOportunidade, regrasScore: REGRAS_SCORE, insights, acoes: acoes.slice(0, 8), alertasCriticos };
-}
-
-// Card de indicador do Copiloto IA — fundo sempre branco, cor só na borda
-// lateral e no badge de status (evita "card colorido"), conforme padrão visual
-// e paleta oficial (hex exatos, não classes genéricas do Tailwind). "Analisar"
-// preenche o chat com uma pergunta contextual sobre o indicador.
-const KPI_COPILOTO_TONS = {
-  blue: "#012E46", emerald: "#10B981", amber: "#F38525", violet: "#8B5CF6", red: "#EF4444",
-};
-// "Analisar" não recebe uma função por prop — o clique sobe até o container
-// do grid (elemento nativo) por delegação, que lê data-pergunta e chama o
-// chat. Evita passar uma closure que toca chatAbortRef como prop de um
-// componente customizado (o React Compiler não consegue provar que o filho
-// não a chamaria durante o próprio render, mesmo quando o filho só a usa
-// dentro do onClick do seu próprio botão — mesmo cuidado já aplicado ao
-// MenuAcoesCupom nesta sessão).
-function KpiCardCopiloto({ titulo, valor, variacao, desc, tom = "blue", status, pergunta }) {
-  const cor = KPI_COPILOTO_TONS[tom] || KPI_COPILOTO_TONS.blue;
-  return (
-    <div className="rounded-2xl border bg-white p-4" style={{ borderColor: "#E2E8F0", borderLeftColor: cor, borderLeftWidth: 4 }}>
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-[#64748B]">{titulo}</p>
-        {status && <span className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase" style={{ background: `${cor}1A`, color: cor }}>{status}</span>}
-      </div>
-      <p className="mt-1.5 text-2xl font-black text-[#0D1B2A]">{valor}</p>
-      {variacao != null && (
-        <p className="mt-1 text-[11px] font-bold" style={{ color: variacao >= 0 ? "#10B981" : "#EF4444" }}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}% vs. período anterior</p>
-      )}
-      {desc && <p className="mt-1 text-xs leading-snug text-[#64748B]" title={desc}>{desc}</p>}
-      {pergunta && (
-        <button data-pergunta={pergunta} title={`Perguntar ao Copiloto sobre ${titulo.toLowerCase()}`} aria-label={`Analisar ${titulo}`}
-          className="mt-2.5 text-[11px] font-bold transition hover:opacity-70" style={{ color: cor }}>🔎 Analisar</button>
-      )}
-    </div>
-  );
-}
-
-// Card de oportunidade do Copiloto IA — lista curta com render por item.
-function OportunidadeCard({ titulo, itens, vazio, render }) {
-  return (
-    <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[#64748B]">{titulo}</p>
-      {(!itens || itens.length === 0) ? (
-        <p className="text-xs text-[#94A3B8]">{vazio}</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {itens.map((it, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-[#334155]">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#012E46]" />
-              <span className="min-w-0">{render(it)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-// Bolha de resposta estruturada do chat — segue o formato obrigatório em 6
-// partes (resposta direta, evidências, diagnóstico, ações, impacto,
-// limitações) mais riscos/oportunidades quando existirem, e o rodapé de
-// "grounding" (período analisado, confiança, quando foi gerada).
-const CONFIANCA_COR = { alta: "#10B981", media: "#F38525", baixa: "#64748B" };
-function RespostaCopilotoBubble({ resultado, modelo, dataPeriod, bloqueado, atualizadoEm, copiado, onCopiar, feedback, onFeedback }) {
-  if (!resultado) return null;
-  const corConfianca = CONFIANCA_COR[resultado.confidence] || "#64748B";
-  const textoParaCopiar = [
-    resultado.summary,
-    resultado.evidence?.length ? `Evidências: ${resultado.evidence.join("; ")}` : "",
-    resultado.diagnosis ? `Diagnóstico: ${resultado.diagnosis}` : "",
-    resultado.recommendations?.length ? `Ações recomendadas: ${resultado.recommendations.join("; ")}` : "",
-    resultado.impact ? `Impacto esperado: ${resultado.impact}` : "",
-    resultado.limitations?.length ? `Limitações: ${resultado.limitations.join("; ")}` : "",
-  ].filter(Boolean).join("\n");
-  return (
-    <div className="space-y-2">
-      <p className="font-semibold text-[#0D1B2A]">{resultado.summary}</p>
-      {resultado.evidence?.length > 0 && (
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Evidências</p>
-          <ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.evidence.map((e, i) => <li key={i}>{e}</li>)}</ul>
-        </div>
-      )}
-      {resultado.diagnosis && (
-        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Diagnóstico</p><p>{resultado.diagnosis}</p></div>
-      )}
-      {resultado.recommendations?.length > 0 && (
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Ações recomendadas</p>
-          <ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
-        </div>
-      )}
-      {resultado.risks?.length > 0 && (
-        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#EF4444]">Riscos</p><ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.risks.map((r, i) => <li key={i}>{r}</li>)}</ul></div>
-      )}
-      {resultado.opportunities?.length > 0 && (
-        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#8B5CF6]">Oportunidades</p><ul className="mt-0.5 list-disc space-y-0.5 pl-4">{resultado.opportunities.map((r, i) => <li key={i}>{r}</li>)}</ul></div>
-      )}
-      {resultado.impact && (
-        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Impacto esperado</p><p>{resultado.impact}</p></div>
-      )}
-      {resultado.limitations?.length > 0 && (
-        <div><p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Limitações dos dados</p><ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-[#64748B]">{resultado.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul></div>
-      )}
-      {!bloqueado && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[#F1F5F9] pt-2 text-[10px] text-[#94A3B8]">
-          <span>📅 Período analisado: {dataPeriod || "—"}</span>
-          <span className="flex items-center gap-1">Confiança: <b style={{ color: corConfianca }}>{resultado.confidence || "—"}</b></span>
-          {atualizadoEm && <span>🕐 {new Date(atualizadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
-          {modelo && !resultado.fallback && <span title="Modelo de IA usado nesta resposta">🤖 {modelo}</span>}
-          {resultado.fallback && <span className="font-bold text-[#F38525]">⚠️ Diagnóstico local (sem IA externa)</span>}
-        </div>
-      )}
-      <div className="flex items-center gap-3 pt-1">
-        <button onClick={() => onCopiar(textoParaCopiar)} className="text-[10px] font-bold text-[#012E46] hover:underline">{copiado ? "Copiado ✓" : "Copiar resposta"}</button>
-        {!bloqueado && (
-          <span className="flex items-center gap-1.5">
-            <button onClick={() => onFeedback("util")} title="Resposta útil" aria-label="Marcar como útil" className="text-xs" style={{ opacity: feedback === "util" ? 1 : 0.4 }}>👍</button>
-            <button onClick={() => onFeedback("naoUtil")} title="Resposta não útil" aria-label="Marcar como não útil" className="text-xs" style={{ opacity: feedback === "naoUtil" ? 1 : 0.4 }}>👎</button>
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// O sistema ainda não tem uma tabela/API de tarefas (confirmado — ver
-// histórico do projeto). Esta é a ÚNICA fonte de verdade sobre isso: quando
-// uma estrutura de persistência real existir, basta trocar para `true` e o
-// modal troca sozinho de rótulo/mensagem (nenhum outro texto foi hardcoded).
-const TEM_PERSISTENCIA_ACOES = false;
-
-// Ícones lineares de prioridade — cor própria por nível (nunca azul
-// primário para "Alta"), com borda + texto + aria-pressed no botão.
-const IcoPrioAlta = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M12 9v4M12 17h.01M10.3 3.9 2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /></svg>);
-const IcoPrioMedia = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M5 12h14" /></svg>);
-const IcoPrioBaixa = (p) => (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" {...p}><path d="M12 5v14M6 13l6 6 6-6" /></svg>);
-const PRIORIDADE_ACAO = {
-  alta: { label: "Alta", cor: "#DC2626", Icone: IcoPrioAlta },
-  media: { label: "Média", cor: "#F38525", Icone: IcoPrioMedia },
-  baixa: { label: "Baixa", cor: "#64748B", Icone: IcoPrioBaixa },
-};
-
-// Modal "Criar plano de ação" (Copiloto IA) — reformulado como ferramenta de
-// criação/acompanhamento de ações gerenciais. Continua sem tabela própria de
-// tarefas (ver TEM_PERSISTENCIA_ACOES acima): o rótulo do botão, a mensagem
-// de sucesso e o texto de status derivam dessa única constante, nunca de
-// texto solto — se uma API real for criada no futuro, só ela muda.
-function ModalCriarAcao({ acao, usuarios = [], onFechar, onConfirmar }) {
-  const [titulo, setTitulo] = useState("");
-  const [responsavel, setResponsavel] = useState("");
-  const [prazo, setPrazo] = useState("");
-  const [prioridade, setPrioridade] = useState("media");
-  const [planoAcao, setPlanoAcao] = useState("");
-  const [resultadoEsperado, setResultadoEsperado] = useState("");
-  const [erros, setErros] = useState({});
-  const [enviando, setEnviando] = useState(false);
-  const [sucesso, setSucesso] = useState(false);
-  const [erroEnvio, setErroEnvio] = useState(false);
-  const painelRef = useRef(null);
-  const tituloRef = useRef(null);
-  const focoAnteriorRef = useRef(null);
-
-  useEffect(() => {
-    if (!acao) return undefined;
-    setTitulo(acao.titulo || ""); setResponsavel(""); setPrazo("");
-    setPrioridade(acao.prioridade || "media"); setPlanoAcao(""); setResultadoEsperado("");
-    setErros({}); setEnviando(false); setSucesso(false); setErroEnvio(false);
-    focoAnteriorRef.current = document.activeElement;
-    tituloRef.current?.focus();
-    const painel = painelRef.current;
-    function aoTeclado(e) {
-      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
-      if (e.key !== "Tab" || !painel) return;
-      const focaveis = painel.querySelectorAll("button, a, input, select, textarea, [tabindex]:not([tabindex='-1'])");
-      if (focaveis.length === 0) return;
-      const primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
-      if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
-      else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
-    }
-    document.addEventListener("keydown", aoTeclado);
-    return () => {
-      document.removeEventListener("keydown", aoTeclado);
-      focoAnteriorRef.current?.focus?.();
-    };
-  }, [acao, onFechar]);
-  useScrollLock(!!acao);
-
-  if (!acao) return null;
-
-  function validar() {
-    const e = {};
-    if (!titulo.trim()) e.titulo = "Informe um título para a ação.";
-    if (!planoAcao.trim()) e.planoAcao = "Descreva o plano de ação.";
-    if (prazo && prazo < dataHojeStr()) e.prazo = "O prazo não pode ser anterior a hoje.";
-    setErros(e);
-    return Object.keys(e).length === 0;
-  }
-
-  async function confirmar() {
-    if (enviando) return; // impede clique duplicado
-    if (!validar()) { setErroEnvio(true); setTimeout(() => setErroEnvio(false), 1200); return; }
-    setEnviando(true);
-    await new Promise((r) => setTimeout(r, 550)); // preparo local — sem chamada de rede
-    setEnviando(false);
-    setSucesso(true);
-    setTimeout(() => onConfirmar({ titulo: titulo.trim(), responsavel, prazo, prioridade, planoAcao: planoAcao.trim(), resultadoEsperado: resultadoEsperado.trim() }), 500);
-  }
-
-  const inputCls = "w-full min-h-[44px] rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#0F172A] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/25";
-  const lblCls = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#64748B]";
-  const usuariosAtivos = usuarios.filter((u) => u.active !== false);
-
-  return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-[#0F172A]/60 p-4 backdrop-blur-sm" onClick={onFechar} role="presentation">
-      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="titulo-modal-acao"
-        className="flex max-h-[90vh] w-[calc(100%-32px)] flex-col overflow-hidden rounded-[1.25rem] border border-[#E2E8F0] bg-white shadow-2xl sm:w-full sm:max-w-[600px]">
-        {/* Cabeçalho fixo */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#E2E8F0] px-6 py-5">
-          <div className="min-w-0">
-            <h2 id="titulo-modal-acao" className="text-lg font-black text-[#0F172A]">Criar plano de ação</h2>
-            <p className="mt-1 text-sm text-[#64748B]">Transforme esta recomendação em uma atividade prática para acompanhar a melhoria dos resultados.</p>
-          </div>
-          <button onClick={onFechar} title="Fechar" aria-label="Fechar modal" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#E2E8F0] text-sm font-black text-[#64748B] transition hover:bg-[#F8FAFC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46]">✕</button>
-        </div>
-
-        {/* Corpo com rolagem interna */}
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-          {/* Contexto da recomendação — somente leitura, só dados reais já recebidos */}
-          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5">
-            <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Recomendação selecionada</p>
-            <p className="mt-1 text-sm font-bold text-[#0F172A]">{acao.origem?.texto}</p>
-            {acao.origem?.motivo && <p className="mt-1 text-xs leading-5 text-[#64748B]">{acao.origem.motivo}</p>}
-            {(acao.origem?.indicadorLabel || acao.origem?.area) && (
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#64748B]">
-                {acao.origem.indicadorLabel && <span>Indicador: <b className="text-[#0F172A]">{acao.origem.indicadorLabel}</b></span>}
-                {acao.origem.valorAtual != null && <span>Valor atual: <b className="text-[#0F172A]">{acao.origem.valorAtual}</b></span>}
-                {acao.origem.variacao != null && (
-                  <span>Variação identificada: <b style={{ color: acao.origem.variacao < 0 ? "#DC2626" : "#16A34A" }}>{acao.origem.variacao >= 0 ? "+" : ""}{Math.round(acao.origem.variacao)}% no período analisado</b></span>
-                )}
-                {acao.origem.area && <span>Categoria: <b className="text-[#0F172A]">{acao.origem.area}</b></span>}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className={lblCls} htmlFor="acao-titulo">Título da ação *</label>
-            <input id="acao-titulo" ref={tituloRef} value={titulo} onChange={(e) => { setTitulo(e.target.value); if (erros.titulo) setErros((x) => ({ ...x, titulo: undefined })); }}
-              placeholder="Ex.: Criar campanha de retorno para clientes inativos" maxLength={140}
-              aria-invalid={!!erros.titulo} aria-describedby={erros.titulo ? "acao-titulo-erro" : undefined} className={inputCls} />
-            <div className="mt-1 flex items-center justify-between">
-              {erros.titulo ? <p id="acao-titulo-erro" className="text-xs font-semibold text-[#DC2626]">{erros.titulo}</p> : <span />}
-              <span className="text-[10px] text-[#94A3B8]">{titulo.length}/140</span>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className={lblCls} htmlFor="acao-responsavel">Responsável</label>
-              {usuariosAtivos.length > 0 ? (
-                <select id="acao-responsavel" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className={inputCls}>
-                  <option value="">Selecionar responsável</option>
-                  {usuariosAtivos.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
-                </select>
-              ) : (
-                <input id="acao-responsavel" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Selecionar responsável" className={inputCls} />
-              )}
-            </div>
-            <div>
-              <label className={lblCls} htmlFor="acao-prazo">Prazo</label>
-              <input id="acao-prazo" type="date" value={prazo} min={dataHojeStr()} placeholder="Selecionar data"
-                onChange={(e) => { setPrazo(e.target.value); if (erros.prazo) setErros((x) => ({ ...x, prazo: undefined })); }}
-                aria-invalid={!!erros.prazo} aria-describedby={erros.prazo ? "acao-prazo-erro" : undefined} className={inputCls} />
-              {erros.prazo && <p id="acao-prazo-erro" className="mt-1 text-xs font-semibold text-[#DC2626]">{erros.prazo}</p>}
-            </div>
-          </div>
-
-          <div>
-            <span className={lblCls} id="acao-prioridade-label">Prioridade *</span>
-            <div className="grid grid-cols-3 gap-2" role="group" aria-labelledby="acao-prioridade-label">
-              {Object.entries(PRIORIDADE_ACAO).map(([id, cfg]) => {
-                const sel = prioridade === id;
-                const Icone = cfg.Icone;
-                return (
-                  <button key={id} type="button" aria-pressed={sel} onClick={() => setPrioridade(id)}
-                    className="flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-xl border-2 px-2 py-2.5 text-xs font-black uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46] focus-visible:ring-offset-1"
-                    style={sel ? { borderColor: cfg.cor, background: `${cfg.cor}14`, color: cfg.cor } : { borderColor: "#E2E8F0", background: "#FFFFFF", color: "#64748B" }}>
-                    <Icone />{cfg.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <label className={lblCls} htmlFor="acao-plano">Plano de ação *</label>
-            <textarea id="acao-plano" value={planoAcao} rows={3}
-              onChange={(e) => { setPlanoAcao(e.target.value); if (erros.planoAcao) setErros((x) => ({ ...x, planoAcao: undefined })); }}
-              placeholder="Descreva as etapas, responsáveis envolvidos e o resultado esperado."
-              aria-invalid={!!erros.planoAcao} aria-describedby={erros.planoAcao ? "acao-plano-erro" : "acao-plano-ajuda"}
-              className={`${inputCls} resize-none`} />
-            {erros.planoAcao ? <p id="acao-plano-erro" className="mt-1 text-xs font-semibold text-[#DC2626]">{erros.planoAcao}</p> : <p id="acao-plano-ajuda" className="mt-1 text-xs text-[#64748B]">Seja objetivo e informe o que deverá ser feito para concluir esta ação.</p>}
-          </div>
-
-          <div>
-            <label className={lblCls} htmlFor="acao-resultado">Resultado esperado</label>
-            <textarea id="acao-resultado" value={resultadoEsperado} rows={2} onChange={(e) => setResultadoEsperado(e.target.value)}
-              placeholder="Ex.: Recuperar clientes inativos e aumentar o faturamento do período." className={`${inputCls} resize-none`} />
-            <p className="mt-1 text-xs text-[#64748B]">Qual resultado esta ação deve alcançar?</p>
-          </div>
-
-          <p className="text-xs text-[#64748B]">Esta ação será preparada para acompanhamento nesta recomendação.</p>
-        </div>
-
-        {/* Rodapé fixo — sombra superior separa do conteúdo rolável; empilha
-            "Confirmar plano" acima de "Cancelar" só em telas muito estreitas
-            (abaixo de 360px), lado a lado (Cancelar · Confirmar) do resto do
-            mobile em diante. */}
-        <div className="flex shrink-0 flex-col-reverse items-stretch justify-end gap-2 border-t border-[#E2E8F0] bg-white px-6 py-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)] min-[360px]:flex-row min-[360px]:items-center">
-          <button type="button" onClick={onFechar} disabled={enviando}
-            className="inline-flex min-h-[48px] items-center justify-center rounded-[10px] border border-[#CBD5E1] bg-white px-5 py-2.5 text-sm font-semibold text-[#334155] transition hover:border-[#94A3B8] hover:bg-[#F8FAFC] active:bg-[#F1F5F9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46]/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]">
-            Cancelar
-          </button>
-          <button type="button" onClick={confirmar} disabled={enviando} aria-busy={enviando}
-            style={{
-              "--btn-bg": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#012E46",
-              "--btn-bg-hover": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#012E46",
-              "--btn-bg-active": sucesso ? "#16A34A" : erroEnvio ? "#DC2626" : "#012E46",
-              boxShadow: enviando ? "none" : "0 4px 10px rgba(1, 46, 70,0.20)",
-            }}
-            className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border border-transparent bg-[var(--btn-bg)] px-5 py-2.5 text-sm font-semibold text-white transition-colors active:translate-y-px focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[rgba(1, 46, 70,0.25)] disabled:translate-y-0 disabled:cursor-not-allowed sm:min-h-[44px]
-              ${!enviando && !sucesso && !erroEnvio ? "hover:bg-[var(--btn-bg-hover)] active:bg-[var(--btn-bg-active)]" : ""}
-              ${!enviando ? "disabled:bg-[#CBD5E1] disabled:text-[#64748B] disabled:shadow-none disabled:hover:bg-[#CBD5E1]" : ""}
-              ${erroEnvio ? "animate-pulse" : ""}`}>
-            {enviando && <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-white border-r-transparent" aria-hidden="true" />}
-            <span>{sucesso ? "✓ " + (TEM_PERSISTENCIA_ACOES ? "Ação criada" : "Plano confirmado")
-              : enviando ? (TEM_PERSISTENCIA_ACOES ? "Criando ação…" : "Confirmando…")
-              : (TEM_PERSISTENCIA_ACOES ? "Criar ação" : "Confirmar plano")}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DashboardAdmin({ orders, products, clientes = [], setores = [], pesquisas = [], usuarios = [], irParaMesas = () => {}, irPara = () => {}, soCopiloto = false }) {
-  const [periodo, setPeriodo] = useState("30");
-  const [ini, setIni] = useState("");
-  const [fim, setFim] = useState("");
-  const [turno, setTurno] = useState("todos");
-  const [canal, setCanal] = useState("todos"); // Mesa/QR Code vs. Balcão/Delivery (heurística por comanda, sem campo de origem)
-  const [statusF, setStatusF] = useState("todos");
-  const [modal, setModal] = useState(null);
-  // Chat "Pergunte ao Copiloto" (IA via função segura no servidor, com
-  // fallback no motor local determinístico — ver montarRespostaLocalFallback).
-  const [chatMsgs, setChatMsgs] = useState([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatErro, setChatErro] = useState("");
-  const [chatCopiadoIdx, setChatCopiadoIdx] = useState(null);
-  const [chatFeedback, setChatFeedback] = useState({}); // { [idx]: "util" | "naoUtil" }
-  const chatAbortRef = useRef(null);
-  const [mostrarSimulador, setMostrarSimulador] = useState(false);
-  const [atualizadoEmCopiloto, setAtualizadoEmCopiloto] = useState(() => new Date());
-  function atualizarAnaliseCopiloto() { setAtualizadoEmCopiloto(new Date()); setChatErro(""); }
-  // "Criar ação" (Copiloto IA) — modal local, sem persistência própria (não há
-  // estrutura de tarefas no sistema; ver observação no resumo da tarefa).
-  const [modalAcao, setModalAcao] = useState(null);
-  const [toastAcao, setToastAcao] = useState("");
-
-  const horaDe = (o) => (o.createdAtISO ? new Date(o.createdAtISO).getHours() : (o.hour ?? null));
-  const base0 = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
-  const filtrados = base0.filter((o) => {
-    const h = horaDe(o);
-    if (turno === "almoco" && !(h != null && h >= 11 && h <= 16)) return false;
-    if (turno === "jantar" && !(h != null && h >= 18 && h <= 23)) return false;
-    if (statusF === "pago" && !(o.paymentStatus === "paid" && o.status !== "cancelled")) return false;
-    if (statusF === "aberto" && !(o.paymentStatus !== "paid" && o.status !== "cancelled")) return false;
-    if (statusF === "cancelado" && o.status !== "cancelled") return false;
-    // Canal real, mesma heurística usada em Relatórios (não há campo de origem
-    // no pedido): comanda presente = Mesa/QR Code; só mesa sem comanda = Balcão/Delivery.
-    if (canal === "mesa_qr" && !o.command) return false;
-    if (canal === "balcao_delivery" && o.command) return false;
-    return true;
-  });
-
-  const a = analisarVendas(filtrados, products);
-  const pagos = filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
-  const abertos = filtrados.filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled");
-  const cancelados = filtrados.filter((o) => o.status === "cancelled");
-  const previsto = a.faturamento + a.emAberto;
-  const produtoTop = a.topProdutos[0] || null;
-  const maxProd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
-  const semEstoque = products.filter((p) => p.controlaEstoque && (p.estoque ?? 0) <= (p.estoqueMinimo ?? 5));
-
-  // Faturamento por horário (10h → 01h), destaque no pico
-  const horas24 = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
-  pagos.forEach((o) => { const h = horaDe(o); if (h != null) { horas24[h].valor += totalComTaxa(o); horas24[h].qtd += 1; } });
-  const vendasPorHora = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24[h]);
-  const melhorHora = vendasPorHora.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
-
-  // Donut categorias e status — paleta oficial única de donuts do projeto, na
-  // ordem definida: azul, verde, âmbar, violeta, ciano, cinza. Vermelho fica
-  // reservado para erro/cancelado/crítico (não entra no ciclo de categorias).
-  // Paleta OFICIAL Pedido Prime: petróleo (institucional) + laranja (ação) +
-  // verde (frescor) e seus tons claros — sem arco-íris (azul/violeta/ciano fora
-  // da marca). Grafite fecha o ciclo como neutro para categorias extras.
-  const PALETA_SERIES_DASHBOARD = ["#012E46", "#F38525", "#5E8C31", "#012E46", "#F38525", "#2D3436"];
-  const catDonut = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_SERIES_DASHBOARD[i % PALETA_SERIES_DASHBOARD.length] }));
-  // Cor semântica por status, dentro da paleta: aguardando=laranja (atenção/ação),
-  // em preparo=petróleo (padrão), pronto=petróleo claro (apoio), entregue=verde (sucesso).
-  const CORES_STATUS_PEDIDO = { received: "#F38525", preparing: "#012E46", ready: "#012E46", delivered: "#5E8C31" };
-  const statusDist = ["received", "preparing", "ready", "delivered"]
-    .map((s) => ({ label: statusMap[s]?.label || s, valor: filtrados.filter((o) => o.status === s).length, cor: CORES_STATUS_PEDIDO[s] }))
-    .filter((d) => d.valor > 0);
-  const naoCancelados = filtrados.filter((o) => o.status !== "cancelled").length;
-  const entregues = filtrados.filter((o) => o.status === "delivered").length;
-  const taxaEntrega = naoCancelados ? Math.round((entregues / naoCancelados) * 100) : 0;
-
-  // Desempenho da cozinha (preparoEmISO → prontoEmISO)
-  const preps = filtrados.filter((o) => o.preparoEmISO && o.prontoEmISO)
-    .map((o) => (new Date(o.prontoEmISO) - new Date(o.preparoEmISO)) / 60000).filter((m) => m >= 0);
-  const tempoMedioPrep = preps.length ? Math.round(preps.reduce((s, m) => s + m, 0) / preps.length) : null;
-  const tempoMaxPrep = preps.length ? Math.round(Math.max(...preps)) : null;
-  const setorPorProduto = {}; products.forEach((p) => { if (p.setorId) setorPorProduto[p.name] = p.setorId; });
-  const contagemSetor = {}; filtrados.forEach((o) => (o.items || []).forEach((it) => { const sid = setorPorProduto[it.name]; if (sid != null) contagemSetor[sid] = (contagemSetor[sid] || 0) + it.quantity; }));
-  const setorTopId = Object.entries(contagemSetor).sort((x, y) => y[1] - x[1])[0]?.[0];
-  const setorMaisAcionado = setorTopId != null ? (setores.find((s) => String(s.id) === String(setorTopId))?.nome || "—") : "—";
-  // Itens por SETOR (só quando os produtos estão cadastrados por setor) —
-  // ordenado do mais para o menos acionado; o 1º é o destaque (laranja claro).
-  const setoresAtividade = Object.entries(contagemSetor)
-    .map(([sid, qtd]) => ({ id: sid, nome: setores.find((s) => String(s.id) === String(sid))?.nome || "Setor", qtd }))
-    .sort((a, b) => b.qtd - a.qtd);
-  const maxSetorQtd = Math.max(1, ...setoresAtividade.map((s) => s.qtd));
-
-  // Mesas/comandas em atenção (pedidos em aberto agrupados por mesa)
-  const agora = Date.now();
-  const porMesa = {};
-  abertos.forEach((o) => {
-    const t = o.table; if (!t) return;
-    const ms = o.createdAtISO ? new Date(o.createdAtISO).getTime() : agora;
-    if (!porMesa[t]) porMesa[t] = { mesa: t, valor: 0, inicio: ms, preparo: false };
-    porMesa[t].valor += totalComTaxa(o);
-    if (ms < porMesa[t].inicio) porMesa[t].inicio = ms;
-    if (o.status === "preparing" || o.status === "received") porMesa[t].preparo = true;
-  });
-  const mesasAtencao = Object.values(porMesa).map((m) => ({ ...m, mins: Math.round((agora - m.inicio) / 60000) })).sort((x, y) => y.mins - x.mins);
-  const mesasAbertas = mesasAtencao.length;
-  const tempoMedioMesa = mesasAbertas ? Math.round(mesasAtencao.reduce((s, m) => s + m.mins, 0) / mesasAbertas) : 0;
-  const fmtTempo = formatarDuracaoMin; // helper global — mesmo formato em toda a tela
-  const situacaoMesa = (m) => m.preparo ? { label: "Pedido em preparo", cls: "border-[#012E46]/30 bg-[#012E46]/10 text-[#012E46]" } : { label: "Aguardando pagamento", cls: "border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525]" };
-
-  // Cancelamentos e perdas
-  const valorPerdido = cancelados.reduce((s, o) => s + totalComTaxa(o), 0);
-  const motivos = {}; cancelados.forEach((o) => { const m = (o.cancelReason || "Não informado").trim(); motivos[m] = (motivos[m] || 0) + 1; });
-  const motivoPrincipal = Object.entries(motivos).sort((x, y) => y[1] - x[1])[0]?.[0] || "—";
-
-  // Clientes
-  const clientesPeriodo = new Set(filtrados.map((o) => o.clienteTelefone).filter(Boolean)).size;
-  const ticketPorCliente = clientesPeriodo ? a.faturamento / clientesPeriodo : 0;
-
-  // Comparativo com o período anterior (mesma duração)
-  // Alertas gerenciais (derivados dos dados reais)
-  const mesasCriticas = mesasAtencao.filter((m) => m.mins >= 40).length;
-  const alertas = [
-    a.emAberto > 0
-      ? { tom: "warning", titulo: "Atenção", desc: `${formatCurrency(a.emAberto)} em aberto no período.` }
-      : { tom: "success", titulo: "Sem pendências", desc: "Nenhum valor em aberto." },
-    melhorHora.valor > 0
-      ? { tom: "info", titulo: "Horário de maior venda", desc: `${melhorHora.label} com ${formatCurrency(melhorHora.valor)}.` }
-      : { tom: "info", titulo: "Horário de maior venda", desc: "Sem vendas no período." },
-    mesasCriticas > 0
-      ? { tom: "warning", titulo: `${mesasCriticas} mesa(s) aberta(s)`, desc: "há mais de 40 minutos." }
-      : { tom: "success", titulo: "Mesas em dia", desc: "Nenhuma mesa parada há muito tempo." },
-    semEstoque.length === 0
-      ? { tom: "success", titulo: "Todos os produtos", desc: "com estoque adequado." }
-      : { tom: "danger", titulo: `${semEstoque.length} produto(s)`, desc: "abaixo do estoque mínimo." },
-  ];
-  const tomCls = {
-    danger:  "border-[rgba(200,30,74,0.30)] bg-[rgba(200,30,74,0.08)] text-[#C81E4A]",
-    warning: "border-[rgba(243, 133, 37,0.30)] bg-[rgba(243, 133, 37,0.08)] text-[#F38525]",
-    info:    "border-[rgba(1, 46, 70,0.30)] bg-[rgba(1, 46, 70,0.08)] text-[#012E46]",
-    success: "border-[rgba(47,158,82,0.30)] bg-[rgba(47,158,82,0.08)] text-[#2F9E52]",
-  };
-
-  // Recomendações (parcialmente dinâmicas)
-  const recomendacoes = [
-    produtoTop ? `Criar combo de ${produtoTop.nome} + bebida + acompanhamento.` : "Criar combos para elevar o ticket médio.",
-    "Incentivar o cadastro de clientes no caixa.",
-    mesasCriticas > 0 ? "Monitorar mesas abertas há mais de 40 minutos." : "Manter o giro das mesas sob controle.",
-    melhorHora.valor > 0 ? `Reforçar a equipe de atendimento às ${melhorHora.label}.` : "Acompanhar os horários de pico.",
-    abertos.length > 0 ? "Conferir comandas em aberto antes do fechamento." : "Fechamento de caixa sem pendências.",
-  ];
-
-  // ── Dados de CRM (agregados de TODO o histórico) + entradas para a IA ──
-  const porCli = {};
-  orders.forEach((o) => {
-    if (o.status === "cancelled") return;
-    const tel = o.clienteTelefone; if (!tel) return;
-    const val = totalComTaxa(o);
-    const d = o.createdAtISO ? new Date(o.createdAtISO).getTime() : 0;
-    if (!porCli[tel]) porCli[tel] = { tel, nome: o.customer, qtd: 0, total: 0, ultimo: 0 };
-    porCli[tel].qtd += 1; porCli[tel].total += val; if (d > porCli[tel].ultimo) porCli[tel].ultimo = d;
-  });
-  const arrCli = Object.values(porCli);
-  const inativos = arrCli.filter((c) => c.ultimo && (agora - c.ultimo) / 86400000 > 30);
-  const vips = arrCli.filter((c) => c.qtd >= 5 || c.total >= 200).sort((x, y) => y.total - x.total);
-  const novosClientes = (() => { try { const [a0, b0] = intervaloPeriodo(periodo, ini, fim); if (!a0) return 0; return (clientes || []).filter((c) => c.criadoEm && new Date(c.criadoEm) >= a0 && new Date(c.criadoEm) <= (b0 || new Date())).length; } catch { return 0; } })();
-  const pedidosComCliente = pagos.filter((o) => o.clienteTelefone).length;
-  const pctIdentificado = pagos.length ? pedidosComCliente / pagos.length : 0;
-  const vendidosNomes = new Set();
-  filtrados.forEach((o) => { if (o.status !== "cancelled") (o.items || []).forEach((it) => vendidosNomes.add(it.name)); });
-  const produtosParados = products.filter((p) => p.active !== false && !vendidosNomes.has(p.name)).map((p) => p.name);
-  const periodoLabel = ({ hoje: "dia", ontem: "dia", "7": "últimos 7 dias", "15": "últimos 15 dias", "30": "período", tudo: "histórico" })[periodo] || "período";
-
-  // Margem estimada (preço − custo cadastrado) — mesmo cálculo já usado em
-  // outras telas (custoPorNome recomputado localmente, sem consulta nova).
-  const custoPorNomeIA = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
-  const temCustoIA = Object.values(custoPorNomeIA).some((c) => c > 0);
-  const custoTotalIA = pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + (custoPorNomeIA[it.name] ?? 0) * it.quantity, 0), 0);
-  const margemValorIA = a.faturamento - custoTotalIA;
-  const margemPctIA = temCustoIA && a.faturamento > 0 ? (margemValorIA / a.faturamento) * 100 : null;
-
-  // Satisfação (mesma pesquisa de satisfação da aba Relatórios) — só quando a
-  // prop pesquisas é fornecida (hoje só na tela dedicada do Copiloto).
-  const pesquisasPeriodo = filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim);
-  const notasPeriodoIA = pesquisasPeriodo.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
-  const mediaSatisfacaoIA = notasPeriodoIA.length ? notasPeriodoIA.reduce((s, v) => s + v, 0) / notasPeriodoIA.length : null;
-  const recSatisfacaoIA = pesquisasPeriodo.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
-  const npsSatisfacaoIA = recSatisfacaoIA.length ? Math.round(((recSatisfacaoIA.filter((v) => v >= 4).length - recSatisfacaoIA.filter((v) => v <= 2).length) / recSatisfacaoIA.length) * 100) : null;
-
-  // Comparativo com o período anterior (mesma duração) — inclui os extras usados
-  // pelos cards do Copiloto IA (tempo de preparo, % identificado, produtos parados,
-  // margem, satisfação).
-  const comparativo = (() => {
-    if (periodo === "tudo") return null;
-    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
-    if (!a0 || a0.getTime() <= 0) return null;
-    const dur = b0.getTime() - a0.getTime();
-    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
-    if (anteriores.length === 0) return null;
-    const ant = analisarVendas(anteriores, products);
-    const varPct = (at, an) => (an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null));
-    const antPctIdent = ant.pagos.length ? ant.pagos.filter((o) => o.clienteTelefone).length / ant.pagos.length : 0;
-    const antPreps = anteriores.filter((o) => o.preparoEmISO && o.prontoEmISO).map((o) => (new Date(o.prontoEmISO) - new Date(o.preparoEmISO)) / 60000).filter((m) => m >= 0);
-    const antTempoPrep = antPreps.length ? antPreps.reduce((s, m) => s + m, 0) / antPreps.length : null;
-    const antVendidos = new Set(); anteriores.forEach((o) => { if (o.status !== "cancelled") (o.items || []).forEach((it) => antVendidos.add(it.name)); });
-    const antParados = products.filter((p) => p.active !== false && !antVendidos.has(p.name)).length;
-    const antPagos = anteriores.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
-    const antCusto = antPagos.reduce((s, o) => s + o.items.reduce((x, it) => x + (custoPorNomeIA[it.name] ?? 0) * it.quantity, 0), 0);
-    const antMargemPct = temCustoIA && ant.faturamento > 0 ? ((ant.faturamento - antCusto) / ant.faturamento) * 100 : null;
-    const anterioresPesq = pesquisas.filter((q) => { if (!q.criadoEmISO) return false; const d = new Date(q.criadoEmISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
-    const notasAntIA = anterioresPesq.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
-    const mediaSatAnt = notasAntIA.length ? notasAntIA.reduce((s, v) => s + v, 0) / notasAntIA.length : null;
-    return {
-      faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos),
-      pctIdentificado: varPct(pctIdentificado * 100, antPctIdent * 100),
-      tempoMedioPrep: (tempoMedioPrep != null && antTempoPrep != null) ? varPct(tempoMedioPrep, antTempoPrep) : null,
-      produtosParados: varPct(produtosParados.length, antParados),
-      margem: (margemPctIA != null && antMargemPct != null) ? margemPctIA - antMargemPct : null,
-      satisfacao: (mediaSatisfacaoIA != null && mediaSatAnt != null) ? varPct(mediaSatisfacaoIA, mediaSatAnt) : null,
-    };
-  })();
-
-  const ia = analisarGestaoIA({
-    fat: a.faturamento, emAberto: a.emAberto, ticket: a.ticket, totalPedidos: a.totalPedidos, comparativo,
-    produtoTop, melhorHora, semEstoque, cancelados, valorPerdido, motivoPrincipal,
-    margemPct: margemPctIA, mediaSatisfacao: mediaSatisfacaoIA, npsSatisfacao: npsSatisfacaoIA, respostasSatisfacao: pesquisasPeriodo.length,
-    clientesPeriodo, clientesCadastrados: (clientes || []).length, mesasCriticas, tempoMedioPrep, taxaEntrega,
-    pctIdentificado, vips, inativos, novosClientes, produtosParados, periodoLabel,
-  });
-
-  // ── Oportunidades (Copiloto IA) — produtos p/ promoção, clientes p/ reativar,
-  // horários de baixa venda, combo sugerido, produtos mais rentáveis e itens
-  // com alta venda + estoque baixo. Só usa dados já calculados acima (sem consulta nova).
-  const oportunidades = {
-    promocao: produtosParados.slice(0, 5),
-    reativacao: [...inativos].sort((x, y) => y.total - x.total).slice(0, 5),
-    horariosBaixa: vendasPorHora.filter((d) => d.valor > 0).sort((x, y) => x.valor - y.valor).slice(0, 3),
-    combos: a.topProdutos.length >= 2 ? [{ principal: a.topProdutos[0].nome, complemento: a.topProdutos[1].nome }] : [],
-    rentaveis: products
-      .filter((p) => p.active !== false && Number(p.price) > 0)
-      .map((p) => ({ nome: p.name, margemPct: ((Number(p.price) - Number(p.cost || 0)) / Number(p.price)) * 100 }))
-      .sort((x, y) => y.margemPct - x.margemPct).slice(0, 5),
-    altaVendaEstoqueBaixo: (() => {
-      const qtdPorNome = {}; a.topProdutos.forEach((p) => { qtdPorNome[p.nome] = p.qtd; });
-      return semEstoque.filter((p) => qtdPorNome[p.name] > 0)
-        .map((p) => ({ nome: p.name, qtd: qtdPorNome[p.name], estoque: p.estoque ?? 0 }))
-        .sort((x, y) => y.qtd - x.qtd).slice(0, 5);
-    })(),
-  };
-
-  // Rótulo dos filtros ativos — enviado à IA e mostrado no rodapé de cada
-  // resposta ("grounding"), para deixar claro o que exatamente foi analisado.
-  const filtrosAtivosTexto = [
-    periodoLabel,
-    turno !== "todos" ? (turno === "almoco" ? "turno almoço" : "turno jantar") : null,
-    canal !== "todos" ? (canal === "mesa_qr" ? "canal Mesa/QR Code" : "canal Balcão/Delivery") : null,
-    statusF !== "todos" ? `status ${statusF}` : null,
-  ].filter(Boolean).join(" · ");
-
-  // Monta um resumo textual dos dados do período para a IA raciocinar em cima
-  // — é o "serviço de contexto gerencial": só dados já calculados nesta tela,
-  // isolados por empresa (props já filtradas por loja) e por período/filtros.
-  function montarResumoIA() {
-    return [
-      `Filtros analisados: ${filtrosAtivosTexto}.`,
-      ia.resumo,
-      `Faturamento pago: ${formatCurrency(a.faturamento)} | Em aberto: ${formatCurrency(a.emAberto)} | Ticket médio: ${formatCurrency(a.ticket)} | Pedidos: ${a.totalPedidos} | Cancelados: ${cancelados.length}.`,
-      comparativo?.faturamento != null ? `Variação de faturamento vs. período anterior: ${Math.round(comparativo.faturamento)}%.` : "",
-      produtoTop ? `Produto mais vendido: ${produtoTop.nome} (${produtoTop.qtd} un).` : "",
-      produtosParados.length ? `Produtos sem vendas no período: ${produtosParados.slice(0, 10).join(", ")}.` : "",
-      melhorHora.valor > 0 ? `Horário de pico: ${melhorHora.label} (${formatCurrency(melhorHora.valor)}).` : "",
-      `Clientes que compraram: ${clientesPeriodo} de ${(clientes || []).length} cadastrados | Pedidos com cliente identificado: ${Math.round(pctIdentificado * 100)}%.`,
-      vips.length ? `Clientes VIP: ${vips.length} (maior: ${vips[0].nome || "cliente"} ${formatCurrency(vips[0].total)}).` : "",
-      inativos.length ? `Clientes inativos (+30 dias sem comprar): ${inativos.length}.` : "",
-      semEstoque.length ? `Produtos com estoque baixo: ${semEstoque.map((p) => p.name).slice(0, 10).join(", ")}.` : "",
-      cancelados.length ? `Perda por cancelamentos: ${formatCurrency(valorPerdido)} | Motivo principal: ${motivoPrincipal}.` : "",
-      tempoMedioPrep != null ? `Tempo médio de preparo: ${tempoMedioPrep} min.` : "",
-      margemPctIA != null ? `Margem estimada (preço − custo cadastrado): ${margemPctIA.toFixed(0)}%.` : "Margem estimada: sem custo cadastrado para os produtos do período.",
-      "Desconto e acréscimo: não existem campos de desconto/acréscimo por pedido no sistema hoje — não citar esses valores.",
-      respostasSatisfacaoTexto,
-      ia.acoes.length ? `Ações que o sistema já sugeriu: ${ia.acoes.map((x) => x.texto).join(" | ")}.` : "",
-    ].filter(Boolean).join("\n");
-  }
-  const respostasSatisfacaoTexto = pesquisasPeriodo.length
-    ? `Satisfação: média ${mediaSatisfacaoIA.toFixed(1)}/5 em ${pesquisasPeriodo.length} resposta(s)${npsSatisfacaoIA != null ? ` | NPS ${npsSatisfacaoIA}` : ""}.`
-    : "Satisfação: nenhuma pesquisa respondida no período.";
-
-  // Fallback local — usa só o motor determinístico (analisarGestaoIA), no
-  // mesmo formato estruturado da resposta da IA, para nunca deixar a tela
-  // vazia quando a IA está indisponível ou a resposta não passa na validação.
-  function montarRespostaLocalFallback(motivo) {
-    return {
-      summary: ia.resumo,
-      evidence: [
-        `Faturamento: ${formatCurrency(a.faturamento)} (${a.totalPedidos} pedido(s))`,
-        `Ticket médio: ${formatCurrency(a.ticket)}`,
-        margemPctIA != null ? `Margem estimada: ${margemPctIA.toFixed(0)}%` : null,
-      ].filter(Boolean),
-      diagnosis: `Diagnóstico local: ${ia.nivel} (score ${ia.score}/100).`,
-      recommendations: ia.acoes.slice(0, 3).map((x) => x.texto),
-      risks: ia.alertasCriticos.map((al) => `${al.titulo}: ${al.desc}`),
-      opportunities: [ia.principalOportunidade].filter(Boolean),
-      impact: "Estimativa qualitativa — sem chamada à IA externa nesta resposta.",
-      confidence: "media",
-      limitations: [motivo, "Resposta gerada pelo motor de regras local (sem IA externa)."],
-      fallback: true,
-    };
-  }
-
-  async function enviarPerguntaIA(perguntaOverride) {
-    const q = (perguntaOverride ?? chatInput).trim();
-    if (!q || chatLoading) return;
-    setChatInput(""); setChatErro("");
-    setChatMsgs((h) => [...h, { role: "user", content: q }]);
-    setChatLoading(true);
-    const ctrl = new AbortController();
-    chatAbortRef.current = ctrl;
-    try {
-      const { resultado, modelo, atualizadoEm, bloqueado } = await perguntarCopilotoIA({
-        resumoDados: montarResumoIA(), pergunta: q, historico: chatMsgs.slice(-8), dataPeriod: filtrosAtivosTexto, signal: ctrl.signal,
-      });
-      setChatMsgs((h) => [...h, { role: "assistant", resultado, modelo, atualizadoEm, bloqueado, dataPeriod: filtrosAtivosTexto }]);
-    } catch (e) {
-      if (e?.name === "AbortError") { setChatMsgs((h) => [...h, { role: "assistant", resultado: montarRespostaLocalFallback("Resposta interrompida pelo usuário."), dataPeriod: filtrosAtivosTexto }]); return; }
-      const msg = (e && e.message) || String(e);
-      if (/ANTHROPIC_API_KEY/i.test(msg)) { setChatErro("Análise avançada temporariamente indisponível — a IA externa não está configurada. Mostrando o diagnóstico local."); setChatMsgs((h) => [...h, { role: "assistant", resultado: montarRespostaLocalFallback("IA externa não configurada nesta instalação."), dataPeriod: filtrosAtivosTexto }]); }
-      else if (/sessão|401/i.test(msg)) setChatErro("Sessão expirada: " + msg);
-      else { setChatErro("Análise avançada temporariamente indisponível. Mostrando o diagnóstico local."); setChatMsgs((h) => [...h, { role: "assistant", resultado: montarRespostaLocalFallback("Erro ao consultar a IA: " + msg), dataPeriod: filtrosAtivosTexto }]); }
-    } finally { setChatLoading(false); chatAbortRef.current = null; }
-  }
-  function interromperRespostaIA() { chatAbortRef.current?.abort(); }
-  function refazerAnaliseIA() {
-    const ultimaPergunta = [...chatMsgs].reverse().find((m) => m.role === "user");
-    if (ultimaPergunta) enviarPerguntaIA(ultimaPergunta.content);
-  }
-  function analisarIndicador(pergunta) { enviarPerguntaIA(pergunta); }
-
-  return (
-    <div className="space-y-5">
-      {/* Cabeçalho + período */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-[var(--pp-text)]">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]">{soCopiloto ? "🤖" : <IconDashboard />}</span>
-            {soCopiloto ? "Copiloto IA" : "Dashboard Gerencial"}
-          </h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5 max-w-2xl text-[13px] text-[var(--pp-text-muted)]">
-            <span>{soCopiloto ? "Inteligência gerencial baseada nos dados reais do seu negócio." : "Visão estratégica de vendas, operação, produtos, clientes e desempenho financeiro."}</span>
-            {!soCopiloto && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(47,158,82,0.10)] px-2.5 py-1 text-[11px] font-bold text-[var(--pp-success)]" title="Os dados são atualizados automaticamente em tempo real">
-                <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--pp-success)] opacity-60 motion-reduce:animate-none" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[var(--pp-success)]" /></span>
-                Dados em tempo real
-              </span>
-            )}
-            {soCopiloto && (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider" style={{ background: "#2F9E521A", color: "#2F9E52" }} title="Todos os números desta tela vêm dos dados reais da empresa logada — nada é inventado">✔ Dados reais</span>
-                <span className="text-[11px] text-[var(--pp-text-muted)]">Última atualização: {atualizadoEmCopiloto.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
-              </>
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-start gap-2">
-          {soCopiloto && (
-            <button onClick={atualizarAnaliseCopiloto} className="shrink-0 rounded-xl border px-3.5 py-2.5 text-xs font-bold transition hover:bg-[rgba(1, 46, 70,0.06)]" style={{ borderColor: "var(--pp-border)", color: "#012E46" }}>🔄 Atualizar análise</button>
-          )}
-          <div className="pp-filter-panel">
-            <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
-          </div>
-        </div>
-      </div>
-
-      {/* Filtros secundários — um agrupamento independente por contexto (Turno,
-          Canal, Status): 1 coluna no mobile, 2 no tablet, 3 lado a lado no desktop. */}
-      <FiltersPanel>
-        <FilterGroup titulo="Turno" icone={<Sun />} descricao="Selecione o período do dia" valor={turno} onChange={setTurno}
-          opcoes={[{ id: "todos", label: "Todos" }, { id: "almoco", label: "Almoço", icon: <Sun /> }, { id: "jantar", label: "Jantar", icon: <Moon /> }]} />
-        <FilterGroup titulo="Canal" icone={<Store />} descricao="Selecione o canal de origem" valor={canal} onChange={setCanal}
-          opcoes={[{ id: "todos", label: "Todos" }, { id: "mesa_qr", label: "Mesa / QR Code", icon: <QrCode /> }, { id: "balcao_delivery", label: "Balcão / Delivery", icon: <ShoppingBag /> }]} />
-        <FilterGroup titulo="Status" icone={<ClipboardList />} descricao="Acompanhe a situação dos pedidos" valor={statusF} onChange={setStatusF}
-          opcoes={[{ id: "todos", label: "Todos" }, { id: "pago", label: "Pago", tone: "success" }, { id: "aberto", label: "Em aberto", tone: "warning" }, { id: "cancelado", label: "Cancelado", tone: "error" }]} />
-      </FiltersPanel>
-      <ActiveFiltersSummary
-        grupos={[{ valor: turno }, { valor: canal }, { valor: statusF }]}
-        onClearAll={() => { setTurno("todos"); setCanal("todos"); setStatusF("todos"); }} />
-
-      {!soCopiloto && (<>
-      {/* Resumo inteligente — insights automáticos (usa dados já calculados).
-          Espaçamento extra (mt-4) para não competir visualmente com os filtros acima. */}
-      {(() => {
-        const meta = 45;
-        const estoqueBaixo = (products || []).filter((p) => p.controlaEstoque && (Number(p.estoque) || 0) <= (Number(p.estoqueMinimo) || 0)).length;
-        const pills = [
-          melhorHora?.valor > 0 && { dot: "bg-[#F38525]", txt: <>Melhor horário: <b className="font-bold text-dash-navy">{melhorHora.label}</b></> },
-          produtoTop && { dot: "bg-[#012E46]", txt: <>Destaque: <b className="font-bold text-dash-navy">{produtoTop.nome}</b></> },
-          { dot: a.ticket >= meta ? "bg-[#5E8C31]" : "bg-[#F38525]", txt: <>Ticket médio {a.ticket >= meta ? "acima" : "abaixo"} da meta</> },
-          { dot: abertos.length === 0 ? "bg-[#5E8C31]" : "bg-[#F38525]", txt: abertos.length === 0 ? "Sem pendências financeiras" : <>{abertos.length} comanda(s) em aberto</> },
-          { dot: estoqueBaixo === 0 ? "bg-[#5E8C31]" : "bg-[#C81E4A]", txt: estoqueBaixo === 0 ? "Estoque sem alertas" : <>{estoqueBaixo} produto(s) sem estoque</> },
-        ].filter(Boolean);
-        return (
-          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(1, 46, 70,0.16)] bg-[rgba(1, 46, 70,0.035)] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[rgba(1, 46, 70,0.10)] px-2.5 py-1 text-[10.5px] font-black uppercase tracking-widest text-[#012E46]">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor"><path d="M12 2l2.4 6.9H22l-6 4.3 2.3 7L12 16l-6.3 4.2 2.3-7-6-4.3h7.6z" /></svg>
-              Resumo inteligente
-            </span>
-            <span className="hidden h-4 w-px bg-[var(--pp-border)] sm:block" />
-            {pills.map((p, i) => (
-              <span key={i} className="inline-flex items-center gap-2 rounded-full border border-[rgba(1, 46, 70,0.16)] bg-white px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.06)]">
-                <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} />{p.txt}
-              </span>
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* KPIs (8) */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <button onClick={() => setModal({ titulo: "Faturamento — pedidos pagos", pedidos: pagos })} className="block h-full w-full text-left">
-          <CardMetrica compact titulo="Faturamento pago" valor={formatCurrency(a.faturamento)} sub={`${pagos.length} pedidos pagos • ver detalhes`} cor="text-dash-navy" tone="marcaVerde" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
-        </button>
-        <button onClick={() => setModal({ titulo: "Valores em aberto", pedidos: abertos })} className="block h-full w-full text-left">
-          <CardMetrica compact titulo="Valores em aberto" valor={formatCurrency(a.emAberto)} sub={`${abertos.length} comandas pendentes`} cor="text-dash-navy" tone="marcaLaranja" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>} />
-        </button>
-        <CardMetrica compact titulo="Faturamento previsto" valor={formatCurrency(previsto)} sub="pago + em aberto" cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M17 7h4v4" /></svg>} />
-        <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(a.ticket)} sub="meta sugerida: R$ 45,00" cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>} variacao={comparativo?.ticket} />
-        <button onClick={() => setModal({ titulo: "Todos os pedidos do período", pedidos: filtrados })} className="block h-full w-full text-left">
-          <CardMetrica compact titulo="Total de pedidos" valor={a.totalPedidos} sub={`${pagos.length} pagos | ${abertos.length} em aberto`} cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>} variacao={comparativo?.pedidos} />
-        </button>
-        <CardMetrica compact titulo="Produto mais vendido" valor={produtoTop ? produtoTop.nome : "—"} sub={produtoTop ? `${produtoTop.qtd} unidades vendidas` : "sem vendas"} cor="text-dash-navy" tone="marcaLaranja" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="9" r="5" /><path d="M9 13.5 8 21l4-2 4 2-1-7.5" /></svg>} />
-        <CardMetrica compact titulo="Mesas abertas" valor={mesasAbertas} sub={mesasAbertas ? `tempo médio aberto: ${tempoMedioMesa} min` : "nenhuma mesa aberta"} cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>} />
-        <CardMetrica compact titulo="Clientes no período" valor={clientesPeriodo} sub={`de ${clientes.length} cadastrados`} cor="text-dash-navy" tone="marcaPetroleo" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="8" r="3.5" /><path d="M22 20v-2a4 4 0 0 0-3-3.8" /><path d="M16 4.2a4 4 0 0 1 0 7.6" /></svg>} />
-      </div>
-
-      </>)}
-
-      {/* Copiloto de Gestão (IA) — só na tela dedicada do menu "Copiloto IA" */}
-      {soCopiloto && (() => {
-        const NIVEL_COR = { "Saudável": "#2F9E52", "Atenção": "#F38525", "Crítico": "#C81E4A" };
-        const nivelCorAnel = NIVEL_COR[ia.nivel] || "#F38525";
-        const sevCor = { pos: "#2F9E52", info: "#8B5CF6", warn: "#F38525", crit: "#C81E4A" };
-        const sevIc = { pos: "✅", info: "ℹ️", warn: "⚠️", crit: "🔴" };
-        const prioCor = { alta: "#C81E4A", media: "#F38525", baixa: "#8A7D73" };
-        const prioLbl = { alta: "Alta", media: "Média", baixa: "Baixa" };
-        const semDados = a.totalPedidos === 0;
-        const CATEGORIAS_INSIGHT = ["Vendas", "Clientes", "Produtos", "Estoque", "Operação", "Financeiro", "Satisfação"];
-        const insightsPorCategoria = CATEGORIAS_INSIGHT.map((cat) => ({ cat, itens: ia.insights.filter((it) => it.cat === cat) })).filter((g) => g.itens.length > 0);
-        const KPI_ID_PARA_LABEL = { faturamento: "Faturamento", ticket: "Ticket médio", pedidos: "Pedidos", clientesId: "Clientes identificados", produtosParados: "Produtos sem venda", estoqueCritico: "Estoque crítico", tempoPreparo: "Tempo de preparo", permanencia: "Permanência", margem: "Margem", clientesInativos: "Clientes inativos", satisfacao: "Satisfação" };
-        const copiarResposta = async (texto, idx) => {
-          try { await navigator.clipboard.writeText(texto); setChatCopiadoIdx(idx); setTimeout(() => setChatCopiadoIdx((c) => (c === idx ? null : c)), 1500); } catch { /* clipboard indisponível */ }
-        };
-        const kpis = [
-          { id: "faturamento", titulo: "Faturamento", valor: formatCurrency(a.faturamento), variacao: comparativo?.faturamento, desc: `${pagos.length} pedido(s) pago(s)`, tom: "blue", pergunta: "Como aumentar meu faturamento neste período?" },
-          { id: "ticket", titulo: "Ticket médio", valor: formatCurrency(a.ticket), variacao: comparativo?.ticket, desc: a.ticket >= META_TICKET_IA ? "Acima da meta" : `Meta: ${formatCurrency(META_TICKET_IA)}`, tom: "blue", status: a.ticket >= META_TICKET_IA ? "OK" : "Atenção", pergunta: "Como aumentar o ticket médio neste período?" },
-          { id: "pedidos", titulo: "Pedidos", valor: String(a.totalPedidos), variacao: comparativo?.pedidos, desc: `${abertos.length} em aberto`, tom: "blue", pergunta: "O que está influenciando o número de pedidos neste período?" },
-          { id: "clientesId", titulo: "Clientes identificados", valor: String(clientesPeriodo), variacao: comparativo?.pctIdentificado, desc: `${Math.round(pctIdentificado * 100)}% dos pedidos pagos`, tom: "violet", pergunta: "Como aumentar a identificação de clientes nos pedidos?" },
-          { id: "produtosParados", titulo: "Produtos sem venda", valor: String(produtosParados.length), variacao: comparativo?.produtosParados != null ? -comparativo.produtosParados : null, desc: produtosParados.length ? "Ativos sem nenhuma venda" : "Todos venderam no período", tom: produtosParados.length ? "amber" : "emerald", status: produtosParados.length ? "Atenção" : "OK", pergunta: "Quais produtos devo promover?" },
-          { id: "estoqueCritico", titulo: "Estoque crítico", valor: String(semEstoque.length), variacao: null, desc: semEstoque.length ? "Abaixo do mínimo" : "Estoque adequado", tom: semEstoque.length ? "red" : "emerald", status: semEstoque.length ? "Crítico" : "OK", pergunta: "Quais riscos de estoque exigem atenção agora?" },
-          { id: "tempoPreparo", titulo: "Tempo médio de preparo", valor: tempoMedioPrep != null ? fmtTempo(tempoMedioPrep) : "—", variacao: comparativo?.tempoMedioPrep != null ? -comparativo.tempoMedioPrep : null, desc: tempoMedioPrep != null && tempoMedioPrep > 25 ? "Acima do ideal" : "Dentro do esperado", tom: tempoMedioPrep != null && tempoMedioPrep > 25 ? "amber" : "blue", pergunta: "Como reduzir o tempo de preparo?" },
-          { id: "permanencia", titulo: "Permanência", valor: mesasAbertas ? fmtTempo(tempoMedioMesa) : "—", variacao: null, desc: mesasAbertas ? `${mesasAbertas} mesa(s) aberta(s) agora` : "Nenhuma mesa aberta agora", tom: mesasCriticas > 0 ? "amber" : "blue", pergunta: "Como reduzir a permanência das mesas e aumentar o giro?" },
-          { id: "margem", titulo: "Margem estimada", valor: margemPctIA != null ? `${margemPctIA.toFixed(0)}%` : "—", variacao: comparativo?.margem, desc: !temCustoIA ? "Sem custo cadastrado nos produtos" : (margemPctIA < 20 ? "Abaixo do saudável" : "Saudável"), tom: !temCustoIA ? "blue" : (margemPctIA < 20 ? "amber" : "emerald"), pergunta: "Onde estou perdendo dinheiro em margem?" },
-          { id: "satisfacao", titulo: "Satisfação", valor: mediaSatisfacaoIA != null ? `${mediaSatisfacaoIA.toFixed(1)}/5` : "—", variacao: comparativo?.satisfacao, desc: pesquisasPeriodo.length ? `${pesquisasPeriodo.length} resposta(s)${npsSatisfacaoIA != null ? ` · NPS ${npsSatisfacaoIA}` : ""}` : "Sem pesquisas no período", tom: !pesquisasPeriodo.length ? "blue" : (mediaSatisfacaoIA < 3.5 ? "red" : mediaSatisfacaoIA < 4 ? "amber" : "emerald"), pergunta: "Quais riscos de satisfação exigem atenção?" },
-        ];
-        return (
-          <div className="space-y-6">
-            {toastAcao && (
-              <div className="fixed inset-x-0 top-4 z-[150] flex justify-center px-4">
-                <div className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold shadow-lg" style={{ borderColor: "#2F9E5233", background: "#2F9E521A", color: "#2F9E52" }}>✅ {toastAcao}</div>
-              </div>
-            )}
-            {/* 4a. Saúde do estabelecimento (gráfico) — bloco SEPARADO do resumo */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 shrink-0" style={{ background: `conic-gradient(${nivelCorAnel} ${ia.score * 3.6}deg, #EAE0D6 0deg)`, borderRadius: "9999px" }}>
-                  <div className="absolute inset-[6px] flex flex-col items-center justify-center rounded-full bg-white">
-                    <span className="text-2xl font-bold leading-none" style={{ color: nivelCorAnel }}>{ia.score}</span>
-                    <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-[var(--pp-text-muted)]">/100</span>
-                  </div>
-                </div>
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                    Saúde do estabelecimento
-                    <span tabIndex={0} title={`Como o score é calculado (regras locais, sem IA):\n${ia.regrasScore.map((r) => `• ${r.desc}`).join("\n")}`} aria-label="Como o score é calculado" className="cursor-help text-[var(--pp-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#012E46] focus-visible:ring-offset-1 rounded-full">ⓘ</span>
-                  </p>
-                  <span className="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-bold" style={{ borderColor: `${nivelCorAnel}4D`, background: `${nivelCorAnel}1A`, color: nivelCorAnel }}>{ia.nivel}</span>
-                  {comparativo?.faturamento != null && (
-                    <p className="mt-1.5 text-xs font-semibold" style={{ color: comparativo.faturamento >= 0 ? "#2F9E52" : "#C81E4A" }}>
-                      {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% de faturamento vs. período anterior
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 4b. Resumo do cenário — bloco SEPARADO, com destaque para leitura rápida */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
-              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.08)] text-[#012E46]" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h16M4 12h16M4 19h10" /></svg>
-                </span>
-                Resumo do cenário
-              </p>
-              <div className="mt-2.5 rounded-xl border-l-[3px] border-[#012E46] bg-[rgba(1, 46, 70,0.035)] px-4 py-3.5">
-                <p className="text-[15px] leading-relaxed text-[var(--pp-text)]">{semDados ? "Sem pedidos no período e filtros selecionados — ajuste os filtros acima para ver a análise." : ia.resumo}</p>
-              </div>
-              {!semDados && (
-                <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
-                  <div className="rounded-xl border border-[rgba(47,158,82,0.18)] p-3" style={{ background: "#2F9E520D" }}><p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "#2F9E52" }}>Principal resultado positivo</p><p className="mt-1 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ia.resultadoPositivo}</p></div>
-                  <div className="rounded-xl border border-[rgba(200,30,74,0.18)] p-3" style={{ background: "#C81E4A0D" }}><p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "#C81E4A" }}>Principal risco</p><p className="mt-1 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ia.principalRisco}</p></div>
-                  <div className="rounded-xl border border-[rgba(139,92,246,0.18)] p-3" style={{ background: "#8B5CF60D" }}><p className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "#8B5CF6" }}>Principal oportunidade</p><p className="mt-1 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ia.principalOportunidade}</p></div>
-                </div>
-              )}
-              {!semDados && ia.acoes.length > 0 && (
-                <div className="mt-3 border-t border-[var(--pp-border)] pt-4">
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text)]">Três prioridades agora</p>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {ia.acoes.slice(0, 3).map((ac, i) => (
-                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
-                        <span className="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
-                        <p className="mt-1.5 text-[13px] font-medium leading-snug text-[var(--pp-text)]">{ac.texto}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 5. Pergunte ao Copiloto */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🤖</span>Pergunte ao Copiloto</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {chatMsgs.some((m) => m.role === "user") && !chatLoading && (
-                    <button onClick={refazerAnaliseIA} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#012E46] hover:text-[#012E46]">🔁 Refazer análise</button>
-                  )}
-                  {chatMsgs.length > 0 && (
-                    <button onClick={() => { setChatMsgs([]); setChatErro(""); setChatFeedback({}); }} className="shrink-0 rounded-lg border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#012E46] hover:text-[#012E46]">Limpar conversa</button>
-                  )}
-                </div>
-              </div>
-              {chatMsgs.length === 0 && !chatLoading && (
-                <p className="mt-3 rounded-xl border border-dashed border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center text-xs text-[var(--pp-text-muted)]">Nenhuma pergunta ainda nesta sessão. Use uma sugestão abaixo ou escreva a sua pergunta.</p>
-              )}
-              {chatMsgs.length > 0 && (
-                <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
-                  {chatMsgs.map((m, i) => (
-                    <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[92%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "whitespace-pre-wrap" : ""}`} style={m.role === "user" ? { background: "#012E46", color: "#FFFFFF" } : { border: "1px solid #EAE0D6", background: "#FFFFFF", color: "#2B2320" }}>
-                        {m.role === "user" ? m.content : (
-                          <RespostaCopilotoBubble resultado={m.resultado} modelo={m.modelo} dataPeriod={m.dataPeriod} bloqueado={m.bloqueado} atualizadoEm={m.atualizadoEm}
-                            copiado={chatCopiadoIdx === i} onCopiar={(texto) => copiarResposta(texto, i)}
-                            feedback={chatFeedback[i]} onFeedback={(v) => setChatFeedback((f) => ({ ...f, [i]: f[i] === v ? undefined : v }))} />
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {chatLoading && (
-                    <div className="flex justify-start">
-                      <div className="w-56 space-y-2 rounded-2xl border border-[var(--pp-border)] bg-white px-3.5 py-3">
-                        <div className="h-2.5 w-full animate-pulse rounded-full bg-[var(--pp-bg)]" />
-                        <div className="h-2.5 w-4/5 animate-pulse rounded-full bg-[var(--pp-bg)]" />
-                        <div className="h-2.5 w-3/5 animate-pulse rounded-full bg-[var(--pp-bg)]" />
-                        <button onClick={interromperRespostaIA} className="text-[10px] font-bold text-[#C81E4A] hover:underline">■ Interromper resposta</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {chatErro && (
-                <div className="mt-3 rounded-xl border px-4 py-3 text-[12px] font-semibold" style={{ borderColor: "#F385254D", background: "#F385251A", color: "#012E46" }}>⚠️ {chatErro}</div>
-              )}
-              <div className="mt-3 flex gap-2">
-                <textarea value={chatInput} onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarPerguntaIA(); } }}
-                  rows={2} placeholder="Ex.: Como aumentar o ticket médio neste período? (Enter envia, Shift+Enter quebra linha)"
-                  aria-label="Pergunta para o Copiloto"
-                  className="flex-1 resize-none rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46] focus:ring-2 focus:ring-[#012E46]/25 placeholder:text-[var(--pp-text-muted)]" />
-                {chatLoading ? (
-                  <button onClick={interromperRespostaIA} className="shrink-0 self-end rounded-xl border border-[#C81E4A] bg-white px-5 py-2.5 text-sm font-black text-[#C81E4A] transition hover:bg-[#FEF2F2]">■ Interromper</button>
-                ) : (
-                  <button onClick={() => enviarPerguntaIA()} disabled={!chatInput.trim()}
-                    className="shrink-0 self-end rounded-xl bg-[#012E46] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#012E46] disabled:cursor-not-allowed disabled:opacity-40">Enviar</button>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {["Como aumentar meu faturamento?", "Quais produtos devo promover?", "Onde estou perdendo dinheiro?", "Quais clientes devo reativar?", "Como reduzir o tempo de preparo?", "Quais riscos exigem atenção?", "Qual oportunidade tem maior impacto?"].map((s) => (
-                  <button key={s} type="button" onClick={() => enviarPerguntaIA(s)} disabled={chatLoading}
-                    className="rounded-full border border-[var(--pp-border)] bg-white px-2.5 py-1 text-[11px] font-bold text-[var(--pp-text)] transition hover:border-[#012E46] hover:text-[#012E46] disabled:opacity-40">{s}</button>
-                ))}
-              </div>
-              <p className="mt-3 text-[10px] text-[var(--pp-text-muted)]">Respostas usam somente os dados reais do período e filtros ativos ({filtrosAtivosTexto}) — o Copiloto não inventa números. Chat via IA por função segura no servidor; sem chave configurada ou em caso de erro, cai automaticamente no diagnóstico local desta tela.</p>
-            </div>
-
-            {/* 7. Indicadores gerenciais */}
-            <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Indicadores gerenciais</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-                onClick={(e) => { const pergunta = e.target.closest("[data-pergunta]")?.dataset.pergunta; if (pergunta) analisarIndicador(pergunta); }}>
-                {kpis.map((k) => <KpiCardCopiloto key={k.id} {...k} />)}
-              </div>
-            </div>
-
-            {/* Alertas críticos — separados dos insights comuns */}
-            <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Alertas críticos</p>
-              {ia.alertasCriticos.length === 0 ? (
-                <div className="rounded-xl border px-4 py-3 text-sm font-semibold" style={{ borderColor: "#2F9E5233", background: "#2F9E521A", color: "#2F9E52" }}>✅ Nenhum alerta crítico no momento.</div>
-              ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {ia.alertasCriticos.map((al, i) => (
-                    <div key={i} className="flex items-start gap-2 rounded-xl border-l-4 bg-white py-3 pl-3.5 pr-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]" style={{ borderLeftColor: al.sev === "crit" ? "#C81E4A" : "#F38525" }}>
-                      <span className="shrink-0">{al.sev === "crit" ? "🔴" : "⚠️"}</span>
-                      <div className="min-w-0"><p className="text-sm font-bold" style={{ color: al.sev === "crit" ? "#C81E4A" : "#012E46" }}>{al.titulo}</p><p className="text-xs text-[var(--pp-text-muted)]">{al.desc}</p></div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 8. Insights inteligentes — agrupados por área, fundo branco, cor só em
-                badge/ícone/borda lateral. */}
-            <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Insights inteligentes</p>
-              {insightsPorCategoria.length === 0 ? (
-                <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center text-sm text-[var(--pp-text-muted)]">{semDados ? "Dados insuficientes no período para gerar insights." : "Nenhum insight relevante no momento."}</div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {insightsPorCategoria.map((g) => (
-                    <div key={g.cat} className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]">
-                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-[var(--pp-text-muted)]">{g.cat}</p>
-                      <div className="space-y-2">
-                        {g.itens.map((it, i) => (
-                          <div key={i} className="rounded-xl border-l-4 bg-white px-3.5 py-2.5 text-xs font-semibold shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)]" style={{ borderLeftColor: sevCor[it.sev], borderTop: "1px solid #EAE0D6", borderRight: "1px solid #EAE0D6", borderBottom: "1px solid #EAE0D6" }}>
-                            <div className="flex items-start gap-2">
-                              <span className="shrink-0">{sevIc[it.sev]}</span>
-                              <span className="min-w-0 flex-1 text-[var(--pp-text)]">{it.texto}</span>
-                            </div>
-                            <div className="mt-1.5 flex items-center gap-2 pl-5">
-                              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase" style={{ background: `${sevCor[it.sev]}1A`, color: sevCor[it.sev] }}>Impacto {it.impacto}</span>
-                              {it.acaoId && <button onClick={() => irPara(it.acaoId)} className="text-[10px] font-black underline decoration-dotted underline-offset-2 hover:opacity-70" style={{ color: "#012E46" }}>Ver origem →</button>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* 9. Plano de ação recomendado */}
-            <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Plano de ação recomendado</p>
-              {ia.acoes.length === 0 ? (
-                <div className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma recomendação disponível no momento.</div>
-              ) : (
-                <div className="space-y-2">
-                  {ia.acoes.map((ac, i) => (
-                    <div key={i} className="flex flex-col gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-start gap-3 min-w-0">
-                        <span className="mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase" style={{ borderColor: `${prioCor[ac.prio]}4D`, background: `${prioCor[ac.prio]}1A`, color: prioCor[ac.prio] }}>{prioLbl[ac.prio]}</span>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-[var(--pp-text)]">{ac.texto}</p>
-                          <p className="text-[11px] text-[var(--pp-text-muted)]">{ac.motivo}{ac.area ? ` · Área: ${ac.area}` : ""}{ac.kpiId ? ` · Indicador: ${KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId}` : ""}{ac.impacto ? ` · Impacto esperado: ${ac.impacto}` : ""}</p>
-                        </div>
-                      </div>
-                      <button onClick={() => {
-                        const kpiRel = ac.kpiId ? kpis.find((k) => k.id === ac.kpiId) : null;
-                        setModalAcao({
-                          titulo: ac.texto, prioridade: ac.prio,
-                          origem: {
-                            texto: ac.texto, motivo: ac.motivo, area: ac.area,
-                            indicadorLabel: ac.kpiId ? (KPI_ID_PARA_LABEL[ac.kpiId] || ac.kpiId) : null,
-                            valorAtual: kpiRel ? kpiRel.valor : null,
-                            variacao: kpiRel && kpiRel.variacao != null ? kpiRel.variacao : null,
-                          },
-                        });
-                      }}
-                        className="shrink-0 self-start rounded-lg border px-3 py-1.5 text-xs font-black transition hover:bg-[rgba(1, 46, 70,0.06)] sm:self-center" style={{ borderColor: "#012E46", color: "#012E46" }}>Criar ação</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Oportunidades */}
-            <div>
-              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--pp-text)]">Oportunidades</p>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <OportunidadeCard titulo="Produtos para promoção" itens={oportunidades.promocao} vazio="Nenhum produto parado no período." render={(nome) => nome} />
-                <OportunidadeCard titulo="Clientes para reativação" itens={oportunidades.reativacao} vazio="Nenhum cliente inativo no momento." render={(c) => `${c.nome || "Cliente"} · ${formatCurrency(c.total)}`} />
-                <OportunidadeCard titulo="Horários de baixa venda" itens={oportunidades.horariosBaixa} vazio="Dados insuficientes no período." render={(d) => `${d.label} · ${formatCurrency(d.valor)}`} />
-                <OportunidadeCard titulo="Combo sugerido" itens={oportunidades.combos} vazio="Sem produtos suficientes para sugerir combo." render={(c) => `${c.principal} + ${c.complemento}`} />
-                <OportunidadeCard titulo="Produtos mais rentáveis" itens={oportunidades.rentaveis} vazio="Sem dados de custo cadastrados." render={(p) => `${p.nome} · ${p.margemPct.toFixed(0)}% de margem`} />
-                <OportunidadeCard titulo="Alta venda + estoque baixo" itens={oportunidades.altaVendaEstoqueBaixo} vazio="Nenhum item nessa situação." render={(p) => `${p.nome} · ${p.qtd} vendido(s), ${p.estoque} em estoque`} />
-              </div>
-            </div>
-
-            {/* 10. Simulações seguras — fórmulas locais, projeção claramente
-                identificada como tal, sem misturar com dado realizado e sem
-                salvar/alterar nada. */}
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5 shadow-[0_1px_2px_rgba(43,35,32,0.04),0_12px_28px_-14px_rgba(43,35,32,0.14)] sm:p-6">
-              <button onClick={() => setMostrarSimulador((v) => !v)} className="flex w-full items-center justify-between gap-2 text-left">
-                <p className="flex items-center gap-2 text-sm font-black text-[var(--pp-text)]"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: "#8B5CF61A", color: "#8B5CF6" }}>🧪</span>Simular cenário</p>
-                <span className="text-xs font-bold text-[var(--pp-text-muted)]">{mostrarSimulador ? "Recolher ▲" : "Expandir ▼"}</span>
-              </button>
-              {mostrarSimulador && (
-                <div className="pp-anim-fade mt-4 space-y-3">
-                  <p className="rounded-xl px-3.5 py-2.5 text-[11px] font-semibold" style={{ background: "#8B5CF60D", color: "#8B5CF6" }}>⚠️ Projeção — não é dado realizado. Usa fórmulas simples sobre os números atuais do período; nada aqui é salvo ou altera a operação.</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {[
-                      { titulo: "Aumentar o ticket médio em 10%", premissa: `Ticket atual ${formatCurrency(a.ticket)} → ${formatCurrency(a.ticket * 1.1)}`, resultado: `+${formatCurrency(a.ticket * 0.1 * a.totalPedidos)} de faturamento projetado (${a.totalPedidos} pedido(s) no período)` },
-                      { titulo: `Reativar ${Math.min(inativos.length, 10) || 0} cliente(s) inativos`, premissa: inativos.length ? `Ticket médio histórico dos reativados ≈ ${formatCurrency(inativos.slice(0, 10).reduce((s, c) => s + c.total / c.qtd, 0) / Math.max(1, Math.min(inativos.length, 10)))}` : "Nenhum cliente inativo no período", resultado: inativos.length ? `+${formatCurrency(inativos.slice(0, 10).reduce((s, c) => s + c.total / c.qtd, 0))} projetado se cada um voltar 1x` : "—" },
-                      { titulo: "Promover 1 produto parado", premissa: produtoTop ? `Referência: ${produtoTop.nome} vendeu ${produtoTop.qtd} un. no período` : "Sem produto de referência no período", resultado: produtosParados.length ? `Se um item parado vender como 30% do carro-chefe, +${Math.round((produtoTop?.qtd || 0) * 0.3)} un. projetadas` : "Nenhum produto parado no período" },
-                      { titulo: "Reduzir o tempo de preparo em 20%", premissa: tempoMedioPrep != null ? `Tempo atual: ${fmtTempo(tempoMedioPrep)}` : "Sem tempo médio de preparo no período", resultado: tempoMedioPrep != null ? `Tempo projetado: ${fmtTempo(Math.round(tempoMedioPrep * 0.8))} — pode aumentar o giro de mesas` : "—" },
-                    ].map((s, i) => (
-                      <div key={i} className="rounded-xl border border-[var(--pp-border)] bg-white p-3.5 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
-                        <p className="text-xs font-black text-[var(--pp-text)]">{s.titulo}</p>
-                        <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Premissa: {s.premissa}</p>
-                        <p className="mt-1 text-[11px] font-bold" style={{ color: "#8B5CF6" }}>Projeção: {s.resultado}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <ModalCriarAcao acao={modalAcao} usuarios={usuarios} onFechar={() => setModalAcao(null)}
-              onConfirmar={(dados) => {
-                setModalAcao(null);
-                setToastAcao(TEM_PERSISTENCIA_ACOES ? "Ação criada com sucesso." : `Plano de ação preparado com sucesso — "${dados.titulo}"${dados.responsavel ? ` · Responsável: ${dados.responsavel}` : ""}.`);
-                setTimeout(() => setToastAcao(""), 4000);
-              }} />
-          </div>
-        );
-      })()}
-
-      {!soCopiloto && (<>
-      {/* Alertas gerenciais */}
-      <div>
-        <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-[var(--pp-text)]Muted">Alertas gerenciais</h3>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {alertas.map((al, i) => (
-            <div key={i} className={`rounded-2xl border px-4 py-3 ${tomCls[al.tom]}`}>
-              <p className="text-sm font-bold">{al.titulo}</p>
-              <p className="mt-0.5 text-xs opacity-90">{al.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {modal && <ModalDetalhePedidos titulo={modal.titulo} pedidos={modal.pedidos} onFechar={() => setModal(null)} />}
-
-      {/* Faturamento por horário */}
-      <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
-        acao={a.faturamento > 0 ? (
-          <span className="shrink-0 text-right">
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total do período</span>
-            <span className="block text-sm font-black text-[var(--pp-text)]">{formatCurrency(a.faturamento)}</span>
-          </span>
-        ) : null}>
-        <BarrasHora dados={vendasPorHora} paleta={{ semVenda: "#E6E6E6", pico: "var(--pp-destaque)", acimaMedia: "#012E46", padrao: "#012E46", grade: "#E6E6E6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
-        {melhorHora.valor > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full bg-[#F38525]/10 px-3 py-1.5 text-xs font-bold text-[#F38525]">★ Melhor horário: {melhorHora.label} — {formatCurrency(melhorHora.valor)}</span>
-            <span className="rounded-full bg-[#012E46]/10 px-3 py-1.5 text-xs font-bold text-[#012E46]">Oportunidade: estimular vendas nos horários de menor movimento.</span>
-          </div>
-        )}
-      </Painel>
-
-      {/* Painéis analíticos */}
-      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-        <Painel titulo="Vendas por Categoria"><DonutChart dados={catDonut} label="Categorias" /></Painel>
-
-        <Painel titulo="Produtos Mais Vendidos">
-          <div className="space-y-3">
-            {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
-            {a.topProdutos.map((p, i) => (
-              <BarraHorizontal key={p.nome} label={p.nome} valor={p.qtd} max={maxProd} sufixo=" un" cor={i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#012E46]"} />
-            ))}
-          </div>
-        </Painel>
-
-        <Painel titulo="Status dos Pedidos">
-          <DonutChart dados={statusDist} label="Status" />
-          <p className="mt-3 text-center text-xs text-[var(--pp-text-muted)]">Taxa de entrega concluída: <b className="text-[#2F9E52]">{taxaEntrega}%</b></p>
-        </Painel>
-
-        <Painel titulo="Desempenho da Cozinha">
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { r: "Tempo médio de preparo", v: tempoMedioPrep != null ? formatarDuracaoMin(tempoMedioPrep) : "—" },
-              { r: "Pedido mais demorado", v: tempoMaxPrep != null ? formatarDuracaoMin(tempoMaxPrep) : "—" },
-              { r: "Setor mais acionado", v: setorMaisAcionado },
-            ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
-                <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
-                <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}</p>
-              </div>
-            ))}
-          </div>
-          {/* Detalhamento por SETOR — só quando os produtos estão cadastrados por
-              setor (2+ setores com movimento). O mais acionado é o destaque. */}
-          {setoresAtividade.length >= 2 && (
-            <div className="mt-3.5 space-y-2 border-t border-[var(--pp-border)] pt-3.5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Itens preparados por setor</p>
-              {setoresAtividade.map((s, i) => (
-                <div key={s.id}>
-                  <div className="mb-0.5 flex items-center justify-between gap-2 text-xs">
-                    <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: i === 0 ? "var(--pp-destaque)" : "#012E46" }} />
-                      <span className="truncate">{s.nome}</span>
-                    </span>
-                    <span className="shrink-0 text-[var(--pp-text-muted)]"><b className="text-dash-navy">{s.qtd}</b> {s.qtd === 1 ? "item" : "itens"}</span>
-                  </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]">
-                    <div className="h-full rounded-full" style={{ width: `${(s.qtd / maxSetorQtd) * 100}%`, background: i === 0 ? "var(--pp-destaque)" : "#012E46" }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {tempoMedioPrep == null && <p className="mt-3 text-center text-[11px] text-[var(--pp-text-muted)]">Sem registros de preparo finalizados no período.</p>}
-        </Painel>
-
-        <Painel titulo="Formas de Pagamento">
-          <div className="space-y-3">
-            <BarraHorizontal label="Recebido (pago)" valor={a.faturamento} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[var(--pp-destaque)]" />
-            <BarraHorizontal label="Pendente (em aberto)" valor={a.emAberto} max={Math.max(1, previsto)} sufixo="R$" cor="bg-[#012E46]" />
-          </div>
-          <p className="mt-3 text-[11px] text-[var(--pp-text-muted)]">Detalhamento por forma (Pix, crédito, débito, dinheiro) disponível em <b className="text-dash-navy">Fechamento de Caixa</b>.</p>
-        </Painel>
-
-        <Painel titulo="Clientes no Período">
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { r: "Clientes no período", v: clientesPeriodo },
-              { r: "Cadastrados (total)", v: clientes.length },
-              { r: "Pedidos por cliente", v: clientesPeriodo ? (filtrados.length / clientesPeriodo).toFixed(1) : "0" },
-              { r: "Ticket médio/cliente", v: formatCurrency(ticketPorCliente) },
-            ].map((c) => (
-              <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
-                <p className="page-title text-lg font-bold text-dash-navy">{c.v}</p>
-                <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{c.r}</p>
-              </div>
-            ))}
-          </div>
-        </Painel>
-      </div>
-
-      {/* Painéis de ação gerencial */}
-      <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
-        <Painel titulo="Mesas e Comandas em Atenção" className="xl:col-span-2"
-          acao={<button onClick={irParaMesas} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-xs font-bold text-dash-navy shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.04)]">Ver todas as mesas e comandas</button>}>
-          {mesasAtencao.length === 0 ? (
-            <p className="py-4 text-center text-sm text-[#2F9E52]">✅ Nenhuma mesa em aberto no momento.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[460px] text-sm">
-                <thead><tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                  <th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3">Tempo aberta</th><th className="py-2 pr-3 text-right">Valor</th><th className="py-2 pl-3">Situação</th>
-                </tr></thead>
-                <tbody>
-                  {mesasAtencao.slice(0, 8).map((m) => {
-                    const sit = situacaoMesa(m);
-                    return (
-                      <tr key={m.mesa} className="border-b border-[var(--pp-border)]">
-                        <td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td>
-                        <td className={`py-2.5 pr-3 ${m.mins >= 40 ? "text-[#F38525] font-semibold" : "text-[var(--pp-text-muted)]"}`}>{fmtTempo(m.mins)}</td>
-                        <td className="py-2.5 pr-3 text-right font-semibold text-dash-navy">{formatCurrency(m.valor)}</td>
-                        <td className="py-2.5 pl-3"><span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${sit.cls}`}>{sit.label}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Painel>
-
-        <Painel titulo="Estoque Baixo">
-          {semEstoque.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-2xl border border-[rgba(47,158,82,0.30)] bg-[rgba(47,158,82,0.08)] px-4 py-3 text-sm font-semibold text-[#2F9E52]"><span>✅</span> Todos os produtos com estoque adequado.</div>
-          ) : (
-            <div className="space-y-2">
-              {semEstoque.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-2 rounded-2xl border border-[rgba(200,30,74,0.30)] bg-[rgba(200,30,74,0.08)] px-4 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-dash-navy">{p.name}</p>
-                    <p className="text-[11px] text-[#C81E4A]/80">Abaixo do mínimo{p.estoqueMinimo != null ? ` (${p.estoqueMinimo} un)` : ""}</p>
-                  </div>
-                  <span className="shrink-0 text-sm font-black text-[#C81E4A]">{p.estoque ?? 0} un</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Painel>
-
-        <Painel titulo="Cancelamentos e Perdas">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between"><span className="text-sm text-[var(--pp-text-muted)]">Cancelamentos</span><span className="page-title text-lg font-bold text-dash-navy">{cancelados.length}</span></div>
-            <div className="flex items-center justify-between"><span className="text-sm text-[var(--pp-text-muted)]">Valor perdido</span><span className="page-title text-lg font-bold text-[#C81E4A]">{formatCurrency(valorPerdido)}</span></div>
-            <div className="flex items-center justify-between gap-2"><span className="text-sm text-[var(--pp-text-muted)]">Motivo principal</span><span className="truncate text-sm font-semibold text-dash-navy">{motivoPrincipal}</span></div>
-          </div>
-        </Painel>
-
-        <Painel titulo="Comparativo com Período Anterior">
-          {comparativo ? (
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { r: "Faturamento", v: comparativo.faturamento },
-                { r: "Pedidos", v: comparativo.pedidos },
-                { r: "Ticket médio", v: comparativo.ticket },
-              ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3 text-center shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
-                  <p className={`page-title text-lg font-bold ${c.v == null ? "text-[var(--pp-text-muted)]" : c.v >= 0 ? "text-[#2F9E52]" : "text-[#C81E4A]"}`}>{c.v == null ? "—" : `${c.v >= 0 ? "+" : ""}${c.v.toFixed(0)}%`}</p>
-                  <p className="mt-1 text-[10px] leading-tight text-[var(--pp-text-muted)]">{c.r}<br />vs período anterior</p>
-                </div>
-              ))}
-            </div>
-          ) : <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Sem período anterior para comparar.</p>}
-        </Painel>
-
-        <Painel titulo="Recomendações para o Gestor" className="xl:col-span-3">
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {recomendacoes.map((r, i) => (
-              <li key={i} className="flex items-start gap-2 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm text-[var(--pp-text-body)] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)]">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#2F9E52]/15 text-[10px] font-black text-[#2F9E52]">✓</span>{r}
-              </li>
-            ))}
-          </ul>
-        </Painel>
-      </div>
-      </>)}
-    </div>
-  );
-}
-
-// ════════════════════════════════════════════════════════════
-//  Relatórios de vendas detalhados
-// ════════════════════════════════════════════════════════════
-// Modal genérico com lista de pedidos detalhada (clique nos cards)
-function ModalDetalhePedidos({ titulo, pedidos, onFechar }) {
-  const total = pedidos.reduce((s, o) => s + totalComTaxa(o), 0);
-  return (
-    <PainelDetalhe aberto ariaLabel={titulo} onFechar={onFechar} titulo={titulo}
-      subtitulo={<>{pedidos.length} pedido(s) • Total <span className="font-semibold text-[#2F9E52]">{formatCurrency(total)}</span></>}
-      rodape={null}>
-      {pedidos.length === 0 && <p className="py-8 text-center text-sm text-[var(--pp-text-muted)]">Nenhum pedido no período.</p>}
-      <div className="space-y-3">
-        {pedidos.map((o) => (
-          <div key={o.id} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{o.id} • {o.table} • {o.command}</p>
-                <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
-              </div>
-              <span className="shrink-0 text-base font-black text-[#2F9E52]">{formatCurrency(totalComTaxa(o))}</span>
-            </div>
-            <div className="mt-2 space-y-0.5">
-              {o.items.map((it, i) => (
-                <div key={i} className="flex justify-between gap-3 text-sm">
-                  <span className="text-[var(--pp-text)]"><b className="font-semibold text-[var(--pp-text)]">{it.quantity}x</b> {it.name}</span>
-                  <span className="shrink-0 font-medium text-[var(--pp-text-muted)]">{formatCurrency(it.price * it.quantity)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </PainelDetalhe>
   );
 }
 
@@ -11278,7 +9367,7 @@ function RelatorioClientes({ orders, products, filtrados, periodo, ini, fim, loj
 }
 
 // ── Relatórios: cabeçalho, período e abas ─────────────────────
-const ROTULOS_PERIODO = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", tudo: "Todo o período" };
+const ROTULOS_PERIODO = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", mes: "Este mês", tudo: "Todo o período" };
 const DESCRICAO_RELATORIO = {
   geral: "Resultado do período: quanto, quando e por onde você vende.",
   vendas: "Produtos, categorias e combinações que mais faturam.",
@@ -11419,15 +9508,19 @@ function PainelDetalhe({
 }) {
   const painelRef = useRef(null);
   const focoAnteriorRef = useRef(null);
+  // Quem abre a janela costuma passar uma função nova a cada atualização:
+  // guardada aqui, ela não reinicia o foco (o que travava a rolagem no celular).
+  const onFecharRef = useRef(onFechar);
+  useEffect(() => { onFecharRef.current = onFechar; });
 
   useEffect(() => {
     if (!aberto) return undefined;
     focoAnteriorRef.current = document.activeElement;
     const painel = painelRef.current;
     const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
-    primeiro?.focus();
+    primeiro?.focus({ preventScroll: true });
     function aoTeclado(e) {
-      if (e.key === "Escape") { e.preventDefault(); onFechar(); return; }
+      if (e.key === "Escape") { e.preventDefault(); onFecharRef.current(); return; }
       if (e.key !== "Tab" || !painel) return;
       const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
       if (focaveis.length === 0) return;
@@ -11438,9 +9531,9 @@ function PainelDetalhe({
     document.addEventListener("keydown", aoTeclado);
     return () => {
       document.removeEventListener("keydown", aoTeclado);
-      focoAnteriorRef.current?.focus?.();
+      focoAnteriorRef.current?.focus?.({ preventScroll: true });
     };
-  }, [aberto, onFechar]);
+  }, [aberto]);
   useScrollLock(!!aberto);
 
   if (!aberto) return null;
@@ -11463,11 +9556,11 @@ function PainelDetalhe({
           {statsLinha && <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">{statsLinha}</div>}
           {acoes && <div className="mt-3 flex flex-wrap gap-2">{acoes}</div>}
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 space-y-6">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
           {children}
         </div>
         {rodape !== null && (
-          <div className="shrink-0 border-t border-[#E2E8F0] px-5 py-3.5 sm:px-6">
+          <div className="shrink-0 border-t border-[#E2E8F0] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
             {rodape || <button onClick={onFechar} className="w-full rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Fechar</button>}
           </div>
         )}
@@ -11793,103 +9886,79 @@ function TimelineVenda({ pedido }) {
 // aqui (fica em CupomNaoFiscalModal); oferece atalhos para abri-lo.
 function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], acao, onFechar, onReimprimir, onEnviar }) {
   const subtotal = orderTotal(pedido);
-  const taxa = totalComTaxa(pedido) - subtotal;
-  const total = subtotal + taxa;
-  const custoTotal = pedido.items.reduce((s, it) => s + (custoPorNome[it.name] ?? 0) * it.quantity, 0);
-  const lucroBruto = subtotal - custoTotal;
+  const total = totalComTaxa(pedido);
+  const taxa = total - subtotal;
+  const temCusto = pedido.items.some((it) => custoPorNome[it.name] > 0);
+  const lucroBruto = subtotal - pedido.items.reduce((s, it) => s + (custoPorNome[it.name] ?? 0) * it.quantity, 0);
   const margemPct = subtotal > 0 ? (lucroBruto / subtotal) * 100 : 0;
-  const canal = canalDoPedido(pedido);
+  const registros = [
+    pedido.status === "cancelled" && ["Cancelado", pedido.cancelReason || "Motivo não informado"],
+    acao?.reimpresso && ["Reimpresso por", `${acao.reimpresso.por} · ${new Date(acao.reimpresso.quando).toLocaleString("pt-BR")}`],
+    acao?.enviado && ["Enviado por", `${acao.enviado.por} · ${new Date(acao.enviado.quando).toLocaleString("pt-BR")}`],
+  ].filter(Boolean);
+  const rotulo = "mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#667085]";
   return (
     <PainelDetalhe aberto={!!pedido} ariaLabel={`Cupom ${pedido.id}`} onFechar={onFechar}
-      titulo={`Cupom ${pedido.id} · Resumo da venda`}
+      titulo={`Cupom ${pedido.id}`}
       subtitulo={`${lojaInfo?.nome || "Restaurante"} · ${pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt}`}
-      rodape={<div className="flex items-center gap-2">
-        <button onClick={onReimprimir} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Ir para impressão</button>
-        <button onClick={onEnviar} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Ir para envio</button>
+      rodape={<div className="grid grid-cols-2 gap-2">
+        <BotaoAcao icone={Printer} onClick={onReimprimir}>Imprimir</BotaoAcao>
+        <BotaoAcao icone={MessageCircle} onClick={onEnviar}>Enviar</BotaoAcao>
       </div>}>
-          {anomalias.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {anomalias.map((a, i) => <BadgeAnomalia key={i} cor={a.cor}>{a.texto}</BadgeAnomalia>)}
-            </div>
+      {anomalias.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {anomalias.map((a, i) => <BadgeAnomalia key={i} cor={a.cor}>{a.texto}</BadgeAnomalia>)}
+        </div>
+      )}
+
+      <TimelineVenda pedido={pedido} />
+
+      <dl className="grid grid-cols-2 gap-3 rounded-2xl border border-[#E5E7EB] p-3 sm:grid-cols-3">
+        <Dado rotulo="Cliente">{pedido.customer || "Não identificado"}</Dado>
+        <Dado rotulo="Mesa">{pedido.table || "Balcão"}</Dado>
+        <Dado rotulo="Comanda">{pedido.command || "—"}</Dado>
+        <Dado rotulo="Pagamento">{pedido.pagamentoForma || "Não informado"}</Dado>
+        <Dado rotulo="Canal">{canalDoPedido(pedido)}</Dado>
+      </dl>
+
+      <section>
+        <p className={rotulo}>Itens</p>
+        <ul className="divide-y divide-[#F1F4F6] rounded-2xl border border-[#E5E7EB]">
+          {pedido.items.map((it, i) => (
+            <li key={i} className="px-3 py-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <span className="min-w-0 text-sm font-semibold text-[#1F2933] [overflow-wrap:anywhere]">{it.quantity}× {it.name}</span>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-[#012E46]">{formatCurrency(it.price * it.quantity)}</span>
+              </div>
+              <p className="text-[11px] text-[#667085]">{formatCurrency(it.price)} cada</p>
+              {it.removedIngredients?.length > 0 && <p className="text-[11px] text-[#667085]">Sem: {it.removedIngredients.join(", ")}</p>}
+              {it.extraIngredients?.length > 0 && <p className="text-[11px] text-[#667085]">Adicionais: {it.extraIngredients.join(", ")}</p>}
+              {it.observation && <p className="text-[11px] text-[#667085]">Obs.: {it.observation}</p>}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <p className={rotulo}>Valores</p>
+        <dl className="divide-y divide-[#F1F4F6] rounded-2xl border border-[#E5E7EB] text-sm">
+          <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">Subtotal</dt><dd className="tabular-nums text-[#1F2933]">{formatCurrency(subtotal)}</dd></div>
+          {taxa > 0 && <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">Taxa de serviço</dt><dd className="tabular-nums text-[#1F2933]">{formatCurrency(taxa)}</dd></div>}
+          <div className="flex justify-between gap-3 bg-[#F8FAFC] px-3 py-2.5 font-semibold text-[#012E46]"><dt>Total</dt><dd className="text-base tabular-nums">{formatCurrency(total)}</dd></div>
+          {temCusto && (
+            <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">Lucro estimado</dt><dd className="shrink-0 font-semibold tabular-nums" style={{ color: lucroBruto >= 0 ? "#1F7A3D" : "#C81E4A" }}>{formatCurrency(lucroBruto)} · {margemPct.toFixed(0)}%</dd></div>
           )}
+        </dl>
+      </section>
 
-          <TimelineVenda pedido={pedido} />
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {[
-              ["Cliente", pedido.customer || "Não identificado"], ["Mesa", pedido.table || "Balcão"],
-              ["Comanda", pedido.command || "—"], ["Operador", "—"],
-              ["Forma de pagamento", pedido.pagamentoForma || "Não informado"], ["Canal", canal],
-            ].map(([r, v]) => (
-              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                <p className="mt-0.5 truncate text-sm font-bold text-[#0D1B2A]">{v}</p>
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Itens</p>
-            <div className="space-y-2">
-              {pedido.items.map((it, i) => (
-                <div key={i} className="rounded-xl border border-[#E2E8F0] p-3">
-                  <div className="flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 truncate font-semibold text-[#0D1B2A]">{it.quantity}x {it.name}</span>
-                    <span className="shrink-0 text-xs text-[#64748B]">un. {formatCurrency(it.price)}</span>
-                    <span className="shrink-0 font-bold text-[#0D1B2A]">{formatCurrency(it.price * it.quantity)}</span>
-                  </div>
-                  {(it.removedIngredients?.length > 0 || it.extraIngredients?.length > 0 || it.observation) && (
-                    <div className="mt-1 space-y-0.5 text-[11px] text-[#64748B]">
-                      {it.removedIngredients?.length > 0 && <p>Ingredientes removidos: {it.removedIngredients.join(", ")}</p>}
-                      {it.extraIngredients?.length > 0 && <p>Adicionais: {it.extraIngredients.join(", ")}</p>}
-                      {it.observation && <p>Observações: {it.observation}</p>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Resumo financeiro</p>
-            <div className="divide-y divide-[#F1F5F9] rounded-xl border border-[#E2E8F0]">
-              {[
-                ["Subtotal", formatCurrency(subtotal)], ["Desconto", "—"], ["Acréscimos", "—"],
-                ["Taxa de serviço (10%)", formatCurrency(taxa)], ["Taxa de entrega", "—"],
-                ["Valor pago", formatCurrency(total)], ["Troco", "—"],
-              ].map(([r, v]) => (
-                <div key={r} className="flex items-center justify-between px-3.5 py-2 text-sm">
-                  <span className="text-[#64748B]">{r}</span><span className="font-semibold text-[#334155]">{v}</span>
-                </div>
-              ))}
-              <div className="flex items-center justify-between bg-[#F8FAFC] px-3.5 py-2.5">
-                <span className="text-sm font-black text-[#0D1B2A]">Total</span><span className="text-base font-black text-[#0D1B2A]">{formatCurrency(total)}</span>
-              </div>
-              <div className="flex items-center justify-between px-3.5 py-2 text-sm">
-                <span className="text-[#64748B]">Lucro estimado (preço − custo cadastrado)</span>
-                <span className={`font-bold ${lucroBruto >= 0 ? "text-[#10B981]" : "text-[#EF4444]"}`}>{formatCurrency(lucroBruto)} · {margemPct.toFixed(0)}%</span>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Auditoria</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {[
-                ["Criado por", "—"], ["Editado por", "—"],
-                ["Cancelado por", pedido.status === "cancelled" ? (pedido.cancelReason || "Motivo não informado") : "—"],
-                ["Reimpresso por", acao?.reimpresso ? `${acao.reimpresso.por} · ${new Date(acao.reimpresso.quando).toLocaleString("pt-BR")}` : "—"],
-                ["Enviado por WhatsApp", acao?.enviado ? `${acao.enviado.por} · ${new Date(acao.enviado.quando).toLocaleString("pt-BR")}` : "—"],
-                ["IP", "—"],
-              ].map(([r, v]) => (
-                <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                  <p className="mt-0.5 truncate text-xs font-bold text-[#0D1B2A]">{v}</p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-1.5 text-[10px] text-[#94A3B8]">Reimpressão/envio registrados nesta sessão do navegador — não há coluna de auditoria por pedido no banco hoje.</p>
-          </div>
+      {registros.length > 0 && (
+        <section>
+          <p className={rotulo}>Registros</p>
+          <dl className="grid gap-3 rounded-2xl border border-[#E5E7EB] p-3 sm:grid-cols-2">
+            {registros.map(([r, v]) => <Dado key={r} rotulo={r}>{v}</Dado>)}
+          </dl>
+        </section>
+      )}
     </PainelDetalhe>
   );
 }
@@ -12796,7 +10865,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92dvh]">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <h2 className="text-base font-black text-white">Cupom não fiscal</h2>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
@@ -14446,23 +12515,14 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
   const cfgCrm = useMemo(() => ({ ...CRM_CFG_PADRAO, ...(configCrm || {}) }), [configCrm]);
 
   // ── Período de análise (presets + intervalo personalizado) ──
-  const [preset, setPreset]   = useState("todos"); // hoje | 7d | 30d | 90d | todos | custom
+  const [preset, setPreset]   = useState("tudo");
   const [dataIni, setDataIni] = useState("");      // YYYY-MM-DD
   const [dataFim, setDataFim] = useState("");
 
   const intervalo = useMemo(() => {
-    const iniDia = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-    const fimDia = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
-    const hoje = new Date();
-    if (preset === "hoje") return { ini: iniDia(hoje), fim: fimDia(hoje) };
-    if (preset === "7d")   return { ini: iniDia(new Date(hoje.getTime() - 6  * 86400000)), fim: fimDia(hoje) };
-    if (preset === "30d")  return { ini: iniDia(new Date(hoje.getTime() - 29 * 86400000)), fim: fimDia(hoje) };
-    if (preset === "90d")  return { ini: iniDia(new Date(hoje.getTime() - 89 * 86400000)), fim: fimDia(hoje) };
-    if (preset === "custom") return {
-      ini: dataIni ? iniDia(`${dataIni}T00:00:00`) : null,
-      fim: dataFim ? fimDia(`${dataFim}T00:00:00`) : null,
-    };
-    return { ini: null, fim: null }; // todos
+    if (preset === "tudo") return { ini: null, fim: null };
+    const [a, b] = intervaloPeriodo(preset, dataIni, dataFim);
+    return { ini: a.getTime() > 0 ? a : null, fim: b };
   }, [preset, dataIni, dataFim]);
 
   // Pedidos de clientes dentro do período selecionado
@@ -14607,12 +12667,7 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
     ticketGeral > 0 && { cat: "Oportunidade", cls: "border-violet-400/30 text-violet-300", txt: `Ticket médio geral de ${formatCurrency(ticketGeral)} — aumente com combos, adicionais e ofertas personalizadas.` },
   ].filter(Boolean);
 
-  const rotuloPeriodo = preset === "todos" ? "todo o histórico"
-    : preset === "hoje" ? "hoje"
-    : preset === "7d" ? "últimos 7 dias"
-    : preset === "30d" ? "últimos 30 dias"
-    : preset === "90d" ? "últimos 90 dias"
-    : `${dataIni ? new Date(`${dataIni}T00:00:00`).toLocaleDateString("pt-BR") : "início"} → ${dataFim ? new Date(`${dataFim}T00:00:00`).toLocaleDateString("pt-BR") : "hoje"}`;
+  const rotuloPeriodo = preset === "tudo" ? "todo o histórico" : (ROTULOS_PERIODO[preset] || rotuloPeriodoSelecionado(preset, dataIni, dataFim)).toLowerCase();
 
   const linkWhats = (tel) => `https://wa.me/55${String(tel || "").replace(/\D/g, "")}`;
   const SEG_OPC = [["todos", "Todos"], ["vip", "VIP"], ["recorrente", "Recorrentes"], ["novo", "Novos"], ["inativo", "Inativos"], ["risco", "Em risco"], ["alto", "Alto ticket"], ["baixo", "Baixo ticket"]];
@@ -14647,33 +12702,8 @@ function CrmAdmin({ clientes = [], orders = [], fidTransacoes = [], fidRecompens
         </div>
 
         {/* Período de análise */}
-        <div className="mt-4 rounded-2xl border border-white/[0.06] bg-slate-950/40 p-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Período de análise</p>
-          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-1.5">
-              {[["hoje", "Hoje"], ["7d", "7 dias"], ["30d", "30 dias"], ["90d", "90 dias"], ["todos", "Tudo"]].map(([v, t]) => (
-                <FilterChip key={v} size="sm" selected={preset === v} label={t} onClick={() => setPreset(v)} />
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                De
-                <input type="date" value={dataIni} onChange={(e) => { setDataIni(e.target.value); setPreset("custom"); }}
-                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-gold-400/60 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
-              </label>
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                Até
-                <input type="date" value={dataFim} onChange={(e) => { setDataFim(e.target.value); setPreset("custom"); }}
-                  className={`rounded-xl border bg-slate-950/70 px-2.5 py-2 text-xs text-white outline-none focus:border-gold-400/60 ${preset === "custom" ? "border-blue-400/50" : "border-white/10"}`} />
-              </label>
-              {preset === "custom" && (dataIni || dataFim) && (
-                <button onClick={() => { setDataIni(""); setDataFim(""); setPreset("todos"); }}
-                  className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-slate-300 hover:bg-white/10 transition">
-                  ✕ Limpar
-                </button>
-              )}
-            </div>
-          </div>
+        <div className="mt-4">
+          <FiltroPeriodo valor={preset} onMudar={setPreset} ini={dataIni} fim={dataFim} onIni={setDataIni} onFim={setDataFim} />
         </div>
 
         {/* Segmentação avançada (recolhível) */}
@@ -16057,7 +14087,7 @@ function CategoriaEditModal({ categoria, produtos, setores = [], impressoras = [
 
   return (
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 p-3 backdrop-blur-sm sm:p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl sm:max-h-[90vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl sm:max-h-[90dvh]">
 
         <div className="flex items-center justify-between border-b border-[#012E46]/10 px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2">
@@ -16254,22 +14284,6 @@ function ModuloBloqueado({ slug }) {
 }
 
 // Selo de status da assinatura (sidebar do admin). Some quando não há assinatura.
-function TrialBadge({ assinatura }) {
-  const st = statusAssinatura(assinatura);
-  if (st.status === "none") return null;
-  const cores = {
-    ok:     "border-emerald-400/30 bg-emerald-500/10 text-emerald-300",
-    trial:  "border-gold-400/40 bg-gold-400/10 text-gold-300",
-    alerta: "border-amber-400/40 bg-amber-500/10 text-amber-300",
-    erro:   "border-red-400/40 bg-red-500/10 text-red-300",
-    neutro: "border-white/10 bg-white/[0.06] text-slate-300",
-  };
-  return (
-    <div className={`mx-3 mb-2 rounded-xl border px-3 py-1.5 text-center text-[11px] font-black uppercase tracking-wide ${cores[st.tom] || cores.neutro}`}>
-      {st.rotulo}
-    </div>
-  );
-}
 
 const PLANO_WHATS = "5518981465499"; // contato comercial Pedido Prime
 function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos = [], lojaInfo, isSuperAdmin = false, lojaAtual, definirAssinatura = async () => {}, assinaturas = [], lojas = [] }) {
@@ -16456,7 +14470,7 @@ function MeuPlanoAdmin({ planoAtual, assinaturaAtual, planos = [], planoModulos 
               <h3 className="page-title text-base font-bold tracking-tight text-white">Recorrência e permanência dos clientes</h3>
               <p className="mt-1 text-sm text-slate-400">Desde quando cada empresa usa o sistema, recorrência e próximo vencimento — filtre por data de pagamento (vencimento).</p>
             </div>
-            <div className="flex items-end gap-2">
+            <div className="flex flex-wrap items-end gap-2">
               <label className="text-left"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Vencimento de</span>
                 <input type="date" value={gFiltroIni} onChange={(e) => setGFiltroIni(e.target.value)} className={inp} /></label>
               <label className="text-left"><span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-slate-500">até</span>
@@ -16982,7 +14996,7 @@ function PromocaoModal({ promocao, produtos = [], categoriasDb = [], onSalvar, o
 
   return (
     <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 p-2 backdrop-blur-sm sm:p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl sm:max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1rem)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl sm:max-h-[92dvh]">
         <div className="flex items-center justify-between border-b border-[#012E46]/10 px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F38525]/12 text-[#F38525]"><IconPromocao /></span>
@@ -17446,7 +15460,7 @@ function VincularProdutosModal({ setor, produtos = [], setores = [], onFechar, o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div className="relative flex max-h-[85dvh] w-full max-w-lg flex-col rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center justify-between">
             <h4 className="page-title text-base font-semibold text-[var(--pp-text)]">Vincular produtos ao setor</h4>
@@ -18182,7 +16196,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
     buckets.push({ n: enriquecidos.filter((c) => c.criadoMs >= ini && c.criadoMs < fim).length, rot });
   }
   const maxBucket = Math.max(1, ...buckets.map((b) => b.n));
-  const PERIODO_LABEL = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", periodo: (periodoIni || periodoFim) ? `${periodoIni || "—"} a ${periodoFim || "—"}` : "Período" };
+  const PERIODO_LABEL = { mes: "Este mês", tudo: "Todo o período", hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", periodo: (periodoIni || periodoFim) ? `${periodoIni || "—"} a ${periodoFim || "—"}` : "Período" };
   const periodoLabel = PERIODO_LABEL[periodoAnalise] || "Período";
 
   // ── Fila filtrada + ordenada ──
@@ -18285,7 +16299,6 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex xl:items-center">
           {[
-            { rot: "Período (análise)", val: periodoAnalise, set: setPeriodoAnalise, ops: [["hoje", "Hoje"], ["ontem", "Ontem"], ["7", "7 dias"], ["15", "15 dias"], ["30", "30 dias"], ["periodo", "Período"]] },
             { rot: "Prioridade", val: fPrio, set: setFPrio, ops: [["todas", "Todas"], ["critico", "Crítico"], ["atencao", "Atenção"], ["normal", "Normal"]] },
             { rot: "Tempo de espera", val: fEspera, set: setFEspera, ops: [["todos", "Qualquer"], ["5", "Acima de 5 min"], ["10", "Acima de 10 min"]] },
             { rot: "Responsável", val: fResp, set: setFResp, ops: [["todos", "Todos"], ["nao", "Não atribuído"], ...respOpcoes.map((id) => [id, nomeResp(id)])] },
@@ -18300,24 +16313,7 @@ function ChamadosPainel({ chamados = [], atenderChamado, assumirChamado = async 
               </div>
             </label>
           ))}
-          {periodoAnalise === "periodo" && (
-            <>
-              <label className={`${selBox} col-span-2 sm:col-span-1`}>
-                <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data inicial</span>
-                  <input type="date" value={periodoIni} max={periodoFim || undefined} onChange={(e) => comReset(setPeriodoIni)(e.target.value)}
-                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
-                </div>
-              </label>
-              <label className={`${selBox} col-span-2 sm:col-span-1`}>
-                <div className="min-w-0 flex-1">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Data final</span>
-                  <input type="date" value={periodoFim} min={periodoIni || undefined} onChange={(e) => comReset(setPeriodoFim)(e.target.value)}
-                    className="w-full cursor-pointer bg-transparent text-[13px] font-bold text-dash-navy outline-none" />
-                </div>
-              </label>
-            </>
-          )}
+          <FiltroPeriodo valor={periodoAnalise} onMudar={comReset(setPeriodoAnalise)} ini={periodoIni} fim={periodoFim} onIni={comReset(setPeriodoIni)} onFim={comReset(setPeriodoFim)} className="col-span-full" />
           <button onClick={limparFiltros} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[rgba(1, 46, 70,0.35)] bg-[rgba(1, 46, 70,0.06)] px-3.5 py-2 text-[13px] font-semibold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.12)]">Limpar filtros</button>
         </div>
       </div>
@@ -20443,7 +18439,7 @@ function LojaRegraVerModal({ titulo, dados, onFechar }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div className="relative flex max-h-[85dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <h2 className="text-lg font-semibold text-[var(--pp-text)]">{titulo}</h2>
           <button onClick={onFechar} className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)]">✕</button>
@@ -20471,7 +18467,7 @@ function CompararVersaoModal({ imp, nova, api, onFechar }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div className="relative flex max-h-[86dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525]">⚠</span>
             <div><h2 className="text-lg font-semibold text-[var(--pp-text)]">Atualização fiscal — v{imp.versaoImportada} → v{nova.versao}</h2>
@@ -21003,7 +18999,7 @@ function DanfeNfceCupom({ nota, emitente = null, lojaInfo = null, onFechar }) {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4" style={{ fontFamily: "Inter, sans-serif" }} onClick={onFechar}>
-      <div className="max-h-[90vh] w-full max-w-[380px] overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90dvh] w-full max-w-[380px] overflow-y-auto rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* Faixa de simulação */}
         <div className="rounded-t-2xl bg-[#F38525] px-4 py-2 text-center">
           <p className="text-[12px] font-bold text-white">🧪 SIMULAÇÃO — SEM VALIDADE FISCAL</p>
@@ -21318,7 +19314,7 @@ function VinculosNcmModal({ acao, itens = [], feitos = 0, onFechar }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div className="relative flex max-h-[85dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
             <span className={`flex h-10 w-10 items-center justify-center rounded-2xl text-lg ${feitos > 0 ? "bg-[rgba(47,158,82,0.12)] text-[#2F9E52]" : "bg-[rgba(200,30,74,0.1)] text-[#C81E4A]"}`}>{feitos > 0 ? "✅" : "🔗"}</span>
@@ -22006,7 +20002,7 @@ function ImportarNcmModal({ existentes = [], importar, onFechar }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <button aria-label="Fechar" onClick={onFechar} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div className="relative flex max-h-[88dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--pp-border)] px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(1, 46, 70,0.1)] text-lg text-[#012E46]">⬆</span>
@@ -23487,7 +21483,7 @@ function UserAccessModal({ usuario, acessosAtivos = [], nomeLoja, toggleUserAcce
   }
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92dvh]">
         {/* Cabeçalho */}
         <div className="flex items-start justify-between gap-3 border-b border-white/10 px-6 py-4">
           <div className="min-w-0">
@@ -23673,7 +21669,7 @@ function QRLoginCardModal({ usuario, nomeEmpresa, onFechar }) {
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
+      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-md flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92dvh]">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <h2 className="text-lg font-black text-white">🔐 QR de login</h2>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>

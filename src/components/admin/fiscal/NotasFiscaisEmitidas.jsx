@@ -340,7 +340,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Ambiente">
               <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">Ambiente</span>
-              <div className="inline-flex overflow-hidden rounded-xl border border-[var(--pp-border)]">
+              <div className="inline-flex max-w-full flex-wrap overflow-hidden rounded-xl border border-[var(--pp-border)]">
                 {AMBIENTES_NOTAS.map((a) => {
                   const on = ambiente === a.id;
                   return (

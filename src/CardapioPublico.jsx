@@ -1613,7 +1613,6 @@ export default function CardapioPublico() {
   if (etapa === "welcome") {
     const lojaStatus = abertoAgora ? "aberto" : disp.motivo === MOTIVO.FORA_HORARIO ? "fechado" : null;
     const fechaHoje = abertoAgora ? (disp.intervaloAtual?.fecha || null) : null;
-    const versaoApp = (typeof __APP_VERSION__ !== "undefined") ? __APP_VERSION__ : "local";
     const partesNome = String(loja.nome || "").trim().split(/\s+/).filter(Boolean);
     const nomePrimario = partesNome[0] || loja.nome || "Estabelecimento";
     const nomeSecundario = partesNome.slice(1).join(" ");
@@ -1891,15 +1890,6 @@ export default function CardapioPublico() {
                 </div>
               </div>
             )}
-
-            <footer className="mt-1.5 flex shrink-0 flex-col items-center gap-0.5 text-center">
-              <p className="flex items-center gap-1 text-[10px] text-[#6B7280]">
-                {modoExterno && <CkIconCoracao width={11} height={11} className="text-[#F38525]" />}
-                Tecnologia e confiança
-                <span className="font-black"><span className="text-[#012E46]">Pedido</span><span className="text-[#F38525]">Prime</span></span>
-              </p>
-              <p className="text-[9px] text-[#9CA3AF]">Versão {versaoApp}</p>
-            </footer>
           </div>
         </div>
 

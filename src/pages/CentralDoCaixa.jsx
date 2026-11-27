@@ -283,7 +283,7 @@ export default function CentralDoCaixa({
 
       {confirmacao && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ paddingTop: "max(16px, env(safe-area-inset-top))", paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="cx-conf-titulo" className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
+          <div role="dialog" aria-modal="true" aria-labelledby="cx-conf-titulo" className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-3xl border border-[var(--pp-border)] bg-white p-6 shadow-2xl">
             <h2 id="cx-conf-titulo" className="text-lg font-black text-[var(--pp-text)]">Confirmar pagamento</h2>
             <p className="mt-1 text-sm text-[var(--pp-text-body)]">
               {String(confirmacao.o.table || "Conta")}{confirmacao.o.customer ? ` · ${confirmacao.o.customer}` : ""}

@@ -11,7 +11,6 @@ import CheckoutKeypad from "./CheckoutKeypad";
 import CheckoutPaymentMethods from "./CheckoutPaymentMethods";
 import CheckoutSplit from "./CheckoutSplit";
 import CheckoutFooterActions from "./CheckoutFooterActions";
-import CheckoutStatusBar from "./CheckoutStatusBar";
 
 /**
  * Tela PDV de fechamento de UMA conta — overlay em tela cheia aberto a partir
@@ -133,7 +132,6 @@ export default function CashierCheckout({
         </div>
       </div>
 
-      <CheckoutStatusBar backupLabel={`Backup em dia ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`} />
     </div>
   );
 }

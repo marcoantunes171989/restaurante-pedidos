@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Armchair, Banknote, CircleCheck, ClipboardList, Clock, Receipt, ShoppingBag, Wallet, XCircle } from "lucide-react";
-import { FilterChip } from "../../components/Prime";
+import FiltroPeriodo from "../../components/FiltroPeriodo.jsx";
 import {
   Carregando,
   AvisoErro,
@@ -28,15 +28,6 @@ import {
 } from "../../lib/relatorios/analiseVendas.js";
 import { formatCurrency } from "../pdv/pdvHelpers.js";
 
-const PERIODOS = [
-  { id: "hoje", label: "Hoje" },
-  { id: "ontem", label: "Ontem" },
-  { id: "7", label: "7 dias" },
-  { id: "15", label: "15 dias" },
-  { id: "30", label: "30 dias" },
-  { id: "tudo", label: "Tudo" },
-];
-
 const PRIORIDADE = {
   alta: { rotulo: "Alta", fundo: "#FDF2F5", cor: "#C81E4A" },
   media: { rotulo: "Média", fundo: "#FEF3E8", cor: "#9A4D0B" },
@@ -63,16 +54,18 @@ export default function DashboardGerencial({
   irParaRelatorio = () => {},
 }) {
   const [periodo, setPeriodo] = useState("hoje");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
   const dados = useDadosVendas();
 
   const filtrados = useMemo(
-    () => (periodo === "tudo" ? orders : pedidosNoIntervalo(orders, intervaloPeriodo(periodo))),
-    [orders, periodo],
+    () => (periodo === "tudo" ? orders : pedidosNoIntervalo(orders, intervaloPeriodo(periodo, ini, fim))),
+    [orders, periodo, ini, fim],
   );
-  const anteriores = useMemo(() => pedidosNoIntervalo(orders, intervaloAnterior(periodo)), [orders, periodo]);
+  const anteriores = useMemo(() => pedidosNoIntervalo(orders, intervaloAnterior(periodo, ini, fim)), [orders, periodo, ini, fim]);
   const atual = useMemo(() => resumoVendas(filtrados, products), [filtrados, products]);
   const anterior = useMemo(() => (anteriores.length ? resumoVendas(anteriores, products) : null), [anteriores, products]);
-  const serie = useMemo(() => serieTemporal({ orders, periodo }), [orders, periodo]);
+  const serie = useMemo(() => serieTemporal({ orders, periodo, ini, fim }), [orders, periodo, ini, fim]);
   const topProdutos = useMemo(() => rankingProdutos(atual.pagos, products).slice(0, 5), [atual.pagos, products]);
   const reposicao = useMemo(
     () => products.filter(abaixoDoMinimo).sort((a, b) => (Number(a.estoque) || 0) - (Number(b.estoque) || 0)),
@@ -95,11 +88,7 @@ export default function DashboardGerencial({
           <p className="text-xs text-[#667085]">{lojaNome || "Loja selecionada"}</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Período">
-            {PERIODOS.map((p) => (
-              <FilterChip key={p.id} size="sm" selected={periodo === p.id} label={p.label} onClick={() => setPeriodo(p.id)} />
-            ))}
-          </div>
+          <FiltroPeriodo valor={periodo} onMudar={setPeriodo} ini={ini} fim={fim} onIni={setIni} onFim={setFim} />
           <SituacaoDados dados={dados} />
         </div>
       </header>

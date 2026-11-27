@@ -37,6 +37,8 @@ export function atalhoDePeriodo(id, agora = new Date()) {
   const f = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d); // AAAA-MM-DD
   const hoje = f(agora);
   if (id === "hoje") return { de: hoje, ate: hoje };
+  if (id === "ontem") { const ontem = f(new Date(agora.getTime() - DIA_MS)); return { de: ontem, ate: ontem }; }
+  if (id === "7" || id === "15" || id === "30") return { de: f(new Date(agora.getTime() - (Number(id) - 1) * DIA_MS)), ate: hoje };
   if (id === "7d") return { de: f(new Date(agora.getTime() - 6 * DIA_MS)), ate: hoje };
   if (id === "30d") return { de: f(new Date(agora.getTime() - 29 * DIA_MS)), ate: hoje };
   if (id === "mes") return { de: `${hoje.slice(0, 8)}01`, ate: hoje };

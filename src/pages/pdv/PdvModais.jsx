@@ -272,7 +272,7 @@ export function ModalTransferirMesa({ mesaAtual, mesas = [], mesasOcupadas = [],
   return (
     <ModalShell titulo="Transferir mesa" subtitulo={`De ${mesaAtual || "—"} para…`} onFechar={onFechar}>
       <LegendaMesas />
-      <div className="grid max-h-[50vh] grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
+      <div className="grid max-h-[50dvh] grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-5">
         {opcoes.map(({ n, ocupada, label }) => {
           const meta = ocupada ? MESA_STATUS_META.ocupada : MESA_STATUS_META.livre;
           const on = destino === label;
@@ -420,7 +420,7 @@ export function ModalSepararItens({
 
   return (
     <ModalShell titulo="Separar itens" subtitulo="Mova produtos para outra mesa" onFechar={onFechar} largura="max-w-xl">
-      <ul className="mb-3 max-h-[32vh] divide-y divide-[var(--pp-border)] overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-white">
+      <ul className="mb-3 max-h-[32dvh] divide-y divide-[var(--pp-border)] overflow-y-auto rounded-xl border border-[var(--pp-border)] bg-white">
         {itens.map((it) => {
           const on = sel.has(it.key);
           return (

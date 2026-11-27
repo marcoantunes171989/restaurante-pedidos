@@ -1939,3 +1939,49 @@ a[class~="bg-[#012E46]"] > *,
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
 }
+
+/* ── Janelas sobrepostas (modais e gavetas) ───────────────────────────
+   Valem para todas: não herdam a margem de contêineres com space-y (que
+   cortava o topo), respeitam a altura visível do celular e nunca deixam o
+   começo do conteúdo fora de alcance quando ele é mais alto que a tela. */
+.fixed.inset-0 { margin: 0 !important; }
+/* Grupos do menu lateral: abrem e recolhem pela altura da grade. */
+.pp-grupo { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows .28s cubic-bezier(.22,1,.36,1), visibility 0s linear .28s; }
+.pp-grupo[data-aberto="true"] { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows .28s cubic-bezier(.22,1,.36,1), visibility 0s; }
+.pp-grupo > div { min-height: 0; overflow: hidden; }
+@keyframes pp-menu-entrar { from { transform: translateY(-4px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.pp-menu { transform-origin: top right; animation: pp-menu-entrar .16s cubic-bezier(.16,1,.3,1) both; }
+@media (prefers-reduced-motion: reduce) { .pp-grupo, .pp-grupo[data-aberto="true"] { transition: none; } .pp-menu { animation: none; } }
+@keyframes pp-folha-subir { from { transform: translateY(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+.pp-folha { animation: pp-folha-subir .22s cubic-bezier(.16,1,.3,1) both; }
+@media (prefers-reduced-motion: reduce) { .pp-folha { animation: none; } }
+:where(.fixed.inset-0 > *) { max-height: 100dvh; }
+.fixed.inset-0.items-center { align-items: safe center; overflow-y: auto; overscroll-behavior: contain; }
+.fixed.inset-0.items-end { align-items: safe flex-end; overflow-y: auto; overscroll-behavior: contain; }
+/* Desfoque do fundo pesa muito na rolagem em celulares e tablets. */
+@media (max-width: 1023px) {
+  .fixed.inset-0[class*="backdrop-blur"], .fixed.inset-0 > [class*="backdrop-blur"] { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ── Padrão visual do painel (mesmo do Dashboard e dos Relatórios) ──────
+   Cores de texto e borda, títulos em petróleo e um só raio para os cartões,
+   valendo para todas as telas administrativas. */
+[data-theme="light"].pp-admin-module,
+[data-theme="light"].pp-admin-module .tema-claro-area {
+  --pp-text: #1F2933;
+  --pp-text-body: #475467;
+  --pp-text-muted: #667085;
+  --pp-border: #E5E7EB;
+}
+[data-theme="light"].pp-admin-module .tema-claro-area .page-title { color: #012E46 !important; font-weight: 600; letter-spacing: -0.01em; }
+.pp-admin-module .pp-admin-content :where(h1, h2, h3, h4) { letter-spacing: -0.01em; }
+.pp-admin-module .pp-admin-content .rounded-\[2rem\],
+.pp-admin-module .pp-admin-content .rounded-\[1\.75rem\],
+.pp-admin-module .pp-admin-content .rounded-\[1\.5rem\],
+.pp-admin-module .pp-admin-content .rounded-\[20px\],
+.pp-admin-module .pp-admin-content .rounded-3xl { border-radius: 1rem; }
+/* Fluidez: toques sem atraso e rolagem contida nas listas. */
+.pp-admin-module :where(button, a, select, [role="button"]) { touch-action: manipulation; }
+.pp-admin-module .pp-admin-content { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-gutter: stable; }
+/* Itens de grade podem encolher: sem isto, um campo ou número longo alargava a tela do celular. */
+.pp-admin-module .pp-admin-content .grid > * { min-width: 0; }

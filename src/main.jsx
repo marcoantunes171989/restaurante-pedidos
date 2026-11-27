@@ -1,11 +1,22 @@
-import { StrictMode, Component, useState, useEffect, useCallback, useRef } from 'react'
+import { StrictMode, Component, Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
-import LandingPage from './landing/LandingPage.jsx'
 import PwaExperienceProvider from './components/PwaExperienceProvider.jsx'
-import CardapioPublico from './CardapioPublico.jsx'
 import { solicitarNavegacaoInterna } from './lib/historicoNavegacao'
+
+// Cada porta de entrada baixa só o que usa: site, sistema ou cardápio.
+const App = lazy(() => import('./App.jsx'))
+const LandingPage = lazy(() => import('./landing/LandingPage.jsx'))
+const CardapioPublico = lazy(() => import('./CardapioPublico.jsx'))
+
+// Espera leve enquanto o código da tela é baixado (sem depender de outros módulos).
+function Abrindo() {
+  return (
+    <div role="status" aria-label="Carregando" style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FFFFFF' }}>
+      <span className="pp-load-ring" style={{ width: 44, height: 44, borderRadius: '50%', border: '3px solid rgba(1,46,70,0.12)', borderTopColor: '#012E46' }} />
+    </div>
+  )
+}
 
 // ══════════════════════════════════════════════════════════════
 //  SW Manager
@@ -269,11 +280,13 @@ function Root() {
   // O badge de versão é exibido apenas na TELA DE LOGIN (dentro de <App/>),
   // não na landing nem nas demais telas.
   // Cardápio digital público (cliente externo) — sem banner PWA/instância
-  if (ehCardapio) return <CardapioPublico />
+  if (ehCardapio) return <Suspense fallback={<Abrindo />}><CardapioPublico /></Suspense>
 
   return (
     <>
-      {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
+      <Suspense fallback={<Abrindo />}>
+        {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
+      </Suspense>
       <PwaExperienceProvider swAtivado={swAtivado} />
     </>
   )

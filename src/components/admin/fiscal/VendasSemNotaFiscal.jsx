@@ -8,6 +8,8 @@ import { normalizarEntregaNfce } from "../../../lib/fiscal/entregaNfce";
 import { useEnderecoDoPedido } from "../../../hooks/useEnderecoDoPedido";
 import PdvNotaFiscalCampos from "../../../pages/pdv/PdvNotaFiscalCampos";
 import CupomVendaBalcao, { dadosDoCupom } from "./CupomVendaBalcao";
+import FiltroPeriodo from "../../FiltroPeriodo.jsx";
+import { intervaloPeriodo } from "../../../lib/relatorios/analiseVendas.js";
 
 // Tela "Venda Balcão": vendas JÁ PAGAS que ainda não têm nota fiscal. A venda é consultada (cupom) e transformada em NFC-e ou NF-e
 // com os MESMOS itens, valores e formas de pagamento do caixa: nada disso é editável aqui. Emitir de novo nunca duplica (a chave de
@@ -16,7 +18,6 @@ const botao = "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#
 const botaoLeve = "inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--pp-text-body)] transition hover:border-[#012E46] disabled:opacity-45";
 const brl = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
-const PERIODOS = [{ dias: 1, rotulo: "Hoje" }, { dias: 7, rotulo: "7 dias" }, { dias: 30, rotulo: "30 dias" }, { dias: 90, rotulo: "90 dias" }];
 
 // Aqui a nota não imprime sozinha: o texto dos botões é diferente do do caixa.
 const AJUDAS_DA_TELA = {
@@ -60,7 +61,9 @@ function PainelNota({ venda, supabase, nfceDisponivel, nfeDisponivel, entregaCon
 
 export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], produtos = [], formasPagamento = [], ctxFiscal = {} }) {
   const lojaId = lojaInfo?.id ?? null;
-  const [dias, setDias] = useState(7);
+  const [periodo, setPeriodo] = useState("7");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
   const [dados, setDados] = useState({ carregando: true, documentos: [], registros: [], erro: "", avisoRegistro: "" });
   const [fiscal, setFiscal] = useState({ carregando: true, emitente: null, config: null });
   const [abertaId, setAbertaId] = useState(null);
@@ -85,8 +88,9 @@ export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], p
     return () => { vivo = false; };
   }, [supabase, lojaId]);
 
-  const desde = useMemo(() => new Date(base - dias * 24 * 3600 * 1000), [base, dias]);
-  const vendas = useMemo(() => vendasDoBalcao({ registros: dados.registros, orders, documentos: dados.documentos, lojaId, desde }), [dados.registros, orders, dados.documentos, lojaId, desde]);
+  const [desde, ate] = useMemo(() => intervaloPeriodo(periodo, ini, fim, new Date(base)), [periodo, ini, fim, base]);
+  const vendas = useMemo(() => vendasDoBalcao({ registros: dados.registros, orders, documentos: dados.documentos, lojaId, desde })
+    .filter((v) => !v.quando || new Date(v.quando) <= ate), [dados.registros, orders, dados.documentos, lojaId, desde, ate]);
   const nfceDisponivel = !!ambienteNfceDaLoja(fiscal.emitente);
   const nfeDisponivel = !!ambienteNfeDaLoja(fiscal.emitente);
   const emissaoLigada = nfceDisponivel || nfeDisponivel;
@@ -120,12 +124,7 @@ export default function VendasSemNotaFiscal({ supabase, lojaInfo, orders = [], p
       <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">Consulte o cupom e transforme a venda em NFC-e ou NF-e. Para não emitir, não faça nada. Venda que já tem nota (mesmo rejeitada) não aparece: resolva em Notas emitidas.</p>
       <p className="mt-1 text-[12px] font-semibold text-[#8A5200]">Venda Balcão não é documento fiscal. A lei exige a nota na venda: confirme com o contador antes de deixar uma venda sem emitir.</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <div className="inline-flex overflow-hidden rounded-xl border border-[var(--pp-border)]" role="group" aria-label="Período">
-          {PERIODOS.map((p) => (
-            <button key={p.dias} type="button" aria-pressed={dias === p.dias} onClick={() => { setDias(p.dias); setAbertaId(null); }}
-              className={`min-h-11 whitespace-nowrap px-3 text-[12px] font-semibold ${dias === p.dias ? "bg-[#012E46] text-white" : "bg-white text-[var(--pp-text-body)]"}`}>{p.rotulo}</button>
-          ))}
-        </div>
+        <FiltroPeriodo valor={periodo} onMudar={(v) => { setPeriodo(v); setAbertaId(null); }} ini={ini} fim={fim} onIni={setIni} onFim={setFim} />
         <button type="button" className={botaoLeve} onClick={() => setRecarga((r) => r + 1)}>Atualizar</button>
       </div>
 

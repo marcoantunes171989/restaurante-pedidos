@@ -1,3 +1,5 @@
+import FiltroPeriodo from "../../components/FiltroPeriodo.jsx";
+import { intervaloPeriodo } from "../../lib/relatorios/analiseVendas.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FiltersPanel, FilterGroup } from "../../components/Prime";
 import {
@@ -40,48 +42,11 @@ import {
   exportarSessoesPdf,
 } from "../../lib/accessControl/export.js";
 
-const PERIODOS = [
-  { id: "hoje", label: "Hoje" },
-  { id: "ontem", label: "Ontem" },
-  { id: "7d", label: "Últimos 7 dias" },
-  { id: "30d", label: "Últimos 30 dias" },
-  { id: "mes", label: "Este mês" },
-];
-
 const PAGE_SIZES = [10, 20, 30, 40, 50];
 
-function rangePeriodo(id) {
-  const now = new Date();
-  const startOfDay = (d) => {
-    const x = new Date(d);
-    x.setHours(0, 0, 0, 0);
-    return x;
-  };
-  const endOfDay = (d) => {
-    const x = new Date(d);
-    x.setHours(23, 59, 59, 999);
-    return x;
-  };
-  if (id === "ontem") {
-    const y = new Date(now);
-    y.setDate(y.getDate() - 1);
-    return { desde: startOfDay(y).toISOString(), ate: endOfDay(y).toISOString() };
-  }
-  if (id === "7d") {
-    const d = new Date(now);
-    d.setDate(d.getDate() - 7);
-    return { desde: d.toISOString(), ate: now.toISOString() };
-  }
-  if (id === "30d") {
-    const d = new Date(now);
-    d.setDate(d.getDate() - 30);
-    return { desde: d.toISOString(), ate: now.toISOString() };
-  }
-  if (id === "mes") {
-    const d = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { desde: d.toISOString(), ate: now.toISOString() };
-  }
-  return { desde: startOfDay(now).toISOString(), ate: now.toISOString() };
+function rangePeriodo(id, ini, fim) {
+  const [desde, ate] = intervaloPeriodo(id, ini, fim);
+  return { desde: desde.toISOString(), ate: ate.toISOString() };
 }
 
 function PresenceDot({ presence }) {
@@ -294,6 +259,8 @@ export default function ControleAcessosAdmin({
   const [aba, setAba] = useState("online");
   const [agruparPermanencia, setAgruparPermanencia] = useState("tela");
   const [periodo, setPeriodo] = useState("hoje");
+  const [periodoIni, setPeriodoIni] = useState("");
+  const [periodoFim, setPeriodoFim] = useState("");
   const [busca, setBusca] = useState("");
   const [buscaDebounced, setBuscaDebounced] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("");
@@ -339,7 +306,7 @@ export default function ControleAcessosAdmin({
     return () => clearTimeout(t);
   }, [aviso]);
 
-  const range = useMemo(() => rangePeriodo(periodo), [periodo]);
+  const range = useMemo(() => rangePeriodo(periodo, periodoIni, periodoFim), [periodo, periodoIni, periodoFim]);
   // Sempre a empresa em foco (sidebar). Sem foco = todas as empresas.
   const lojaIdEfetiva = lojaInfo?.id != null ? Number(lojaInfo.id) : null;
   const nomeEmpresaFoco = lojaInfo?.nome || (isSuperAdmin ? "Todas as empresas" : "Empresa");
@@ -856,13 +823,10 @@ export default function ControleAcessosAdmin({
         {(mostraPeriodo || mostraFiltrosSessao || aba === "permanencia") ? (
           <FiltersPanel className={mostraFiltrosSessao ? "lg:grid-cols-3" : "sm:grid-cols-1 lg:grid-cols-2"}>
             {mostraPeriodo ? (
-              <FilterGroup
-                titulo="Período"
-                descricao="Janela de tempo do relatório"
-                opcoes={PERIODOS}
-                valor={periodo}
-                onChange={setPeriodo}
-              />
+              <div className="min-w-0">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#667085]">Período</p>
+                <FiltroPeriodo valor={periodo} onMudar={setPeriodo} ini={periodoIni} fim={periodoFim} onIni={setPeriodoIni} onFim={setPeriodoFim} />
+              </div>
             ) : null}
 
             {mostraFiltrosSessao ? (

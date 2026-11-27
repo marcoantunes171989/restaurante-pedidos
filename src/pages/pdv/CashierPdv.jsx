@@ -15,7 +15,6 @@ import PdvPassoFechar from "./PdvPassoFechar";
 import PdvBarraAcao from "./PdvBarraAcao";
 import PdvModalAjuste from "./PdvModalAjuste";
 import PdvFaixaTurno from "./PdvFaixaTurno";
-import PdvStatusBar from "./PdvStatusBar";
 import { useVersaoApp } from "../../lib/useVersaoApp";
 import ModalDividirConta from "./PdvDividirConta";
 import ModalIdentificarCliente from "./PdvIdentificarCliente";
@@ -2050,7 +2049,12 @@ export default function CashierPdv({
         onFuncoes={() => setPaletaAberta(true)}
         onAcao={(a) => { if (a === "receber") setPasso(1); else if (a === "continuar") setPasso(2); else if (a === "fechar") confirmarEFinalizar(); }}
       />
-      <PdvStatusBar conexaoOk={conexaoOk} agora={agora} versao={versaoApp.rodando} />
+      {/* Sem rodapé: a conexão só aparece quando há problema. */}
+      {!conexaoOk && (
+        <p role="status" className="fixed left-1/2 top-3 z-[90] -translate-x-1/2 rounded-full border border-[#F38525] bg-white px-4 py-2 text-xs font-semibold text-[#8A4B0D] shadow-lg">
+          Reconectando…
+        </p>
+      )}
 
       {modal === "incluir" && (
         <ModalIncluirProduto

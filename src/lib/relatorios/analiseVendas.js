@@ -113,6 +113,7 @@ export function intervaloPeriodo(periodo, ini, fim, agora = new Date()) {
     case "7": return [somarDias(hoje, -6), fimHoje];
     case "15": return [somarDias(hoje, -14), fimHoje];
     case "30": return [somarDias(hoje, -29), fimHoje];
+    case "mes": return [new Date(hoje.getFullYear(), hoje.getMonth(), 1), fimHoje];
     case "periodo": return [
       ini ? new Date(`${ini}T00:00:00`) : new Date(0),
       fim ? new Date(`${fim}T23:59:59.999`) : fimHoje,

@@ -48,7 +48,7 @@ export default function PdvPaletaFuncoes({ aberta, funcoes = [], onExecutar, onF
 
   return (
     <div className="fixed inset-0 z-[130] flex items-start justify-center bg-black/55 p-3 pt-[6vh] backdrop-blur-sm" onMouseDown={(e) => { if (e.target === e.currentTarget) fechar(); }} data-testid="paleta-funcoes">
-      <div role="dialog" aria-modal="true" aria-labelledby="paleta-titulo" className="flex max-h-[84vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-labelledby="paleta-titulo" className="flex max-h-[84dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
         <header className="space-y-2 border-b border-[var(--pp-border)] px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <h2 id="paleta-titulo" className="text-base font-black text-[var(--pp-text)]">Funções do PDV</h2>

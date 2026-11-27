@@ -78,6 +78,18 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     chunkSizeWarningLimit: 1200,
+    // Bibliotecas em arquivos separados: continuam no cache do navegador entre uma publicação e outra.
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 3 },
+            { name: 'supabase', test: /node_modules[\\/]@supabase[\\/]/, priority: 2 },
+            { name: 'animacao', test: /node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/, priority: 1 },
+          ],
+        },
+      },
+    },
   },
   ...(apiProxy ? { server: { proxy: { '/api': { target: apiProxy, changeOrigin: true, secure: true, bypass: (req) => (rotaLocal && req.url?.startsWith('/api/fiscal-emitir') ? req.url : undefined) } } } } : {}),
   // Valores fictícios exclusivos do Vitest.

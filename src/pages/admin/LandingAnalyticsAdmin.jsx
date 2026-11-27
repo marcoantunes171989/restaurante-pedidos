@@ -1,8 +1,14 @@
+import FiltroPeriodo from "../../components/FiltroPeriodo.jsx";
+import { intervaloPeriodo } from "../../lib/relatorios/analiseVendas.js";
 import { useCallback, useEffect, useState } from "react";
 import { Activity, BarChart3, CalendarDays, Clock3, Download, Eye, MapPin, MonitorSmartphone, RotateCcw, Search, Trash2, UserRoundCheck, Users } from "lucide-react";
 import { supabase } from "../../lib/supabase.js";
 
-const periods = [{ id: 7, label: "7 dias" }, { id: 30, label: "30 dias" }, { id: 90, label: "90 dias" }];
+// Intervalo enviado à API de acessos (início e fim do período escolhido).
+function intervaloDaConsulta(periodo, ini, fim) {
+  const [a, b] = intervaloPeriodo(periodo, ini, fim);
+  return { from: a.toISOString(), to: b.toISOString() };
+}
 const fmt = (v) => new Intl.NumberFormat("pt-BR").format(v || 0);
 const dt = (v) => v ? new Date(v).toLocaleString("pt-BR") : "—";
 const duration = (seconds = 0) => {
@@ -30,7 +36,7 @@ function Ranking({ title, rows = [] }) {
 }
 
 export default function LandingAnalyticsAdmin() {
-  const [days, setDays] = useState(30); const [data, setData] = useState(null);
+  const [periodo, setPeriodo] = useState("30"); const [ini, setIni] = useState(""); const [fim, setFim] = useState(""); const [data, setData] = useState(null);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState(""); const [search, setSearch] = useState("");
   const [device, setDevice] = useState(""); const [browser, setBrowser] = useState(""); const [status, setStatus] = useState("");
@@ -41,14 +47,13 @@ export default function LandingAnalyticsAdmin() {
       const { data: auth } = await supabase.auth.getSession();
       const token = auth?.session?.access_token;
       if (!token) throw new Error("Faça login novamente.");
-      const from = new Date(Date.now() - days * 86400000).toISOString();
-      const params = new URLSearchParams({ from, page: String(page) });
+      const params = new URLSearchParams({ ...intervaloDaConsulta(periodo, ini, fim), page: String(page) });
       if (search) params.set("q", search); if (device) params.set("device", device); if (browser) params.set("browser", browser); if (status) params.set("status", status);
       const response = await fetch(`/api/landing-analytics?${params}`, { headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
       const body = await response.json(); if (!response.ok) throw new Error(body.error || "Falha ao carregar métricas.");
       setData(body);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [days, page, search, device, browser, status]);
+  }, [periodo, ini, fim, page, search, device, browser, status]);
   useEffect(() => { const timer = window.setTimeout(() => { setSearch(searchInput.trim()); setPage(1); }, 350); return () => window.clearTimeout(timer); }, [searchInput]);
   useEffect(() => { const timer = window.setTimeout(load, 0); return () => window.clearTimeout(timer); }, [load]);
   useEffect(() => {
@@ -67,8 +72,8 @@ export default function LandingAnalyticsAdmin() {
   function clearFilters() { setSearchInput(""); setSearch(""); setDevice(""); setBrowser(""); setStatus(""); setPage(1); }
   async function exportCsv() {
     try {
-      const { data: auth } = await supabase.auth.getSession(); const from = new Date(Date.now() - days * 86400000).toISOString();
-      const params = new URLSearchParams({ from, export: "1" });
+      const { data: auth } = await supabase.auth.getSession(); 
+      const params = new URLSearchParams({ ...intervaloDaConsulta(periodo, ini, fim), export: "1" });
       if (search) params.set("q", search); if (device) params.set("device", device); if (browser) params.set("browser", browser); if (status) params.set("status", status);
       const response = await fetch(`/api/landing-analytics?${params}`, { headers: { authorization: `Bearer ${auth?.session?.access_token || ""}` } });
       const body = await response.json(); if (!response.ok) throw new Error(body.error || "Falha ao exportar.");
@@ -83,7 +88,7 @@ export default function LandingAnalyticsAdmin() {
   return <div className="space-y-5 pb-8">
     <header className="flex flex-col justify-between gap-5 rounded-3xl bg-[#012E46] p-5 text-white shadow-[0_18px_42px_-28px_rgba(1,46,70,.9)] sm:p-6 lg:flex-row lg:items-center">
       <div className="max-w-3xl"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-black uppercase tracking-[.18em] text-[#F38525]">Super Admin</p><span className="!rounded-full !border !border-white/20 !bg-white/10 !px-2.5 !py-1 !text-[10px] !font-bold !uppercase !tracking-wider !text-white">Visão global</span></div><h1 className="mt-2 text-2xl font-black sm:text-3xl">Audiência da landing page</h1><p className="mt-2 text-sm leading-6 text-white/75">Acessos a www.pedidoprime.com.br por dispositivo, navegador e localização aproximada. Estes indicadores são globais e não mudam com a empresa selecionada.</p></div>
-      <div className="shrink-0"><p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-white/60">Período analisado</p><div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/15 bg-black/10 p-1.5">{periods.map((p) => <button type="button" key={p.id} onClick={() => { setDays(p.id); setPage(1); }} className={`!min-h-10 !rounded-xl !border-0 !px-4 !py-2 !text-xs !font-extrabold !shadow-none transition ${days === p.id ? "!bg-[#F38525] !text-[#012E46]" : "!bg-white/10 !text-white hover:!bg-white/20"}`} aria-pressed={days === p.id}>{p.label}</button>)}</div></div>
+      <div className="w-full shrink-0 lg:w-auto"><FiltroPeriodo valor={periodo} onMudar={(v) => { setPeriodo(v); setPage(1); }} ini={ini} fim={fim} onIni={setIni} onFim={setFim} /></div>
     </header>
     <section className="rounded-2xl border border-[#DDE4E8] bg-white p-4 shadow-sm">
       <div className="grid gap-3 lg:grid-cols-[minmax(240px,1fr)_180px_180px_180px_auto]">

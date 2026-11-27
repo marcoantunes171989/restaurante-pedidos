@@ -121,7 +121,7 @@ export function LeadForm({ aberto, onFechar }) {
           aria-labelledby="lead-form-titulo"
           aria-describedby="lead-form-desc"
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(28,20,15,0.3)] sm:max-h-[85vh] sm:w-[480px] sm:max-w-[calc(100vw-48px)] sm:rounded-[22px]"
+          className="pointer-events-auto flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-[22px] border border-[var(--pp-border)] bg-white shadow-[0_20px_60px_rgba(28,20,15,0.3)] sm:max-h-[85dvh] sm:w-[480px] sm:max-w-[calc(100vw-48px)] sm:rounded-[22px]"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-[var(--pp-border)] p-4">

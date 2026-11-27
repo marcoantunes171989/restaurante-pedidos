@@ -26,7 +26,7 @@ export const IcoHandshake = (p) => (<svg {...sv} {...p}><path d="m11 17 2 2a1.5 
 const ICONE_PLANO = { phone: IcoPhone, bars: IcoBars, handshake: IcoHandshake };
 
 const overlay = "fixed inset-0 z-[120] flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-4";
-const cardModal = "flex w-full flex-col overflow-hidden rounded-[2rem] border border-gold-400/20 bg-[#03101C] shadow-2xl max-h-[94vh]";
+const cardModal = "flex w-full flex-col overflow-hidden rounded-[2rem] border border-gold-400/20 bg-[#03101C] shadow-2xl max-h-[94dvh]";
 const inp = "w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-gold-400/60 placeholder:text-slate-600 transition";
 const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-500";
 const btnFechar = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-slate-300 hover:bg-white/15 transition";
