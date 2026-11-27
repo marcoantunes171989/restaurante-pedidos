@@ -1629,7 +1629,8 @@ export async function inserirPesquisaSatisfacao({ pedidoId, lojaId, telefone, me
   if (error) throw error
 }
 // Identifica o cliente pelo telefone (migration 057). Tolerante: retorna null
-// se a RPC ainda não existir ou não houver cadastro.
+// se a RPC ainda não existir ou não houver cadastro. Desde a 216 o banco sempre
+// devolve vazio e o cardápio usa o nome lembrado no aparelho (lib/nomeNoAparelho).
 export async function rpcBuscarClientePublico({ lojaId, telefone }) {
   const tel = String(telefone || '').replace(/\D/g, '')
   if (!tel) return null
@@ -1677,11 +1678,12 @@ export async function rpcPedidosCliente({ lojaId, telefone }) {
   })
 }
 export async function rpcSolicitarContaPublico({ lojaId, comanda, usarPontos = false }) {
-  // Overload com intenção de pagar com pontos (migration 073). Se o overload
-  // ainda não existir no banco, cai para a assinatura antiga (sem a flag).
+  // Overload com intenção de pagar com pontos (migration 073). Só quando o overload não existe no banco cai para a assinatura
+  // antiga (sem a flag): outro erro (limite de uso da 216, manutenção) sobe para a tela, sem repetir o pedido sem os pontos.
   if (usarPontos) {
     const { error } = await supabase.rpc('pub_solicitar_conta', { p_loja_id: lojaId, p_comanda: comanda, p_usar_pontos: true })
     if (!error) return
+    if (!funcaoAusente(error)) throw error
   }
   const { error } = await supabase.rpc('pub_solicitar_conta', { p_loja_id: lojaId, p_comanda: comanda })
   if (error) throw error
