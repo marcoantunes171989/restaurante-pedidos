@@ -72,7 +72,7 @@ export default function RelatorioVisaoGeral({ orders, filtrados, products, perio
             ? "Cadastre o custo dos produtos"
             : `${atual.margemPct.toFixed(0)}% · calculada sobre ${Math.round(atual.cobertura)}% das vendas (com custo)`} />
         <Indicador rotulo="Taxa de serviço" valor={formatCurrency(atual.taxa)} icone={HandCoins}
-          variacao={delta("taxa")} comparadoA={comparadoA} detalhe="10% no consumo no local" />
+          variacao={delta("taxa")} comparadoA={comparadoA} detalhe="Somada nas vendas pagas do período" />
       </GradeIndicadores>
 
       <Cartao titulo="Evolução do faturamento"

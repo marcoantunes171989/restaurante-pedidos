@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { cobraTaxaServico } from "./lib/taxaServico";
 import { createPortal } from "react-dom";
 import { itemPersistidoDoCarrinho, copiarItemPedido, mensagemDeItemRecusado } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
@@ -74,6 +73,7 @@ import {
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
 import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
+import { useCobranca } from "./hooks/useCobranca";
 import ParametrosCaixa from "./components/admin/ParametrosCaixa";
 import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe, emitirNfceSimulada, formatarChaveNfce } from "./lib/nfceService";
@@ -131,7 +131,7 @@ import { useAlertasFiscais } from "./hooks/useAlertasFiscais";
 import { EMISSAO_FISCAL_PDV_ATIVA } from "./lib/fiscal/emissaoPdv";
 import { AvisoErro, BarraDeAcoes, BotaoAcao, Carregando, Cartao, Composicao, Dado, GradeIndicadores, GraficoColunas, GraficoTendencia, Indicador, Paginador, Ranking, SituacaoDados, Vazio } from "./components/graficos/Graficos.jsx";
 import { ContextoDadosVendas, useDadosVendas } from "./components/graficos/contextoDados.js";
-import { agruparVisitas, intervaloPeriodo, canalDoPedido, chaveDia, concentracao, distribuicaoPorValor, ehPago, intervaloAnterior, mapaDeProdutos, margemDosPedidos, media as mediaDe, mediana, pedidosNoIntervalo, percentil, resumoVendas, rotuloComparacao, situacaoEstoque, variacaoPct } from "./lib/relatorios/analiseVendas.js";
+import { agruparVisitas, ajustePedido, taxaPedido, totalPedido, intervaloPeriodo, canalDoPedido, chaveDia, concentracao, distribuicaoPorValor, ehPago, intervaloAnterior, mapaDeProdutos, margemDosPedidos, media as mediaDe, mediana, pedidosNoIntervalo, percentil, resumoVendas, rotuloComparacao, situacaoEstoque, variacaoPct } from "./lib/relatorios/analiseVendas.js";
 import { baixarCsv, escHtml } from "./lib/relatorios/exportacao.js";
 import FiltroPeriodo from "./components/FiltroPeriodo.jsx";
 import { rotuloPeriodoSelecionado } from "./lib/periodos.js";
@@ -509,9 +509,9 @@ function createCartItem(product) {
 
 const ERRO_CARGA_VENDAS = "Não foi possível atualizar os dados de vendas. Verifique a conexão e tente novamente.";
 
-// Total cobrado: itens + 10% de serviço, exceto retirada/entrega externa (src/lib/taxaServico.js).
+// Total cobrado do pedido: a mesma conta dos relatórios (src/lib/relatorios/analiseVendas.js).
 function totalComTaxa(order) {
-  return orderTotal(order) * (cobraTaxaServico(order?.table) ? 1.1 : 1);
+  return totalPedido(order);
 }
 function orderTotal(order) {
   return order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -7043,8 +7043,8 @@ function ComandasGestaoAdmin({ orders = [], products = [], lojaPrefixo = "", loj
       const iso = o.createdAtISO;
       const ultima = o.updatedAtISO || o.prontoEmISO || o.preparoEmISO || o.createdAtISO;
       const total = orderTotal(o);
-      const taxa = valorDaTaxa(total, taxaDaMesa(taxaServico, o.table));
-      const totalComTaxa = total + taxa;
+      const taxa = o.cobrado ? o.cobrado.taxa : valorDaTaxa(total, taxaDaMesa(taxaServico, o.table));
+      const totalComTaxa = o.cobrado ? o.cobrado.total : total + taxa;
       const itens = (o.items || []).reduce((a, it) => a + (it.quantity || 0), 0);
       const mins = iso ? Math.max(0, Math.round((agora - new Date(iso).getTime()) / 60000)) : 0;
       const sit = situacaoComanda([o]);
@@ -7720,7 +7720,12 @@ function MobileAdminDrawer({ open, onClose, triggerRef, children, titulo }) {
   );
 }
 
-function AdminView({ fiscalVendaPdv = null, currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, relatorioSub = "geral", onRelatorioSubChange = () => {}, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, forcarBloqueioCozinha = false, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+function AdminView({ fiscalVendaPdv = null, currentUser = null, products, categories, adminForm, setAdminForm, addProduct, toggleProduct, users, accesses, userForm, setUserForm, addUser, accessForm, setAccessForm, addAccess, toggleUserAccess, definirAcessos, definirAcoesUsuario, toggleUserStatus, toggleAccessStatus, usersLoja, filtraLoja = (a) => a, pesquisas = [], adminSection, setAdminSection, relatorioSub = "geral", onRelatorioSubChange = () => {}, formasPagamento, addFormaPagamento, toggleFormaPagamento, removerFormaPagamento, editarFormaPagamento = async()=>{}, editarProduto, removerProduto, editarUsuario, removerUsuario, categoriasDb, addCategoria, toggleCategoria, removerCategoria, renomearCategoria, lojas = [], toggleLoja, editarLoja, emitenteFiscalApi = null, setLicencaEmpresa = async()=>{}, setValidadeLicenca = async()=>{}, lojaInfo, orders: pedidosDoApp = [], onSair, isSuperAdmin = false, updateOrderStatus = async()=>{}, marcarEntregue = async()=>{}, marcarSetorPronto = async()=>{}, baixarComandas = async()=>{}, cancelarPedido, criarEmpresa, cargos = [], addCargo, editarCargo, toggleCargo, removerCargo, lojaContexto, setLojaContexto, registrarComandas, comandasRegistradas = [], excluirComandaFn = async()=>{}, renomearComandaFn = async()=>{}, toggleComandaFn = async()=>{}, salvarLogoEmpresa = async()=>{}, salvarConfigExterno = async()=>{}, salvarConfigCrm = async()=>{}, mesas = [], mesasErro = "", addMesa, editarMesa, toggleMesa, removerMesa, clientes = [], planoAtual = null, assinaturaAtual = null, assinaturas = [], planos = [], planoModulos = [], definirAssinatura = async()=>{}, promocoes = [], addPromocao = async()=>{}, editarPromocao = async()=>{}, togglePromocao = async()=>{}, removerPromocao = async()=>{}, cupons = [], cuponsErro = "", addCupom = async()=>{}, editarCupom = async()=>{}, toggleCupom = async()=>{}, removerCupom = async()=>{}, opcoesApi = null, fiscalIcms = [], fiscalNcm = [], fiscalCfop = [], fiscalPis = [], fiscalCofins = [], fiscalIpi = [], fiscalCest = [], fiscalLoteLog = [], fiscalApi = null, centralFiscal = null, centralFiscalApi = null, fiscalRegras = [], fiscalRegraVersoes = [], regrasFiscalApi = null, lojaFiscalRegras = [], lojaFiscalApi = null, fiscalTemplates = [], fiscalTemplateRegras = [], templatesFiscalApi = null, impressoras = [], impressorasApi = null, setores = [], setoresApi = null, vincularProdutoSetor = async () => {}, salvarProdutoQr = async () => {}, irParaCozinha = () => {}, forcarBloqueioCozinha = false, caixaAberto = null, caixasLoja = [], caixaApi = null, fidRegra = null, fidRecompensas = [], fidTransacoes = [], fidApi = null, chamados = [], atenderChamado = async()=>{}, assumirChamado = async()=>{}, auditoria = [], fidCaixa = null, impressoesCozinha = [], onAtualizarImpressao = async () => {}, onRecarregarImpressoes = async () => {}, editarCategoriaCampos = async () => {} }) {
+  // Valor realmente cobrado em cada pedido (migration 221); em aberto, a taxa atual da empresa em foco.
+  const { parametros: parametrosCobranca, doServidor: temParametros } = useParametrosCaixa(supabase, lojaInfo?.id ?? null);
+  const percentualAberto = temParametros && parametrosCobranca.taxaServico.enabled !== false && parametrosCobranca.taxaServico.chargingRule !== "nao_cobrar"
+    ? Number(parametrosCobranca.taxaServico.percent) || 0 : temParametros ? 0 : null;
+  const orders = useCobranca(supabase, pedidosDoApp, lojaInfo?.id ?? null, percentualAberto);
   // Menu reorganizado por contexto (SaaS premium) — mesmos ids e permissões de antes
   const menu = [
     { grupo: "Visão Geral", itens: [
@@ -9912,7 +9917,8 @@ function TimelineVenda({ pedido }) {
 function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], acao, onFechar, onReimprimir, onEnviar }) {
   const subtotal = orderTotal(pedido);
   const total = totalComTaxa(pedido);
-  const taxa = total - subtotal;
+  const taxa = taxaPedido(pedido);
+  const ajuste = ajustePedido(pedido);
   const temCusto = pedido.items.some((it) => custoPorNome[it.name] > 0);
   const lucroBruto = subtotal - pedido.items.reduce((s, it) => s + (custoPorNome[it.name] ?? 0) * it.quantity, 0);
   const margemPct = subtotal > 0 ? (lucroBruto / subtotal) * 100 : 0;
@@ -9969,6 +9975,7 @@ function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], 
         <dl className="divide-y divide-[#F1F4F6] rounded-2xl border border-[#E5E7EB] text-sm">
           <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">Subtotal</dt><dd className="tabular-nums text-[#1F2933]">{formatCurrency(subtotal)}</dd></div>
           {taxa > 0 && <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">Taxa de serviço</dt><dd className="tabular-nums text-[#1F2933]">{formatCurrency(taxa)}</dd></div>}
+          {ajuste !== 0 && <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">{ajuste < 0 ? "Desconto" : "Acréscimo"}</dt><dd className="tabular-nums text-[#1F2933]">{formatCurrency(ajuste)}</dd></div>}
           <div className="flex justify-between gap-3 bg-[#F8FAFC] px-3 py-2.5 font-semibold text-[#012E46]"><dt>Total</dt><dd className="text-base tabular-nums">{formatCurrency(total)}</dd></div>
           {temCusto && (
             <div className="flex justify-between gap-3 px-3 py-2"><dt className="text-[#667085]">Lucro estimado</dt><dd className="shrink-0 font-semibold tabular-nums" style={{ color: lucroBruto >= 0 ? "#1F7A3D" : "#C81E4A" }}>{formatCurrency(lucroBruto)} · {margemPct.toFixed(0)}%</dd></div>
@@ -10357,7 +10364,8 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     const empresa = lojaInfo?.nome || "Restaurante";
     const dataStr = o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt;
     const subtotalO = orderTotal(o);
-    const taxaO = totalComTaxa(o) - subtotalO;
+    const taxaO = taxaPedido(o);
+    const ajusteO = ajustePedido(o);
     const linhas = o.items.map((it) => `<div class="row"><span>${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`).join("");
     const corpo = `
       <p class="c b big">${empresa}</p>
@@ -10372,8 +10380,9 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
       ${linhas}
       <div class="hr"></div>
       <div class="row"><span>Subtotal</span><span>${formatCurrency(subtotalO)}</span></div>
-      <div class="row"><span>Taxa serviço 10%</span><span>${formatCurrency(taxaO)}</span></div>
-      <div class="row b big"><span>TOTAL</span><span>${formatCurrency(subtotalO + taxaO)}</span></div>
+      <div class="row"><span>Taxa de serviço</span><span>${formatCurrency(taxaO)}</span></div>
+      ${ajusteO ? `<div class="row"><span>${ajusteO < 0 ? "Desconto" : "Acréscimo"}</span><span>${formatCurrency(ajusteO)}</span></div>` : ""}
+      <div class="row b big"><span>TOTAL</span><span>${formatCurrency(totalComTaxa(o))}</span></div>
       <div class="hr2"></div>
       <p class="c">Obrigado pela preferência!</p>`;
     abrirImpressaoTermica(`Cupom ${o.id}`, corpo);
@@ -10686,7 +10695,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
 
                   <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                     {[
-                      { r: "Taxa de serviço", v: formatCurrency(totalComTaxa(o) - orderTotal(o)) }, { r: "Forma de pagamento", v: o.pagamentoForma || "Não informado" },
+                      { r: "Taxa de serviço", v: formatCurrency(taxaPedido(o)) }, { r: "Forma de pagamento", v: o.pagamentoForma || "Não informado" },
                       { r: "Tempo de preparo", v: tempoPreparoPedido(o) != null ? formatarDuracaoMin(tempoPreparoPedido(o)) : "—" }, { r: "Tempo até o pagamento", v: tempoVenda(o) != null ? formatarDuracaoMin(tempoVenda(o)) : "—" },
                     ].map((c) => (
                       <div key={c.r} className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
@@ -10745,8 +10754,10 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   const [formato, setFormato] = useState("80mm"); // "80mm" | "a4"
   const empresa = lojaInfo?.nome || "Restaurante";
   const subtotal = orderTotal(pedido);
-  const taxa = totalComTaxa(pedido) - subtotal;
-  const total = subtotal + taxa;
+  const taxa = taxaPedido(pedido);
+  const ajuste = ajustePedido(pedido);
+  const total = totalComTaxa(pedido);
+  const rotuloAjuste = ajuste < 0 ? "Desconto" : "Acréscimo";
   const dataStr = pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt;
   const totalItens = pedido.items.reduce((s, it) => s + it.quantity, 0);
 
@@ -10765,7 +10776,8 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
     });
     t += "------------------------------\n";
     t += `Subtotal: ${formatCurrency(subtotal)}\n`;
-    t += `Taxa servico 10%: ${formatCurrency(taxa)}\n`;
+    t += `Taxa de servico: ${formatCurrency(taxa)}\n`;
+    if (ajuste) t += `${rotuloAjuste}: ${formatCurrency(ajuste)}\n`;
     t += `*TOTAL: ${formatCurrency(total)}*\n`;
     t += "\nObrigado pela preferencia!";
     return t;
@@ -10798,7 +10810,8 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
       ${linhas}
       <div class="hr"></div>
       <div class="row"><span>Subtotal</span><span>${formatCurrency(subtotal)}</span></div>
-      <div class="row"><span>Taxa servico 10%</span><span>${formatCurrency(taxa)}</span></div>
+      <div class="row"><span>Taxa de servico</span><span>${formatCurrency(taxa)}</span></div>
+      ${ajuste ? `<div class="row"><span>${rotuloAjuste}</span><span>${formatCurrency(ajuste)}</span></div>` : ""}
       <div class="row b big"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
       <div class="hr2"></div>
       <p class="c">Obrigado pela preferencia!</p>
@@ -10870,7 +10883,8 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
     </table>
     <div class="tot"><div class="totbox">
       <div class="tr"><span>Subtotal (${totalItens} ${totalItens === 1 ? "item" : "itens"})</span><span>${formatCurrency(subtotal)}</span></div>
-      <div class="tr"><span>Taxa de serviço (10%)</span><span>${formatCurrency(taxa)}</span></div>
+      <div class="tr"><span>Taxa de serviço</span><span>${formatCurrency(taxa)}</span></div>
+      ${ajuste ? `<div class="tr"><span>${rotuloAjuste}</span><span>${formatCurrency(ajuste)}</span></div>` : ""}
       <div class="tr grand"><span>TOTAL</span><span>${formatCurrency(total)}</span></div>
     </div></div>
     <div class="ft">
@@ -10928,7 +10942,8 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
           ))}
           <div className="my-2 border-t border-dashed border-slate-400" />
           <div className="flex justify-between text-[11px]"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
-          <div className="flex justify-between text-[11px]"><span>Taxa serviço 10%</span><span>{formatCurrency(taxa)}</span></div>
+          <div className="flex justify-between text-[11px]"><span>Taxa de serviço</span><span>{formatCurrency(taxa)}</span></div>
+          {ajuste !== 0 && <div className="flex justify-between text-[11px]"><span>{rotuloAjuste}</span><span>{formatCurrency(ajuste)}</span></div>}
           <div className="mt-1 flex justify-between text-[14px] font-black"><span>TOTAL</span><span>{formatCurrency(total)}</span></div>
           <div className="my-2 border-t border-dashed border-slate-400" />
           <p className="text-center text-[10px]">Obrigado pela preferência!</p>

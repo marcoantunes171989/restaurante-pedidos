@@ -16,13 +16,22 @@ export function subtotalPedido(o) {
   return (o?.items || []).reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
 }
 
-/** Total cobrado: itens + 10% de serviço, exceto retirada/entrega externa. */
+/**
+ * Total cobrado. Usa o valor gravado no pagamento (`cobrado`, ver lib/valoresCobrados); venda antiga, sem esse registro,
+ * segue a regra da época: itens + 10% de serviço, exceto retirada/entrega externa.
+ */
 export function totalPedido(o) {
+  if (o?.cobrado) return o.cobrado.total;
   return subtotalPedido(o) * (cobraTaxaServico(o?.table) ? 1.1 : 1);
 }
 
 export function taxaPedido(o) {
-  return totalPedido(o) - subtotalPedido(o);
+  return o?.cobrado ? o.cobrado.taxa : totalPedido(o) - subtotalPedido(o);
+}
+
+/** Acréscimo menos descontos do pedido (negativo = desconto). */
+export function ajustePedido(o) {
+  return Math.round((totalPedido(o) - subtotalPedido(o) - taxaPedido(o)) * 100) / 100;
 }
 
 export function itensPedido(o) {
