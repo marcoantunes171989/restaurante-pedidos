@@ -4,6 +4,8 @@ import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteF
 import { fidelidadeHabilitada, numeroFidelidade } from './fidelidade'
 import { ACCESS_SESSION_KEY } from './accessControl/constants.js'
 import { pedidosRealtimeGuard } from './pedidosRealtimeGuard'
+import { aoAssinar, emLote } from './tempoReal'
+import { completarPaginas, lerAte } from './leituraPaginada'
 
 // Configuração fail-closed: vem SOMENTE de variáveis de ambiente. Sem fallback
 // embutido — se a URL ou a chave estiverem ausentes/inválidas, falha explicitamente
@@ -52,7 +54,8 @@ async function lerRpcOuSelect(rpcName, selectFn) {
   let rpcRows = null
   try {
     const { data, error } = await supabase.rpc(rpcName)
-    if (!error && Array.isArray(data) && data.length > 0) return data
+    // Página cheia: busca o restante (a API corta em 1.000 linhas).
+    if (!error && Array.isArray(data) && data.length > 0) return await completarPaginas(data, (de, ate) => supabase.rpc(rpcName).range(de, ate))
     if (!error && Array.isArray(data)) rpcRows = data
   } catch { /* RPC ausente → SELECT */ }
   try {
@@ -178,9 +181,10 @@ export async function inserirFiscalLoteLog(registros) {
   return (data || []).map(dbParaLoteLog)
 }
 export async function fetchFiscalLoteLog(lojaId = null, limite = 2000) {
-  let q = supabase.from('tab_fiscal_lote_log').select('*').order('criado_em', { ascending: false }).limit(limite)
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
-  const { data, error } = await q
+  const { data, error } = await lerAte(() => {
+    const q = supabase.from('tab_fiscal_lote_log').select('*').order('criado_em', { ascending: false })
+    return lojaId != null ? q.eq('loja_id', lojaId) : q
+  }, limite)
   if (error) return []
   return (data || []).map(dbParaLoteLog)
 }
@@ -192,8 +196,8 @@ export async function marcarFiscalLoteLogRevertido(ids) {
 export function escutarFiscalLoteLog(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalLoteLog()) } catch { /* migration 084 pendente */ } }
   const canal = supabase.channel('ch_fiscal_lote_log_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_lote_log' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_lote_log' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -207,10 +211,10 @@ export function escutarProdutos(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_produtos_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_produtos' }, reload)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_produtos' }, reload)
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_produtos' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_produtos' }, emLote(reload))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_produtos' }, emLote(reload))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_produtos' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -237,9 +241,10 @@ export async function baixarEstoque(itensVendidos, lojaId = null) {
 
 // Histórico de movimentações de estoque (tolerante: [] se a tabela não existir)
 export async function fetchMovimentosEstoque(lojaId = null) {
-  let q = supabase.from('tab_estoque_mov').select('*').order('criado_em', { ascending: false }).limit(2000)
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
-  const { data, error } = await q
+  const { data, error } = await lerAte(() => {
+    const q = supabase.from('tab_estoque_mov').select('*').order('criado_em', { ascending: false })
+    return lojaId != null ? q.eq('loja_id', lojaId) : q
+  }, 2000)
   if (error || !data) return []
   return data.map((r) => ({ id: r.id, lojaId: r.loja_id, produtoId: r.produto_id, produtoNome: r.produto_nome, quantidade: r.quantidade, estoqueAntes: r.estoque_antes, estoqueDepois: r.estoque_depois, comandas: r.comandas, origem: r.origem, criadoEmISO: r.criado_em }))
 }
@@ -276,8 +281,8 @@ function dbParaAssinatura(r) {
 export function escutarAssinaturas(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchAssinaturas()) } catch {} }
   const canal = supabase.channel('ch_assinaturas_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_assinaturas' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_assinaturas' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 // ════════════════════════════════════════════════════════════
@@ -603,8 +608,8 @@ export async function excluirFiscalPerfil(id) {
 export function escutarFiscalPerfis(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalPerfis()) } catch { /* migration 080 pendente */ } }
   const canal = supabase.channel('ch_fiscal_perfis_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_perfis' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_perfis' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -657,8 +662,8 @@ export async function excluirFiscalIcms(id) {
 export function escutarFiscalIcms(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalIcms()) } catch { /* migration 081 pendente */ } }
   const canal = supabase.channel('ch_fiscal_icms_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_icms' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_icms' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -727,8 +732,8 @@ export async function excluirFiscalNcm(id) {
 export function escutarFiscalNcm(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalNcm()) } catch { /* migration 081 pendente */ } }
   const canal = supabase.channel('ch_fiscal_ncm_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_ncm' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fiscal_ncm' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -761,8 +766,8 @@ function crudFiscal(tabela, ordemCol, dbPara, paraDb) {
   const escutar = (onMudanca) => {
     const reload = async () => { try { onMudanca(await fetchAll()) } catch { /* migration 082 pendente */ } }
     const canal = supabase.channel('ch_' + tabela + '_' + Math.random().toString(36).slice(2))
-      .on('postgres_changes', { event: '*', schema: 'public', table: tabela }, reload)
-      .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: tabela }, emLote(reload))
+      .subscribe(aoAssinar(reload))
     return () => supabase.removeChannel(canal)
   }
   return { fetchAll, inserir, atualizar, excluir, escutar }
@@ -823,8 +828,8 @@ function crudCatalogoGlobal(tabela, ordemCol, dbPara, paraDb) {
   const escutar = (onMudanca) => {
     const reload = async () => { try { onMudanca(await fetchAll()) } catch { /* migration 085 pendente */ } }
     const canal = supabase.channel('ch_' + tabela + '_' + Math.random().toString(36).slice(2))
-      .on('postgres_changes', { event: '*', schema: 'public', table: tabela }, reload)
-      .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+      .on('postgres_changes', { event: '*', schema: 'public', table: tabela }, emLote(reload))
+      .subscribe(aoAssinar(reload))
     return () => supabase.removeChannel(canal)
   }
   return { fetchAll, inserir, atualizar, excluir, escutar }
@@ -1000,15 +1005,15 @@ export async function excluirFiscalRegra(regraId) {
 export function escutarFiscalRegras(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalRegras()) } catch { /* migration 086 pendente */ } }
   const canal = supabase.channel('ch_fiscal_regra_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_regra' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_regra' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 export function escutarFiscalRegraVersoes(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalRegraVersoes()) } catch { /* migration 086 pendente */ } }
   const canal = supabase.channel('ch_fiscal_regra_versao_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_regra_versao' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_regra_versao' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1104,8 +1109,8 @@ export async function excluirLojaFiscalRegra(id) {
 export function escutarLojaFiscalRegras(onMudanca, lojaId = null) {
   const reload = async () => { try { onMudanca(await fetchLojaFiscalRegras(lojaId)) } catch { /* migration 087 pendente */ } }
   const canal = supabase.channel('ch_loja_fiscal_regra_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_regra' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_regra' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1160,15 +1165,15 @@ export async function removerRegraTemplate(vinculoId) {
 export function escutarFiscalTemplates(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalTemplates()) } catch { /* migration 104 pendente */ } }
   const canal = supabase.channel('ch_fiscal_template_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 export function escutarFiscalTemplateRegras(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFiscalTemplateRegras()) } catch { /* migration 104 pendente */ } }
   const canal = supabase.channel('ch_fiscal_template_regra_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template_regra' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'fiscal_template_regra' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1265,8 +1270,8 @@ export function escutarSetoresCozinha(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_setores_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_setores_cozinha' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_setores_cozinha' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1331,8 +1336,8 @@ export async function excluirImpressora(id) {
 export function escutarImpressoras(onMudanca, lojaId = null) {
   const reload = async () => { try { onMudanca(await fetchImpressoras(lojaId)) } catch { /* ignore */ } }
   const canal = supabase.channel('ch_impressoras_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_impressoras' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_impressoras' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1386,8 +1391,8 @@ export async function fecharCaixa(caixaId, { valorFechamento, valorEsperado, dif
 export function escutarCaixas(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchCaixas(null)) } catch {} }
   const canal = supabase.channel('ch_caixas_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_caixas' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_caixas' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1440,9 +1445,10 @@ export async function atualizarRecompensa(id, campos) {
   if (error) throw error
 }
 export async function fetchFidelidadeTransacoes(lojaId) {
-  let q = supabase.from('tab_fidelidade_transacoes').select('*').order('criado_em', { ascending: false }).limit(5000)
-  if (lojaId != null) q = q.eq('loja_id', lojaId)
-  const { data, error } = await q
+  const { data, error } = await lerAte(() => {
+    const q = supabase.from('tab_fidelidade_transacoes').select('*').order('criado_em', { ascending: false })
+    return lojaId != null ? q.eq('loja_id', lojaId) : q
+  }, 5000)
   if (error || !data) return []
   return data.map((r) => ({ id: r.id, lojaId: r.loja_id, clienteId: r.cliente_id, orderId: r.order_id, pontos: r.pontos, tipo: r.tipo, descricao: r.descricao ?? "", criadoEmISO: r.criado_em }))
 }
@@ -1454,8 +1460,8 @@ export async function lancarFidelidadeTransacao(t) {
 export function escutarFidelidadeTransacoes(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFidelidadeTransacoes(null)) } catch {} }
   const canal = supabase.channel('ch_fid_trans_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_transacoes' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_transacoes' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 // Realtime da REGRA de pontos: quando o admin altera o Programa de Fidelidade,
@@ -1464,8 +1470,8 @@ export function escutarFidelidadeTransacoes(onMudanca) {
 export function escutarFidelidadeRegras(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFidelidadeRegras()) } catch { /* tolerante */ } }
   const canal = supabase.channel('ch_fid_regras_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_regras' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_fidelidade_regras' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -1520,7 +1526,7 @@ export async function atualizarChamado(id, { status, atendidoPor }) {
 export function escutarChamados(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchChamados(null)) } catch {} }
   const canal = supabase.channel('ch_chamados_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_chamados' }, reload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_chamados' }, emLote(reload, 150))
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -1599,7 +1605,7 @@ function dbParaPesquisa(r) {
 }
 export async function fetchPesquisas() {
   try {
-    const { data, error } = await supabase.from('tab_pesquisa_satisfacao').select('*').order('criado_em', { ascending: false }).limit(5000)
+    const { data, error } = await lerAte(() => supabase.from('tab_pesquisa_satisfacao').select('*').order('criado_em', { ascending: false }), 5000)
     if (error || !data) return []
     return data.map(dbParaPesquisa)
   } catch { return [] }
@@ -1607,8 +1613,8 @@ export async function fetchPesquisas() {
 export function escutarPesquisas(onMudanca) {
   const reload = async () => { onMudanca(await fetchPesquisas()) }
   const canal = supabase.channel('ch_pesquisas_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_pesquisa_satisfacao' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_pesquisa_satisfacao' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 export async function inserirPesquisaSatisfacao({ pedidoId, lojaId, telefone, mesa, origem, notas, comentario }) {
@@ -2365,8 +2371,8 @@ export async function registrarAuditoria(a) {
 export function escutarAuditoria(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchAuditoria(null)) } catch {} }
   const canal = supabase.channel('ch_auditoria_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_auditoria' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_auditoria' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -2416,8 +2422,8 @@ export function escutarFormasPagamento(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_formas_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_formas_pagamento' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_formas_pagamento' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -2656,7 +2662,7 @@ export async function salvarLojaFiscalEmitente(lojaId, dados) {
 export function escutarLojaFiscalEmitente(onMudanca, lojaId = null) {
   const reload = async () => { try { onMudanca(await fetchLojaFiscalEmitente(lojaId)) } catch { /* migration 107 pendente */ } }
   const canal = supabase.channel('ch_loja_fiscal_emitente_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_emitente' }, reload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_emitente' }, emLote(reload))
     .subscribe((s) => { if (s === 'SUBSCRIBED' && lojaId != null) reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -2736,7 +2742,7 @@ export async function fetchNfceEmitidas(lojaId) {
 export function escutarNfceEmitidas(onMudanca, lojaId = null) {
   const reload = async () => { try { onMudanca(await fetchNfceEmitidas(lojaId)) } catch { /* migration 117 pendente */ } }
   const canal = supabase.channel('ch_loja_fiscal_nfce_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_nfce' }, reload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'loja_fiscal_nfce' }, emLote(reload))
     .subscribe((s) => { if (s === 'SUBSCRIBED' && lojaId != null) reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -2780,8 +2786,8 @@ export function escutarComandas(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_comandas_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_comandas' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_comandas' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -3016,7 +3022,7 @@ export function escutarImpressoesCozinha(onMudanca, lojaId = null) {
     try { onMudanca(await fetchImpressoesCozinha(lojaId)) } catch { /* ignore */ }
   }
   const canal = supabase.channel('ch_impressoes_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_impressoes_cozinha' }, reload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_impressoes_cozinha' }, emLote(reload, 150))
     .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
   return () => supabase.removeChannel(canal)
 }
@@ -3072,8 +3078,8 @@ export function escutarCargos(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_cargos_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cargos' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_cargos' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -3209,10 +3215,10 @@ export function escutarUsuarios(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_usuarios_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, reload)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_usuarios' }, reload)
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_usuarios' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_usuarios' }, emLote(reload))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_usuarios' }, emLote(reload))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_usuarios' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -3245,10 +3251,10 @@ export function escutarAcessos(onMudanca) {
     if (!error && data) onMudanca(data.map(dbParaAcesso))
   }
   const canal = supabase.channel('ch_acessos_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_acessos' }, reload)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_acessos' }, reload)
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_acessos' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload() })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_acessos' }, emLote(reload))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_acessos' }, emLote(reload))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_acessos' }, emLote(reload))
+    .subscribe(aoAssinar(reload))
   return () => supabase.removeChannel(canal)
 }
 
@@ -3451,9 +3457,9 @@ export function escutarPedidos(onMudanca, onStatus) {
   })
 
   const canal = supabase.channel('ch_pedidos_'+Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' }, reload)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_pedidos' }, reload)
-    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_pedidos' }, reload)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tab_pedidos' }, emLote(reload, 150))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tab_pedidos' }, emLote(reload, 150))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tab_pedidos' }, emLote(reload, 150))
     .subscribe((s) => {
       onStatus && onStatus(s)
       if (s === 'SUBSCRIBED') reload()
@@ -3754,8 +3760,8 @@ export function escutarClientes(onMudanca) {
     } catch { /* silencioso */ }
   }
   const canal = supabase.channel('ch_clientes_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_clientes' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload(); });
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_clientes' }, emLote(reload))
+    .subscribe(aoAssinar(reload));
   return () => supabase.removeChannel(canal);
 }
 
@@ -3789,8 +3795,8 @@ export async function fetchNotificacoes(limite = 30) {
 export function escutarNotificacoes(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchNotificacoes()); } catch {} };
   const canal = supabase.channel('ch_notificacoes_' + Math.random().toString(36).slice(2))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_notificacoes' }, reload)
-    .subscribe((s) => { if (s === 'SUBSCRIBED') reload(); });
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tab_notificacoes' }, emLote(reload))
+    .subscribe(aoAssinar(reload));
   return () => supabase.removeChannel(canal);
 }
 export async function marcarNotificacaoLida(id) {

@@ -829,11 +829,12 @@ describe("R0H-C5C6 Ponto 2 — marcar pago documenta a exceção da state machin
     expect(idxFn).toBeGreaterThan(-1);
     const corpo = appJs.slice(idxFn, idxFn + 3600);
     expect(corpo).toMatch(/marcarPagoPedido\(o\.id, formaLabel \|\| null, manterStatus \? null : "entregue"\)/);
-    // `alvo` (pedidos afetados) não filtra por o.status — só por paymentStatus.
+    // `alvo` (pedidos afetados) filtra por paymentStatus e deixa de fora SÓ o cancelado (trava da migration 212:
+    // cancelado não recebe pagamento). Recebido e em preparo continuam elegíveis — a exceção documentada permanece.
     const idxAlvo = corpo.indexOf("const alvo = orders.filter(");
     expect(idxAlvo).toBeGreaterThan(-1);
     const linhaAlvo = corpo.slice(idxAlvo, corpo.indexOf(";", idxAlvo));
-    expect(linhaAlvo).not.toMatch(/\.status\b/);
+    expect(linhaAlvo.match(/\.status\b[^&|)]*/g)).toEqual(['.status !== "cancelled"']);
   });
 
   it("CashierPdv.jsx:contasAbertas inclui pedidos 'received'/'preparing' como elegíveis para pagamento (pendentePreparo) — evidência da exceção", () => {

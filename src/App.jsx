@@ -3,19 +3,9 @@ import { cobraTaxaServico } from "./lib/taxaServico";
 import { createPortal } from "react-dom";
 import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
-import EmissaoFiscalConfig from "./components/admin/fiscal/EmissaoFiscalConfig.jsx";
 import { produtosSemFiscal } from "./lib/fiscal/ativacaoFiscal.js";
 import { descricaoProdutoFiscal } from "./lib/fiscal/nfeXml.js";
 import { patchVinculosFiscais, percentualCreditoSimples, fiscalComCredito } from "./lib/fiscal/produtoFiscalPatch.js";
-import TabelaIbptConfig from "./components/admin/fiscal/TabelaIbptConfig.jsx";
-import PainelFiscal from "./components/admin/fiscal/PainelFiscal.jsx";
-import ComoFuncionaFiscal from "./components/admin/fiscal/ComoFuncionaFiscal.jsx";
-import DadosEmpresaFiscal from "./components/admin/fiscal/DadosEmpresaFiscal.jsx";
-import NotasFiscaisEmitidas from "./components/admin/fiscal/NotasFiscaisEmitidas.jsx";
-import CancelamentoNfce from "./components/admin/fiscal/CancelamentoNfce.jsx";
-import CancelamentoNfe from "./components/admin/fiscal/CancelamentoNfe.jsx";
-import XmlsFiscais from "./components/admin/fiscal/XmlsFiscais.jsx";
-import VendasSemNotaFiscal from "./components/admin/fiscal/VendasSemNotaFiscal.jsx";
 import AbasConfiguracoes from "./components/admin/AbasConfiguracoes.jsx";
 import ListaProdutos from "./components/admin/produtos/ListaProdutos.jsx";
 import InputAoSair from "./components/admin/produtos/InputAoSair.jsx";
@@ -118,7 +108,6 @@ import {
 } from "./lib/historicoNavegacao";
 import { ehIdRelatorioValido, RELATORIOS_IDS } from "./lib/relatoriosNav";
 import { useUpgradeModais } from "./components/upgrade/UpgradeModais";
-import { GeradorComandas } from "./components/QRComandas";
 import { QRScannerModal  } from "./components/QRScanner";
 import { LogoPP, OperationalBrandLogo } from "./components/BrandLogo";
 import { gerarLoginQRTexto } from "./lib/loginQr";
@@ -132,10 +121,7 @@ import { useStatusSistema } from "./hooks/useStatusSistema";
 import { deveBloquearPorManutencao } from "./lib/sistemaStatus";
 import { IconDashboard, IconRelatorios, IconCrm, IconProdutos, IconCategorias, IconMesas, IconCozinha, IconPagamento, IconQr, IconCardapio, IconEmpresas, IconUsuarios, IconCargos, IconPermissoes, IconLink, IconLicencas, IconVersoes, IconEmpresa, IconBusca, IconConfig, IconPromocao, IconComanda, IconCheck, IconAlerta, IconCarteira, IconRecibo, IconImpressora, IconSpinner, IconRelogio, IconMais, IconMenos } from "./components/PrimeIcons";
 import { PageHeader, PrimeButton, EmptyState, FilterChip } from "./components/Prime";
-import OperationalCentral from "./pages/OperationalCentral";
 import CentralDePedidos from "./pages/CentralDePedidos";
-import CentralDoCaixa from "./pages/CentralDoCaixa";
-import CashierPdv from "./pages/pdv/CashierPdv";
 import ResumoFiscalCaixa from "./components/fiscal/ResumoFiscalCaixa";
 import AlertasFiscais from "./components/fiscal/AlertasFiscais";
 import { useAlertasFiscais } from "./hooks/useAlertasFiscais";
@@ -166,8 +152,6 @@ import {
   abrirCupomTermico,
   htmlPedidoProducao,
 } from "./pages/pdv/pdvCuponsTermicos";
-import CentralDaCozinha from "./pages/CentralDaCozinha";
-import CentralDoBar from "./pages/CentralDoBar";
 import OperationalBottomNav from "./components/OperationalBottomNav";
 import TabletTableAccess from "./components/tablet/TabletTableAccess";
 import TabletMenuHeader from "./components/tablet/TabletMenuHeader";
@@ -176,6 +160,9 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
+import PainelDetalhe from "./components/ModalCentral.jsx";
+import { marcarCargaInicial } from "./lib/tempoReal.js";
+import preguicoso from "./components/preguicoso.jsx";
 import { CircleHelp, ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Store, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket, ChevronDown, LogOut, AlertTriangle, Copy, Crown, Eye, MessageCircle, Package, Phone, Printer, Repeat, SlidersHorizontal, Snowflake, UserPlus, Users, Archive, FileText, Mail, MessageSquare, ThumbsUp, XCircle } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
@@ -196,6 +183,24 @@ const AmbientesAdmin = React.lazy(() => import("./pages/admin/AmbientesAdmin"));
 const CopilotoIA = React.lazy(() => import("./pages/admin/CopilotoIA.jsx"));
 const ControleAtualizacaoAdmin = React.lazy(() => import("./pages/admin/ControleAtualizacaoAdmin"));
 const AtualizarProducaoAdmin = React.lazy(() => import("./pages/admin/AtualizarProducaoAdmin"));
+
+// Operação (caixa, cozinha, bar), telas fiscais e comandas: baixadas no primeiro uso.
+const CashierPdv = preguicoso(() => import("./pages/pdv/CashierPdv"));
+const CentralDoCaixa = preguicoso(() => import("./pages/CentralDoCaixa"));
+const CentralDaCozinha = preguicoso(() => import("./pages/CentralDaCozinha"));
+const CentralDoBar = preguicoso(() => import("./pages/CentralDoBar"));
+const OperationalCentral = preguicoso(() => import("./pages/OperationalCentral"));
+const EmissaoFiscalConfig = preguicoso(() => import("./components/admin/fiscal/EmissaoFiscalConfig.jsx"));
+const TabelaIbptConfig = preguicoso(() => import("./components/admin/fiscal/TabelaIbptConfig.jsx"));
+const PainelFiscal = preguicoso(() => import("./components/admin/fiscal/PainelFiscal.jsx"));
+const ComoFuncionaFiscal = preguicoso(() => import("./components/admin/fiscal/ComoFuncionaFiscal.jsx"));
+const DadosEmpresaFiscal = preguicoso(() => import("./components/admin/fiscal/DadosEmpresaFiscal.jsx"));
+const NotasFiscaisEmitidas = preguicoso(() => import("./components/admin/fiscal/NotasFiscaisEmitidas.jsx"));
+const CancelamentoNfce = preguicoso(() => import("./components/admin/fiscal/CancelamentoNfce.jsx"));
+const CancelamentoNfe = preguicoso(() => import("./components/admin/fiscal/CancelamentoNfe.jsx"));
+const XmlsFiscais = preguicoso(() => import("./components/admin/fiscal/XmlsFiscais.jsx"));
+const VendasSemNotaFiscal = preguicoso(() => import("./components/admin/fiscal/VendasSemNotaFiscal.jsx"));
+const GeradorComandas = preguicoso(() => import("./components/QRComandas").then((m) => ({ default: m.GeradorComandas })));
 
 const RELATORIOS_SUBMENU_LABELS = {
   geral: "Visão geral",
@@ -896,6 +901,8 @@ export default function RestaurantePedidoApp() {
         setLoading(false);
 
         // Ativa Realtime para todas as tabelas — atualizações instantâneas
+        // (o que acabou de ser carregado não é lido de novo só porque o canal conectou).
+        marcarCargaInicial();
         unsubs = [
           escutarProdutos(setProducts),
           escutarUsuarios(setUsers),
@@ -2269,13 +2276,22 @@ export default function RestaurantePedidoApp() {
     }
   }
 
+  const motivoDaRecusaDoCancelamento = (err) => String(err?.message || "").includes("pedido_pago_nao_pode_ser_cancelado")
+    ? "Este pedido já está pago e não pode ser cancelado."
+    : "Não foi possível cancelar o pedido.";
+
   // Cancela um pedido com justificativa (ex.: DESISTÊNCIA)
   async function cancelarPedido(oid, motivo) {
     if (!canAccess(currentUser, "kitchen")) return notify("error", "Usuário sem permissão.");
+    const anterior = ordersAll.find((o) => o.id === oid);
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "cancelled", cancelReason: motivo } : o));
     if (dbReady) {
       try { await atualizarStatusPedido(oid, "cancelado", motivo); }
-      catch (err) { console.error("Erro ao cancelar pedido:", err); }
+      catch (err) {
+        console.error("Erro ao cancelar pedido:", err);
+        if (anterior) setOrders((cur) => cur.map((o) => o.id === oid ? anterior : o));
+        return notify("error", motivoDaRecusaDoCancelamento(err));
+      }
     }
     auditar("cancelar", "pedido", null, { pedido: oid, motivo });
     notify("success", `Pedido cancelado (${motivo}).`);
@@ -2293,7 +2309,11 @@ export default function RestaurantePedidoApp() {
     setOrders((cur) => cur.map((o) => o.id === oid ? { ...o, status: "cancelled", cancelReason: motivo } : o));
     if (dbReady) {
       try { await atualizarStatusPedido(oid, "cancelado", motivo); }
-      catch (err) { console.error("Erro ao cancelar pedido (tablet):", err); }
+      catch (err) {
+        console.error("Erro ao cancelar pedido (tablet):", err);
+        setOrders((cur) => cur.map((o) => o.id === oid ? alvo : o));
+        return notify("error", motivoDaRecusaDoCancelamento(err));
+      }
     }
     notify("success", "Pedido cancelado.");
   }
@@ -2548,7 +2568,7 @@ export default function RestaurantePedidoApp() {
     // a 1ª ainda está em andamento — evita duplicar baixa/estoque/financeiro.
     const chave = somenteId != null ? `id:${somenteId}` : `cmd:${[...comandas].sort().join(",")}`;
     if (processandoBaixaRef.current.has(chave)) return notify("error", "Pagamento já está sendo processado.");
-    const alvo = orders.filter((o) => ehAlvo(o) && o.paymentStatus !== "paid");
+    const alvo = orders.filter((o) => ehAlvo(o) && o.paymentStatus !== "paid" && o.status !== "cancelled");
     if (alvo.length === 0) return notify("error", "Nenhum pedido em aberto para essas comandas.");
     processandoBaixaRef.current.add(chave);
     try {
@@ -2565,7 +2585,7 @@ export default function RestaurantePedidoApp() {
         det.forEach((d) => { const f = String(d.forma || "").trim() || "Pagamento"; porF[f] = (porF[f] || 0) + (Number(d.valor) || 0); });
         return Object.entries(porF).sort((a, b) => b[1] - a[1]).map(([f]) => f).join(" + ") || null;
       })();
-      setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
+      setOrders((cur) => cur.map((o) => (ehAlvo(o) && o.paymentStatus !== "paid" && o.status !== "cancelled") ? { ...o, paymentStatus: "paid", ...(formaLabel ? { pagamentoForma: formaLabel } : {}), ...(manterStatus ? {} : { status: "delivered" }) } : o));
       let alertasEstoque = [];
       let pagamentoGravado = false; // os pedidos já constam como PAGOS no banco (o que a nota fiscal exige), mesmo que estoque/histórico falhem depois
       let falhaGravacao = null; // erro real ao gravar a venda no banco (antes só ia para o console e a tela dizia "sucesso")
@@ -5020,8 +5040,8 @@ function TabletView({
 
       {/* ── Gaveta/bottom-sheet do carrinho — tablet-retrato/celular ── */}
       {carrinhoAberto && (
-        <div className="fixed inset-0 z-[90] flex items-end justify-end bg-[rgba(33,24,20,0.45)] backdrop-blur-sm lg:hidden" onClick={() => setCarrinhoAberto(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] shadow-[var(--client-shadow-floating)] sm:max-w-md sm:rounded-[28px]">
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[rgba(33,24,20,0.45)] backdrop-blur-sm sm:items-center sm:p-4 lg:hidden" onClick={() => setCarrinhoAberto(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] shadow-[var(--client-shadow-floating)] sm:max-w-lg sm:rounded-[28px]">
             <TabletCartPanel
               cart={cart} subtotal={subtotal} serviceFee={serviceFee} total={total} economiaCart={economiaCart} message={message}
               mesaSelecionada={mesaSelecionada} tableNumber={tableNumber} dadosCompletos={dadosCompletos}
@@ -6153,6 +6173,11 @@ function numeroParaMoeda(num) {
   return Number(num || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Medida única dos dois campos do menu (empresa em foco e busca de telas):
+// mesma altura, raio, ícone e texto — 44px, confortável também no toque.
+const CAMPO_MENU = "flex h-11 w-full items-center gap-2.5 rounded-xl border px-2 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70";
+const CAMPO_MENU_ICONE = "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-white/80 transition-colors group-hover:text-white";
+
 // CompanySelector — seletor de "Empresa em foco" (super admin). Fica sobre o
 // menu AZUL PETRÓLEO profundo (--pp-nav) e segue o mesmo esquema monocromático:
 // seleção/hover/foco em branco translúcido, igual aos itens do menu lateral;
@@ -6171,13 +6196,13 @@ function CompanySelector({ lojas = [], valor, onChange }) {
   return (
     <div className="relative" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <button onClick={() => setAberto((o) => !o)} aria-haspopup="listbox" aria-expanded={aberto}
-        className={`group flex min-h-[34px] w-full items-center gap-2 rounded-xl border px-2 py-1.5 text-left transition duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70 ${aberto ? "border-white/20 bg-white/[0.11]" : "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.08]"}`}>
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-white/80 transition-colors group-hover:text-white">
+        className={`group ${CAMPO_MENU} ${aberto ? "border-white/20 bg-white/[0.11]" : "border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.08]"}`}>
+        <span className={CAMPO_MENU_ICONE}>
           {atual ? <IconEmpresa /> : <Globo />}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[12.5px] font-normal leading-tight tracking-[0.01em] text-white">{atual ? atual.nome : "Visão geral"}</p>
-          <p className="truncate text-[8px] font-normal leading-tight text-white/55">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
+          <p className="truncate text-[13px] font-medium leading-tight text-white">{atual ? atual.nome : "Visão geral"}</p>
+          <p className="truncate text-[10px] font-normal leading-tight text-white/55">{atual ? `Comandas: ${atual.prefixo}` : "Todas as empresas"}</p>
         </div>
         <svg className={`h-3 w-3 shrink-0 text-white/75 transition-transform duration-200 ${aberto ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
@@ -7747,12 +7772,12 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
     </main>
   );
   const buscaRapida = (aoAbrir = () => setCmdOpen(true)) => (
-    <div className="border-b border-white/10 px-3 py-1.5">
+    <div className="border-b border-white/10 px-3 py-2">
       <button onClick={aoAbrir} aria-label="Abrir busca rápida (Ctrl K)"
-        className="flex min-h-[32px] w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-transparent px-2 py-1 text-left text-[11px] text-white/65 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/70">
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
-        <span className="flex-1 truncate">Buscar telas</span>
-        <span className="shrink-0 rounded border border-white/10 px-1 py-0.5 text-[8px] font-bold text-white/55">Ctrl K</span>
+        className={`group ${CAMPO_MENU} border-white/[0.08] bg-white/[0.05] hover:bg-white/[0.08]`}>
+        <span className={CAMPO_MENU_ICONE}><svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg></span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-white/80">Buscar telas</span>
+        <span className="hidden shrink-0 rounded-md border border-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/55 lg:inline">Ctrl K</span>
       </button>
     </div>
   );
@@ -9489,85 +9514,6 @@ function BadgeEstoque({ status }) {
   return <span className="rounded-full px-2 py-0.5 text-[10px] font-black" style={{ background: `${s.cor}1A`, color: s.cor }}>{s.label}</span>;
 }
 
-// ── Painel/drawer de detalhes — componente base único e compartilhado ──
-// Usado por TODOS os painéis de detalhe do projeto (Comanda, Cliente,
-// Cupom/venda, Produto de estoque, listas de cupons/pedidos). Concentra o
-// "chrome" comum: fundo, geometria responsiva (560–680px desktop / 75vw
-// tablet / 100% mobile), foco preso, Esc, clique fora, scroll-lock
-// (useScrollLock) e cabeçalho/rodapé fixos com o conteúdo rolando por
-// dentro. Cada tela só configura título/subtítulo/badges/ações/rodapé/
-// largura e passa o conteúdo específico (children) — nenhuma regra de
-// negócio, consulta ou dado fica aqui. titulo/subtitulo/badges/acoes/
-// rodape aceitam qualquer ReactNode: o componente não assume um layout
-// fixo de botões, então cada tela mantém suas particularidades (ex.:
-// seletor de formato 80mm/A4, avatar do cliente, tooltip em ação
-// desabilitada) livremente.
-function PainelDetalhe({
-  aberto, ariaLabel, icone, titulo, badges, subtitulo, statsLinha, acoes, rodape,
-  largura = "lg:w-[620px] lg:max-w-[620px]", onFechar, children,
-}) {
-  const painelRef = useRef(null);
-  const focoAnteriorRef = useRef(null);
-  // Quem abre a janela costuma passar uma função nova a cada atualização:
-  // guardada aqui, ela não reinicia o foco (o que travava a rolagem no celular).
-  const onFecharRef = useRef(onFechar);
-  useEffect(() => { onFecharRef.current = onFechar; });
-
-  useEffect(() => {
-    if (!aberto) return undefined;
-    focoAnteriorRef.current = document.activeElement;
-    const painel = painelRef.current;
-    const primeiro = painel?.querySelector("button, a, input, [tabindex]:not([tabindex='-1'])");
-    primeiro?.focus({ preventScroll: true });
-    function aoTeclado(e) {
-      if (e.key === "Escape") { e.preventDefault(); onFecharRef.current(); return; }
-      if (e.key !== "Tab" || !painel) return;
-      const focaveis = painel.querySelectorAll("button, a, input, [tabindex]:not([tabindex='-1'])");
-      if (focaveis.length === 0) return;
-      const primeiroF = focaveis[0], ultimoF = focaveis[focaveis.length - 1];
-      if (e.shiftKey && document.activeElement === primeiroF) { e.preventDefault(); ultimoF.focus(); }
-      else if (!e.shiftKey && document.activeElement === ultimoF) { e.preventDefault(); primeiroF.focus(); }
-    }
-    document.addEventListener("keydown", aoTeclado);
-    return () => {
-      document.removeEventListener("keydown", aoTeclado);
-      focoAnteriorRef.current?.focus?.({ preventScroll: true });
-    };
-  }, [aberto]);
-  useScrollLock(!!aberto);
-
-  if (!aberto) return null;
-  return (
-    <div className="fixed inset-0 z-[110] flex items-stretch justify-end bg-[#0D1B2A]/60 backdrop-blur-sm" onClick={onFechar} role="presentation">
-      <div ref={painelRef} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={ariaLabel}
-        className={`pp-anim-fade flex h-full w-full flex-col overflow-hidden border-l border-[#E2E8F0] bg-white shadow-2xl sm:w-[75vw] sm:max-w-[75vw] ${largura}`}>
-        <div className="shrink-0 border-b border-[#E2E8F0] px-5 py-4 sm:px-6">
-          <div className="flex items-center justify-between gap-3">
-            {icone}
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="truncate text-base font-black text-[#0D1B2A]">{titulo}</h2>
-                {badges}
-              </div>
-              {subtitulo && <p className="mt-1 truncate text-xs text-[#64748B]">{subtitulo}</p>}
-            </div>
-            <button onClick={onFechar} title="Fechar" aria-label="Fechar" className="shrink-0 rounded-xl border border-[#E2E8F0] px-3 py-2 text-sm font-black text-[#64748B] transition hover:bg-[#F1F5F9]">✕</button>
-          </div>
-          {statsLinha && <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">{statsLinha}</div>}
-          {acoes && <div className="mt-3 flex flex-wrap gap-2">{acoes}</div>}
-        </div>
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
-          {children}
-        </div>
-        {rodape !== null && (
-          <div className="shrink-0 border-t border-[#E2E8F0] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
-            {rodape || <button onClick={onFechar} className="w-full rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Fechar</button>}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // Detalhe do produto (aba Estoque) — visualização, ao clicar na linha da
 // tabela. Só os campos já calculados por linha (linhasEstoqueEnriquecidas);
@@ -9576,11 +9522,11 @@ function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
   if (!produto) return null;
   const l = produto;
   return (
-    <PainelDetalhe aberto={!!produto} ariaLabel={`Detalhe do produto ${l.nome}`} titulo={l.nome}
+    <PainelDetalhe aberto={!!produto} tamanho="md" ariaLabel={`Detalhe do produto ${l.nome}`} titulo={l.nome}
       badges={<BadgeEstoque status={l.status} />} subtitulo={l.categoria || "Sem categoria"}
       onFechar={onFechar}
-      rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#012E46] py-2.5 text-sm font-bold text-white transition hover:bg-[#012E46]">Abrir cadastro do produto</button>}>
-      <div className="grid grid-cols-2 gap-2.5">
+      rodape={<div className="flex justify-end"><button onClick={onAbrirCadastro} className="h-11 w-full rounded-xl bg-[#012E46] px-6 text-sm font-semibold text-white transition hover:bg-[#0B4561] sm:w-auto">Abrir cadastro do produto</button></div>}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ["Estoque anterior", l.controla ? `${l.anterior} un.` : "—"], ["Vendido no período", `${l.vendido} un.`],
           ["Estoque atual", l.controla ? `${l.posterior} un.` : "—"], ["Estoque mínimo", l.controla ? `${l.minimo} un.` : "—"],
@@ -9668,7 +9614,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
     : "Nenhuma ação urgente identificada";
 
   return (
-    <PainelDetalhe aberto={!!cliente} ariaLabel={`Perfil de ${c.cliente}`} onFechar={onFechar} largura="lg:w-[560px] lg:max-w-[560px]"
+    <PainelDetalhe aberto={!!cliente} ariaLabel={`Perfil de ${c.cliente}`} onFechar={onFechar} colunas={2} tamanho="xl"
       icone={<span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#012E46]/10 text-base font-black text-[#012E46]" aria-hidden="true">{iniciais}</span>}
       titulo={<span title={c.cliente}>{c.cliente}</span>}
       badges={<>
@@ -9681,12 +9627,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
         <IconAcaoCliente icone={<Copy className="h-4 w-4" />} label={c.telefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onCopiarTelefone(c)} />
         <IconAcaoCliente icone={<Users className="h-4 w-4" />} label="Ver dados de cadastro" onClick={() => contatoRef.current?.scrollIntoView({ block: "nearest" })} />
       </>}
-      rodape={
-        <div className="flex items-center gap-2 sm:hidden">
-          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#012E46] py-2.5 text-xs font-bold text-white transition hover:bg-[#012E46]">WhatsApp</button>
-          <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Copiar telefone</button>
-        </div>
-      }>
+      >
       {/* 3. Score de relacionamento */}
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] p-4">
             <div className="flex items-center justify-between gap-2">
@@ -9898,10 +9839,10 @@ function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], 
   ].filter(Boolean);
   const rotulo = "mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#667085]";
   return (
-    <PainelDetalhe aberto={!!pedido} ariaLabel={`Cupom ${pedido.id}`} onFechar={onFechar}
+    <PainelDetalhe aberto={!!pedido} colunas={2} ariaLabel={`Cupom ${pedido.id}`} onFechar={onFechar}
       titulo={`Cupom ${pedido.id}`}
       subtitulo={`${lojaInfo?.nome || "Restaurante"} · ${pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt}`}
-      rodape={<div className="grid grid-cols-2 gap-2">
+      rodape={<div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
         <BotaoAcao icone={Printer} onClick={onReimprimir}>Imprimir</BotaoAcao>
         <BotaoAcao icone={MessageCircle} onClick={onEnviar}>Enviar</BotaoAcao>
       </div>}>
@@ -10864,14 +10805,26 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   function imprimirCupom() { formato === "a4" ? imprimirA4() : imprimir(); onAcao("imprimir"); }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92dvh]">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 className="text-base font-black text-white">Cupom não fiscal</h2>
-          <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
+    <PainelDetalhe tamanho="md" ariaLabel="Cupom não fiscal" titulo="Cupom não fiscal" subtitulo={`${pedido.id} · ${empresa}`} onFechar={onFechar}
+      rodape={
+        <div className="space-y-3">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[13px] text-[#667085]">{formato === "80mm" ? "Impressora térmica de bobina (não fiscal)." : "Impressora comum (A4), layout comercial."}</p>
+            <div role="group" aria-label="Formato da impressão" className="flex shrink-0 gap-1 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-1">
+              {[["80mm", "Cupom 80mm"], ["a4", "Folha A4"]].map(([id, rotulo]) => (
+                <button key={id} type="button" aria-pressed={formato === id} onClick={() => setFormato(id)}
+                  className={`h-9 flex-1 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition ${formato === id ? "bg-[#012E46] text-white" : "text-[#475467] hover:bg-white"}`}>{rotulo}</button>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={imprimirCupom} className="h-11 rounded-xl bg-[#012E46] text-sm font-semibold text-white transition hover:bg-[#0B4561]">Imprimir {formato === "a4" ? "em A4" : "cupom 80mm"}</button>
+            <button type="button" onClick={enviarWhatsApp} className="btn-verde h-11 rounded-xl text-sm font-semibold">Enviar pelo WhatsApp</button>
+          </div>
         </div>
+      }>
         {/* Prévia 80mm */}
-        <div className="flex-1 overflow-y-auto bg-white px-6 py-5 text-slate-900" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+        <div className="mx-auto w-full max-w-[22rem] rounded-xl border border-[#E5E7EB] bg-white px-6 py-5 text-slate-900 shadow-[0_1px_3px_rgba(1,46,70,0.08)]" style={{ fontFamily: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
           <p className="text-center text-base font-black">{empresa}</p>
           <p className="text-center text-[11px]">CUPOM NÃO FISCAL</p>
           <p className="text-center text-[9px] text-slate-500">Documento sem valor fiscal</p>
@@ -10896,32 +10849,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
           <div className="my-2 border-t border-dashed border-slate-400" />
           <p className="text-center text-[10px]">Obrigado pela preferência!</p>
         </div>
-        {/* Ações */}
-        <div className="shrink-0 border-t border-white/10 px-5 py-4 space-y-3">
-          {/* Seletor de formato de impressão */}
-          <div>
-            <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">Formato da impressão</p>
-            <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
-              <button onClick={() => setFormato("80mm")}
-                className={`flex-1 rounded-xl py-2 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
-                Cupom 80mm
-              </button>
-              <button onClick={() => setFormato("a4")}
-                className={`flex-1 rounded-xl py-2 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
-                Folha A4
-              </button>
-            </div>
-            <p className="mt-1 text-[10px] text-slate-500">
-              {formato === "80mm" ? "Impressora térmica de bobina (não fiscal)." : "Impressora comum (A4) — layout comercial elegante."}
-            </p>
-          </div>
-          <button onClick={imprimirCupom} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-            Imprimir {formato === "a4" ? "em A4" : "cupom 80mm"}
-          </button>
-          <button onClick={enviarWhatsApp} className="w-full rounded-2xl bg-emerald-500/90 py-3.5 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">Enviar pelo WhatsApp</button>
-        </div>
-      </div>
-    </div>
+    </PainelDetalhe>
   );
 }
 
@@ -11160,7 +11088,7 @@ function ModalDetalheComanda({
   const itensComanda = c.pedidos.flatMap((o) => o.items.map((it, i) => ({ ...it, statusPedido: o.status, chave: `${o.id}-${i}` })));
 
   return (
-    <PainelDetalhe aberto={!!comanda} ariaLabel={`Detalhe da comanda ${c.comanda}`} onFechar={onFechar} largura="lg:w-[600px] lg:max-w-[600px]"
+    <PainelDetalhe aberto={!!comanda} ariaLabel={`Detalhe da comanda ${c.comanda}`} onFechar={onFechar} colunas={2} tamanho="xl"
       titulo={`Comanda ${c.comanda}`} badges={<BadgeEstoque status={c.status} />}
       subtitulo={`${c.mesa || "Balcão"} · ${c.canal} · ${statusMap[ultimoPedido.status]?.label || ultimoPedido.status}`}
       statsLinha={<>
@@ -16648,7 +16576,6 @@ const IcoTriangulo = (p) => (<svg {...svAud} {...p}><path d="M12 4 2.5 20h19L12 
 const IcoRelogioAud= (p) => (<svg {...svAud} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 const IcoRefresh   = (p) => (<svg {...svAud} {...p}><path d="M20.5 12a8.5 8.5 0 1 1-2.4-5.9" /><path d="M20.5 4v4h-4" /></svg>);
 const IcoDownload  = (p) => (<svg {...svAud} {...p}><path d="M12 4v10m0 0 4-4m-4 4-4-4" /><path d="M5 19h14" /></svg>);
-const IcoFechar    = (p) => (<svg {...svAud} {...p}><path d="m6 6 12 12M18 6 6 18" /></svg>);
 const IcoCopiar    = (p) => (<svg {...svAud} {...p}><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></svg>);
 const IcoInfoAud   = (p) => (<svg {...svAud} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>);
 
@@ -17010,60 +16937,52 @@ function AuditoriaAdmin({ logs = [], lojas = [], onAtualizar = null, onMarcarAna
         </div>
       )}
 
-      {/* ── Painel lateral de detalhes ────────────────────── */}
+      {/* ── Detalhes do evento ────────────────────────────── */}
       {selecionado && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <button aria-label="Fechar" onClick={() => setSelId(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <aside className="relative flex h-full w-full flex-col border-l border-white/10 bg-blue-950 shadow-2xl sm:max-w-md">
-            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-              <div className="flex items-center gap-2.5">
-                <h4 className="page-title text-lg font-bold text-white">Detalhes da Auditoria</h4>
-                <RiscoBadge risco={selecionado.risco} />
-              </div>
-              <button onClick={() => setSelId(null)} className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoFechar /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              <dl className="divide-y divide-white/5">
-                {[
-                  ["Código do evento", selecionado.codigo],
-                  ["Data e hora", fmtDataHora(selecionado.quandoISO)],
-                  ["Usuário responsável", selecionado.usuarioNome],
-                  ["Perfil", selecionado.perfil],
-                  ["Ação", selecionado.acao],
-                  ["Entidade", selecionado.entidadeLabel],
-                  ["Dados anteriores", selecionado.dadosAnteriores ? Object.entries(selecionado.dadosAnteriores).map(([k, v]) => `${k}: ${v}`).join(", ") : "—"],
-                  ["Dados novos", selecionado.dadosNovos ? Object.entries(selecionado.dadosNovos).map(([k, v]) => `${k}: ${v}`).join(", ") : "—"],
-                  ["Resumo", selecionado.resumo],
-                  ["IP", selecionado.ip],
-                  ["Dispositivo", selecionado.dispositivo],
-                  ["Navegador", selecionado.navegador],
-                  ["Origem", selecionado.origem],
-                ].map(([label, valor]) => (
-                  <div key={label} className="grid grid-cols-[130px_1fr] gap-3 py-2.5">
-                    <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
-                    <dd className="break-words text-sm text-white">{valor}</dd>
-                  </div>
-                ))}
-                <div className="grid grid-cols-[130px_1fr] gap-3 py-2.5">
-                  <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Status da análise</dt>
-                  <dd>
-                    {selecionado.analisado
-                      ? <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">Analisado</span>
-                      : <span className="inline-flex items-center gap-1 rounded-full border border-gold-400/40 bg-gold-400/10 px-2.5 py-0.5 text-[10px] font-bold text-gold-300">Pendente</span>}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-            <div className="flex flex-col gap-2 border-t border-white/10 px-5 py-4 sm:flex-row">
+        <PainelDetalhe ariaLabel="Detalhes da Auditoria" titulo="Detalhes da Auditoria" badges={<RiscoBadge risco={selecionado.risco} />}
+          subtitulo={fmtDataHora(selecionado.quandoISO)} onFechar={() => setSelId(null)}
+          rodape={
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button onClick={() => copiar(selecionado)} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D0D5DD] px-5 text-sm font-semibold text-[#344054] transition hover:bg-[#F2F4F7] [&>svg]:h-4 [&>svg]:w-4"><IcoCopiar /> {copiado ? "Copiado!" : "Copiar registro"}</button>
               <button onClick={() => marcar(selecionado)} disabled={selecionado.analisado || marcando}
-                className="flex-1 rounded-2xl bg-gold-400 px-4 py-2.5 text-sm font-bold text-blue-950 transition hover:bg-gold-300 disabled:opacity-40">
+                className="h-11 rounded-xl bg-[#012E46] px-5 text-sm font-semibold text-white transition hover:bg-[#0B4561] disabled:opacity-40">
                 {selecionado.analisado ? "Analisado" : marcando ? "Salvando…" : "Marcar como analisado"}
               </button>
-              <button onClick={() => copiar(selecionado)} className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-white/10 [&>svg]:h-4 [&>svg]:w-4"><IcoCopiar /> {copiado ? "Copiado!" : "Copiar registro"}</button>
-              <button onClick={() => setSelId(null)} className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:bg-white/10">Fechar</button>
             </div>
-          </aside>
-        </div>
+          }>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["Código do evento", selecionado.codigo],
+              ["Data e hora", fmtDataHora(selecionado.quandoISO)],
+              ["Usuário responsável", selecionado.usuarioNome],
+              ["Perfil", selecionado.perfil],
+              ["Ação", selecionado.acao],
+              ["Entidade", selecionado.entidadeLabel],
+              ["IP", selecionado.ip],
+              ["Dispositivo", selecionado.dispositivo],
+              ["Navegador", selecionado.navegador],
+              ["Origem", selecionado.origem],
+              ["Status da análise", selecionado.analisado ? "Analisado" : "Pendente"],
+            ].map(([label, valor]) => <Dado key={label} rotulo={label}>{valor || "—"}</Dado>)}
+          </dl>
+          <dl className="grid gap-3 lg:grid-cols-2">
+            {[
+              ["Dados anteriores", selecionado.dadosAnteriores],
+              ["Dados novos", selecionado.dadosNovos],
+            ].map(([label, dados]) => (
+              <div key={label} className="rounded-xl border border-[#E5E7EB] p-3">
+                <dt className="text-[11px] font-semibold uppercase tracking-wider text-[#667085]">{label}</dt>
+                <dd className="mt-1 space-y-1 text-sm text-[#1F2933] [overflow-wrap:anywhere]">
+                  {dados ? Object.entries(dados).map(([k, v]) => <p key={k}><span className="text-[#667085]">{k}:</span> {String(v)}</p>) : "—"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <div className="rounded-xl border border-[#E5E7EB] p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#667085]">Resumo</p>
+            <p className="mt-1 text-sm text-[#1F2933] [overflow-wrap:anywhere]">{selecionado.resumo || "—"}</p>
+          </div>
+        </PainelDetalhe>
       )}
     </main>
   );

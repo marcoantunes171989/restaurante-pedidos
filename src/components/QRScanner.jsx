@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import jsQR from "jsqr";
 
 // Valida o padrão: 3 letras + hífen + 6 números (ex: CMD-000001)
 function validarComanda(codigo) {
@@ -63,12 +62,14 @@ export function QRScannerModal({ onSucesso, onCancelar, prefixoLoja = "CMD", loj
     onCancelar();
   }, [pararTudo, onCancelar]);
 
-  // Lê frames do vídeo e processa com jsQR
+  // Lê frames do vídeo e processa com jsQR (baixado só quando a câmera é usada)
   function iniciarLeitura(video, canvas) {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    let jsQR = null;
+    import("jsqr").then((m) => { jsQR = m.default; }).catch(() => { setStatus("erro"); setMensagem("Não foi possível iniciar o leitor. Confira a conexão e tente de novo."); });
 
     function tick() {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      if (jsQR && video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width  = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);

@@ -1,4 +1,5 @@
 import FiltroPeriodo from "../../components/FiltroPeriodo.jsx";
+import ModalCentral from "../../components/ModalCentral.jsx";
 import { intervaloPeriodo } from "../../lib/relatorios/analiseVendas.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader, PrimeButton, EmptyState, FilterChip, FiltersPanel, FilterGroup } from "../../components/Prime";
@@ -111,28 +112,32 @@ function SessionDetailsDrawer({
   const podeBloquear = !!sessao.deviceId;
   const busy = encerrando || excluindo || bloqueando;
   return (
-    <div className="fixed inset-0 z-[120] flex justify-end bg-[#012E46]/40" onClick={onFechar}>
-      <aside
-        className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Detalhes da sessão"
-      >
-        <header className="flex items-start justify-between border-b border-[#D1D5DB] px-5 py-4">
-          <div>
-            <h3 className="text-lg font-black text-[#012E46]">{sessao.usuarioNome || "Usuário"}</h3>
-            <div className="mt-1"><PresenceDot presence={presence} /></div>
+    <ModalCentral ariaLabel="Detalhes da sessão" titulo={sessao.usuarioNome || "Usuário"} badges={<PresenceDot presence={presence} />} colunas={2} tamanho="xl" onFechar={onFechar}
+      rodape={
+        <div className="space-y-2">
+          {(podeEncerrar || !podeBloquear) && (
+            <p className="text-[12px] text-[#667085]">
+              {podeEncerrar ? "Encerrar derruba a sessão no aparelho na hora. " : ""}
+              {!podeBloquear && "Sem ID de aparelho nesta sessão — bloqueio indisponível (usuário precisa relogar após a migration 101)."}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <PrimeButton variante="ghost" className="!border-[#C81E4A]/30 !text-[#C81E4A]" disabled={busy} onClick={onExcluir}>
+              {excluindo ? "Excluindo…" : "Excluir registro"}
+            </PrimeButton>
+            {podeBloquear && (
+              <PrimeButton variante="danger" disabled={busy} onClick={onBloquear}>
+                {bloqueando ? "Bloqueando…" : "Bloquear este dispositivo"}
+              </PrimeButton>
+            )}
+            {podeEncerrar && (
+              <PrimeButton variante="danger" disabled={busy} onClick={onEncerrar}>
+                {encerrando ? "Encerrando…" : "Encerrar sessão remotamente"}
+              </PrimeButton>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onFechar}
-            className="rounded-lg border border-[#D1D5DB] px-2.5 py-1 text-sm font-bold text-[#6B7280] hover:bg-[#F3F4F6]"
-          >
-            Fechar
-          </button>
-        </header>
-
-        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        </div>
+      }>
           <InfoGroup titulo="Identificação">
             <InfoRow label="Perfil" value={sessao.usuarioPerfil} />
             <InfoRow label="Estabelecimento" value={sessao.lojaNome} />
@@ -203,44 +208,7 @@ function SessionDetailsDrawer({
               </ul>
             )}
           </InfoGroup>
-        </div>
-
-        <footer className="space-y-2 border-t border-[#D1D5DB] px-5 py-4">
-          {podeEncerrar ? (
-            <>
-              <PrimeButton variante="danger" className="w-full" disabled={busy} onClick={onEncerrar}>
-                {encerrando ? "Encerrando…" : "Encerrar sessão remotamente"}
-              </PrimeButton>
-              <p className="text-[11px] text-[#6B7280]">
-                A sessão é derrubada imediatamente no dispositivo (tempo real).
-              </p>
-            </>
-          ) : null}
-          {podeBloquear ? (
-            <PrimeButton
-              variante="danger"
-              className="w-full"
-              disabled={busy}
-              onClick={onBloquear}
-            >
-              {bloqueando ? "Bloqueando…" : "Bloquear este dispositivo"}
-            </PrimeButton>
-          ) : (
-            <p className="text-[11px] text-[#6B7280]">
-              Sem ID de aparelho nesta sessão — bloqueio indisponível (usuário precisa relogar após a migration 101).
-            </p>
-          )}
-          <PrimeButton
-            variante="ghost"
-            className="w-full !border-[#C81E4A]/30 !text-[#C81E4A]"
-            disabled={busy}
-            onClick={onExcluir}
-          >
-            {excluindo ? "Excluindo…" : "Excluir registro"}
-          </PrimeButton>
-        </footer>
-      </aside>
-    </div>
+    </ModalCentral>
   );
 }
 
