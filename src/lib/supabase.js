@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { acessosIniciaisDoPerfil } from './usuarioForm'
 import { dbParaEmitente, emitenteParaDb, CAMPOS_EMITENTE_109 } from './emitenteFiscalService'
-import { fidelidadeHabilitada, numeroFidelidade } from './fidelidade'
+import { fidelidadeHabilitada, numeroFidelidade, transacaoDoBanco } from './fidelidade'
 import { ACCESS_SESSION_KEY } from './accessControl/constants.js'
 import { pedidosRealtimeGuard } from './pedidosRealtimeGuard'
 import { aoAssinar, emLote } from './tempoReal'
@@ -1451,12 +1451,20 @@ export async function fetchFidelidadeTransacoes(lojaId) {
     return lojaId != null ? q.eq('loja_id', lojaId) : q
   }, 5000)
   if (error || !data) return []
-  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, clienteId: r.cliente_id, orderId: r.order_id, pontos: r.pontos, tipo: r.tipo, descricao: r.descricao ?? "", criadoEmISO: r.criado_em }))
+  return data.map(transacaoDoBanco)
 }
+// Ajuste e resgate manual: o banco confere permissão, recompensa e saldo (migration 222).
+export async function lancarPontosManual(t) {
+  const r = await supabase.rpc('app_pontos_lancar', { p_cliente_id: t.clienteId, p_pontos: Number(t.pontos) || 0, p_tipo: t.tipo, p_descricao: t.descricao || null, p_recompensa_id: t.recompensaId ?? null })
+  if (r.error?.code === 'PGRST202' || r.error?.code === '42883') return lancarFidelidadeTransacao(t) // banco sem a 222: como antes
+  if (r.error) throw r.error
+  return transacaoDoBanco(r.data)
+}
+// Gravação direta: só serve a banco sem a migration 222 (a 223 retira essa permissão).
 export async function lancarFidelidadeTransacao(t) {
   const { data, error } = await supabase.from('tab_fidelidade_transacoes').insert([{ loja_id: t.lojaId ?? null, cliente_id: t.clienteId ?? null, order_id: t.orderId ?? null, pontos: Number(t.pontos) || 0, tipo: t.tipo || 'earn', descricao: t.descricao || null }]).select().single()
   if (error) throw error
-  return { id: data.id, lojaId: data.loja_id, clienteId: data.cliente_id, orderId: data.order_id, pontos: data.pontos, tipo: data.tipo, descricao: data.descricao ?? "", criadoEmISO: data.criado_em }
+  return transacaoDoBanco(data)
 }
 export function escutarFidelidadeTransacoes(onMudanca) {
   const reload = async () => { try { onMudanca(await fetchFidelidadeTransacoes(null)) } catch {} }

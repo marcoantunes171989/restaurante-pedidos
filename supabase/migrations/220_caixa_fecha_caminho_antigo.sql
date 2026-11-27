@@ -15,7 +15,8 @@
 begin;
 
 do $$ begin
-  if to_regprocedure('public.app_fechar_conta(text[], jsonb, numeric, numeric, boolean, text, text, text, boolean, bigint)') is null then
+  if to_regprocedure('public.app_fechar_conta(text[], jsonb, numeric, numeric, boolean, text, text, text, boolean, bigint)') is null
+     and to_regprocedure('public.app_fechar_conta(text[], jsonb, numeric, numeric, boolean, text, text, text, boolean, bigint, boolean)') is null then -- 222
     raise exception 'precheck 220: rode antes a migration 218; nada foi alterado.';
   end if;
 end $$;

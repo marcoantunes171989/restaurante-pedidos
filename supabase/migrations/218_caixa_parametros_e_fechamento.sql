@@ -293,6 +293,13 @@ grant execute on function public.app_parametros_caixa(bigint) to authenticated;
 grant execute on function public.app_salvar_parametros_caixa(bigint, jsonb) to authenticated;
 grant execute on function public.app_fechar_conta(text[], jsonb, numeric, numeric, boolean, text, text, text, boolean, bigint) to authenticated;
 
+-- Rodada de novo depois da 222 (fechamento com pontos no servidor): vale a versão da 222, sem duas versões convivendo.
+do $$ begin
+  if to_regprocedure('public.app_fechar_conta(text[], jsonb, numeric, numeric, boolean, text, text, text, boolean, bigint, boolean)') is not null then
+    drop function public.app_fechar_conta(text[], jsonb, numeric, numeric, boolean, text, text, text, boolean, bigint);
+  end if;
+end $$;
+
 notify pgrst, 'reload schema';
 commit;
 

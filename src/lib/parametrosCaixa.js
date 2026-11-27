@@ -147,6 +147,9 @@ const RECUSAS = [
   ["pedido_cancelado_nao_pode_ser_pago", () => "Há um pedido cancelado nesta conta. Atualize a tela."],
   ["pedido_nao_encontrado", () => "Um pedido desta conta não foi encontrado. Atualize a tela."],
   ["conta_de_empresas_diferentes", () => "Os pedidos desta conta são de empresas diferentes."],
+  ["saldo_de_pontos_insuficiente", (d) => `Saldo de pontos insuficiente. Com o saldo atual dá para usar até ${reais(d)}.`],
+  ["pontos_indisponiveis", () => "O programa de pontos está desligado nesta empresa. Troque a forma de pagamento."],
+  ["pontos_sem_cliente", () => "Identifique o cliente para pagar com pontos."],
   ["caixa_invalido", () => "O caixa informado não está aberto nesta empresa. Abra o caixa e tente de novo."],
   ["parcela_invalida", () => "Há um recebimento sem forma ou com valor zero."],
   ["pagamento_sem_parcelas", () => "Registre o recebimento antes de fechar a conta."],
@@ -181,9 +184,12 @@ export async function salvarParametrosCaixa(supabase, lojaId, config) {
   return data;
 }
 
-/** Fecha a conta no servidor. { ausente: true } quando o banco ainda não tem a função. */
+/**
+ * Fecha a conta no servidor. { ausente: true } quando o banco ainda não tem a função.
+ * Pede que o banco grave os pontos de fidelidade (migration 222); em banco só com a 218, repete sem o pedido.
+ */
 export async function fecharContaNoServidor(supabase, f) {
-  const { data, error } = await supabase.rpc("app_fechar_conta", {
+  const argumentos = {
     p_pedido_ids: f.pedidoIds,
     p_parcelas: (f.parcelas || []).map((p) => ({ forma: p.forma, valor: emCentavos(p.valor) / 100 })),
     p_desconto: emCentavos(f.desconto) / 100,
@@ -194,7 +200,9 @@ export async function fecharContaNoServidor(supabase, f) {
     p_canal: f.canal === "externo" ? "externo" : "interno",
     p_manter_status: !!f.manterStatus,
     p_caixa_id: f.caixaId ?? null,
-  });
+  };
+  let { data, error } = await supabase.rpc("app_fechar_conta", { ...argumentos, p_pontos_no_servidor: true });
+  if (funcaoAusente(error)) ({ data, error } = await supabase.rpc("app_fechar_conta", argumentos));
   if (error) { if (funcaoAusente(error)) return { ausente: true }; throw error; }
   return { ausente: false, data };
 }

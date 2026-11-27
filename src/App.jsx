@@ -59,7 +59,7 @@ import {
   fetchImpressoras, inserirImpressora, atualizarImpressora, excluirImpressora, escutarImpressoras,
   fetchImpressoesCozinha, inserirImpressoesCozinha, atualizarImpressaoCozinha, escutarImpressoesCozinha,
   fetchCaixas, fetchMovimentosCaixa, abrirCaixa, registrarMovimentoCaixa, fecharCaixa, escutarCaixas,
-  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
+  fetchFidelidadeRegras, salvarFidelidadeRegra, fetchFidelidadeRecompensas, inserirRecompensa, excluirRecompensa, atualizarRecompensa, fetchFidelidadeTransacoes, lancarFidelidadeTransacao, lancarPontosManual, escutarFidelidadeTransacoes, escutarFidelidadeRegras,
   escutarPesquisas,
   fetchChamados, criarChamado, atualizarChamado, escutarChamados,
   fetchAuditoria, registrarAuditoria, escutarAuditoria, marcarAuditoriaAnalisada,
@@ -74,7 +74,7 @@ import { usandoSupabaseAuth } from "./lib/authMode";
 import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
 import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
 import { useCobranca } from "./hooks/useCobranca";
-import { pontosDaVenda, pontosPor } from "./lib/fidelidade";
+import { juntarTransacoes, mensagemDeRecusaDePontos, pontosDaVenda, pontosPor, transacaoDoBanco } from "./lib/fidelidade";
 import ParametrosCaixa from "./components/admin/ParametrosCaixa";
 import { percentualCadastroFiscal, rotuloAmbienteNfce, normalizarDocumentoFiscal } from "./lib/emitenteFiscalService";
 import { montarRascunhoNfce, preValidarNfce, montarChaveAcessoNfce, aammDe, emitirNfceSimulada, formatarChaveNfce } from "./lib/nfceService";
@@ -2651,11 +2651,15 @@ export default function RestaurantePedidoApp() {
       })();
       let noServidor = false; // o servidor conferiu a conta e gravou pedidos, pagamento, caixa e cupom de uma vez
       let totalDoServidor = null; // total que o servidor cobrou (base dos pontos de fidelidade)
+      let pontosNoServidor = false; // o banco já gravou resgate e ganho de pontos (migration 222)
       if (fechamento) {
         try {
           const r = await fecharContaNoServidor(supabase, { ...fechamento, parcelas: info.detalhes, manterStatus, caixaId: caixaAberto?.id ?? null });
           noServidor = !r.ausente;
           totalDoServidor = r.data?.total ?? null;
+          pontosNoServidor = r.data?.pontos?.noServidor === true;
+          const lancados = pontosNoServidor ? (r.data.pontos.lancamentos || []).map(transacaoDoBanco) : [];
+          if (lancados.length) setFidTransacoes((cur) => juntarTransacoes(lancados, cur));
         } catch (err) {
           console.error("Pagamento recusado:", err);
           notify("error", mensagemDeRecusaDoCaixa(err) || `Não foi possível registrar o pagamento: ${err?.message || "erro"}. Confira a conta antes de repetir.`);
@@ -2691,9 +2695,9 @@ export default function RestaurantePedidoApp() {
               await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
             } catch {}
           }
-          // Fidelidade: RESGATE (pagamento com pontos) + concessão de pontos ao
-          // cliente identificado (por telefone). Tolerante — nunca derruba a baixa.
-          if (fidRegraAtual) {
+          // Fidelidade em banco sem a migration 222: RESGATE e ganho lançados daqui (com ela, o banco grava junto
+          // com a venda). Tolerante — nunca derruba a baixa.
+          if (fidRegraAtual && !pontosNoServidor) {
             try {
               const detalhes = Array.isArray(info?.detalhes) ? info.detalhes : [];
               // Valor pago com a forma "Pontos" nesta baixa (0 se não usou pontos).
@@ -3190,10 +3194,10 @@ export default function RestaurantePedidoApp() {
     try { await atualizarRecompensa(id, campos); notify("success", "Recompensa atualizada."); }
     catch (e) { notify("error", "Erro ao atualizar: " + (e.message || e)); }
   }
-  async function lancarPontos(clienteId, pontos, tipo, descricao) {
+  async function lancarPontos(clienteId, pontos, tipo, descricao, recompensaId = null) {
     if (!clienteId || !pontos) return;
-    try { const t = await lancarFidelidadeTransacao({ lojaId: lojaAtual, clienteId, pontos, tipo, descricao }); setFidTransacoes((cur) => [t, ...cur]); notify("success", tipo === "redeem" ? "Resgate registrado." : "Pontos lançados."); }
-    catch (e) { notify("error", "Erro ao lançar pontos: " + (e.message || e)); }
+    try { const t = await lancarPontosManual({ lojaId: lojaAtual, clienteId, pontos, tipo, descricao, recompensaId }); setFidTransacoes((cur) => juntarTransacoes([t], cur)); notify("success", tipo === "redeem" ? "Resgate registrado." : "Pontos lançados."); }
+    catch (e) { notify("error", "Erro ao lançar pontos: " + mensagemDeRecusaDePontos(e)); }
   }
 
   // ── Fechamento de Caixa (migration 042) ────────────────────
@@ -15717,7 +15721,7 @@ function FidelidadePainelCliente({ cliente, pontos, recompensas = [], lancarPont
           {recompensas.filter((r) => r.ativo !== false).map((r) => {
             const pode = pontos >= r.pontosNecessarios;
             return (
-              <button key={r.id} disabled={!pode} onClick={() => lancarPontos(cliente.id, -r.pontosNecessarios, "redeem", `Resgate: ${r.nome}`)}
+              <button key={r.id} disabled={!pode} onClick={() => lancarPontos(cliente.id, -r.pontosNecessarios, "redeem", `Resgate: ${r.nome}`, r.id)}
                 className={`rounded-full border px-3 py-1 text-[11px] font-black transition ${pode ? "border-gold-400/50 bg-gold-400/10 text-gold-200 hover:bg-gold-400/20" : "border-white/10 bg-white/[0.03] text-slate-600"}`}>
                 🎁 {r.nome} · {r.pontosNecessarios}pts
               </button>
