@@ -146,6 +146,12 @@ import SetorImpressorasAdmin from "./pages/admin/SetorImpressorasAdmin";
 import ControleAcessosAdmin from "./pages/admin/ControleAcessosAdmin";
 import LandingAnalyticsAdmin from "./pages/admin/LandingAnalyticsAdmin";
 import DashboardGerencial from "./pages/admin/DashboardGerencial";
+import RelatorioVisaoGeral from "./pages/admin/relatorios/RelatorioVisaoGeral.jsx";
+import RelatorioVendas from "./pages/admin/relatorios/RelatorioVendas.jsx";
+import { AvisoErro, BarraDeAcoes, BotaoAcao, Carregando, Cartao, Composicao, Dado, GradeIndicadores, GraficoColunas, GraficoTendencia, Indicador, Paginador, Ranking, SituacaoDados, Vazio } from "./components/graficos/Graficos.jsx";
+import { ContextoDadosVendas, useDadosVendas } from "./components/graficos/contextoDados.js";
+import { agruparVisitas, canalDoPedido, chaveDia, concentracao, distribuicaoPorValor, ehPago, intervaloAnterior, mapaDeProdutos, margemDosPedidos, media as mediaDe, mediana, pedidosNoIntervalo, percentil, resumoVendas, rotuloComparacao, situacaoEstoque, variacaoPct } from "./lib/relatorios/analiseVendas.js";
+import { baixarCsv, escHtml } from "./lib/relatorios/exportacao.js";
 import AmbientesAdmin from "./pages/admin/AmbientesAdmin";
 import ControleAtualizacaoAdmin from "./pages/admin/ControleAtualizacaoAdmin";
 import AtualizarProducaoAdmin from "./pages/admin/AtualizarProducaoAdmin";
@@ -179,7 +185,7 @@ import TabletProductCard from "./components/tablet/TabletProductCard";
 import TabletCartPanel from "./components/tablet/TabletCartPanel";
 import TabletMobileCartBar from "./components/tablet/TabletMobileCartBar";
 import TabletOrderTrackingDrawer from "./components/tablet/TabletOrderTrackingDrawer";
-import { CircleHelp, ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket } from "lucide-react";
+import { CircleHelp, ClipboardList, ChefHat, Wine, CreditCard, Utensils, Clock, TrendingUp, Bell, CheckCircle2, Hourglass, Receipt, Wallet, CalendarCheck, SearchX, Gift, Star, Tag, ChevronRight, Sun, Moon, Store, QrCode, ShoppingBag, Bot, Download, Landmark, LockKeyhole, Rocket, AlertTriangle, Copy, Crown, Eye, MessageCircle, Package, Phone, Printer, Repeat, SlidersHorizontal, Snowflake, UserPlus, Users, Archive, FileText, Mail, MessageSquare, ThumbsUp, XCircle } from "lucide-react";
 
 export const fallbackImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80";
 
@@ -487,6 +493,8 @@ function createCartItem(product) {
   return { ...product, quantity: 1, observation: "", selectedIngredients: [...(product.ingredients || [])], removedIngredients: [], extraIngredients: [], extraIngredientInput: "" };
 }
 
+const ERRO_CARGA_VENDAS = "Não foi possível atualizar os dados de vendas. Verifique a conexão e tente novamente.";
+
 // Total cobrado: itens + 10% de serviço, exceto retirada/entrega externa (src/lib/taxaServico.js).
 function totalComTaxa(order) {
   return orderTotal(order) * (cobraTaxaServico(order?.table) ? 1.1 : 1);
@@ -757,6 +765,8 @@ export default function RestaurantePedidoApp() {
   const [erroBackend, setErroBackend] = useState(false);
   const [conexaoOk, setConexaoOk] = useState(true); // status do canal realtime de pedidos (usado no indicador do Caixa)
   const [loading, setLoading]     = useState(true);
+  // Situação da carga de pedidos/produtos mostrada no Dashboard e nos Relatórios.
+  const [cargaVendas, setCargaVendas] = useState({ carregando: false, erro: "" });
   const [entregandoId, setEntregandoId] = useState(null); // id do pedido sendo marcado como entregue agora (desabilita o botão dele)
   const entregandoRef = useRef(false); // trava síncrona contra duplo clique / condição de corrida (mesmo padrão do checkout público)
   // Status de cozinha em voo: Set por pedido permite processar pedidos diferentes
@@ -1385,12 +1395,27 @@ export default function RestaurantePedidoApp() {
     } catch { /* ignore */ }
   }, [currentUser]);
 
+  const vendasMudaramEm = useMemo(() => (ordersAll ? new Date() : null), [ordersAll]);
+  async function atualizarDadosVendas() {
+    setCargaVendas({ carregando: true, erro: "" });
+    try {
+      const [ords, prods] = await Promise.all([fetchPedidos(), fetchProdutos()]);
+      // Leitura vazia pode ser bloqueio transitório de acesso: não zera a tela.
+      if (Array.isArray(ords) && ords.length > 0) setOrders(ords);
+      if (Array.isArray(prods) && prods.length > 0) setProducts(prods);
+      setCargaVendas({ carregando: false, erro: "" });
+    } catch {
+      setCargaVendas({ carregando: false, erro: ERRO_CARGA_VENDAS });
+    }
+  }
+
   // Após login/sessão: recarrega dados operacionais do banco (só leitura).
   // Não sobrescreve estado com arrays vazios — evita tela inconsistente.
   useEffect(() => {
     if (!dbReady || !currentUser) return;
     let cancelado = false;
     (async () => {
+      setCargaVendas({ carregando: true, erro: "" });
       try {
         // Mesas NÃO entram nesta chamada em lote (migration 122): app_listar_mesas
         // exige a loja em foco (obrigatória p/ super, derivada do JWT p/ não-super) —
@@ -1411,6 +1436,7 @@ export default function RestaurantePedidoApp() {
           fetchSetoresCozinha().catch(() => null),
         ]);
         if (cancelado) return;
+        setCargaVendas({ carregando: false, erro: ords === null || prods === null ? ERRO_CARGA_VENDAS : "" });
         if (Array.isArray(listaU) && listaU.length) setUsers(listaU);
         if (Array.isArray(listaC) && listaC.length) setCargos(listaC);
         if (Array.isArray(ords) && ords.length) setOrders(ords);
@@ -1424,7 +1450,10 @@ export default function RestaurantePedidoApp() {
           setComandasCarregadas(true);
         }
         if (Array.isArray(setoresL) && setoresL.length) setSetoresCozinha(setoresL);
-      } catch { /* mantém estado atual */ }
+      } catch {
+        // Mantém o estado atual e avisa que os números podem estar desatualizados.
+        if (!cancelado) setCargaVendas({ carregando: false, erro: ERRO_CARGA_VENDAS });
+      }
     })();
     return () => { cancelado = true; };
   }, [dbReady, currentUser?.id]);
@@ -4505,7 +4534,13 @@ export default function RestaurantePedidoApp() {
         {activeTab === "panel" && canAccess(currentUser, "panel") && <PanelView groupedOrders={groupedOrders} products={products} lojaInfo={lojaInfo} />}
         {activeTab === "cashier" && canAccess(currentUser, "cashier") && <CashierPdv orders={orders} mesas={filtraLoja(mesas).filter((m) => m.active !== false)} clientes={filtraLoja(clientes)} baixarComandas={baixarComandas} formasPagamento={formasPagamentoLoja} lojaInfo={lojaInfo} currentUser={currentUser} caixaAberto={caixaAberto} auditar={auditar} conexaoOk={conexaoOk} editarItensPedido={editarItensPedido} criarPedidoCaixa={criarPedidoCaixa} products={products} categories={categoriasDb} setores={filtraLoja(setoresCozinha)} fidCaixa={fidCaixa} atualizarClientePedidos={atualizarClientePedidos} transferirMesaPedidos={transferirMesaPedidos} separarItensPedidos={separarItensPedidos} notify={notify} validarCupom={validarCupomCaixa} consumirCupom={consumirCupomCaixa} onSair={logout} emitenteFiscal={emitenteFiscalLoja} ctxFiscal={ctxFiscalPdv} configFiscalVenda={configFiscalVendaLoja} supabase={supabase} />}
         {/* activeTab === "opmobile" agora é tratado pelo branch dedicado no início desta função (sem cabeçalho/grade de módulos) */}
-        {activeTab === "admin" && canAccess(currentUser, "admin") && <AdminView fiscalVendaPdv={fiscalVendaPdv} currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={(id) => { setCozinhaBloqueadaPlano(false); if (id === "relatorios") setRelatorioSub("geral"); setAdminSection(id); }} relatorioSub={relatorioSub} onRelatorioSubChange={(id) => setRelatorioSub(ehIdRelatorioValido(id) ? id : "geral")} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={irParaCozinha} forcarBloqueioCozinha={cozinhaBloqueadaPlano} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} />}
+        {activeTab === "admin" && canAccess(currentUser, "admin") && <ContextoDadosVendas.Provider value={{
+          carregando: cargaVendas.carregando,
+          erro: erroBackend ? "Sem conexão com o servidor: os números exibidos podem não ser os da loja." : cargaVendas.erro,
+          atualizadoEm: vendasMudaramEm,
+          // Sem servidor, o app está em dados locais: só recarregar a página resolve.
+          atualizar: erroBackend ? () => window.location.reload() : atualizarDadosVendas,
+        }}><AdminView fiscalVendaPdv={fiscalVendaPdv} currentUser={currentUser} products={products} categories={categories} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} users={users} accesses={accesses} userForm={userForm} setUserForm={setUserForm} addUser={addUser} accessForm={accessForm} setAccessForm={setAccessForm} addAccess={addAccess} toggleUserAccess={toggleUserAccess} definirAcessos={definirAcessos} definirAcoesUsuario={definirAcoesUsuario} toggleUserStatus={toggleUserStatus} toggleAccessStatus={toggleAccessStatus} usersLoja={filtraLoja(users)} adminSection={adminSection} setAdminSection={(id) => { setCozinhaBloqueadaPlano(false); if (id === "relatorios") setRelatorioSub("geral"); setAdminSection(id); }} relatorioSub={relatorioSub} onRelatorioSubChange={(id) => setRelatorioSub(ehIdRelatorioValido(id) ? id : "geral")} formasPagamento={formasPagamentoLoja} addFormaPagamento={addFormaPagamento} toggleFormaPagamento={toggleFormaPagamento} removerFormaPagamento={removerFormaPagamento} editarFormaPagamento={editarFormaPagamento} editarProduto={editarProduto} removerProduto={removerProduto} editarUsuario={editarUsuario} removerUsuario={removerUsuario} categoriasDb={categoriasDbLoja} addCategoria={addCategoria} toggleCategoria={toggleCategoria} removerCategoria={removerCategoria} renomearCategoria={renomearCategoria} lojas={lojas} toggleLoja={toggleLoja} editarLoja={editarLoja} emitenteFiscalApi={emitenteFiscalApi} setLicencaEmpresa={setLicencaEmpresa} setValidadeLicenca={setValidadeLicenca} lojaInfo={lojaInfo} orders={orders} onSair={logout} isSuperAdmin={isSuperAdmin} filtraLoja={filtraLoja} pesquisas={pesquisas} updateOrderStatus={updateOrderStatus} marcarEntregue={marcarEntregue} marcarSetorPronto={marcarSetorPronto} baixarComandas={baixarComandas} cancelarPedido={cancelarPedido} criarEmpresa={criarEmpresa} cargos={cargos} addCargo={addCargo} editarCargo={editarCargo} toggleCargo={toggleCargo} removerCargo={removerCargo} lojaContexto={lojaContexto} setLojaContexto={setLojaContexto} registrarComandas={registrarComandas} comandasRegistradas={filtraLoja(comandas)} excluirComandaFn={excluirComandaFn} renomearComandaFn={renomearComandaFn} toggleComandaFn={toggleComandaFn} salvarLogoEmpresa={salvarLogoEmpresa} salvarConfigExterno={salvarConfigExterno} salvarConfigCrm={salvarConfigCrm} clientes={filtraLoja(clientes)} mesas={filtraLoja(mesas)} mesasErro={mesasErro} addMesa={addMesa} editarMesa={editarMesa} toggleMesa={toggleMesa} removerMesa={removerMesa} planoAtual={planoAtual} assinaturaAtual={assinaturaAtual} planos={planos} planoModulos={planoModulos} definirAssinatura={definirAssinatura} assinaturas={assinaturas} promocoes={filtraLoja(promocoes)} addPromocao={addPromocao} editarPromocao={editarPromocao} togglePromocao={togglePromocao} removerPromocao={removerPromocao} cupons={cuponsLoja} cuponsErro={cuponsErro} addCupom={addCupom} editarCupom={editarCupomLoja} toggleCupom={toggleCupom} removerCupom={removerCupom} opcoesApi={{ grupos: filtraLoja(gruposOpcoes), opcoes: filtraLoja(opcoes), addGrupo: addGrupoOpcoes, editarGrupo: editarGrupoOpcoes, removerGrupo: removerGrupoOpcoes, addOpcao, editarOpcao, removerOpcao }} fiscalIcms={filtraLoja(fiscalIcms)} fiscalNcm={filtraLoja(fiscalNcm)} fiscalCfop={filtraLoja(fiscalCfop)} fiscalPis={filtraLoja(fiscalPis)} fiscalCofins={filtraLoja(fiscalCofins)} fiscalIpi={filtraLoja(fiscalIpi)} fiscalCest={filtraLoja(fiscalCest)} fiscalApi={{ addIcms: addFiscalIcms, editarIcms: editarFiscalIcms, removerIcms: removerFiscalIcms, addNcm: addFiscalNcm, editarNcm: editarFiscalNcm, removerNcm: removerFiscalNcm, importarNcm: importarFiscalNcmLote, addCfop: hCfop.add, editarCfop: hCfop.editar, removerCfop: hCfop.remover, addPis: hPis.add, editarPis: hPis.editar, removerPis: hPis.remover, addCofins: hCofins.add, editarCofins: hCofins.editar, removerCofins: hCofins.remover, addIpi: hIpi.add, editarIpi: hIpi.editar, removerIpi: hIpi.remover, addCest: hCest.add, editarCest: hCest.editar, removerCest: hCest.remover, aplicarLote: aplicarFiscalLote, reverterLote: reverterFiscalLote, excluirNcmLote: excluirFiscalNcmEmLote, inativarNcmLote: inativarFiscalNcmEmLote }} fiscalLoteLog={filtraLoja(fiscalLoteLog)} centralFiscal={{ ncm: catNcm, cest: catCest, cfop: catCfop, cstIcms: catCstIcms, csosn: catCsosn, cstPis: catCstPis, cstCofins: catCstCofins }} centralFiscalApi={centralFiscalApi} fiscalRegras={fiscalRegras} fiscalRegraVersoes={fiscalRegraVersoes} regrasFiscalApi={regrasFiscalApi} lojaFiscalRegras={filtraLoja(lojaFiscalRegras)} lojaFiscalApi={lojaFiscalApi} fiscalTemplates={fiscalTemplates} fiscalTemplateRegras={fiscalTemplateRegras} templatesFiscalApi={templatesFiscalApi} impressoras={filtraLoja(impressoras)} impressorasApi={{ add: addImpressoraCadastro, editar: editarImpressoraCadastro, remover: removerImpressoraCadastro }} setores={filtraLoja(setoresCozinha)} setoresApi={{ add: addSetorCozinha, editar: editarSetorCozinha, remover: removerSetorCozinha }} vincularProdutoSetor={vincularProdutoSetor} salvarProdutoQr={salvarProdutoQr} irParaCozinha={irParaCozinha} forcarBloqueioCozinha={cozinhaBloqueadaPlano} caixaAberto={caixaAberto} caixasLoja={filtraLoja(caixas)} caixaApi={{ abrir: abrirCaixaFn, movimentar: movimentarCaixaFn, fechar: fecharCaixaFn, fetchMovimentos: fetchMovimentosCaixa }} fidRegra={fidRegraAtual} fidRecompensas={filtraLoja(fidRecompensas)} fidTransacoes={filtraLoja(fidTransacoes)} fidApi={{ salvarRegra: salvarRegraFid, addRecompensa: addRecompensaFid, removerRecompensa: removerRecompensaFid, editarRecompensa: editarRecompensaFid, lancarPontos }} fidCaixa={fidCaixa} chamados={filtraLoja(chamados)} atenderChamado={atenderChamadoFn} assumirChamado={assumirChamadoFn} auditoria={filtraLoja(auditoria)} impressoesCozinha={filtraLoja(impressoesCozinha)} onAtualizarImpressao={atualizarStatusImpressao} onRecarregarImpressoes={async () => { try { setImpressoesCozinha(await fetchImpressoesCozinha(lojaAtual)); } catch {} }} editarCategoriaCampos={editarCategoriaCampos} /></ContextoDadosVendas.Provider>}
 
       </div>
       )}
@@ -7853,6 +7888,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
               clientes={dashboardClientes}
               lojaNome={lojaInfo?.nome || ""}
               irParaProdutos={() => setAdminSection("products")}
+              irParaRelatorio={(sub) => { setAdminSection("relatorios"); onRelatorioSubChange(sub); }}
             />
           ))}
           {ativo === "copiloto"   && (precisaEmpresa ? avisoEmpresa : <DashboardAdmin orders={orders} products={products} clientes={clientes} setores={setores} pesquisas={filtraLoja(pesquisas)} usuarios={usersLoja ?? users} irPara={setAdminSection} soCopiloto />)}
@@ -8923,57 +8959,6 @@ function GraficoTooltip({ children, className = "" }) {
   );
 }
 
-// Barras horizontais rankeadas com tooltip — reaproveita a mesma
-// configuração global de gráficos já usada por BarrasHora/DonutChart/
-// LinhaFaturamento (pp-chart-container, pp-chart-focus, GraficoTooltip):
-// sem outline preto, sem alterar layout no hover, overlay absoluto.
-// dados: [{ rotulo, valor, qtd, variacao }]; ordena do maior para o menor;
-// o maior valor fica em #F38525, os demais em #012E46; linha vertical
-// cinza (#64748B) marca a média do conjunto.
-function BarrasRankeadas({ dados, formatarValor, sufixo = "" }) {
-  const [ativo, setAtivo] = useState(null);
-  if (!dados || dados.length === 0) return <div className="flex h-24 items-center justify-center text-sm text-[#64748B]">Sem dados no período.</div>;
-  const ordenados = [...dados].sort((a, b) => b.valor - a.valor);
-  const maxValor = Math.max(1, ...ordenados.map((d) => d.valor));
-  const media = ordenados.reduce((s, d) => s + d.valor, 0) / ordenados.length;
-  const pctMedia = Math.min(100, (media / maxValor) * 100);
-  return (
-    <div className="pp-chart-container space-y-3">
-      {ordenados.map((d, i) => {
-        const pct = (d.valor / maxValor) * 100;
-        const cor = i === 0 ? "#F38525" : "#012E46";
-        return (
-          <div key={d.rotulo} className="relative">
-            <div className="mb-1 flex items-center justify-between gap-2 text-xs">
-              <span className="min-w-0 truncate font-semibold capitalize text-[#334155]">{d.rotulo}</span>
-              <span className="shrink-0 font-bold text-[#0D1B2A]">{formatarValor(d.valor)}{sufixo}</span>
-            </div>
-            <div className="relative h-3 rounded-full bg-[#F1F5F9]">
-              <div className="pp-chart-focus h-full rounded-full" tabIndex={0} role="img"
-                aria-label={`${d.rotulo}: ${formatarValor(d.valor)}${sufixo}`}
-                style={{ width: `${pct}%`, background: cor, transition: "width 300ms ease" }}
-                onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
-                onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))} />
-              <div className="pointer-events-none absolute -top-0.5 -bottom-0.5 w-px bg-[#64748B]" style={{ left: `${pctMedia}%` }} aria-hidden="true" />
-              {ativo === i && (
-                <GraficoTooltip className="pp-chart-tooltip-overlay left-0 top-full mt-1.5 w-max max-w-[220px]">
-                  <p className="font-bold capitalize" style={{ color: "#0D1B2A" }}>{d.rotulo}</p>
-                  <p className="mt-0.5 font-black" style={{ color: cor }}>{formatarValor(d.valor)}{sufixo}</p>
-                  {d.qtd != null && <p className="mt-0.5" style={{ color: "#64748B" }}>{d.qtd} comanda(s)</p>}
-                  {d.variacao != null && (
-                    <p className="mt-0.5 font-semibold" style={{ color: d.variacao >= 0 ? "#F38525" : "#10B981" }}>{d.variacao >= 0 ? "▲" : "▼"} {Math.abs(d.variacao).toFixed(0)}% vs. média</p>
-                  )}
-                </GraficoTooltip>
-              )}
-            </div>
-          </div>
-        );
-      })}
-      <p className="flex items-center gap-1.5 pt-1 text-[10px] text-[#64748B]"><span className="inline-block h-0.5 w-3 bg-[#64748B]" aria-hidden="true" /> Média do período: {formatarValor(media)}{sufixo}</p>
-    </div>
-  );
-}
-
 // Gráfico "Faturamento por horário" — barras com tooltip acessível (hover, foco
 // por teclado ou toque, sem depender de hover) e cor semântica por barra:
 // cinza = sem venda, terracota = melhor horário, verde = acima da média,
@@ -9054,58 +9039,6 @@ function BarrasHora({ dados, paleta = PALETA_BARRAS_HORA_PADRAO }) {
       </div>
       <p className="sr-only">Melhor horário de venda: {melhorLabel}, {formatCurrency(maxVal)}.</p>
     </div>
-  );
-}
-
-// Gráfico de linha/área (evolução do faturamento) — SVG, sem biblioteca
-function LinhaFaturamento({ dados }) {
-  const [ativo, setAtivo] = useState(null);
-  if (!dados.length) return <div className="flex h-40 items-center justify-center text-sm text-slate-500">Sem vendas no período.</div>;
-  const max = Math.max(1, ...dados.map((d) => d.valor));
-  const W = 640, H = 170, P = 26, n = dados.length;
-  const x = (i) => P + (n > 1 ? (i / (n - 1)) * (W - 2 * P) : (W - 2 * P) / 2);
-  const y = (v) => H - P - (v / max) * (H - 2 * P);
-  const pts = dados.map((d, i) => [x(i), y(d.valor)]);
-  const linha = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-  const area = `${linha} L${x(n - 1).toFixed(1)},${H - P} L${x(0).toFixed(1)},${H - P} Z`;
-  const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
-  // Destaques: maior valor (laranja), menor valor (roxo) e linha de média (cinza tracejada)
-  const valorMax = Math.max(...dados.map((d) => d.valor));
-  const valorMin = Math.min(...dados.map((d) => d.valor));
-  const idxMax = dados.findIndex((d) => d.valor === valorMax);
-  const idxMin = dados.findIndex((d) => d.valor === valorMin);
-  const media = dados.reduce((s, d) => s + d.valor, 0) / n;
-  const yMedia = y(media);
-  const corPonto = (i) => (i === idxMax ? "#F38525" : i === idxMin ? "#8B5CF6" : "#012E46");
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="pp-chart-container w-full overflow-visible" style={{ height: 180 }}>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
-      {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
-      <path d={area} fill="#012E46" fillOpacity="0.08" />
-      <path d={linha} fill="none" stroke="#012E46" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (
-        <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatCurrency(dados[i].valor)}`}
-          onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
-          onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}>
-          <circle cx={p[0]} cy={p[1]} r="8" fill="transparent" />
-          <circle cx={p[0]} cy={p[1]} r={i === idxMax || i === idxMin ? 4 : 3} fill={corPonto(i)} />
-        </g>
-      ))}
-      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748B" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
-      {ativo != null && (() => {
-        const p = pts[ativo]; const d = dados[ativo];
-        const boxW = 86, boxH = 34;
-        const bx = Math.min(Math.max(p[0] - boxW / 2, 2), W - boxW - 2);
-        const by = Math.max(p[1] - boxH - 10, 2);
-        return (
-          <g pointerEvents="none">
-            <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
-            <text x={bx + boxW / 2} y={by + 14} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
-            <text x={bx + boxW / 2} y={by + 27} textAnchor="middle" fill="#012E46" style={{ fontSize: 10, fontWeight: 800 }}>{formatCurrency(d.valor)}</text>
-          </g>
-        );
-      })()}
-    </svg>
   );
 }
 
@@ -10616,68 +10549,20 @@ function corTextoContraste(hex) {
   return yiq >= 150 ? "#2D3436" : "#FFFFFF";
 }
 
-// ── Componentes exclusivos do painel executivo da aba Vendas (Relatórios) ──
-// Não reaproveitam CardMetrica (compartilhado por 40+ telas) para não alterar
-// o visual padrão dele em nenhuma outra tela — mesmo princípio já usado em
-// KpiCardCopiloto/OportunidadeCard (Copiloto IA).
-function KpiExecutivo({ titulo, valor, variacao, desc, icon, tendencia }) {
-  const max = tendencia && tendencia.length ? Math.max(1, ...tendencia) : 1;
-  return (
-    <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10.5px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{titulo}</p>
-        {icon && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#012E46]/10 text-sm">{icon}</span>}
-      </div>
-      <p className="page-title mt-1.5 text-[22px] font-bold leading-tight text-[var(--pp-text)]">{valor}</p>
-      <div className="mt-1 flex items-center gap-2">
-        {variacao != null && (
-          <span className={`text-[11px] font-bold ${variacao >= 0 ? "text-[#2F9E52]" : "text-[#F38525]"}`}>{variacao >= 0 ? "▲" : "▼"} {Math.abs(Math.round(variacao))}%</span>
-        )}
-        {tendencia && tendencia.length > 1 && (
-          <span className="flex h-4 items-end gap-[2px]" aria-hidden="true">
-            {tendencia.slice(-8).map((v, i) => (<span key={i} className="w-[3px] rounded-sm bg-[#012E46]/35" style={{ height: `${Math.max(15, (v / max) * 100)}%` }} />))}
-          </span>
-        )}
-      </div>
-      {desc && <p className="mt-1 text-xs leading-snug text-[var(--pp-text-muted)]">{desc}</p>}
-    </div>
-  );
-}
-
-// Card de ranking compacto ("Top N") — Categorias, Clientes, Mesas, produtos
-// sem venda/baixo estoque/maior margem/faturamento, forma de pagamento, canal…
-function TopLista({ titulo, icon, itens, render, vazio = "Sem dados no período.", acao, className = "" }) {
-  return (
-    <div className={`h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)] ${className}`}>
-      <div className="mb-2.5 flex items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{icon && <span aria-hidden="true">{icon}</span>}{titulo}</p>
-        {acao}
-      </div>
-      {(!itens || itens.length === 0) ? (
-        <p className="py-2 text-xs text-[var(--pp-text-muted)]">{vazio}</p>
-      ) : (
-        <ul className="space-y-2">
-          {itens.map((it, i) => (<li key={i}>{render(it, i)}</li>))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 // Painel de insights — ícone + cor semântica (só azul/verde/laranja/violeta/
 // vermelho — vermelho reservado ao caso realmente crítico: estoque zerado).
 const INSIGHT_TONS_VENDAS = {
-  success: { icon: "📈", bg: "bg-[#2F9E52]/10" },
-  warning: { icon: "⚠️", bg: "bg-[#F38525]/10" },
-  info:    { icon: "💡", bg: "bg-[#012E46]/10" },
-  violet:  { icon: "✨", bg: "bg-[#012E46]/10" },
-  danger:  { icon: "🔴", bg: "bg-[#C81E4A]/10" },
+  success: { Icone: TrendingUp, bg: "bg-[#2F9E52]/10 text-[#1F7A3D]" },
+  warning: { Icone: AlertTriangle, bg: "bg-[#F38525]/10 text-[#9A4D0B]" },
+  info:    { Icone: Star, bg: "bg-[#012E46]/10 text-[#012E46]" },
+  violet:  { Icone: Star, bg: "bg-[#012E46]/10 text-[#012E46]" },
+  danger:  { Icone: AlertTriangle, bg: "bg-[#C81E4A]/10 text-[#C81E4A]" },
 };
 function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
   const t = INSIGHT_TONS_VENDAS[tom] || INSIGHT_TONS_VENDAS.info;
   return (
     <div className="flex h-full items-start gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base ${t.bg}`} aria-hidden="true">{t.icon}</span>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${t.bg}`} aria-hidden="true"><t.Icone className="h-4 w-4" /></span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold text-[var(--pp-text)]">{titulo}</p>
         <p className="mt-0.5 text-xs leading-relaxed text-[var(--pp-text)]">{texto}</p>
@@ -10689,332 +10574,111 @@ function InsightCardVendas({ tom = "info", titulo, texto, acaoLabel, onAcao }) {
   );
 }
 
-function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, irParaProdutos = () => {}, currentUser = null, aba: abaProp = "geral", onAbaChange = () => {} }) {
-  const [periodo, setPeriodo] = useState("7");
-  const [ini, setIni] = useState("");
-  const [fim, setFim] = useState("");
-  // Controlado pelo App (Microgate 03) — fonte única de verdade é o estado
-  // central integrado à URL; nenhum useState local para a aba aqui. Sub
-  // inválido/ausente cai em "geral" (mesmo fallback do contrato de rota).
-  const aba = ehIdRelatorioValido(abaProp) ? abaProp : "geral"; // geral | vendas | cupom | estoque | clientes | permanencia | satisfacao
-  const [drill, setDrill] = useState(null);  // produto clicado → cupons
-  // Paginação da tabela "Estoque anterior x posterior" (aba Estoque)
-  const [paginaEstoque, setPaginaEstoque] = useState(1);
-  const [porPaginaEstoque, setPorPaginaEstoque] = useState(10);
-  // Aba Estoque — busca/ordenação/filtros da tabela gerencial, comparação com
-  // o período anterior, "somente críticos" e detalhe do produto ao clicar na linha.
-  const [buscaEstoque, setBuscaEstoque] = useState("");
-  const [ordenacaoEstoque, setOrdenacaoEstoque] = useState({ campo: "vendido", dir: "desc" });
-  const [fCategoriaEstoque, setFCategoriaEstoque] = useState("todas");
-  const [fStatusEstoque, setFStatusEstoque] = useState("todos");
-  const [fEstoqueMin, setFEstoqueMin] = useState("");
-  const [fEstoqueMax, setFEstoqueMax] = useState("");
-  const [somenteCriticosEstoque, setSomenteCriticosEstoque] = useState(false);
-  const [mostrarFiltrosEstoque, setMostrarFiltrosEstoque] = useState(false);
-  const [compararPeriodoEstoque, setCompararPeriodoEstoque] = useState(false);
-  const [atualizadoEmEstoque, setAtualizadoEmEstoque] = useState(() => new Date());
-  const [produtoDetalheEstoque, setProdutoDetalheEstoque] = useState(null);
-  // Paginação da tabela "Clientes do período" (aba Clientes)
-  const [paginaClientes, setPaginaClientes] = useState(1);
-  const [porPaginaClientes, setPorPaginaClientes] = useState(10);
-  // Aba Clientes — busca/ordenação/filtros do ranking, comparação com o
-  // período anterior, perfil lateral e ações rápidas.
-  const [buscaClientesE, setBuscaClientesE] = useState("");
-  const [ordenacaoClientesE, setOrdenacaoClientesE] = useState({ campo: "faturamentoPeriodo", dir: "desc" });
-  const [fStatusClienteE, setFStatusClienteE] = useState("todos");
-  const [fClassificacaoE, setFClassificacaoE] = useState("todas");
-  const [fCanalClienteE, setFCanalClienteE] = useState("todos");
-  const [fFormaPagClienteE, setFFormaPagClienteE] = useState("todas");
-  const [fValorGastoMinE, setFValorGastoMinE] = useState("");
-  const [fValorGastoMaxE, setFValorGastoMaxE] = useState("");
-  const [fTicketMinE, setFTicketMinE] = useState("");
-  const [fTicketMaxE, setFTicketMaxE] = useState("");
-  const [fPedidosMinE, setFPedidosMinE] = useState("");
-  const [fDiasSemComprarMinE, setFDiasSemComprarMinE] = useState("");
-  const [mostrarFiltrosClientesE, setMostrarFiltrosClientesE] = useState(false);
-  const [clienteSelecionadoE, setClienteSelecionadoE] = useState(null);
-  const [compararPeriodoClientesE, setCompararPeriodoClientesE] = useState(false);
-  const [atualizadoEmClientesE, setAtualizadoEmClientesE] = useState(() => new Date());
-  const [toastClientesE, setToastClientesE] = useState("");
-  const [toastClientesTipoE, setToastClientesTipoE] = useState("success"); // "success" | "error"
-  const [carregandoAcaoE, setCarregandoAcaoE] = useState(null); // "telefone:<cliente>" | "cadastro:<cliente>" | null
-  const [pedidoVisualizarClienteE, setPedidoVisualizarClienteE] = useState(null); // "Ver cupom" no histórico do perfil → ModalVisualizarCupom
-  const [cupomSelClienteE, setCupomSelClienteE] = useState(null); // "Ir para impressão/envio" a partir do ModalVisualizarCupom → CupomNaoFiscalModal
-  // Aba Vendas — busca/ordenação/paginação do ranking de produtos, toggle de
-  // comparação com o período anterior e ações rápidas (compartilhar/atualizar).
-  const [buscaProdV, setBuscaProdV] = useState("");
-  const [ordemProdV, setOrdemProdV] = useState({ campo: "valor", dir: "desc" });
-  const [paginaProdV, setPaginaProdV] = useState(1);
-  const [porPaginaProdV, setPorPaginaProdV] = useState(10);
-  const [compararPeriodo, setCompararPeriodo] = useState(false);
-  const [atualizadoEm, setAtualizadoEm] = useState(() => new Date());
-  const [toastVendas, setToastVendas] = useState("");
+// ── Relatório de estoque (derivado das vendas do período) ────
+const ORDEM_ESTOQUE = [
+  ["nome", "Produto"], ["categoria", "Categoria"], ["vendido", "Vendido"], ["posterior", "Atual"], ["minimo", "Mínimo"],
+  ["cobertura", "Cobertura"], ["giro", "Giro"], ["custoUnit", "Custo un."], ["valorEstoque", "Valor"], ["status", "Situação"],
+];
+const COR_SITUACAO_ESTOQUE = { critico: "#C81E4A", atencao: "#F38525", excesso: "#5591B0", semMovimento: "#9CA3AF", normal: "#012E46", semControle: "#D0D5DD" };
+const CAMPO_FILTRO = "pdv-toque min-h-[40px] w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#1F2933] outline-none transition focus:border-[#012E46]";
+const ROTULO_FILTRO = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#667085]";
 
-  const filtrados = filtrarPedidosPorPeriodo(orders, periodo, ini, fim);
-  const a = analisarVendas(filtrados, products);
+function RelatorioEstoque({ orders, products, filtrados, periodo, ini, fim, lojaInfo, irParaProdutos }) {
+  const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState({ campo: "vendido", dir: "desc" });
+  const [fCategoria, setFCategoria] = useState("todas");
+  const [fStatus, setFStatus] = useState("todos");
+  const [fMin, setFMin] = useState("");
+  const [fMax, setFMax] = useState("");
+  const [somenteCriticos, setSomenteCriticos] = useState(false);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [detalhe, setDetalhe] = useState(null);
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 10;
 
-  // Margem estimada: (preço − custo cadastrado) dos itens pagos no período
-  const custoPorNome = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
-  const margemEstimada = filtrados
-    .filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled")
-    .reduce((s, o) => s + o.items.reduce((x, it) => x + ((it.price || 0) - (custoPorNome[it.name] ?? 0)) * it.quantity, 0), 0);
+  const pagos = filtrados.filter(ehPago);
+  const vendidoPor = (lista) => lista.reduce((m, o) => { o.items.forEach((it) => { m[it.name] = (m[it.name] || 0) + it.quantity; }); return m; }, {});
+  const vendido = vendidoPor(pagos);
+  const vendidoAntes = vendidoPor(pedidosNoIntervalo(orders, intervaloAnterior(periodo, ini, fim)).filter(ehPago));
+  const temAnterior = Object.keys(vendidoAntes).length > 0;
 
-  // Comparativo com o intervalo imediatamente anterior (mesma duração)
-  const comparativo = (() => {
-    if (periodo === "tudo") return null;
-    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
-    if (!a0 || a0.getTime() <= 0) return null;
-    const dur = b0.getTime() - a0.getTime();
-    const anteriores = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
-    if (anteriores.length === 0) return null;
-    const ant = analisarVendas(anteriores, products);
-    const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
-    // Variação por categoria — usada pelo painel de insights da aba Vendas
-    // (categoria em crescimento/queda) e pelo toggle "Comparar período".
-    const catAntPorNome = Object.fromEntries(ant.categorias.map((c) => [c.categoria, c.valor]));
-    const categoriaDeltas = a.categorias
-      .map((c) => ({ categoria: c.categoria, valor: c.valor, variacao: varPct(c.valor, catAntPorNome[c.categoria] || 0) }))
-      .filter((c) => c.variacao != null);
-    const catCrescimento = categoriaDeltas.length ? categoriaDeltas.reduce((b, c) => (c.variacao > b.variacao ? c : b)) : null;
-    const catQueda = categoriaDeltas.length ? categoriaDeltas.reduce((b, c) => (c.variacao < b.variacao ? c : b)) : null;
+  // Dias do período: em "Tudo", contados a partir da primeira venda.
+  const [inicio, termino] = intervaloPeriodo(periodo, ini, fim);
+  const primeiraVenda = pagos.reduce((m, o) => (o.createdAtISO ? Math.min(m, new Date(o.createdAtISO).getTime()) : m), Date.now());
+  const dias = Math.max(1, Math.ceil((Math.min(termino.getTime(), Date.now()) - (inicio.getTime() > 0 ? inicio.getTime() : primeiraVenda)) / 864e5));
+
+  const mapaProd = mapaDeProdutos(products);
+  const linhas = products.filter((p) => p.active !== false).map((p) => {
+    const controla = p.controlaEstoque === true;
+    const posterior = Number(p.estoque) || 0;
+    const minimo = Number(p.estoqueMinimo) || 0;
+    const saida = vendido[p.name] || 0;
+    const custoUnit = mapaProd.get(p.name)?.custo ?? null;
+    const anterior = controla ? posterior + saida : null;
+    const estoqueMedio = controla ? (anterior + posterior) / 2 : 0;
     return {
-      faturamento: varPct(a.faturamento, ant.faturamento), ticket: varPct(a.ticket, ant.ticket), pedidos: varPct(a.totalPedidos, ant.totalPedidos),
-      faturamentoAnterior: ant.faturamento, ticketAnterior: ant.ticket, pedidosAnterior: ant.totalPedidos,
-      catCrescimento, catQueda,
+      nome: p.name, categoria: p.category || "Outros", controla, posterior, minimo, vendido: saida, anterior, custoUnit,
+      valorEstoque: controla && custoUnit != null ? Math.max(0, posterior) * custoUnit : null,
+      cobertura: controla && saida > 0 ? Math.max(0, posterior) / (saida / dias) : null,
+      giro: controla && estoqueMedio > 0 ? saida / estoqueMedio : null,
+      mediaDia: saida / dias,
+      status: situacaoEstoque({ controla, estoque: posterior, minimo, vendido: saida, dias }),
     };
-  })();
-
-  // Cupons (pedidos pagos) que contêm um determinado produto
-  const cuponsDoProduto = (nome) => filtrados.filter((o) => o.paymentStatus === "paid" && o.items.some((it) => it.name === nome));
-
-  // ── Visão geral: evolução diária, horário, mesas e clientes (dados reais) ──
-  const pagosG = filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled");
-  const itensVendidos = a.topProdutos.reduce((s, p) => s + p.qtd, 0);
-  const margemPct = a.faturamento > 0 ? (margemEstimada / a.faturamento) * 100 : 0;
-  // Evolução do faturamento por dia
-  const porDia = {};
-  pagosG.forEach((o) => { if (!o.createdAtISO) return; const k = new Date(o.createdAtISO).toISOString().slice(0, 10); porDia[k] = (porDia[k] || 0) + totalComTaxa(o); });
-  const evolucao = Object.entries(porDia).sort(([x], [y]) => (x < y ? -1 : 1)).map(([k, v]) => ({ dia: k, valor: v, label: new Date(`${k}T00:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) }));
-  const diasAtivos = evolucao.length;
-  const [a0g, b0g] = intervaloPeriodo(periodo, ini, fim) || [];
-  const totalDiasPeriodo = (a0g && b0g && a0g.getTime() > 0) ? Math.max(1, Math.round((b0g - a0g) / 864e5)) : diasAtivos;
-  const mediaDiaria = totalDiasPeriodo ? a.faturamento / totalDiasPeriodo : 0;
-  const semanaNomes = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-  const porSemana = Array.from({ length: 7 }, (_, i) => ({ dia: semanaNomes[i], valor: 0 }));
-  pagosG.forEach((o) => { if (o.createdAtISO) porSemana[new Date(o.createdAtISO).getDay()].valor += totalComTaxa(o); });
-  const semanaComVenda = porSemana.filter((d) => d.valor > 0);
-  const maiorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor > b.valor ? d : b)) : null;
-  const menorDiaSemana = semanaComVenda.length ? semanaComVenda.reduce((b, d) => (d.valor < b.valor ? d : b)) : null;
-  // Faturamento por horário (10h → 01h)
-  const horas24R = Array.from({ length: 24 }, (_, h) => ({ h, label: `${String(h).padStart(2, "0")}h`, valor: 0, qtd: 0 }));
-  pagosG.forEach((o) => { if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); horas24R[h].valor += totalComTaxa(o); horas24R[h].qtd += 1; } });
-  const horarioGeral = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1].map((h) => horas24R[h]);
-  // Paleta oficial única de donuts do projeto (mesma do Dashboard Gerencial).
-  const PALETA_GRAF_RELATORIOS = ["#012E46", "#10B981", "#F38525", "#8B5CF6", "#012E46", "#64748B"];
-  const catDonutR = a.categorias.slice(0, 6).map((c, i) => ({ label: c.categoria, valor: c.valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
-  // Mesas com maior faturamento
-  const porMesaR = {};
-  pagosG.forEach((o) => { const t = o.table || "—"; if (!porMesaR[t]) porMesaR[t] = { mesa: t, faturamento: 0, pedidos: 0 }; porMesaR[t].faturamento += totalComTaxa(o); porMesaR[t].pedidos += 1; });
-  const mesasFaturamento = Object.values(porMesaR).map((m) => ({ ...m, ticket: m.pedidos ? m.faturamento / m.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
-  // Clientes (identificados x não identificados)
-  const porClienteR = {};
-  filtrados.filter((o) => o.status !== "cancelled").forEach((o) => {
-    const ident = !!(o.customer || o.clienteTelefone);
-    const c = o.customer || o.clienteTelefone || "Cliente não identificado";
-    if (!porClienteR[c]) porClienteR[c] = { cliente: c, pedidos: 0, faturamento: 0, ultimo: null, identificado: ident };
-    porClienteR[c].pedidos += 1;
-    if (o.paymentStatus === "paid") porClienteR[c].faturamento += totalComTaxa(o);
-    const d = o.createdAtISO ? new Date(o.createdAtISO) : null;
-    if (d && (!porClienteR[c].ultimo || d > porClienteR[c].ultimo)) porClienteR[c].ultimo = d;
   });
-  const clientesLista = Object.values(porClienteR).map((c) => ({ ...c, ticket: c.pedidos ? c.faturamento / c.pedidos : 0 })).sort((x, y) => y.faturamento - x.faturamento);
-  const clientesIdentificados = clientesLista.filter((c) => c.identificado).length;
-  const naoIdent = clientesLista.filter((c) => !c.identificado);
-  const pedidosSemId = naoIdent.reduce((s, c) => s + c.pedidos, 0);
-  const fatSemId = naoIdent.reduce((s, c) => s + c.faturamento, 0);
-  const taxaPagamento = a.totalPedidos ? Math.round((a.pagos.length / a.totalPedidos) * 100) : 0;
+  const controladas = linhas.filter((l) => l.controla);
+  const custoDe = (mapaVendas) => Object.entries(mapaVendas).reduce((s, [nome, qtd]) => s + qtd * (mapaProd.get(nome)?.custo ?? 0), 0);
+  const temCusto = products.some((p) => Number(p.cost) > 0);
+  const cmv = custoDe(vendido);
+  const unidades = controladas.reduce((s, l) => s + Math.max(0, l.posterior), 0);
+  const valorTotal = controladas.reduce((s, l) => s + (l.valorEstoque || 0), 0);
+  const parado = controladas.filter((l) => l.vendido === 0 && l.valorEstoque > 0).reduce((s, l) => s + l.valorEstoque, 0);
+  const coberturaMediana = mediana(controladas.filter((l) => l.cobertura != null).map((l) => l.cobertura));
+  const estoqueMedioTotal = controladas.reduce((s, l) => s + (l.anterior + Math.max(0, l.posterior)) / 2, 0);
+  const giroGeral = estoqueMedioTotal > 0 ? controladas.reduce((s, l) => s + l.vendido, 0) / estoqueMedioTotal : null;
+  const semCusto = linhas.filter((l) => l.custoUnit == null).length;
 
-  // Botões de exportação (reutilizados em várias abas)
-  const BotoesExport = () => (
-    <div className="flex flex-wrap gap-2">
-      <button onClick={exportarCSV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar Excel (CSV)</button>
-      <button onClick={imprimirRelatorio} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🖨️ PDF / Imprimir</button>
-    </div>
-  );
+  const menorCobertura = controladas.filter((l) => l.cobertura != null).sort((a, b) => a.cobertura - b.cobertura).slice(0, 6);
+  const reposicao = controladas.filter((l) => (l.status === "critico" || l.status === "atencao") && l.minimo > l.posterior)
+    .sort((a, b) => b.mediaDia - a.mediaDia || (b.minimo - b.posterior) - (a.minimo - a.posterior)).slice(0, 8);
+  const imobilizado = controladas.filter((l) => l.valorEstoque > 0).sort((a, b) => b.valorEstoque - a.valorEstoque).slice(0, 6);
+  const demandaDobrou = linhas.filter((l) => (vendidoAntes[l.nome] || 0) > 0 && l.vendido > vendidoAntes[l.nome] * 2);
 
-  // ── Relatório de estoque (anterior x posterior conforme as vendas) ──
-  // Estoque ATUAL = posterior (já refletindo as baixas). Reconstrói o estoque
-  // ANTERIOR ao período somando o que foi vendido no intervalo selecionado.
-  const vendidoPorProduto = (() => {
-    const m = {};
-    filtrados.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled")
-      .forEach((o) => o.items.forEach((it) => { m[it.name] = (m[it.name] || 0) + it.quantity; }));
-    return m;
-  })();
-  const linhasEstoque = products.map((p) => {
-    const vendido = vendidoPorProduto[p.name] || 0;
-    const posterior = p.estoque ?? 0;          // estoque atual (após as vendas)
-    const anterior = posterior + vendido;       // estoque no início do período
-    const minimo = p.estoqueMinimo ?? 0;
-    return { nome: p.name, categoria: p.category, anterior, vendido, posterior, minimo, baixo: posterior <= minimo && minimo > 0, zerado: posterior <= 0, ativo: p.active !== false };
-  }).sort((x, y) => y.vendido - x.vendido || y.posterior - x.posterior);
-  const produtosAtivos = products.filter((p) => p.active !== false);
-  const maiorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) > (acc.estoque ?? 0) ? p : acc), null);
-  const menorEstoque = produtosAtivos.reduce((acc, p) => (acc == null || (p.estoque ?? 0) < (acc.estoque ?? 0) ? p : acc), null);
-  const totalVendidoPeriodo = Object.values(vendidoPorProduto).reduce((s, v) => s + v, 0);
-  const totalEmEstoque = produtosAtivos.reduce((s, p) => s + (p.estoque ?? 0), 0);
-  const zeradosCount = produtosAtivos.filter((p) => (p.estoque ?? 0) <= 0).length;
-  const baixoCount = produtosAtivos.filter((p) => (p.estoque ?? 0) > 0 && (p.estoque ?? 0) <= (p.estoqueMinimo ?? 0) && (p.estoqueMinimo ?? 0) > 0).length;
-
-  // ── Aba Estoque: painel gerencial premium — tudo derivado do que já está
-  // carregado (products/linhasEstoque/orders), nenhuma consulta nova. Não
-  // há tabela de entradas/ajustes de estoque preenchida no banco hoje (só
-  // existe um ledger de baixas por venda, não utilizado pelo app) — por
-  // isso "anterior" é reconstruído como posterior + vendido (mesma regra já
-  // usada por linhasEstoque) e as colunas "Entradas"/"Ajustes" não entram
-  // na tabela (sem dado real para preencher).
-  const custoUnitDe = (nome) => custoPorNome[nome] ?? 0;
-  const valorEstoqueTotal = produtosAtivos.reduce((s, p) => s + (p.estoque ?? 0) * custoUnitDe(p.name), 0);
-  const custoVendidoTotal = Object.entries(vendidoPorProduto).reduce((s, [nome, qtd]) => s + qtd * custoUnitDe(nome), 0);
-  const mediaDiariaDe = (vendido) => (totalDiasPeriodo > 0 ? vendido / totalDiasPeriodo : 0);
-  // Cobertura (dias de estoque no ritmo atual) só quando há venda real no
-  // período — sem inventar previsão para produtos sem nenhuma saída.
-  const coberturaDe = (l) => (l.vendido > 0 && totalDiasPeriodo > 0) ? l.posterior / (l.vendido / totalDiasPeriodo) : null;
-  const statusDe = (l) => {
-    if (l.zerado) return "critico";
-    if (l.baixo) return "atencao";
-    const cob = coberturaDe(l);
-    if (cob != null && cob > 90) return "excesso";
-    if (l.vendido === 0) return "semMovimento";
-    return "normal";
-  };
-  const linhasEstoqueEnriquecidas = linhasEstoque.map((l) => {
-    const custoUnit = custoUnitDe(l.nome);
-    return { ...l, custoUnit, valorEstoque: l.posterior * custoUnit, cobertura: coberturaDe(l), status: statusDe(l) };
-  });
-
-  // Comparativo com o período anterior (mesmo intervalo, mesma duração) —
-  // só para métricas que dependem do período (itens vendidos, custo do
-  // vendido); estoque atual/mínimo são pontuais, sem "período anterior".
-  const comparativoEstoqueE = (() => {
-    if (periodo === "tudo") return null;
-    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
-    if (!a0 || a0.getTime() <= 0) return null;
-    const dur = b0.getTime() - a0.getTime();
-    const anterioresE = orders.filter((o) => { if (!o.createdAtISO) return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
-    if (anterioresE.length === 0) return null;
-    const vendidoAnteriorPorProduto = {};
-    anterioresE.filter((o) => o.paymentStatus === "paid" && o.status !== "cancelled")
-      .forEach((o) => o.items.forEach((it) => { vendidoAnteriorPorProduto[it.name] = (vendidoAnteriorPorProduto[it.name] || 0) + it.quantity; }));
-    const totalVendidoAnterior = Object.values(vendidoAnteriorPorProduto).reduce((s, v) => s + v, 0);
-    const custoVendidoAnterior = Object.entries(vendidoAnteriorPorProduto).reduce((s, [nome, qtd]) => s + qtd * custoUnitDe(nome), 0);
-    const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
-    return { vendidoAnteriorPorProduto, itensVendidos: varPct(totalVendidoPeriodo, totalVendidoAnterior), custoVendido: varPct(custoVendidoTotal, custoVendidoAnterior) };
-  })();
-
-  const coberturasValidas = linhasEstoqueEnriquecidas.filter((l) => l.cobertura != null).map((l) => l.cobertura);
-  const coberturaMediaDias = coberturasValidas.length ? coberturasValidas.reduce((s, v) => s + v, 0) / coberturasValidas.length : null;
-  const produtosParadosEstoqueE = linhasEstoqueEnriquecidas.filter((l) => l.ativo && l.vendido === 0);
-  const produtosSemCustoEstoque = produtosAtivos.filter((p) => !(Number(p.cost) > 0));
-
-  // ── Alertas de estoque — só os tipos com dado real disponível. ──
-  const alertasEstoque = [];
-  linhasEstoqueEnriquecidas.forEach((l) => {
-    if (!l.ativo) return;
-    if (l.zerado) {
-      alertasEstoque.push({ produto: l.nome, nivel: "critico", tipo: "Estoque zerado", evidencia: `${l.posterior} un. em estoque`, acao: "Repor imediatamente ou pausar a venda do item." });
-    } else if (l.baixo) {
-      alertasEstoque.push({ produto: l.nome, nivel: "atencao", tipo: "Abaixo do mínimo", evidencia: `${l.posterior} un. (mínimo ${l.minimo})`, acao: `Repor ${Math.max(0, l.minimo - l.posterior)} un. para atingir o mínimo cadastrado.` });
-    }
-    const qtdProdutosComVenda = Math.max(1, Object.keys(vendidoPorProduto).length);
-    const mediaVendaGeral = totalVendidoPeriodo / qtdProdutosComVenda;
-    if ((l.baixo || l.zerado) && l.vendido > 0 && l.vendido >= mediaVendaGeral) {
-      alertasEstoque.push({ produto: l.nome, nivel: "critico", tipo: "Alta venda com estoque baixo", evidencia: `${l.vendido} un. vendidas no período, restam ${l.posterior}`, acao: "Priorizar reposição — saída acima da média com estoque baixo." });
-    }
-    const vendidoAnteriorL = comparativoEstoqueE?.vendidoAnteriorPorProduto?.[l.nome] || 0;
-    if (comparativoEstoqueE && vendidoAnteriorL > 0 && l.vendido > vendidoAnteriorL * 2) {
-      alertasEstoque.push({ produto: l.nome, nivel: "atencao", tipo: "Queda anormal de estoque", evidencia: `${l.vendido} un. vendidas vs. ${vendidoAnteriorL} no período anterior`, acao: "Confirmar se a demanda subiu de fato ou se houve erro de baixa." });
-    }
-    if (l.status === "excesso") {
-      alertasEstoque.push({ produto: l.nome, nivel: "oportunidade", tipo: "Estoque excessivo", evidencia: `Cobertura de ${Math.round(l.cobertura)} dia(s) no ritmo atual`, acao: "Avaliar promoção ou combo para girar o estoque parado." });
-    }
-    if (!(Number(products.find((p) => p.name === l.nome)?.cost) > 0)) {
-      alertasEstoque.push({ produto: l.nome, nivel: "atencao", tipo: "Custo sem cadastro", evidencia: "Custo não cadastrado no produto", acao: "Cadastrar o custo para cálculos de margem e valor em estoque ficarem corretos." });
-    }
-    if (l.vendido > 0 && l.cobertura != null && l.cobertura < 7) {
-      alertasEstoque.push({ produto: l.nome, nivel: "critico", tipo: "Possível ruptura", evidencia: `Cobertura de ${l.cobertura.toFixed(1)} dia(s) no ritmo atual`, acao: "Repor com urgência — o estoque deve acabar em menos de uma semana." });
-    }
-  });
-  produtosParadosEstoqueE.forEach((l) => {
-    alertasEstoque.push({ produto: l.nome, nivel: "oportunidade", tipo: "Produto parado", evidencia: "Nenhuma venda no período", acao: "Avaliar promoção, combo ou revisão do cardápio para este item." });
-  });
-  const ordemNivel = { critico: 0, atencao: 1, oportunidade: 2 };
-  alertasEstoque.sort((a, b) => ordemNivel[a.nivel] - ordemNivel[b.nivel]);
-
-  // ── Novas análises (Top N) ──
-  const produtosComGiro = linhasEstoqueEnriquecidas.filter((l) => l.ativo && (l.anterior + l.posterior) > 0).map((l) => ({ ...l, giro: l.vendido / (((l.anterior + l.posterior) / 2) || 1) }));
-  const maiorGiro = [...produtosComGiro].sort((a, b) => b.giro - a.giro).slice(0, 5);
-  const menorGiro = [...produtosComGiro].filter((l) => l.vendido > 0).sort((a, b) => a.giro - b.giro).slice(0, 5);
-  const maiorValorImobilizado = [...linhasEstoqueEnriquecidas].filter((l) => l.ativo).sort((a, b) => b.valorEstoque - a.valorEstoque).slice(0, 5);
-  const riscoRuptura = linhasEstoqueEnriquecidas.filter((l) => l.ativo && l.vendido > 0 && l.cobertura != null && l.cobertura < 7).sort((a, b) => a.cobertura - b.cobertura).slice(0, 5);
-  const consumoPorCategoria = (() => {
-    const m = {};
-    linhasEstoqueEnriquecidas.forEach((l) => { if (!l.ativo) return; const c = l.categoria || "Outros"; m[c] = (m[c] || 0) + l.vendido; });
-    return Object.entries(m).map(([categoria, vendido]) => ({ categoria, vendido })).filter((c) => c.vendido > 0).sort((a, b) => b.vendido - a.vendido).slice(0, 5);
-  })();
-  // Sugestão de reposição: só a diferença real até o mínimo cadastrado +
-  // a média de saída/dia do próprio período, lado a lado — sem projetar
-  // quantidade "ideal" nem inventar um horizonte de dias.
-  const sugestoesReposicao = linhasEstoqueEnriquecidas
-    .filter((l) => l.ativo && (l.baixo || l.zerado) && l.minimo > l.posterior)
-    .map((l) => ({ ...l, sugestaoQtd: l.minimo - l.posterior, mediaDiaria: mediaDiariaDe(l.vendido) }))
-    .sort((a, b) => b.sugestaoQtd - a.sugestaoQtd)
-    .slice(0, 8);
-
-  // ── Tabela principal: busca + ordenação (todas as colunas) + filtros
-  // (categoria/status/faixa de estoque) — reaproveita o mesmo estado de
-  // paginação (paginaEstoque/porPaginaEstoque) já existente. ──
-  const categoriasEstoqueDisponiveis = Array.from(new Set(linhasEstoqueEnriquecidas.filter((l) => l.ativo).map((l) => l.categoria || "Outros"))).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const buscaEstoqueLower = buscaEstoque.trim().toLowerCase();
-  const linhasEstoqueFiltradas = linhasEstoqueEnriquecidas.filter((l) => {
-    if (!l.ativo) return false;
-    if (buscaEstoqueLower && !`${l.nome} ${l.categoria || ""}`.toLowerCase().includes(buscaEstoqueLower)) return false;
-    if (fCategoriaEstoque !== "todas" && (l.categoria || "Outros") !== fCategoriaEstoque) return false;
-    if (fStatusEstoque !== "todos" && l.status !== fStatusEstoque) return false;
-    if (somenteCriticosEstoque && l.status !== "critico" && l.status !== "atencao") return false;
-    if (fEstoqueMin.trim() && l.posterior < Number(fEstoqueMin)) return false;
-    if (fEstoqueMax.trim() && l.posterior > Number(fEstoqueMax)) return false;
+  const categoriasDisponiveis = Array.from(new Set(linhas.map((l) => l.categoria))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const termo = busca.trim().toLowerCase();
+  const filtradas = linhas.filter((l) => {
+    if (termo && !`${l.nome} ${l.categoria}`.toLowerCase().includes(termo)) return false;
+    if (fCategoria !== "todas" && l.categoria !== fCategoria) return false;
+    if (fStatus !== "todos" && l.status !== fStatus) return false;
+    if (somenteCriticos && l.status !== "critico" && l.status !== "atencao") return false;
+    if (fMin && l.posterior < Number(fMin)) return false;
+    if (fMax && l.posterior > Number(fMax)) return false;
     return true;
   });
-  const linhasEstoqueOrdenadas = [...linhasEstoqueFiltradas].sort((x, y) => {
-    const dir = ordenacaoEstoque.dir === "asc" ? 1 : -1;
-    const campo = ordenacaoEstoque.campo;
-    if (campo === "nome" || campo === "categoria" || campo === "status") return dir * String(x[campo] ?? "").localeCompare(String(y[campo] ?? ""), "pt-BR");
-    const vx = x[campo], vy = y[campo];
-    if (vx == null && vy == null) return 0;
-    if (vx == null) return 1;
-    if (vy == null) return -1;
-    return dir * (vx - vy);
+  const ordenadas = [...filtradas].sort((x, y) => {
+    const dir = ordenacao.dir === "asc" ? 1 : -1;
+    const campo = ordenacao.campo;
+    if (campo === "nome" || campo === "categoria" || campo === "status") return dir * String(x[campo]).localeCompare(String(y[campo]), "pt-BR");
+    if (x[campo] == null || y[campo] == null) return (x[campo] == null ? 1 : 0) - (y[campo] == null ? 1 : 0);
+    return dir * (x[campo] - y[campo]);
   });
-  function alternarOrdemEstoque(campo) {
-    setOrdenacaoEstoque((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
-  }
-  function limparFiltrosEstoque() {
-    setFCategoriaEstoque("todas"); setFStatusEstoque("todos"); setFEstoqueMin(""); setFEstoqueMax(""); setSomenteCriticosEstoque(false);
-  }
-  const filtrosEstoqueAtivos = fCategoriaEstoque !== "todas" || fStatusEstoque !== "todos" || !!fEstoqueMin || !!fEstoqueMax || somenteCriticosEstoque;
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = ordenadas.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+  useEffect(() => { setPagina(1); }, [periodo, ini, fim, busca, fCategoria, fStatus, fMin, fMax, somenteCriticos, ordenacao]);
 
-  // Volta para a página 1 ao trocar período, busca, filtro, ordenação ou a
-  // quantidade por página (reaproveita o mesmo estado de paginação já usado
-  // antes por esta tabela).
-  useEffect(() => { setPaginaEstoque(1); }, [periodo, ini, fim, porPaginaEstoque, buscaEstoque, fCategoriaEstoque, fStatusEstoque, fEstoqueMin, fEstoqueMax, somenteCriticosEstoque, ordenacaoEstoque]);
-  const totalPaginasEstoque = Math.max(1, Math.ceil(linhasEstoqueOrdenadas.length / porPaginaEstoque));
-  const paginaEstoqueAtual = Math.min(paginaEstoque, totalPaginasEstoque);
-  const linhasEstoqueVisiveis = linhasEstoqueOrdenadas.slice((paginaEstoqueAtual - 1) * porPaginaEstoque, paginaEstoqueAtual * porPaginaEstoque);
+  const ordenarPor = (campo) => setOrdenacao((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  const filtrosAtivos = fCategoria !== "todas" || fStatus !== "todos" || !!fMin || !!fMax;
+  const emDias = (v) => (v == null ? "—" : `${Math.round(v).toLocaleString("pt-BR")} dia(s)`);
+  const moedaOu = (v) => (v == null ? "—" : formatCurrency(v));
 
-  function exportarEstoquePDF() {
-    const empresa = lojaInfo?.nome || "Restaurante";
-    const linhasHtml = linhasEstoqueOrdenadas.map((l) => `<tr><td>${l.nome}</td><td>${l.categoria || "—"}</td><td class="r">${l.anterior}</td><td class="r">${l.vendido}</td><td class="r">${l.posterior}</td><td class="r">${l.minimo}</td><td class="r">${formatCurrency(l.valorEstoque)}</td><td>${ESTOQUE_STATUS[l.status]?.label || l.status}</td></tr>`).join("");
+  function exportarCSV() {
+    baixarCsv(`relatorio-estoque-${periodo}.csv`,
+      ["Produto", "Categoria", "Estoque anterior", "Vendido no período", "Estoque atual", "Estoque mínimo", "Cobertura (dias)", "Custo unitário", "Valor em estoque", "Situação"],
+      ordenadas.map((l) => [l.nome, l.categoria, l.anterior ?? "", l.vendido, l.controla ? l.posterior : "", l.controla ? l.minimo : "", l.cobertura == null ? "" : Math.round(l.cobertura), l.custoUnit ?? "", l.valorEstoque == null ? "" : Number(l.valorEstoque.toFixed(2)), ESTOQUE_STATUS[l.status].label]));
+  }
+  function exportarPDF() {
+    const empresa = escHtml(lojaInfo?.nome || "Restaurante");
+    const linhasHtml = ordenadas.map((l) => `<tr><td>${escHtml(l.nome)}</td><td>${escHtml(l.categoria)}</td><td class="r">${l.anterior ?? "—"}</td><td class="r">${l.vendido}</td><td class="r">${l.controla ? l.posterior : "—"}</td><td class="r">${l.controla ? l.minimo : "—"}</td><td class="r">${moedaOu(l.valorEstoque)}</td><td>${ESTOQUE_STATUS[l.status].label}</td></tr>`).join("");
     const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Estoque — ${empresa}</title>
     <style>
       @page { size: A4; margin: 14mm; }
@@ -11028,8 +10692,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
       td.r, th.r { text-align: right; }
     </style></head><body>
       <h1>Relatório de Estoque — ${empresa}</h1>
-      <p class="sub">${linhasEstoqueOrdenadas.length} produto(s) · Valor em estoque ${formatCurrency(valorEstoqueTotal)}</p>
-      <table><thead><tr><th>Produto</th><th>Categoria</th><th class="r">Anterior</th><th class="r">Vendido</th><th class="r">Atual</th><th class="r">Mínimo</th><th class="r">Valor</th><th>Status</th></tr></thead>
+      <p class="sub">${ordenadas.length} produto(s) · Valor em estoque ${formatCurrency(valorTotal)}</p>
+      <table><thead><tr><th>Produto</th><th>Categoria</th><th class="r">Anterior</th><th class="r">Vendido</th><th class="r">Atual</th><th class="r">Mínimo</th><th class="r">Valor</th><th>Situação</th></tr></thead>
       <tbody>${linhasHtml}</tbody></table>
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`;
@@ -11038,1288 +10702,666 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
     j.document.write(html);
     j.document.close();
   }
-  function atualizarEstoqueVisao() { setAtualizadoEmEstoque(new Date()); }
-  const inputClsEstoque = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46]";
-  const labelClsEstoque = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
 
-  function exportarEstoqueCSV() {
-    let csv = "Produto;Categoria;Estoque anterior;Vendido no periodo;Estoque atual;Estoque minimo\n";
-    linhasEstoque.forEach((l) => { csv += `${l.nome};${l.categoria || ""};${l.anterior};${l.vendido};${l.posterior};${l.minimo}\n`; });
-    csv += `\nTotal em estoque (atual);;;;${totalEmEstoque};\n`;
-    baixarArquivo("﻿" + csv, `relatorio-estoque-${periodo}.csv`, "text/csv;charset=utf-8");
-  }
+  return (
+    <div className="space-y-3">
+      <BarraDeAcoes>
+        <BotaoAcao icone={Download} onClick={exportarCSV} disabled={!ordenadas.length}>Exportar CSV</BotaoAcao>
+        <BotaoAcao icone={Printer} onClick={exportarPDF} disabled={!ordenadas.length}>PDF / Imprimir</BotaoAcao>
+        <BotaoAcao icone={AlertTriangle} ativo={somenteCriticos} perigo aria-pressed={somenteCriticos} onClick={() => setSomenteCriticos((v) => !v)}>Somente críticos</BotaoAcao>
+        <BotaoAcao icone={Package} onClick={irParaProdutos}>Cadastro de produtos</BotaoAcao>
+      </BarraDeAcoes>
 
-  // ── Aba Vendas: painel executivo premium — tudo derivado do que já está
-  // carregado (filtrados/pagosG/products/linhasEstoque/clientesLista/
-  // mesasFaturamento/catDonutR), nenhuma consulta nova. ──
-  const melhorHoraV = horarioGeral.reduce((b, d) => (d.valor > b.valor ? d : b), { valor: -1, label: "—" });
-  const piorHoraComVendaV = (() => {
-    const comV = horarioGeral.filter((d) => d.valor > 0);
-    return comV.length ? comV.reduce((b, d) => (d.valor < b.valor ? d : b)) : null;
-  })();
-  // Forma de pagamento — mesma agregação já usada na Visão Financeira (o.pagamentoForma)
-  const porFormaV = {};
-  pagosG.forEach((o) => { const f = o.pagamentoForma || "Não informado"; porFormaV[f] = (porFormaV[f] || 0) + totalComTaxa(o); });
-  const formasPagamentoV = Object.entries(porFormaV).map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor);
-  // Canal de venda — mesma heurística já usada no CRM do Dashboard Gerencial
-  // (comanda → Mesa/QR Code; mesa sem comanda → Mesa; nenhum dos dois → Balcão/Delivery)
-  const porCanalV = {};
-  pagosG.forEach((o) => { const c = o.command ? "Mesa / QR Code" : o.table ? "Mesa" : "Balcão / Delivery"; porCanalV[c] = (porCanalV[c] || 0) + totalComTaxa(o); });
-  const canalVendaV = Object.entries(porCanalV).map(([nome, valor]) => ({ nome, valor })).sort((x, y) => y.valor - x.valor);
-  // Ranking completo de produtos (não limitado a 6) — mesma regra de
-  // analisarVendas (só pedidos pagos, preço × quantidade), enriquecido com
-  // %/ticket médio/margem para a tabela de ranking e os cards Top produto.
-  const produtosCompletosV = (() => {
-    const catPorNome = {}; products.forEach((p) => { catPorNome[p.name] = p.category; });
-    const m = {};
-    pagosG.forEach((o) => o.items.forEach((it) => {
-      if (!m[it.name]) m[it.name] = { nome: it.name, categoria: catPorNome[it.name] || "Outros", qtd: 0, valor: 0 };
-      m[it.name].qtd += it.quantity;
-      m[it.name].valor += it.price * it.quantity;
-    }));
-    return Object.values(m).map((p) => ({
-      ...p,
-      margem: p.valor - (custoPorNome[p.nome] ?? 0) * p.qtd,
-      ticket: p.qtd ? p.valor / p.qtd : 0,
-      pct: a.faturamentoSemTaxa > 0 ? (p.valor / a.faturamentoSemTaxa) * 100 : 0,
-    }));
-  })();
-  const produtosPorMargemV = [...produtosCompletosV].sort((x, y) => y.margem - x.margem);
-  const produtosPorFaturamentoV = [...produtosCompletosV].sort((x, y) => y.valor - x.valor);
-  const produtosSemVendaV = products.filter((p) => p.active !== false && !vendidoPorProduto[p.name]);
-  const produtosBaixoEstoqueV = linhasEstoque.filter((l) => l.baixo || l.zerado);
-  // Busca + ordenação + paginação do ranking "Produtos mais vendidos"
-  useEffect(() => { setPaginaProdV(1); }, [periodo, ini, fim, aba, buscaProdV, ordemProdV, porPaginaProdV]);
-  const produtosFiltradosV = produtosCompletosV.filter((p) => !buscaProdV.trim() || p.nome.toLowerCase().includes(buscaProdV.trim().toLowerCase()));
-  const produtosOrdenadosV = [...produtosFiltradosV].sort((x, y) => {
-    const dir = ordemProdV.dir === "asc" ? 1 : -1;
-    const campo = ordemProdV.campo;
-    if (campo === "nome" || campo === "categoria") return dir * String(x[campo]).localeCompare(String(y[campo]), "pt-BR");
-    return dir * ((x[campo] ?? 0) - (y[campo] ?? 0));
-  });
-  const totalPaginasProdV = Math.max(1, Math.ceil(produtosOrdenadosV.length / porPaginaProdV));
-  const paginaProdVAtual = Math.min(paginaProdV, totalPaginasProdV);
-  const produtosVisiveisV = produtosOrdenadosV.slice((paginaProdVAtual - 1) * porPaginaProdV, paginaProdVAtual * porPaginaProdV);
-  const maxQtdV = Math.max(1, ...produtosCompletosV.map((p) => p.qtd));
-  function alternarOrdemV(campo) {
-    setOrdemProdV((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
-  }
-  // Ações rápidas — Exportar/Imprimir reaproveitam BotoesExport (abaixo);
-  // Compartilhar usa a Web Share API do navegador, com cópia para a área de
-  // transferência como alternativa; Atualizar apenas confirma o horário, já
-  // que os dados chegam ao vivo via Realtime (não há uma nova consulta a disparar).
-  async function compartilharRelatorioV() {
-    const labelsPeriodo = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", tudo: "Todo o período", periodo: `${ini || "—"} a ${fim || "—"}` };
-    const texto = `Relatório de vendas — ${labelsPeriodo[periodo] || periodo}\nFaturamento: ${formatCurrency(a.faturamento)}\nPedidos: ${a.totalPedidos}\nTicket médio: ${formatCurrency(a.ticket)}`;
-    try {
-      if (navigator.share) { await navigator.share({ title: "Relatório de vendas", text: texto }); return; }
-    } catch { return; } // usuário cancelou o compartilhamento nativo
-    try {
-      await navigator.clipboard.writeText(texto);
-      setToastVendas("Resumo copiado para a área de transferência.");
-    } catch {
-      setToastVendas("Não foi possível compartilhar automaticamente.");
-    }
-    setTimeout(() => setToastVendas(""), 3500);
-  }
-  function atualizarVisaoV() { setAtualizadoEm(new Date()); }
+      <GradeIndicadores colunas={6}>
+        <Indicador rotulo="Unidades em estoque" valor={controladas.length ? unidades.toLocaleString("pt-BR") : "—"} icone={Package}
+          detalhe={`${controladas.length} de ${linhas.length} produto(s) com controle`} />
+        <Indicador rotulo="Valor em estoque" valor={temCusto && controladas.length ? formatCurrency(valorTotal) : "—"} icone={Wallet}
+          detalhe={controladas.length ? "Estoque × custo cadastrado" : "Ligue o controle de estoque no produto"} />
+        <Indicador rotulo="Custo do que vendeu" valor={temCusto ? formatCurrency(cmv) : "—"} icone={Receipt}
+          variacao={temAnterior ? variacaoPct(cmv, custoDe(vendidoAntes)) : null} comparadoA={rotuloComparacao(periodo)} inverter
+          detalhe={temCusto ? "Unidades vendidas × custo" : "Cadastre o custo dos produtos"} />
+        <Indicador rotulo="Cobertura típica" valor={emDias(coberturaMediana)} icone={Clock} detalhe="Mediana, no ritmo do período" />
+        <Indicador rotulo="Giro no período" valor={giroGeral == null ? "—" : `${giroGeral.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}×`} icone={Repeat}
+          detalhe="Saídas ÷ estoque médio" />
+        <Indicador rotulo="Capital parado" valor={temCusto && controladas.length ? formatCurrency(parado) : "—"} icone={Snowflake} alerta={parado > 0} detalhe="Estoque sem nenhuma venda" />
+      </GradeIndicadores>
 
-  // ── Exportações ──
-  function baixarArquivo(conteudo, nome, tipo) {
-    const blob = new Blob([conteudo], { type: tipo });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = nome; link.click();
-    URL.revokeObjectURL(url);
-  }
-  function exportarCSV() {
-    let csv = "Produto;Qtd vendida;Faturamento\n";
-    a.topProdutos.forEach((p) => { csv += `${p.nome};${p.qtd};${p.valor.toFixed(2)}\n`; });
-    csv += `\nTotal;;${a.faturamentoSemTaxa.toFixed(2)}\n`;
-    baixarArquivo("﻿" + csv, `relatorio-vendas-${periodo}.csv`, "text/csv;charset=utf-8");
-  }
-  function imprimirRelatorio() {
-    const empresa = lojaInfo?.nome || "Restaurante";
-    const prefixo = lojaInfo?.prefixo ? ` (${lojaInfo.prefixo})` : "";
-    const labels = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", tudo: "Todo o período", periodo: `${ini || "—"} a ${fim || "—"}` };
-    const periodoTxt = labels[periodo] || periodo;
-    const totalQtd = a.topProdutos.reduce((s, p) => s + p.qtd, 0);
-    const maxQtd = Math.max(1, ...a.topProdutos.map((p) => p.qtd));
-    const maxCat = Math.max(1, ...a.categorias.map((c) => c.valor));
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Cartao titulo="Situação do estoque" descricao="Produtos ativos por situação">
+          <Composicao formatar={(v) => `${v} produto(s)`} vazio="Nenhum produto cadastrado."
+            partes={["critico", "atencao", "excesso", "semMovimento", "normal", "semControle"].map((s) => ({
+              rotulo: ESTOQUE_STATUS[s].label,
+              valor: linhas.filter((l) => l.status === s).length,
+              cor: COR_SITUACAO_ESTOQUE[s],
+              detalhe: s === "excesso" ? "Mais de 90 dias de cobertura" : s === "critico" ? "Estoque zerado" : s === "atencao" ? "No mínimo ou abaixo" : null,
+            })).filter((p) => p.valor > 0)} />
+        </Cartao>
+        <Cartao titulo="Reposição sugerida" descricao="Quanto falta para voltar ao mínimo">
+          <Ranking vazio="Nenhum produto abaixo do mínimo." formatar={(v) => v} destacarPrimeiro={false}
+            itens={reposicao.map((l) => ({ chave: l.nome, rotulo: l.nome, valor: l.minimo - l.posterior, texto: `+${l.minimo - l.posterior} un.`, detalhe: `Tem ${l.posterior} · mínimo ${l.minimo} · sai ${l.mediaDia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}/dia` }))} />
+        </Cartao>
+        <Cartao titulo="Menor cobertura" descricao="Dias que o estoque dura no ritmo do período">
+          <Ranking vazio="Sem vendas de produtos com estoque controlado." destacarPrimeiro={false} formatar={(v) => v}
+            maximo={Math.max(1, ...menorCobertura.map((l) => l.cobertura))}
+            itens={menorCobertura.map((l) => ({ chave: l.nome, rotulo: l.nome, valor: l.cobertura, texto: l.cobertura < 1 ? "menos de 1 dia" : emDias(l.cobertura), cor: l.cobertura < 7 ? "#C81E4A" : "#012E46", detalhe: `${l.posterior} un. em estoque` }))} />
+        </Cartao>
+        <Cartao titulo="Maior valor imobilizado" descricao="Onde o dinheiro do estoque está">
+          <Ranking vazio="Sem estoque com custo cadastrado."
+            itens={imobilizado.map((l) => ({ chave: l.nome, rotulo: l.nome, valor: l.valorEstoque, detalhe: `${l.posterior} un. × ${formatCurrency(l.custoUnit)}${l.vendido === 0 ? " · sem venda no período" : ""}` }))} />
+        </Cartao>
+      </div>
 
-    const linhasProd = a.topProdutos.map((p, i) => `
-      <tr>
-        <td class="rank">${i + 1}</td>
-        <td>${p.nome}</td>
-        <td class="r">${p.qtd}</td>
-        <td><div class="bar"><div class="fill" style="width:${(p.qtd / maxQtd) * 100}%"></div></div></td>
-        <td class="r b">${formatCurrency(p.valor)}</td>
-      </tr>`).join("");
+      {demandaDobrou.length > 0 && (
+        <p className="rounded-2xl border border-[#F38525] bg-white px-4 py-3 text-xs leading-relaxed text-[#344054]">
+          <b className="text-[#012E46]">Saída mais que dobrou</b> em relação a {rotuloComparacao(periodo)}: {demandaDobrou.map((l) => `${l.nome} (${vendidoAntes[l.nome]} → ${l.vendido})`).join(", ")}. Confira se a demanda subiu ou se houve erro de baixa.
+        </p>
+      )}
 
-    const linhasCat = a.categorias.map((c) => `
-      <tr>
-        <td>${c.categoria}</td>
-        <td class="r">${c.qtd}</td>
-        <td><div class="bar"><div class="fill cat" style="width:${(c.valor / maxCat) * 100}%"></div></div></td>
-        <td class="r b">${formatCurrency(c.valor)}</td>
-      </tr>`).join("");
-
-    const corpo = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório de Vendas — ${empresa}</title>
-    <style>
-      @page { size: A4; margin: 14mm 14mm 16mm; }
-      * { box-sizing: border-box; }
-      body { font-family: 'Segoe UI', Arial, sans-serif; color:#0f172a; margin:0; }
-      .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #012E46; padding-bottom:12px; }
-      .head .emp { font-size:22px; font-weight:800; }
-      .head .sub { font-size:12px; color:#475569; margin-top:2px; }
-      .head .doc { text-align:right; }
-      .head .doc .t { font-size:15px; font-weight:800; color:#012E46; }
-      .head .doc .m { font-size:11px; color:#667085; }
-      .meta { display:flex; gap:18px; flex-wrap:wrap; margin:12px 0 4px; font-size:12px; color:#475569; }
-      .meta b { color:#0f172a; }
-      .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:16px 0; }
-      .kpi { border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; background:#FFFFFF; }
-      .kpi .l { font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#667085; font-weight:700; }
-      .kpi .v { font-size:18px; font-weight:800; margin-top:3px; }
-      .kpi .v.green { color:#059669; } .kpi .v.blue { color:#012E46; }
-      h2 { font-size:14px; margin:18px 0 6px; color:#0f172a; }
-      table { width:100%; border-collapse:collapse; font-size:12px; }
-      thead th { background:#0f172a; color:#fff; text-align:left; padding:8px 10px; font-size:11px; }
-      thead th.r, td.r { text-align:right; }
-      tbody td { padding:7px 10px; border-bottom:1px solid #e2e8f0; }
-      tbody tr:nth-child(even) td { background:#FFFFFF; }
-      td.rank { color:#012E46; font-weight:800; width:26px; }
-      td.b, .b { font-weight:800; }
-      tfoot td { padding:9px 10px; font-weight:800; border-top:2px solid #0f172a; background:#DCE8EA; }
-      .bar { height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; min-width:90px; }
-      .fill { height:100%; background:#012e46; } .fill.cat { background:#10b981; }
-      .foot { margin-top:22px; padding-top:10px; border-top:1px solid #e2e8f0; font-size:10px; color:#94a3b8; display:flex; justify-content:space-between; }
-    </style></head><body>
-      <div class="head">
-        <div>
-          <div class="emp">${empresa}${prefixo}</div>
-          <div class="sub">Sistema de Pedidos — Gestão de vendas</div>
+      <Cartao titulo="Produtos" descricao={`${ordenadas.length} produto(s) · estoque anterior = atual + vendido no período (não considera reposições)`}>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar produto ou categoria" aria-label="Buscar produto ou categoria" className={`${CAMPO_FILTRO} min-w-0 flex-1`} />
+          <BotaoAcao icone={SlidersHorizontal} ativo={mostrarFiltros || filtrosAtivos} aria-expanded={mostrarFiltros} onClick={() => setMostrarFiltros((v) => !v)}>Filtros{filtrosAtivos ? " •" : ""}</BotaoAcao>
         </div>
-        <div class="doc">
-          <div class="t">RELATÓRIO DE VENDAS</div>
-          <div class="m">Emitido em ${new Date().toLocaleString("pt-BR")}</div>
-        </div>
-      </div>
-      <div class="meta">
-        <span>Período: <b>${periodoTxt}</b></span>
-        <span>Cupons pagos: <b>${a.pagos.length}</b></span>
-        <span>Pedidos no período: <b>${a.totalPedidos}</b></span>
-      </div>
-      <div class="kpis">
-        <div class="kpi"><div class="l">Subtotal vendido</div><div class="v">${formatCurrency(a.faturamentoSemTaxa)}</div></div>
-        <div class="kpi"><div class="l">Faturamento + taxa</div><div class="v green">${formatCurrency(a.faturamento)}</div></div>
-        <div class="kpi"><div class="l">Ticket médio</div><div class="v blue">${formatCurrency(a.ticket)}</div></div>
-        <div class="kpi"><div class="l">Itens vendidos</div><div class="v">${totalQtd}</div></div>
-      </div>
+        {mostrarFiltros && (
+          <div className="pp-anim-fade mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            <div>
+              <label className={ROTULO_FILTRO}>Categoria</label>
+              <DropdownSelect ariaLabel="Categoria" valor={fCategoria} onSelecionar={setFCategoria} className={`${CAMPO_FILTRO} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todas", rotulo: "Todas" }, ...categoriasDisponiveis.map((c) => ({ valor: c, rotulo: c }))]} />
+            </div>
+            <div>
+              <label className={ROTULO_FILTRO}>Situação</label>
+              <DropdownSelect ariaLabel="Situação" valor={fStatus} onSelecionar={setFStatus} className={`${CAMPO_FILTRO} flex items-center justify-between text-left`}
+                opcoes={[{ valor: "todos", rotulo: "Todas" }, ...Object.keys(ESTOQUE_STATUS).map((s) => ({ valor: s, rotulo: ESTOQUE_STATUS[s].label }))]} />
+            </div>
+            <div><label className={ROTULO_FILTRO}>Estoque de</label><input value={fMin} onChange={(e) => setFMin(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={CAMPO_FILTRO} /></div>
+            <div><label className={ROTULO_FILTRO}>Estoque até</label><input value={fMax} onChange={(e) => setFMax(e.target.value.replace(/[^\d]/g, ""))} placeholder="999" inputMode="numeric" className={CAMPO_FILTRO} /></div>
+            {filtrosAtivos && (
+              <button type="button" onClick={() => { setFCategoria("todas"); setFStatus("todos"); setFMin(""); setFMax(""); }} className="col-span-2 text-left text-xs font-bold text-[#012E46] underline lg:col-span-4">Limpar filtros</button>
+            )}
+          </div>
+        )}
 
-      <h2>Produtos mais vendidos</h2>
-      <table>
-        <thead><tr><th>#</th><th>Produto</th><th class="r">Qtd</th><th>Participação</th><th class="r">Faturamento</th></tr></thead>
-        <tbody>${linhasProd || `<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:14px">Nenhuma venda no período.</td></tr>`}</tbody>
-        ${a.topProdutos.length ? `<tfoot><tr><td colspan="2">TOTAL</td><td class="r">${totalQtd}</td><td></td><td class="r">${formatCurrency(a.faturamentoSemTaxa)}</td></tr></tfoot>` : ""}
-      </table>
+        {visiveis.length === 0 ? (
+          <Vazio titulo={linhas.length ? "Nenhum produto encontrado." : "Nenhum produto cadastrado."} dica={linhas.length ? "Ajuste a busca ou os filtros." : ""} />
+        ) : (
+          <>
+            <label className="mb-2 block xl:hidden">
+              <span className={ROTULO_FILTRO}>Ordenar por</span>
+              <select value={ordenacao.campo} onChange={(e) => setOrdenacao({ campo: e.target.value, dir: ["nome", "categoria", "status", "cobertura"].includes(e.target.value) ? "asc" : "desc" })} className={CAMPO_FILTRO}>
+                {ORDEM_ESTOQUE.map(([campo, rotulo]) => <option key={campo} value={campo}>{rotulo}</option>)}
+              </select>
+            </label>
+            <ul className="grid gap-2 md:grid-cols-2 xl:hidden">
+              {visiveis.map((l) => (
+                <li key={l.nome} className="min-w-0">
+                  <button type="button" onClick={() => setDetalhe(l)} className="block h-full w-full rounded-xl border border-[#E5E7EB] p-3 text-left transition hover:bg-[#F8FAFC]">
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-bold text-[#012E46] [overflow-wrap:anywhere]">{l.nome}</span>
+                        <span className="block text-[11px] text-[#667085]">{l.categoria}</span>
+                      </span>
+                      <BadgeEstoque status={l.status} />
+                    </span>
+                    <dl className="mt-2 grid grid-cols-3 gap-2">
+                      <Dado rotulo="Atual">{l.controla ? l.posterior : "—"}</Dado>
+                      <Dado rotulo="Vendido">{l.vendido}</Dado>
+                      <Dado rotulo="Cobertura">{emDias(l.cobertura)}</Dado>
+                    </dl>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <table className="hidden w-full border-collapse text-[13px] xl:table">
+              <thead className="text-[10px] uppercase tracking-wider text-[#667085]">
+                <tr>
+                  {ORDEM_ESTOQUE.map(([campo, rotulo]) => (
+                    <th key={campo} aria-sort={ordenacao.campo === campo ? (ordenacao.dir === "asc" ? "ascending" : "descending") : "none"} className="border-b border-[#E5E7EB] px-2 py-2 text-left">
+                      <button type="button" onClick={() => ordenarPor(campo)} className="font-bold uppercase hover:text-[#012E46]">{rotulo}{ordenacao.campo === campo ? (ordenacao.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {visiveis.map((l) => (
+                  <tr key={l.nome} onClick={() => setDetalhe(l)} className="cursor-pointer border-b border-[#F1F4F6] hover:bg-[#F8FAFC]">
+                    <td className="px-2 py-2.5"><button type="button" className="text-left font-bold text-[#012E46]">{l.nome}</button></td>
+                    <td className="px-2 py-2.5 text-[#667085]">{l.categoria}</td>
+                    <td className="px-2 py-2.5 font-bold text-[#012E46]">{l.vendido}</td>
+                    <td className="px-2 py-2.5 font-bold text-[#1F2933]">{l.controla ? l.posterior : "—"}</td>
+                    <td className="px-2 py-2.5 text-[#667085]">{l.controla ? l.minimo : "—"}</td>
+                    <td className="px-2 py-2.5 text-[#667085]">{emDias(l.cobertura)}</td>
+                    <td className="px-2 py-2.5 text-[#667085]">{l.giro == null ? "—" : `${l.giro.toFixed(2).replace(".", ",")}×`}</td>
+                    <td className="px-2 py-2.5 text-[#667085]">{moedaOu(l.custoUnit)}</td>
+                    <td className="px-2 py-2.5 text-[#1F2933]">{moedaOu(l.valorEstoque)}</td>
+                    <td className="px-2 py-2.5"><BadgeEstoque status={l.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+        <Paginador pagina={paginaAtual} total={ordenadas.length} porPagina={POR_PAGINA} onMudar={setPagina} rotulo="produto(s)" />
+        {semCusto > 0 && <p className="mt-3 text-[11px] text-[#667085]">{semCusto} produto(s) sem custo cadastrado ficam fora do valor em estoque e do custo do vendido.</p>}
+      </Cartao>
 
-      ${a.categorias.length ? `
-      <h2>Vendas por categoria</h2>
-      <table>
-        <thead><tr><th>Categoria</th><th class="r">Qtd</th><th>Participação</th><th class="r">Faturamento</th></tr></thead>
-        <tbody>${linhasCat}</tbody>
-      </table>` : ""}
+      {detalhe && (
+        <ModalDetalheProdutoEstoque produto={detalhe} onFechar={() => setDetalhe(null)}
+          onAbrirCadastro={() => { setDetalhe(null); irParaProdutos(); }} />
+      )}
+    </div>
+  );
+}
 
-      <div class="foot">
-        <span>${empresa} — Relatório gerencial de vendas</span>
-        <span>Documento sem valor fiscal</span>
-      </div>
-      <script>window.onload=function(){window.print();}<\/script>
-    </body></html>`;
-    const j = window.open("", "_blank", "width=900,height=700");
-    if (!j) return;
-    j.document.write(corpo);
-    j.document.close();
-  }
+// ── Relatório de clientes ─────────────────────────────────────
+const COR_STATUS_CLIENTE = { novo: "#5591B0", recorrente: "#012E46", recuperado: "#2A6F92", ativo: "#89B4CA", risco: "#F38525", inativo: "#C81E4A", semDados: "#D0D5DD" };
+const COLUNAS_CLIENTES = [
+  ["cliente", "Cliente"], ["pedidosPeriodo", "Pedidos"], ["faturamentoPeriodo", "No período"], ["ticketPeriodo", "Ticket"],
+  ["faturamentoTotal", "Histórico"], ["diasSemComprar", "Sem comprar"], ["status", "Status"], ["classificacao", "Classe"],
+];
 
-  // ── Aba Clientes: Centro Inteligente de CRM Analítico — reaproveita
-  // orders (histórico completo já carregado) e products/custoPorNome;
-  // nenhuma consulta nova. clientesLista/porClienteR (acima) refletem só o
-  // período selecionado; aqui cruzamos com o histórico de vida de cada
-  // cliente (primeira/última compra, dias sem comprar etc.), usando o
-  // mesmo critério de identificação já existente (o.customer ||
-  // o.clienteTelefone) — sem alterar regra de negócio. Não há campos de
-  // cidade, aniversário, observação ou "responsável" no cadastro do
-  // cliente (tab_clientes só tem nome/telefone) — esses campos aparecem
-  // como "—" no perfil, sem inventar dado.
-  const catPorNomeProdutoE = Object.fromEntries(products.map((p) => [p.name, p.category]));
-  const clientesHistoricoE = (() => {
-    const m = {};
-    orders.filter((o) => o.status !== "cancelled" && (o.customer || o.clienteTelefone)).forEach((o) => {
-      const chave = o.customer || o.clienteTelefone;
-      if (!m[chave]) m[chave] = { cliente: chave, telefone: o.clienteTelefone || null, pedidos: [] };
-      m[chave].pedidos.push(o);
-      if (!m[chave].telefone && o.clienteTelefone) m[chave].telefone = o.clienteTelefone;
-    });
+function RelatorioClientes({ orders, products, filtrados, periodo, ini, fim, lojaInfo }) {
+  const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState({ campo: "faturamentoPeriodo", dir: "desc" });
+  const [fStatus, setFStatus] = useState("todos");
+  const [fClasse, setFClasse] = useState("todas");
+  const [fCanal, setFCanal] = useState("todos");
+  const [fForma, setFForma] = useState("todas");
+  const [fGastoMin, setFGastoMin] = useState("");
+  const [fGastoMax, setFGastoMax] = useState("");
+  const [fTicketMin, setFTicketMin] = useState("");
+  const [fTicketMax, setFTicketMax] = useState("");
+  const [fPedidosMin, setFPedidosMin] = useState("");
+  const [fDiasMin, setFDiasMin] = useState("");
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [pagina, setPagina] = useState(1);
+  const [perfil, setPerfil] = useState(null);
+  const [toast, setToast] = useState({ texto: "", tipo: "success" });
+  const [carregandoAcao, setCarregandoAcao] = useState(null);
+  const [pedidoVisualizar, setPedidoVisualizar] = useState(null);
+  const [cupomSel, setCupomSel] = useState(null);
+  const POR_PAGINA = 10;
+
+  const custoPorNome = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
+  const mapaProd = mapaDeProdutos(products);
+  const chaveDe = (o) => o.customer || o.clienteTelefone;
+  const historico = orders.reduce((m, o) => {
+    const chave = chaveDe(o);
+    if (o.status === "cancelled" || !chave) return m;
+    if (!m[chave]) m[chave] = { telefone: null, pedidos: [] };
+    m[chave].pedidos.push(o);
+    if (!m[chave].telefone && o.clienteTelefone) m[chave].telefone = o.clienteTelefone;
     return m;
-  })();
-  const agoraClientesE = Date.now();
-  function analisarClienteE(chave) {
-    const hist = clientesHistoricoE[chave];
-    if (!hist) return null;
+  }, {});
+  const agora = Date.now();
+  const topo = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+  function analisar(chave) {
+    const hist = historico[chave];
     const pagos = hist.pedidos.filter((o) => o.paymentStatus === "paid");
-    const datas = hist.pedidos.map((o) => o.createdAtISO ? new Date(o.createdAtISO) : null).filter(Boolean).sort((a, b) => a - b);
+    const datas = hist.pedidos.map((o) => (o.createdAtISO ? new Date(o.createdAtISO) : null)).filter(Boolean).sort((a, b) => a - b);
     const primeira = datas[0] || null;
     const ultima = datas[datas.length - 1] || null;
     const penultima = datas.length >= 2 ? datas[datas.length - 2] : null;
     const faturamentoTotal = pagos.reduce((s, o) => s + totalComTaxa(o), 0);
-    const ticketMedioVida = pagos.length ? faturamentoTotal / pagos.length : 0;
-    const maiorCompra = pagos.length ? Math.max(...pagos.map((o) => totalComTaxa(o))) : 0;
-    const lucroGerado = pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + ((it.price || 0) - (custoPorNome[it.name] ?? 0)) * it.quantity, 0), 0);
-    const diasSemComprar = ultima != null ? Math.floor((agoraClientesE - ultima.getTime()) / 864e5) : null;
-    const contagemProduto = {}, contagemCategoria = {}, contagemHora = {}, contagemForma = {}, contagemMesa = {};
+    const contagem = { produto: {}, categoria: {}, hora: {}, forma: {}, mesa: {}, canal: {}, pares: {} };
+    const somar = (grupo, k, n = 1) => { contagem[grupo][k] = (contagem[grupo][k] || 0) + n; };
     pagos.forEach((o) => {
-      o.items.forEach((it) => {
-        contagemProduto[it.name] = (contagemProduto[it.name] || 0) + it.quantity;
-        const cat = catPorNomeProdutoE[it.name] || "Outros";
-        contagemCategoria[cat] = (contagemCategoria[cat] || 0) + it.quantity;
-      });
-      if (o.createdAtISO) { const h = new Date(o.createdAtISO).getHours(); contagemHora[h] = (contagemHora[h] || 0) + 1; }
-      const forma = o.pagamentoForma || "Não informado"; contagemForma[forma] = (contagemForma[forma] || 0) + 1;
-      if (o.table) contagemMesa[o.table] = (contagemMesa[o.table] || 0) + 1;
+      o.items.forEach((it) => { somar("produto", it.name, it.quantity); somar("categoria", mapaProd.get(it.name)?.categoria || "Outros", it.quantity); });
+      if (o.createdAtISO) somar("hora", new Date(o.createdAtISO).getHours());
+      somar("forma", o.pagamentoForma || "Não informado");
+      if (o.table) somar("mesa", o.table);
+      somar("canal", canalDoPedido(o));
+      const nomes = Array.from(new Set(o.items.map((it) => it.name))).sort();
+      for (let i = 0; i < nomes.length; i++) for (let j = i + 1; j < nomes.length; j++) somar("pares", `${nomes[i]} + ${nomes[j]}`);
     });
-    const top = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-    const horaTop = top(contagemHora);
-    const temposPermanencia = pagos.map((o) => minutosEntreISO(o.createdAtISO, o.updatedAtISO)).filter((v) => v != null);
-    // Até 50 pedidos (histórico + "Ver todos"); a lista renderiza só 5 por
-    // padrão. Mantém o objeto do pedido completo para abrir o cupom real.
-    const ultimosPedidos = [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 50)
-      .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: totalComTaxa(o), status: o.status, pago: o.paymentStatus === "paid", pedidoObj: o }));
-    // Frequência de compra — pedidos por mês, considerando o tempo de vida do
-    // cliente (primeira compra até agora); "—" quando só há 1 compra (sem
-    // intervalo real para medir).
-    const diasVida = primeira ? Math.max(1, (agoraClientesE - primeira.getTime()) / 864e5) : null;
-    const frequenciaMensal = (diasVida && hist.pedidos.length > 1) ? (hist.pedidos.length / (diasVida / 30)) : null;
-    // Combinação de produtos mais comprada junto (só deste cliente)
-    const paresContagem = {};
-    pagos.forEach((o) => {
-      const nomesUnicos = Array.from(new Set(o.items.map((it) => it.name)));
-      for (let i = 0; i < nomesUnicos.length; i++) for (let j = i + 1; j < nomesUnicos.length; j++) {
-        const chavePar = [nomesUnicos[i], nomesUnicos[j]].sort().join(" + ");
-        paresContagem[chavePar] = (paresContagem[chavePar] || 0) + 1;
-      }
-    });
-    const parFavorito = Object.entries(paresContagem).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    const horaTop = topo(contagem.hora);
+    const permanencias = pagos.map((o) => minutosEntreISO(o.createdAtISO, o.updatedAtISO)).filter((v) => v != null);
+    const diasVida = primeira ? Math.max(1, (agora - primeira.getTime()) / 864e5) : null;
     return {
-      telefone: hist.telefone, totalPedidosVida: hist.pedidos.length, primeira, ultima, penultima, diasSemComprar,
-      faturamentoTotal, ticketMedioVida, maiorCompra, lucroGerado, frequenciaMensal, parFavorito,
-      produtoFavorito: top(contagemProduto), categoriaFavorita: top(contagemCategoria),
+      telefone: hist.telefone, totalPedidosVida: hist.pedidos.length, primeira, ultima, penultima,
+      diasSemComprar: ultima ? Math.floor((agora - ultima.getTime()) / 864e5) : null,
+      faturamentoTotal, ticketMedioVida: pagos.length ? faturamentoTotal / pagos.length : 0,
+      maiorCompra: pagos.length ? Math.max(...pagos.map((o) => totalComTaxa(o))) : 0,
+      lucroGerado: margemDosPedidos(pagos, mapaProd).margem ?? 0,
+      frequenciaMensal: diasVida && hist.pedidos.length > 1 ? hist.pedidos.length / (diasVida / 30) : null,
+      parFavorito: topo(contagem.pares), produtoFavorito: topo(contagem.produto), categoriaFavorita: topo(contagem.categoria),
       horarioPreferido: horaTop != null ? `${String(horaTop).padStart(2, "0")}h` : null,
-      formaPagamentoFavorita: top(contagemForma), mesaFavorita: top(contagemMesa),
-      canalPredominante: pagos.some((o) => o.command) ? "Mesa / QR Code" : pagos.some((o) => o.table) ? "Mesa" : "Balcão / Delivery",
-      tempoMedioPermanencia: temposPermanencia.length ? temposPermanencia.reduce((s, v) => s + v, 0) / temposPermanencia.length : null,
-      ultimosPedidos,
+      formaPagamentoFavorita: topo(contagem.forma), mesaFavorita: topo(contagem.mesa),
+      canalPredominante: topo(contagem.canal) || "—",
+      tempoMedioPermanencia: mediaDe(permanencias),
+      ultimosPedidos: [...hist.pedidos].sort((x, y) => new Date(y.createdAtISO || 0) - new Date(x.createdAtISO || 0)).slice(0, 50)
+        .map((o) => ({ id: o.id, quando: o.createdAtISO ? new Date(o.createdAtISO) : null, valor: totalComTaxa(o), status: o.status, pago: o.paymentStatus === "paid", pedidoObj: o })),
     };
   }
 
-  // Comparativo por cliente com o período anterior (mesmo intervalo, mesma
-  // duração) — usado nos alertas/insights de ticket e crescimento.
-  const comparativoClientesE = (() => {
-    if (periodo === "tudo") return null;
-    const [a0, b0] = intervaloPeriodo(periodo, ini, fim);
-    if (!a0 || a0.getTime() <= 0) return null;
-    const dur = b0.getTime() - a0.getTime();
-    const anterioresC = orders.filter((o) => { if (!o.createdAtISO || o.status === "cancelled") return false; const d = new Date(o.createdAtISO); return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1); });
-    const m = {};
-    anterioresC.forEach((o) => {
-      const chave = o.customer || o.clienteTelefone; if (!chave) return;
-      if (!m[chave]) m[chave] = { pedidos: 0, faturamento: 0 };
-      m[chave].pedidos += 1;
-      if (o.paymentStatus === "paid") m[chave].faturamento += totalComTaxa(o);
-    });
+  const resumirPorCliente = (lista) => lista.reduce((m, o) => {
+    const chave = chaveDe(o);
+    if (o.status === "cancelled" || !chave) return m;
+    if (!m[chave]) m[chave] = { pedidos: 0, pagos: 0, faturamento: 0, ultimo: null };
+    m[chave].pedidos += 1;
+    if (o.paymentStatus === "paid") { m[chave].pagos += 1; m[chave].faturamento += totalComTaxa(o); }
+    const d = o.createdAtISO ? new Date(o.createdAtISO) : null;
+    if (d && (!m[chave].ultimo || d > m[chave].ultimo)) m[chave].ultimo = d;
     return m;
-  })();
-  const [inicioPeriodoE, fimPeriodoE] = intervaloPeriodo(periodo, ini, fim) || [];
-  const periodoValidoE = !!(inicioPeriodoE && inicioPeriodoE.getTime() > 0 && fimPeriodoE);
+  }, {});
+  const noPeriodo = resumirPorCliente(filtrados);
+  const antes = resumirPorCliente(pedidosNoIntervalo(orders, intervaloAnterior(periodo, ini, fim)));
+  const [inicioP, fimP] = intervaloPeriodo(periodo, ini, fim);
+  const dentro = (d) => d && inicioP.getTime() > 0 && d >= inicioP && d <= fimP;
 
-  function statusDeClienteE(c) {
-    const primeiraNoPeriodo = periodoValidoE && c.primeira && c.primeira >= inicioPeriodoE && c.primeira <= fimPeriodoE;
-    if (primeiraNoPeriodo) return "novo";
+  function statusDe(c) {
+    if (dentro(c.primeira)) return "novo";
     if (c.diasSemComprar == null) return "semDados";
-    if (c.totalPedidosVida >= 2 && c.penultima && c.ultima) {
-      const gapDias = (c.ultima.getTime() - c.penultima.getTime()) / 864e5;
-      const ultimaNoPeriodo = periodoValidoE && c.ultima >= inicioPeriodoE && c.ultima <= fimPeriodoE;
-      if (gapDias > 30 && ultimaNoPeriodo) return "recuperado";
-    }
+    if (c.totalPedidosVida >= 2 && c.penultima && dentro(c.ultima) && (c.ultima - c.penultima) / 864e5 > 30) return "recuperado";
     if (c.diasSemComprar > 30) return "inativo";
     if (c.diasSemComprar > 15) return "risco";
-    if (c.totalPedidosVida > 1) return "recorrente";
-    return "ativo";
+    return c.totalPedidosVida > 1 ? "recorrente" : "ativo";
   }
 
-  // Ranking = período selecionado (clientesLista, já calculado acima) + o
-  // histórico de vida de cada cliente identificado.
-  const clientesRankingBase = clientesLista.filter((c) => c.identificado).map((c) => {
-    const analise = analisarClienteE(c.cliente);
-    return {
-      cliente: c.cliente, pedidosPeriodo: c.pedidos, faturamentoPeriodo: c.faturamento, ticketPeriodo: c.ticket, ultimaCompraPeriodo: c.ultimo,
-      ...(analise || { telefone: null, totalPedidosVida: c.pedidos, primeira: null, ultima: c.ultimo, penultima: null, diasSemComprar: null, faturamentoTotal: c.faturamento, ticketMedioVida: c.ticket, maiorCompra: 0, lucroGerado: 0, frequenciaMensal: null, parFavorito: null, produtoFavorito: null, categoriaFavorita: null, horarioPreferido: null, formaPagamentoFavorita: null, mesaFavorita: null, canalPredominante: "—", tempoMedioPermanencia: null, ultimosPedidos: [] }),
-    };
-  });
-  const clientesPorValorE = [...clientesRankingBase].sort((a, b) => b.faturamentoTotal - a.faturamentoTotal);
-  const nClientesE = clientesPorValorE.length;
-  const tierPorClienteE = {};
-  clientesPorValorE.forEach((c, i) => {
-    const pct = nClientesE ? (i + 1) / nClientesE : 1;
-    tierPorClienteE[c.cliente] = pct <= 0.1 ? "vip" : pct <= 0.3 ? "ouro" : pct <= 0.6 ? "prata" : "bronze";
-  });
-  // Score de relacionamento (0–100) — só com dados já disponíveis: recência
-  // (dias sem comprar), recorrência (pedidos na vida), ticket (vs. a média
-  // geral do período) e valor acumulado (vs. o maior faturamento entre os
-  // clientes identificados). 25 pontos cada; "—" quando não há nenhuma
-  // compra paga (nada para medir).
-  const maxFaturamentoClienteE = clientesPorValorE[0]?.faturamentoTotal || 0;
-  function scoreRelacionamentoE(c) {
+  const base = Object.entries(noPeriodo).map(([cliente, p]) => ({
+    cliente, pedidosPeriodo: p.pedidos, faturamentoPeriodo: p.faturamento, ticketPeriodo: p.pagos ? p.faturamento / p.pagos : 0,
+    ultimaCompraPeriodo: p.ultimo, ...analisar(cliente),
+  }));
+  const porValor = [...base].sort((a, b) => b.faturamentoTotal - a.faturamentoTotal);
+  const classeDe = Object.fromEntries(porValor.map((c, i) => {
+    const posicao = (i + 1) / porValor.length;
+    return [c.cliente, posicao <= 0.1 ? "vip" : posicao <= 0.3 ? "ouro" : posicao <= 0.6 ? "prata" : "bronze"];
+  }));
+  const maiorHistorico = porValor[0]?.faturamentoTotal || 0;
+  const resumo = resumoVendas(filtrados, products);
+  function pontuar(c) {
     if (!c.totalPedidosVida || c.diasSemComprar == null) return null;
     const recencia = c.diasSemComprar <= 7 ? 25 : c.diasSemComprar >= 60 ? 0 : Math.round(25 * (1 - (c.diasSemComprar - 7) / 53));
     const frequencia = Math.min(25, c.totalPedidosVida * 5);
-    const ticketScore = a.ticket > 0 ? Math.min(25, Math.round((c.ticketMedioVida / a.ticket) * 12.5)) : 0;
-    const valorScore = maxFaturamentoClienteE > 0 ? Math.min(25, Math.round((c.faturamentoTotal / maxFaturamentoClienteE) * 25)) : 0;
-    return Math.max(0, Math.min(100, recencia + frequencia + ticketScore + valorScore));
+    const ticket = resumo.ticket > 0 ? Math.min(25, Math.round((c.ticketMedioVida / resumo.ticket) * 12.5)) : 0;
+    const valor = maiorHistorico > 0 ? Math.min(25, Math.round((c.faturamentoTotal / maiorHistorico) * 25)) : 0;
+    return Math.max(0, Math.min(100, recencia + frequencia + ticket + valor));
   }
-  function classificacaoScoreE(score, status) {
-    if (score == null) return null;
-    if (status === "inativo") return "Inativo";
-    if (score >= 80) return "VIP";
-    if (score >= 60) return "Frequente";
-    if (score >= 40) return "Em crescimento";
-    if (score >= 20) return "Em risco";
-    return "Inativo";
-  }
-  const clientesRankingE = clientesRankingBase.map((c) => {
-    const ant = comparativoClientesE?.[c.cliente] || null;
-    const ticketAnterior = ant && ant.pedidos ? ant.faturamento / ant.pedidos : null;
-    const variacaoFaturamento = ant ? (ant.faturamento > 0 ? ((c.faturamentoPeriodo - ant.faturamento) / ant.faturamento) * 100 : (c.faturamentoPeriodo > 0 ? 100 : null)) : null;
-    const variacaoPedidos = ant ? c.pedidosPeriodo - ant.pedidos : null;
-    const status = statusDeClienteE(c);
-    const classificacao = tierPorClienteE[c.cliente] || "bronze";
-    const frequente = c.pedidosPeriodo >= 3;
-    const score = scoreRelacionamentoE(c);
-    const scoreClassificacao = classificacaoScoreE(score, status);
-    return { ...c, ticketAnterior, variacaoFaturamento, variacaoPedidos, status, classificacao, frequente, score, scoreClassificacao };
+  const ranking = base.map((c) => {
+    const ant = antes[c.cliente] || null;
+    const status = statusDe(c);
+    const score = pontuar(c);
+    const scoreClassificacao = score == null ? null : status === "inativo" || score < 20 ? "Inativo" : score >= 80 ? "VIP" : score >= 60 ? "Frequente" : score >= 40 ? "Em crescimento" : "Em risco";
+    return {
+      ...c, status, score, scoreClassificacao, classificacao: classeDe[c.cliente], frequente: c.pedidosPeriodo >= 3,
+      ticketAnterior: ant?.pagos ? ant.faturamento / ant.pagos : null,
+      variacaoFaturamento: ant ? variacaoPct(c.faturamentoPeriodo, ant.faturamento) : null,
+      variacaoPedidos: ant ? c.pedidosPeriodo - ant.pedidos : null,
+    };
   });
 
-  // ── Filtros + busca + ordenação (todas as colunas) — reaproveita o
-  // estado de paginação já existente (paginaClientes/porPaginaClientes). ──
-  const canaisClientesDisponiveisE = Array.from(new Set(clientesRankingE.map((c) => c.canalPredominante).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const formasClientesDisponiveisE = Array.from(new Set(clientesRankingE.map((c) => c.formaPagamentoFavorita).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
-  const buscaClientesLowerE = buscaClientesE.trim().toLowerCase();
-  const clientesFiltradosE = clientesRankingE.filter((c) => {
-    if (buscaClientesLowerE && !`${c.cliente} ${c.telefone || ""}`.toLowerCase().includes(buscaClientesLowerE)) return false;
-    if (fStatusClienteE !== "todos" && c.status !== fStatusClienteE) return false;
-    if (fClassificacaoE !== "todas" && c.classificacao !== fClassificacaoE) return false;
-    if (fCanalClienteE !== "todos" && c.canalPredominante !== fCanalClienteE) return false;
-    if (fFormaPagClienteE !== "todas" && c.formaPagamentoFavorita !== fFormaPagClienteE) return false;
-    if (fValorGastoMinE.trim() && c.faturamentoTotal < Number(fValorGastoMinE)) return false;
-    if (fValorGastoMaxE.trim() && c.faturamentoTotal > Number(fValorGastoMaxE)) return false;
-    if (fTicketMinE.trim() && c.ticketPeriodo < Number(fTicketMinE)) return false;
-    if (fTicketMaxE.trim() && c.ticketPeriodo > Number(fTicketMaxE)) return false;
-    if (fPedidosMinE.trim() && c.pedidosPeriodo < Number(fPedidosMinE)) return false;
-    if (fDiasSemComprarMinE.trim() && (c.diasSemComprar == null || c.diasSemComprar < Number(fDiasSemComprarMinE))) return false;
+  const pagosIdent = resumo.pagos.filter(chaveDe);
+  const fatIdent = pagosIdent.reduce((s, o) => s + totalComTaxa(o), 0);
+  const recorrentes = ranking.filter((c) => c.totalPedidosVida > 1);
+  const intervalos = recorrentes.filter((c) => c.primeira && c.ultima).map((c) => (c.ultima - c.primeira) / 864e5 / (c.totalPedidosVida - 1));
+  const topoConc = concentracao(ranking.map((c) => c.faturamentoPeriodo));
+  const contar = (f) => ranking.filter(f).length;
+  const faixa = (rotulo, f) => ({ rotulo, valor: contar(f) });
+
+  const maisValiosos = [...ranking].sort((a, b) => b.faturamentoPeriodo - a.faturamentoPeriodo).filter((c) => c.faturamentoPeriodo > 0).slice(0, 8);
+  const acoes = [
+    { id: "vip", titulo: "VIP sem comprar há 30+ dias", acao: "Contato pessoal e oferta de volta.", lista: ranking.filter((c) => c.classificacao === "vip" && c.diasSemComprar > 30) },
+    { id: "inativo", titulo: "Sem retorno há 30+ dias", acao: "Enviar oferta de reativação.", lista: ranking.filter((c) => c.diasSemComprar > 30 && c.classificacao !== "vip") },
+    { id: "risco", titulo: "Em risco (16 a 30 dias)", acao: "Lembrar antes que esfrie.", lista: ranking.filter((c) => c.status === "risco") },
+    { id: "ticket", titulo: "Ticket caiu mais de 30%", acao: "Sugerir combo ou adicional.", lista: ranking.filter((c) => c.ticketAnterior != null && c.ticketPeriodo < c.ticketAnterior * 0.7) },
+    { id: "uma", titulo: "Compraram uma única vez", acao: "Incentivar a segunda visita.", lista: ranking.filter((c) => c.totalPedidosVida === 1 && c.status !== "inativo") },
+  ].filter((g) => g.lista.length);
+
+  const canais = Array.from(new Set(ranking.map((c) => c.canalPredominante))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const formas = Array.from(new Set(ranking.map((c) => c.formaPagamentoFavorita).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const termo = busca.trim().toLowerCase();
+  const numero = (v) => Number(String(v).replace(",", "."));
+  const filtradosRanking = ranking.filter((c) => {
+    if (termo && !`${c.cliente} ${c.telefone || ""}`.toLowerCase().includes(termo)) return false;
+    if (fStatus !== "todos" && c.status !== fStatus) return false;
+    if (fClasse !== "todas" && c.classificacao !== fClasse) return false;
+    if (fCanal !== "todos" && c.canalPredominante !== fCanal) return false;
+    if (fForma !== "todas" && c.formaPagamentoFavorita !== fForma) return false;
+    if (fGastoMin && c.faturamentoTotal < numero(fGastoMin)) return false;
+    if (fGastoMax && c.faturamentoTotal > numero(fGastoMax)) return false;
+    if (fTicketMin && c.ticketPeriodo < numero(fTicketMin)) return false;
+    if (fTicketMax && c.ticketPeriodo > numero(fTicketMax)) return false;
+    if (fPedidosMin && c.pedidosPeriodo < Number(fPedidosMin)) return false;
+    if (fDiasMin && (c.diasSemComprar == null || c.diasSemComprar < Number(fDiasMin))) return false;
     return true;
   });
-  const clientesOrdenadosE = [...clientesFiltradosE].sort((x, y) => {
-    const dir = ordenacaoClientesE.dir === "asc" ? 1 : -1;
-    const campo = ordenacaoClientesE.campo;
+  const ordenados = [...filtradosRanking].sort((x, y) => {
+    const dir = ordenacao.dir === "asc" ? 1 : -1;
+    const campo = ordenacao.campo;
     if (campo === "cliente" || campo === "status" || campo === "classificacao") return dir * String(x[campo] ?? "").localeCompare(String(y[campo] ?? ""), "pt-BR");
-    if (campo === "recencia") return dir * ((x.ultima?.getTime() ?? 0) - (y.ultima?.getTime() ?? 0));
-    if (campo === "antiguidade") return dir * ((x.primeira?.getTime() ?? 0) - (y.primeira?.getTime() ?? 0));
-    const vx = x[campo], vy = y[campo];
-    if (vx == null && vy == null) return 0;
-    if (vx == null) return 1;
-    if (vy == null) return -1;
-    return dir * (vx - vy);
+    return dir * ((x[campo] ?? 0) - (y[campo] ?? 0));
   });
-  function alternarOrdemClientesE(campo) {
-    setOrdenacaoClientesE((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  const totalPaginas = Math.max(1, Math.ceil(ordenados.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const visiveis = ordenados.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
+  useEffect(() => { setPagina(1); }, [periodo, ini, fim, busca, fStatus, fClasse, fCanal, fForma, fGastoMin, fGastoMax, fTicketMin, fTicketMax, fPedidosMin, fDiasMin, ordenacao]);
+
+  const filtrosAtivos = fStatus !== "todos" || fClasse !== "todas" || fCanal !== "todos" || fForma !== "todas"
+    || !!fGastoMin || !!fGastoMax || !!fTicketMin || !!fTicketMax || !!fPedidosMin || !!fDiasMin;
+  function limparFiltros() {
+    setFStatus("todos"); setFClasse("todas"); setFCanal("todos"); setFForma("todas");
+    setFGastoMin(""); setFGastoMax(""); setFTicketMin(""); setFTicketMax(""); setFPedidosMin(""); setFDiasMin("");
   }
-  function limparFiltrosClientesE() {
-    setFStatusClienteE("todos"); setFClassificacaoE("todas"); setFCanalClienteE("todos"); setFFormaPagClienteE("todas");
-    setFValorGastoMinE(""); setFValorGastoMaxE(""); setFTicketMinE(""); setFTicketMaxE(""); setFPedidosMinE(""); setFDiasSemComprarMinE("");
-  }
-  const filtrosClientesAtivosE = fStatusClienteE !== "todos" || fClassificacaoE !== "todas" || fCanalClienteE !== "todos" || fFormaPagClienteE !== "todas"
-    || !!fValorGastoMinE || !!fValorGastoMaxE || !!fTicketMinE || !!fTicketMaxE || !!fPedidosMinE || !!fDiasSemComprarMinE;
+  const ordenarPor = (campo) => setOrdenacao((o) => (o.campo === campo ? { campo, dir: o.dir === "desc" ? "asc" : "desc" } : { campo, dir: "desc" }));
+  const abrirPorNome = (nome) => setPerfil(ranking.find((c) => c.cliente === nome) || null);
 
-  // Volta para a página 1 ao trocar período, aba, busca, filtro ou
-  // ordenação (reaproveita o mesmo estado já usado por esta tabela).
-  useEffect(() => { setPaginaClientes(1); }, [periodo, ini, fim, aba, porPaginaClientes, buscaClientesE, fStatusClienteE, fClassificacaoE, fCanalClienteE, fFormaPagClienteE, fValorGastoMinE, fValorGastoMaxE, fTicketMinE, fTicketMaxE, fPedidosMinE, fDiasSemComprarMinE, ordenacaoClientesE]);
-  const totalPaginasClientesE = Math.max(1, Math.ceil(clientesOrdenadosE.length / porPaginaClientes));
-  const paginaClientesAtualE = Math.min(paginaClientes, totalPaginasClientesE);
-  const clientesVisiveisE = clientesOrdenadosE.slice((paginaClientesAtualE - 1) * porPaginaClientes, paginaClientesAtualE * porPaginaClientes);
-
-  // ── Alertas gerenciais ──
-  const clientesAtivosIdentificadosE = clientesRankingE.length;
-  const alertasClientesE = [];
-  clientesRankingE.forEach((c) => {
-    if (c.diasSemComprar != null && c.diasSemComprar > 30) alertasClientesE.push({ cliente: c.cliente, nivel: "atencao", tipo: "Sem retorno há 30 dias", desc: `${c.diasSemComprar} dia(s) sem comprar`, motivo: "Cliente ficou inativo — risco de perda.", acao: "Enviar oferta de reativação." });
-    if (c.classificacao === "vip" && c.diasSemComprar != null && c.diasSemComprar > 30) alertasClientesE.push({ cliente: c.cliente, nivel: "critico", tipo: "Cliente VIP inativo", desc: `${c.diasSemComprar} dia(s) sem comprar · ${formatCurrency(c.faturamentoTotal)} no histórico`, motivo: "Cliente de alto valor parou de comprar.", acao: "Contato prioritário — atendimento pessoal." });
-    if (c.ticketAnterior != null && c.ticketPeriodo < c.ticketAnterior * 0.7) alertasClientesE.push({ cliente: c.cliente, nivel: "atencao", tipo: "Ticket caiu", desc: `${formatCurrency(c.ticketPeriodo)} vs. ${formatCurrency(c.ticketAnterior)} no período anterior`, motivo: "Queda relevante no valor médio das compras.", acao: "Entender o motivo e oferecer combo/upsell." });
-    if (c.status === "novo") alertasClientesE.push({ cliente: c.cliente, nivel: "oportunidade", tipo: "Cliente novo", desc: `Primeira compra no período · ${formatCurrency(c.faturamentoPeriodo)}`, motivo: "Início de relacionamento.", acao: "Dar boas-vindas e incentivar a segunda compra." });
-    if (c.frequente) alertasClientesE.push({ cliente: c.cliente, nivel: "oportunidade", tipo: "Alta frequência", desc: `${c.pedidosPeriodo} pedido(s) no período`, motivo: "Cliente com ritmo de compra acima do comum.", acao: "Considerar para programa de fidelidade." });
-  });
-  if (clientesRankingE[0]) alertasClientesE.push({ cliente: clientesRankingE.slice().sort((a, b) => b.faturamentoTotal - a.faturamentoTotal)[0].cliente, nivel: "oportunidade", tipo: "Maior faturamento", desc: formatCurrency(clientesRankingE.slice().sort((a, b) => b.faturamentoTotal - a.faturamentoTotal)[0].faturamentoTotal), motivo: "Cliente com maior valor acumulado.", acao: "Manter relacionamento próximo — cliente âncora." });
-  const clienteMaiorCrescimentoE = clientesRankingE.filter((c) => c.variacaoFaturamento != null).sort((a, b) => b.variacaoFaturamento - a.variacaoFaturamento)[0] || null;
-  if (clienteMaiorCrescimentoE && clienteMaiorCrescimentoE.variacaoFaturamento > 0) alertasClientesE.push({ cliente: clienteMaiorCrescimentoE.cliente, nivel: "oportunidade", tipo: "Maior crescimento", desc: `+${clienteMaiorCrescimentoE.variacaoFaturamento.toFixed(0)}% vs. período anterior`, motivo: "Cliente aumentando o consumo.", acao: "Aproveitar o momento para oferecer upgrade ou fidelidade." });
-  if (pedidosSemId > 0) alertasClientesE.push({ cliente: "Pedidos sem identificação", nivel: "atencao", tipo: "Cliente sem identificação", desc: `${pedidosSemId} pedido(s) · ${formatCurrency(fatSemId)}`, motivo: "Parte da base não é rastreável para CRM.", acao: "Incentivar cadastro no fechamento da comanda." });
-  const ordemNivelClienteE = { critico: 0, atencao: 1, oportunidade: 2 };
-  alertasClientesE.sort((a, b) => ordemNivelClienteE[a.nivel] - ordemNivelClienteE[b.nivel]);
-
-  // ── Insights (Oportunidades) — só dados existentes ──
-  const clientesUmaCompraE = clientesRankingE.filter((c) => c.totalPedidosVida === 1);
-  const clienteAumentouTicketE = clientesRankingE.filter((c) => c.ticketAnterior != null && c.ticketPeriodo > c.ticketAnterior).sort((a, b) => (b.ticketPeriodo - b.ticketAnterior) - (a.ticketPeriodo - a.ticketAnterior))[0] || null;
-  const clienteReduziuComprasE = clientesRankingE.filter((c) => c.variacaoPedidos != null && c.variacaoPedidos < 0).sort((a, b) => a.variacaoPedidos - b.variacaoPedidos)[0] || null;
-  const clienteEmRiscoAptoPromocaoE = clientesRankingE.filter((c) => c.status === "risco" && c.faturamentoTotal > 0).sort((a, b) => b.faturamentoTotal - a.faturamentoTotal)[0] || null;
-  const produtoFavoritoGeralE = (() => {
-    const m = {}; clientesRankingE.forEach((c) => { if (c.produtoFavorito) m[c.produtoFavorito] = (m[c.produtoFavorito] || 0) + 1; });
-    return Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-  })();
-  const clienteMaiorLucroE = [...clientesRankingE].sort((a, b) => b.lucroGerado - a.lucroGerado)[0] || null;
-  const clienteMaiorPotencialE = clientesRankingE.filter((c) => c.classificacao === "ouro" || c.classificacao === "prata").sort((a, b) => (b.pedidosPeriodo) - (a.pedidosPeriodo))[0] || null;
-
-  // ── Dashboard CRM (Top N + distribuições) ──
-  const top10ClientesE = [...clientesRankingE].sort((a, b) => b.faturamentoTotal - a.faturamentoTotal).slice(0, 10);
-  const clientesPorCanalE = (() => {
-    const m = {}; clientesRankingE.forEach((c) => { m[c.canalPredominante] = (m[c.canalPredominante] || 0) + 1; });
-    return Object.entries(m).map(([label, valor], i) => ({ label, valor, cor: PALETA_GRAF_RELATORIOS[i % PALETA_GRAF_RELATORIOS.length] }));
-  })();
-  const clientesPorFormaE = (() => {
-    const m = {}; clientesRankingE.forEach((c) => { const f = c.formaPagamentoFavorita || "Não informado"; m[f] = (m[f] || 0) + 1; });
-    return Object.entries(m).map(([nome, qtd]) => ({ nome, qtd })).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
-  })();
-  const clientesPorFrequenciaE = [
-    { faixa: "1 pedido", qtd: clientesRankingE.filter((c) => c.totalPedidosVida === 1).length },
-    { faixa: "2–4 pedidos", qtd: clientesRankingE.filter((c) => c.totalPedidosVida >= 2 && c.totalPedidosVida <= 4).length },
-    { faixa: "5–10 pedidos", qtd: clientesRankingE.filter((c) => c.totalPedidosVida >= 5 && c.totalPedidosVida <= 10).length },
-    { faixa: "11+ pedidos", qtd: clientesRankingE.filter((c) => c.totalPedidosVida > 10).length },
-  ];
-  const clientesPorTicketE = [
-    { faixa: "Até R$ 30", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 0 && c.ticketMedioVida <= 30).length },
-    { faixa: "R$ 30–70", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 30 && c.ticketMedioVida <= 70).length },
-    { faixa: "R$ 70–150", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 70 && c.ticketMedioVida <= 150).length },
-    { faixa: "Acima de R$ 150", qtd: clientesRankingE.filter((c) => c.ticketMedioVida > 150).length },
-  ];
-  const clientesPorHorarioE = (() => {
-    const m = {}; clientesRankingE.forEach((c) => { if (c.horarioPreferido) m[c.horarioPreferido] = (m[c.horarioPreferido] || 0) + 1; });
-    return Object.entries(m).map(([faixa, qtd]) => ({ faixa, qtd })).sort((a, b) => b.qtd - a.qtd).slice(0, 6);
-  })();
-  const clientesAtivosCountE = clientesRankingE.filter((c) => c.status !== "inativo").length;
-  const clientesInativosCountE = clientesRankingE.filter((c) => c.status === "inativo").length;
-  const clientesAtivoXInativoE = [
-    { label: "Ativos", valor: clientesAtivosCountE, cor: "#2F9E52" },
-    { label: "Inativos", valor: clientesInativosCountE, cor: "#C81E4A" },
-  ];
-
-  // ── Ações rápidas por cliente ──
-  // Telefone "válido" = DDD + número (10 ou 11 dígitos, padrão BR), depois de
-  // remover tudo que não é dígito — mesma normalização já usada para o
-  // WhatsApp em outras telas do projeto (RelatorioCupom, CupomNaoFiscalModal).
-  function telefoneValidoE(telefone) {
+  // Telefone válido = DDD + número (10 ou 11 dígitos).
+  const telefoneValido = (telefone) => {
     const digitos = String(telefone || "").replace(/\D/g, "");
     return digitos.length >= 10 && digitos.length <= 11 ? digitos : null;
+  };
+  function avisar(texto, tipo = "success") {
+    setToast({ texto, tipo });
+    setTimeout(() => setToast({ texto: "", tipo: "success" }), 3500);
   }
-  function avisarClienteE(msg, tipo = "success") {
-    setToastClientesTipoE(tipo);
-    setToastClientesE(msg);
-    setTimeout(() => setToastClientesE(""), 3500);
+  async function copiar(chaveAcao, texto, sucesso) {
+    setCarregandoAcao(chaveAcao);
+    try { await navigator.clipboard.writeText(texto); avisar(sucesso); }
+    catch { avisar("Não foi possível copiar.", "error"); }
+    finally { setCarregandoAcao(null); }
   }
-  async function copiarTelefoneClienteE(c) {
-    const digitos = telefoneValidoE(c.telefone);
-    if (!digitos) { avisarClienteE("Cliente sem telefone válido cadastrado.", "error"); return; }
-    setCarregandoAcaoE(`telefone:${c.cliente}`);
-    try {
-      await navigator.clipboard.writeText(c.telefone);
-      avisarClienteE("Telefone copiado.", "success");
-    } catch {
-      avisarClienteE("Não foi possível copiar o telefone. Copie manualmente: " + c.telefone, "error");
-    } finally {
-      setCarregandoAcaoE(null);
-    }
+  function copiarTelefone(c) {
+    if (!telefoneValido(c.telefone)) { avisar("Cliente sem telefone válido cadastrado.", "error"); return; }
+    copiar(`telefone:${c.cliente}`, c.telefone, "Telefone copiado.");
   }
-  async function copiarCadastroClienteE(c) {
-    const texto = [
-      `Nome: ${c.cliente}`,
-      `Telefone: ${c.telefone || "—"}`,
-      `Total de pedidos: ${c.totalPedidosVida}`,
-      `Faturamento: ${formatCurrency(c.faturamentoTotal)}`,
-      `Ticket médio: ${formatCurrency(c.ticketMedioVida)}`,
-      `Última compra: ${c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}`,
-      `Status: ${CLIENTE_STATUS[c.status]?.label || c.status}`,
-    ].join("\n");
-    setCarregandoAcaoE(`cadastro:${c.cliente}`);
-    try {
-      await navigator.clipboard.writeText(texto);
-      avisarClienteE("Cadastro copiado.", "success");
-    } catch {
-      avisarClienteE("Não foi possível copiar o cadastro.", "error");
-    } finally {
-      setCarregandoAcaoE(null);
-    }
+  function copiarCadastro(c) {
+    copiar(`cadastro:${c.cliente}`, [
+      `Nome: ${c.cliente}`, `Telefone: ${c.telefone || "—"}`, `Total de pedidos: ${c.totalPedidosVida}`,
+      `Faturamento: ${formatCurrency(c.faturamentoTotal)}`, `Ticket médio: ${formatCurrency(c.ticketMedioVida)}`,
+      `Última compra: ${c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}`, `Status: ${CLIENTE_STATUS[c.status]?.label || c.status}`,
+    ].join("\n"), "Cadastro copiado.");
   }
-  function abrirWhatsAppClienteE(c) {
-    const digitos = telefoneValidoE(c.telefone);
-    if (!digitos) { avisarClienteE("Cliente sem telefone válido cadastrado.", "error"); return; }
-    const mensagem = `Olá, ${c.cliente}. Tudo bem? Estamos entrando em contato pelo Pedido Prime.`;
-    window.open(`https://wa.me/55${digitos}?text=${encodeURIComponent(mensagem)}`, "_blank");
+  function abrirWhatsApp(c) {
+    const digitos = telefoneValido(c.telefone);
+    if (!digitos) { avisar("Cliente sem telefone válido cadastrado.", "error"); return; }
+    window.open(`https://wa.me/55${digitos}?text=${encodeURIComponent(`Olá, ${c.cliente}. Tudo bem? Estamos entrando em contato pelo Pedido Prime.`)}`, "_blank");
   }
-  // Exporta o histórico de pedidos deste cliente (já carregado no perfil,
-  // nenhuma consulta nova) — ação "Exportar histórico" do drawer.
-  function exportarHistoricoClienteE(c) {
-    if (!c.ultimosPedidos || c.ultimosPedidos.length === 0) { avisarClienteE("Este cliente não tem pedidos para exportar.", "error"); return; }
-    let csv = "Cupom;Data;Valor;Status;Mesa/Canal;Itens;Forma de pagamento\n";
-    c.ultimosPedidos.forEach((p) => {
-      const qtdItens = p.pedidoObj?.items?.reduce((s, it) => s + it.quantity, 0) || 0;
-      const canalMesa = p.pedidoObj?.table || (p.pedidoObj?.command ? "QR Code" : "Balcão");
-      csv += `${p.id};${p.quando ? p.quando.toLocaleString("pt-BR") : ""};${p.valor.toFixed(2)};${statusMap[p.status]?.label || p.status};${canalMesa};${qtdItens};${p.pedidoObj?.pagamentoForma || ""}\n`;
-    });
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = `historico-${c.cliente.replace(/[^a-z0-9]+/gi, "-")}.csv`; link.click();
-    URL.revokeObjectURL(url);
-    avisarClienteE("Histórico exportado.", "success");
+  function exportarHistorico(c) {
+    if (!c.ultimosPedidos?.length) { avisar("Este cliente não tem pedidos para exportar.", "error"); return; }
+    baixarCsv(`historico-${c.cliente.replace(/[^a-z0-9]+/gi, "-")}.csv`,
+      ["Cupom", "Data", "Valor", "Status", "Mesa/Canal", "Itens", "Forma de pagamento"],
+      c.ultimosPedidos.map((p) => [p.id, p.quando ? p.quando.toLocaleString("pt-BR") : "", Number(p.valor.toFixed(2)), statusMap[p.status]?.label || p.status,
+        p.pedidoObj?.table || "Balcão", p.pedidoObj?.items?.reduce((s, it) => s + it.quantity, 0) || 0, p.pedidoObj?.pagamentoForma || ""]));
+    avisar("Histórico exportado.");
   }
-  function exportarClientesExcelE() {
-    let csv = "Cliente;Telefone;Pedidos;Faturamento;Ticket medio;Lucro gerado;Ultima compra;Primeira compra;Status;Classificacao\n";
-    clientesOrdenadosE.forEach((c) => {
-      csv += `${c.cliente};${c.telefone || ""};${c.totalPedidosVida};${c.faturamentoTotal.toFixed(2)};${c.ticketMedioVida.toFixed(2)};${c.lucroGerado.toFixed(2)};${c.ultima ? c.ultima.toLocaleDateString("pt-BR") : ""};${c.primeira ? c.primeira.toLocaleDateString("pt-BR") : ""};${CLIENTE_STATUS[c.status]?.label || c.status};${CLIENTE_TIER[c.classificacao]?.label || c.classificacao}\n`;
-    });
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = `relatorio-clientes-${periodo}.csv`; link.click();
-    URL.revokeObjectURL(url);
+  function exportarClientes() {
+    baixarCsv(`relatorio-clientes-${periodo}.csv`,
+      ["Cliente", "Telefone", "Pedidos no período", "Faturamento no período", "Pedidos na vida", "Faturamento histórico", "Ticket médio", "Margem estimada", "Primeira compra", "Última compra", "Status", "Classificação", "Canal", "Forma de pagamento"],
+      ordenados.map((c) => [c.cliente, c.telefone || "", c.pedidosPeriodo, Number(c.faturamentoPeriodo.toFixed(2)), c.totalPedidosVida, Number(c.faturamentoTotal.toFixed(2)), Number(c.ticketMedioVida.toFixed(2)), Number(c.lucroGerado.toFixed(2)),
+        c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "", c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "", CLIENTE_STATUS[c.status]?.label || c.status, CLIENTE_TIER[c.classificacao]?.label || "", c.canalPredominante, c.formaPagamentoFavorita || ""]));
   }
-  function atualizarClientesVisaoE() { setAtualizadoEmClientesE(new Date()); }
-  const inputClsClientesE = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46]";
-  const labelClsClientesE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]";
+  const botoesDoCliente = (c) => {
+    const temTelefone = !!telefoneValido(c.telefone);
+    const semTelefone = "Sem telefone válido cadastrado";
+    return (
+      <div className="flex shrink-0 items-center gap-1.5">
+        <IconAcaoCliente icone={<Eye className="h-4 w-4" />} label="Ver perfil" onClick={() => setPerfil(c)} />
+        <IconAcaoCliente icone={<MessageCircle className="h-4 w-4" />} label={temTelefone ? "Enviar WhatsApp" : semTelefone} disabled={!temTelefone} onClick={() => abrirWhatsApp(c)} />
+        <IconAcaoCliente icone={<Phone className="h-4 w-4" />} label={temTelefone ? "Copiar telefone" : semTelefone} disabled={!temTelefone} carregando={carregandoAcao === `telefone:${c.cliente}`} onClick={() => copiarTelefone(c)} />
+        <IconAcaoCliente icone={<Copy className="h-4 w-4" />} label="Copiar cadastro" carregando={carregandoAcao === `cadastro:${c.cliente}`} onClick={() => copiarCadastro(c)} />
+      </div>
+    );
+  };
+  const diasTexto = (c) => (c.diasSemComprar == null ? "—" : c.diasSemComprar === 0 ? "hoje" : `${c.diasSemComprar} dia(s)`);
+  const contagemClientes = (v) => `${v} cliente(s)`;
+  const filtroTexto = (rotulo, valor, definir, dica, modo = "decimal") => (
+    <div><label className={ROTULO_FILTRO}>{rotulo}</label><input value={valor} onChange={(e) => definir(e.target.value.replace(modo === "decimal" ? /[^\d.,]/g : /[^\d]/g, ""))} placeholder={dica} inputMode={modo} className={CAMPO_FILTRO} aria-label={rotulo} /></div>
+  );
+  const filtroLista = (rotulo, valor, definir, opcoes) => (
+    <div><label className={ROTULO_FILTRO}>{rotulo}</label><DropdownSelect ariaLabel={rotulo} valor={valor} onSelecionar={definir} className={`${CAMPO_FILTRO} flex items-center justify-between text-left`} opcoes={opcoes} /></div>
+  );
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+    <div className="space-y-3">
+      <BarraDeAcoes>
+        <BotaoAcao icone={Download} onClick={exportarClientes} disabled={!ordenados.length}>Exportar CSV</BotaoAcao>
+      </BarraDeAcoes>
+      {toast.texto && (
+        <div role="status" aria-live="polite" className="pp-anim-fade fixed bottom-5 left-1/2 z-[200] w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border bg-white px-4 py-3 text-xs font-semibold shadow-[0_12px_32px_rgba(13,27,42,0.16)]"
+          style={{ borderColor: toast.tipo === "error" ? "#C81E4A" : "#2F9E52", color: toast.tipo === "error" ? "#C81E4A" : "#1F7A3D" }}>
+          {toast.texto}
+        </div>
+      )}
+
+      <GradeIndicadores colunas={6}>
+        <Indicador rotulo="Clientes identificados" valor={ranking.length.toLocaleString("pt-BR")} icone={Users} detalhe="Com nome ou telefone no pedido" />
+        <Indicador rotulo="Clientes novos" valor={periodo === "tudo" ? "—" : contar((c) => c.status === "novo")} icone={UserPlus} detalhe={periodo === "tudo" ? "Escolha um período" : "Primeira compra no período"} />
+        <Indicador rotulo="Fidelização" valor={ranking.length ? `${Math.round((recorrentes.length / ranking.length) * 100)}%` : "—"} icone={Repeat} detalhe={`${recorrentes.length} compraram mais de uma vez`} />
+        <Indicador rotulo="Valor médio por cliente" valor={ranking.length ? formatCurrency(ranking.reduce((s, c) => s + c.faturamentoTotal, 0) / ranking.length) : "—"} icone={Wallet} detalhe="Histórico completo" />
+        <Indicador rotulo="Intervalo entre compras" valor={intervalos.length ? `${Math.round(mediana(intervalos))} dia(s)` : "—"} icone={Clock} detalhe="Mediana de quem voltou" />
+        <Indicador rotulo="Concentração" valor={topoConc ? `${Math.round(topoConc.participacao)}%` : "—"} icone={Crown} detalhe={topoConc ? `das vendas vêm de ${topoConc.clientes} cliente(s) (top 20%)` : "Sem vendas identificadas"} />
+      </GradeIndicadores>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Cartao titulo="Vendas com cliente identificado" descricao="Quanto do faturamento dá para acompanhar">
+          <Composicao vazio="Nenhuma venda no período."
+            partes={[
+              { rotulo: "Identificadas", valor: fatIdent, cor: "#012E46", detalhe: `${pagosIdent.length} pedido(s)` },
+              { rotulo: "Sem identificação", valor: Math.max(0, resumo.faturamento - fatIdent), cor: "#F38525", detalhe: `${resumo.qtdPagos - pagosIdent.length} pedido(s) · peça nome ou telefone no fechamento` },
+            ]} />
+        </Cartao>
+        <Cartao titulo="Situação da base" descricao="Clientes que compraram no período">
+          <Composicao formatar={contagemClientes} vazio="Sem clientes identificados."
+            partes={["novo", "recorrente", "recuperado", "ativo", "risco", "inativo", "semDados"].map((s) => ({
+              rotulo: s === "semDados" ? "Sem data" : CLIENTE_STATUS[s].label, valor: contar((c) => c.status === s), cor: COR_STATUS_CLIENTE[s],
+            })).filter((p) => p.valor > 0)} />
+        </Cartao>
+        <Cartao titulo="Frequência de compra" descricao="Pedidos de cada cliente em todo o histórico">
+          <GraficoColunas formatar={contagemClientes} formatarEixo={(v) => v} destacarMaior={false} rotuloMaior="Mais comum"
+            dados={[faixa("1", (c) => c.totalPedidosVida === 1), faixa("2–4", (c) => c.totalPedidosVida >= 2 && c.totalPedidosVida <= 4), faixa("5–10", (c) => c.totalPedidosVida >= 5 && c.totalPedidosVida <= 10), faixa("11+", (c) => c.totalPedidosVida > 10)]} />
+        </Cartao>
+        <Cartao titulo="Faixa de ticket" descricao="Ticket médio de cada cliente (R$)">
+          <GraficoColunas formatar={contagemClientes} formatarEixo={(v) => v} destacarMaior={false} rotuloMaior="Mais comum"
+            dados={[faixa("até 30", (c) => c.ticketMedioVida > 0 && c.ticketMedioVida <= 30), faixa("30–70", (c) => c.ticketMedioVida > 30 && c.ticketMedioVida <= 70), faixa("70–150", (c) => c.ticketMedioVida > 70 && c.ticketMedioVida <= 150), faixa("150+", (c) => c.ticketMedioVida > 150)]} />
+        </Cartao>
+        <Cartao titulo="Clientes que mais compraram" descricao="No período · toque para abrir o perfil">
+          <Ranking vazio="Sem clientes identificados no período." aoClicar={(i) => abrirPorNome(i.chave)}
+            itens={maisValiosos.map((c) => ({ chave: c.cliente, rotulo: c.cliente, valor: c.faturamentoPeriodo, detalhe: `${c.pedidosPeriodo} pedido(s)${c.produtoFavorito ? ` · prefere ${c.produtoFavorito}` : ""}` }))} />
+        </Cartao>
+        <Cartao titulo="Ações sugeridas" descricao="Quem procurar e por quê">
+          {acoes.length === 0 ? <Vazio titulo="Nenhuma ação pendente." dica="Sem clientes em risco no período." /> : (
+            <ul className="space-y-2">
+              {acoes.map((g) => (
+                <li key={g.id} className="rounded-xl border border-[#E5E7EB] p-3">
+                  <p className="flex items-baseline justify-between gap-2 text-[13px] font-black text-[#012E46]"><span>{g.titulo}</span><span>{g.lista.length}</span></p>
+                  <p className="text-xs text-[#667085]">{g.acao}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {g.lista.slice(0, 4).map((c) => (
+                      <button key={c.cliente} type="button" onClick={() => setPerfil(c)} className="max-w-full truncate rounded-full border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-bold text-[#012E46] hover:bg-[#F8FAFC]">{c.cliente}</button>
+                    ))}
+                    {g.lista.length > 4 && <span className="self-center text-[11px] text-[#667085]">+{g.lista.length - 4}</span>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Cartao>
+      </div>
+
+      <Cartao titulo="Todos os clientes" descricao={`${ordenados.length} cliente(s) identificado(s) no período`}>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome ou telefone" aria-label="Buscar por nome ou telefone" className={`${CAMPO_FILTRO} min-w-0 flex-1`} />
+          <BotaoAcao icone={SlidersHorizontal} ativo={mostrarFiltros || filtrosAtivos} aria-expanded={mostrarFiltros} onClick={() => setMostrarFiltros((v) => !v)}>Filtros{filtrosAtivos ? " •" : ""}</BotaoAcao>
+        </div>
+        {mostrarFiltros && (
+          <div className="pp-anim-fade mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+            {filtroLista("Status", fStatus, setFStatus, [{ valor: "todos", rotulo: "Todos" }, ...Object.keys(CLIENTE_STATUS).map((s) => ({ valor: s, rotulo: CLIENTE_STATUS[s].label }))])}
+            {filtroLista("Classificação", fClasse, setFClasse, [{ valor: "todas", rotulo: "Todas" }, ...Object.keys(CLIENTE_TIER).map((s) => ({ valor: s, rotulo: CLIENTE_TIER[s].label }))])}
+            {filtroLista("Canal", fCanal, setFCanal, [{ valor: "todos", rotulo: "Todos" }, ...canais.map((c) => ({ valor: c, rotulo: c }))])}
+            {filtroLista("Forma de pagamento", fForma, setFForma, [{ valor: "todas", rotulo: "Todas" }, ...formas.map((c) => ({ valor: c, rotulo: c }))])}
+            {filtroTexto("Gasto mínimo", fGastoMin, setFGastoMin, "R$ 0")}
+            {filtroTexto("Gasto máximo", fGastoMax, setFGastoMax, "R$ 999")}
+            {filtroTexto("Ticket mínimo", fTicketMin, setFTicketMin, "R$ 0")}
+            {filtroTexto("Ticket máximo", fTicketMax, setFTicketMax, "R$ 999")}
+            {filtroTexto("Pedidos (mín.)", fPedidosMin, setFPedidosMin, "0", "numeric")}
+            {filtroTexto("Dias sem comprar (mín.)", fDiasMin, setFDiasMin, "0", "numeric")}
+            {filtrosAtivos && <button type="button" onClick={limparFiltros} className="col-span-2 text-left text-xs font-bold text-[#012E46] underline lg:col-span-4">Limpar filtros</button>}
+          </div>
+        )}
+
+        {visiveis.length === 0 ? (
+          <Vazio titulo={ranking.length ? "Nenhum cliente encontrado." : "Nenhum cliente identificado no período."} dica={ranking.length ? "Ajuste a busca ou os filtros." : undefined} />
+        ) : (
+          <>
+            <label className="mb-2 block xl:hidden">
+              <span className={ROTULO_FILTRO}>Ordenar por</span>
+              <select value={ordenacao.campo} onChange={(e) => setOrdenacao({ campo: e.target.value, dir: ["cliente", "status", "classificacao"].includes(e.target.value) ? "asc" : "desc" })} className={CAMPO_FILTRO}>
+                {COLUNAS_CLIENTES.map(([campo, rotulo]) => <option key={campo} value={campo}>{rotulo}</option>)}
+              </select>
+            </label>
+            <ul className="grid gap-2 md:grid-cols-2 xl:hidden">
+              {visiveis.map((c) => (
+                <li key={c.cliente} className="min-w-0 rounded-xl border border-[#E5E7EB] p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <button type="button" onClick={() => setPerfil(c)} className="text-left text-sm font-bold text-[#012E46] [overflow-wrap:anywhere]">{c.cliente}</button>
+                      <p className="text-[11px] text-[#667085]">{c.telefone || "Sem telefone"}</p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1"><BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} /><BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} /></div>
+                  </div>
+                  <dl className="my-2 grid grid-cols-3 gap-2">
+                    <Dado rotulo="No período">{formatCurrency(c.faturamentoPeriodo)}</Dado>
+                    <Dado rotulo="Pedidos">{c.pedidosPeriodo}</Dado>
+                    <Dado rotulo="Última">{diasTexto(c)}</Dado>
+                  </dl>
+                  {botoesDoCliente(c)}
+                </li>
+              ))}
+            </ul>
+            <table className="hidden w-full border-collapse text-[13px] xl:table">
+              <thead className="text-[10px] uppercase tracking-wider text-[#667085]">
+                <tr>
+                  {COLUNAS_CLIENTES.map(([campo, rotulo]) => (
+                    <th key={campo} aria-sort={ordenacao.campo === campo ? (ordenacao.dir === "asc" ? "ascending" : "descending") : "none"} className="border-b border-[#E5E7EB] px-2 py-2 text-left">
+                      <button type="button" onClick={() => ordenarPor(campo)} className="font-bold uppercase hover:text-[#012E46]">{rotulo}{ordenacao.campo === campo ? (ordenacao.dir === "desc" ? " ▼" : " ▲") : ""}</button>
+                    </th>
+                  ))}
+                  <th className="border-b border-[#E5E7EB] px-2 py-2 text-left">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {visiveis.map((c) => (
+                  <tr key={c.cliente} onClick={() => setPerfil(c)} className="cursor-pointer border-b border-[#F1F4F6] hover:bg-[#F8FAFC]">
+                    <td className="px-2 py-2"><span className="block font-bold text-[#012E46]">{c.cliente}</span><span className="block text-[11px] text-[#667085]">{c.telefone || "—"}</span></td>
+                    <td className="px-2 py-2 text-[#344054]">{c.pedidosPeriodo}</td>
+                    <td className="px-2 py-2 font-bold text-[#012E46]">{formatCurrency(c.faturamentoPeriodo)}</td>
+                    <td className="px-2 py-2 text-[#667085]">{formatCurrency(c.ticketPeriodo)}</td>
+                    <td className="px-2 py-2 text-[#344054]">{formatCurrency(c.faturamentoTotal)}</td>
+                    <td className="px-2 py-2 text-[#667085]">{diasTexto(c)}</td>
+                    <td className="px-2 py-2"><BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} /></td>
+                    <td className="px-2 py-2"><BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} /></td>
+                    <td className="px-2 py-2">{botoesDoCliente(c)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+        <Paginador pagina={paginaAtual} total={ordenados.length} porPagina={POR_PAGINA} onMudar={setPagina} rotulo="cliente(s)" />
+      </Cartao>
+
+      {perfil && (
+        <ClientePerfilPainel cliente={perfil} onFechar={() => setPerfil(null)}
+          onWhatsApp={abrirWhatsApp} onCopiarTelefone={copiarTelefone}
+          onAbrirCupom={setPedidoVisualizar} onExportarHistorico={exportarHistorico} />
+      )}
+      {pedidoVisualizar && (
+        <ModalVisualizarCupom pedido={pedidoVisualizar} lojaInfo={lojaInfo} custoPorNome={custoPorNome}
+          onFechar={() => setPedidoVisualizar(null)}
+          onReimprimir={() => { setCupomSel(pedidoVisualizar); setPedidoVisualizar(null); }}
+          onEnviar={() => { setCupomSel(pedidoVisualizar); setPedidoVisualizar(null); }} />
+      )}
+      {cupomSel && <CupomNaoFiscalModal pedido={cupomSel} lojaInfo={lojaInfo} onFechar={() => setCupomSel(null)} />}
+    </div>
+  );
+}
+
+// ── Relatórios: cabeçalho, período e abas ─────────────────────
+const ROTULOS_PERIODO = { hoje: "Hoje", ontem: "Ontem", "7": "Últimos 7 dias", "15": "Últimos 15 dias", "30": "Últimos 30 dias", tudo: "Todo o período" };
+const DESCRICAO_RELATORIO = {
+  geral: "Resultado do período: quanto, quando e por onde você vende.",
+  vendas: "Produtos, categorias e combinações que mais faturam.",
+  cupom: "Cada venda paga: valores, tempos e itens.",
+  estoque: "Situação, reposição e dinheiro parado em estoque.",
+  clientes: "Quem compra, com que frequência e quem procurar.",
+  permanencia: "Quanto tempo cada atendimento leva até o pagamento.",
+  satisfacao: "Notas, NPS e comentários da pesquisa.",
+};
+
+function AtalhoRelatorio({ icone: Icone, titulo, texto, onClick }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="flex min-w-0 items-start gap-3 rounded-2xl border border-[#E5E7EB] bg-white p-3 text-left transition hover:border-[#012E46] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#F38525]">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#012E46]/10 text-[#012E46]"><Icone className="h-4 w-4" aria-hidden="true" /></span>
+      <span className="min-w-0">
+        <span className="block text-sm font-black text-[#012E46]">{titulo}</span>
+        <span className="block text-[11px] leading-snug text-[#667085]">{texto}</span>
+      </span>
+    </button>
+  );
+}
+
+function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, irParaProdutos = () => {}, currentUser = null, aba: abaProp = "geral", onAbaChange = () => {} }) {
+  const [periodo, setPeriodo] = useState("7");
+  const [ini, setIni] = useState("");
+  const [fim, setFim] = useState("");
+  // Controlado pelo App (Microgate 03) — fonte única de verdade é o estado
+  // central integrado à URL; nenhum useState local para a aba aqui. Sub
+  // inválido/ausente cai em "geral" (mesmo fallback do contrato de rota).
+  const aba = ehIdRelatorioValido(abaProp) ? abaProp : "geral"; // geral | vendas | cupom | estoque | clientes | permanencia | satisfacao
+  const [drill, setDrill] = useState(null);  // produto clicado → cupons
+  const dados = useDadosVendas();
+
+  const filtrados = useMemo(() => filtrarPedidosPorPeriodo(orders, periodo, ini, fim), [orders, periodo, ini, fim]);
+  const rotuloPeriodo = periodo === "periodo" ? `${formatarDataBR(ini) || "início"} a ${formatarDataBR(fim) || "hoje"}` : ROTULOS_PERIODO[periodo];
+  const comum = { orders, products, filtrados, periodo, ini, fim, lojaInfo };
+  // Cupons (pedidos pagos) que contêm um determinado produto
+  const verCupons = (nome) => setDrill({ nome, cupons: filtrados.filter((o) => ehPago(o) && o.items.some((it) => it.name === nome)) });
+
+  return (
+    <div className="mx-auto w-full max-w-[1600px] space-y-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="min-w-0">
           <h2 className="page-title flex items-center gap-2.5 text-xl font-bold tracking-tight text-dash-navy">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F38525]/30 bg-[#F38525]/10 text-[#F38525] [&>svg]:h-[18px] [&>svg]:w-[18px]"><IconRelatorios /></span>
             {aba === "geral" ? "Relatórios" : `Relatórios — ${RELATORIOS_SUBMENU_LABELS[aba]}`}
           </h2>
-          <p className="mt-1 text-[13px] text-[var(--pp-text-muted)]">Análise gerencial: vendas, cupons, estoque, clientes e tempo de permanência.</p>
+          <p className="mt-1 text-[13px] text-[var(--pp-text-muted)]">{DESCRICAO_RELATORIO[aba]}</p>
         </div>
-        <div className="pp-filter-panel">
-          <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <div className="pp-filter-panel min-w-0">
+            <SeletorPeriodo periodo={periodo} setPeriodo={setPeriodo} ini={ini} setIni={setIni} fim={fim} setFim={setFim} />
+          </div>
+          <SituacaoDados dados={dados} />
         </div>
       </div>
 
-      {aba === "geral" && (
+      {dados.erro && <AvisoErro mensagem={dados.erro} onTentar={dados.atualizar} />}
+
+      {dados.carregando && orders.length === 0 ? <Carregando /> : (
         <>
-          <BotoesExport />
-          {/* 6 KPIs */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-            <CardMetrica compact titulo="Faturamento total" valor={formatCurrency(a.faturamento)} cor="text-dash-navy" tone="dashSuccess" icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 12h.01M18 12h.01" /></svg>} variacao={comparativo?.faturamento} />
-            <CardMetrica compact titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} cor="text-dash-navy" icon="📈" />
-            <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(a.ticket)} cor="text-dash-navy" tone="dashPrimary" icon="🎫" variacao={comparativo?.ticket} />
-            <CardMetrica compact titulo="Itens vendidos" valor={itensVendidos} cor="text-dash-navy" icon="🛍️" />
-            <CardMetrica compact titulo="Pedidos" valor={a.totalPedidos} cor="text-dash-navy" tone="dashInfo" icon="📋" variacao={comparativo?.pedidos} />
-            <CardMetrica compact titulo="Margem estimada" valor={formatCurrency(margemEstimada)} sub={`${margemPct.toFixed(1)}% sobre faturamento`} cor="text-dash-navy" tone="dashWarning" icon="🧮" />
-          </div>
-
-          {/* Evolução + categoria + horário */}
-          <div className="grid gap-5 xl:grid-cols-3">
-            <Painel titulo="Evolução do faturamento" className="xl:col-span-2">
-              <LinhaFaturamento dados={evolucao} />
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[
-                  { r: "Maior dia", v: maiorDiaSemana ? maiorDiaSemana.dia.split("-")[0] : "—", s: maiorDiaSemana ? formatCurrency(maiorDiaSemana.valor) : "—", cor: "text-amber-500" },
-                  { r: "Menor dia", v: menorDiaSemana ? menorDiaSemana.dia.split("-")[0] : "—", s: menorDiaSemana ? formatCurrency(menorDiaSemana.valor) : "—", cor: "text-[#012E46]" },
-                  { r: "Média diária", v: formatCurrency(mediaDiaria), s: "no período", cor: "text-[#012E46]" },
-                  { r: "Dias ativos", v: `${diasAtivos}`, s: `de ${totalDiasPeriodo}`, cor: "text-[#2F9E52]" },
-                ].map((c) => (
-                  <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.r}</p>
-                    <p className="page-title mt-1 truncate text-base font-bold text-dash-navy">{c.v}</p>
-                    <p className={`truncate text-[11px] font-semibold ${c.cor}`}>{c.s}</p>
-                  </div>
-                ))}
-              </div>
-            </Painel>
-            <Painel titulo="Faturamento por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
-          </div>
-
-          <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado"
-            acao={a.faturamento > 0 ? (
-              <span className="shrink-0 text-right">
-                <span className="block text-[10px] font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Total do período</span>
-                <span className="block text-sm font-black text-[#012E46]">{formatCurrency(a.faturamento)}</span>
-              </span>
-            ) : null}>
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#012E46", pico: "#F38525", acimaMedia: "#012E46", padrao: "#012E46", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
-          </Painel>
-
-          {/* Tabelas: produtos, mesas */}
-          <div className="grid gap-5 xl:grid-cols-2">
-            <Painel titulo="Produtos mais vendidos" acao={<button onClick={() => onAbaChange("vendas")} className="text-xs font-bold text-[#012E46] hover:underline">Ver todos →</button>}>
-              <div className="space-y-2.5">
-                {a.topProdutos.length === 0 && <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p>}
-                {a.topProdutos.map((p, i) => (
-                  <div key={p.nome}>
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-2 font-semibold text-dash-navy"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black ${i === 0 ? "bg-[var(--pp-destaque-soft)] text-[#F38525]" : "bg-[rgba(1, 46, 70,0.06)] text-[#012E46]"}`}>{i + 1}</span><span className="truncate">{p.nome}</span></span>
-                      <span className="shrink-0 text-[var(--pp-text-muted)]">{p.qtd} un · <b className="text-[#2F9E52]">{formatCurrency(p.valor)}</b> · {a.faturamentoSemTaxa ? ((p.valor / a.faturamentoSemTaxa) * 100).toFixed(1) : 0}%</span>
-                    </div>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className={`h-full rounded-full ${i === 0 ? "bg-[var(--pp-destaque)]" : "bg-[#012E46]"}`} style={{ width: `${a.faturamentoSemTaxa ? (p.valor / a.faturamentoSemTaxa) * 100 : 0}%` }} /></div>
-                  </div>
-                ))}
-              </div>
-            </Painel>
-            <Painel titulo="Mesas com maior faturamento" acao={<button onClick={irParaMesas} className="text-xs font-bold text-[#012E46] hover:underline">Ver mapa →</button>}>
-              {mesasFaturamento.length === 0 ? <p className="py-4 text-center text-sm text-[var(--pp-text-muted)]">Nenhuma venda no período.</p> : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[360px] text-sm">
-                    <thead><tr className="border-b border-[var(--pp-border)] text-left text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]"><th className="py-2 pr-3">Mesa</th><th className="py-2 pr-3 text-right">Faturamento</th><th className="py-2 pr-3 text-center">Pedidos</th><th className="py-2 text-right">Ticket médio</th></tr></thead>
-                    <tbody>{mesasFaturamento.slice(0, 8).map((m) => (
-                      <tr key={m.mesa} className="border-b border-[var(--pp-border)]"><td className="py-2.5 pr-3 font-bold text-dash-navy">{m.mesa}</td><td className="py-2.5 pr-3 text-right font-semibold text-[#2F9E52]">{formatCurrency(m.faturamento)}</td><td className="py-2.5 pr-3 text-center text-[var(--pp-text-muted)]">{m.pedidos}</td><td className="py-2.5 text-right text-[var(--pp-text-muted)]">{formatCurrency(m.ticket)}</td></tr>
-                    ))}</tbody>
-                  </table>
-                </div>
-              )}
-            </Painel>
-          </div>
-
-          {/* Complementares */}
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            <Painel titulo="Conversão / Pagamento">
-              <p className="page-title text-3xl font-bold text-dash-navy">{taxaPagamento}%</p>
-              <p className="mt-1 text-xs text-[var(--pp-text-muted)]">pedidos pagos de {a.totalPedidos}</p>
-            </Painel>
-            <Painel titulo="Clientes no período">
-              <p className="page-title text-3xl font-bold text-dash-navy">{clientesLista.length}</p>
-              <p className="mt-1 text-xs text-[var(--pp-text-muted)]">{clientesIdentificados} identificado(s)</p>
-            </Painel>
-            <Painel titulo="Estoque">
-              <div className="flex gap-4">
-                <div><p className="page-title text-2xl font-bold text-amber-500">{baixoCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">abaixo do mínimo</p></div>
-                <div><p className="page-title text-2xl font-bold text-[#C81E4A]">{zeradosCount}</p><p className="text-[11px] text-[var(--pp-text-muted)]">zerados</p></div>
-              </div>
-              <button onClick={() => onAbaChange("estoque")} className="mt-3 text-xs font-bold text-[#012E46] hover:underline">Ver relatório de estoque →</button>
-            </Painel>
-            <Painel titulo="Permanência">
-              <button onClick={() => onAbaChange("permanencia")} className="text-sm font-bold text-[#012E46] hover:underline">Ver tempo de permanência →</button>
-              <p className="mt-2 text-xs text-[var(--pp-text-muted)]">Análise do tempo entre abertura e pagamento das comandas.</p>
-            </Painel>
-          </div>
+          {aba === "geral" && (
+            <>
+              <RelatorioVisaoGeral {...comum} irParaMesas={irParaMesas} irParaVendas={() => onAbaChange("vendas")} />
+              <nav aria-label="Outros relatórios" className="grid gap-2 min-[400px]:grid-cols-2 lg:grid-cols-3">
+                <AtalhoRelatorio icone={ShoppingBag} titulo="Vendas" texto="Produtos e curva ABC" onClick={() => onAbaChange("vendas")} />
+                <AtalhoRelatorio icone={Receipt} titulo="Cupom / Mesa / Comanda" texto="Venda a venda" onClick={() => onAbaChange("cupom")} />
+                <AtalhoRelatorio icone={Package} titulo="Estoque" texto="Reposição e cobertura" onClick={() => onAbaChange("estoque")} />
+                <AtalhoRelatorio icone={Users} titulo="Clientes" texto="Frequência e retorno" onClick={() => onAbaChange("clientes")} />
+                <AtalhoRelatorio icone={Clock} titulo="Permanência" texto="Tempo até o pagamento" onClick={() => onAbaChange("permanencia")} />
+                <AtalhoRelatorio icone={Star} titulo="Satisfação" texto="Notas e comentários" onClick={() => onAbaChange("satisfacao")} />
+              </nav>
+            </>
+          )}
+          {aba === "vendas" && <RelatorioVendas {...comum} rotuloPeriodo={rotuloPeriodo} onVerCupons={verCupons} />}
+          {aba === "cupom" && <RelatorioCupom pedidos={filtrados} products={products} lojaInfo={lojaInfo} periodo={periodo} ini={ini} fim={fim} currentUser={currentUser} />}
+          {aba === "estoque" && <RelatorioEstoque {...comum} irParaProdutos={irParaProdutos} />}
+          {aba === "clientes" && <RelatorioClientes {...comum} />}
+          {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} products={products} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
+          {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} todasPesquisas={pesquisas} pedidos={filtrados} orders={orders} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
         </>
       )}
-
-      {aba === "clientes" && (
-        <>
-          {/* 7. Ações rápidas */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={exportarClientesExcelE} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar</button>
-              <button onClick={() => setCompararPeriodoClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoClientesE ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
-              <button onClick={atualizarClientesVisaoE} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
-            </div>
-            <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEmClientesE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
-          </div>
-          {/* Toast fixo — sempre visível, independente da rolagem da tabela
-              (o antigo aviso ficava preso no topo da aba e "sumia" quando o
-              usuário copiava algo com a tabela rolada para baixo). */}
-          {toastClientesE && (
-            <div className="pp-anim-fade fixed bottom-5 left-1/2 z-[200] w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-xl border px-4 py-3 text-xs font-semibold shadow-[0_12px_32px_rgba(13,27,42,0.16)]"
-              style={toastClientesTipoE === "error" ? { background: "#FFFFFF", borderColor: "#C81E4A", color: "#C81E4A" } : { background: "#FFFFFF", borderColor: "#2F9E52", color: "#2F9E52" }} role="status" aria-live="polite">
-              {toastClientesTipoE === "error" ? "⚠️ " : "✅ "}{toastClientesE}
-            </div>
-          )}
-
-          {/* 1. Resumo executivo */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-            <KpiExecutivo titulo="Clientes identificados" valor={clientesIdentificados} desc="Com nome ou telefone no pedido" icon="🧑" />
-            <KpiExecutivo titulo="Clientes não identificados" valor={`${pedidosSemId} pedido(s)`} desc={formatCurrency(fatSemId)} icon="❓" />
-            <KpiExecutivo titulo="Ticket médio" valor={formatCurrency(a.ticket)} variacao={compararPeriodoClientesE ? comparativo?.ticket : null} desc="Por pedido pago no período" icon="🎟️" />
-            <KpiExecutivo titulo="Faturamento total" valor={formatCurrency(a.faturamento)} variacao={compararPeriodoClientesE ? comparativo?.faturamento : null} desc="No período selecionado" icon="💰" />
-            <KpiExecutivo titulo="Clientes novos" valor={clientesRankingE.filter((c) => c.status === "novo").length} desc="Primeira compra no período" icon="✨" />
-            <KpiExecutivo titulo="Clientes recorrentes" valor={clientesRankingE.filter((c) => c.status === "recorrente" || c.status === "recuperado").length} desc="Mais de uma compra na vida" icon="🔁" />
-            <KpiExecutivo titulo="Clientes VIP" valor={clientesRankingE.filter((c) => c.classificacao === "vip").length} desc="Top 10% em faturamento" icon="👑" />
-            <KpiExecutivo titulo="Clientes inativos" valor={clientesInativosCountE} desc="Sem comprar há mais de 30 dias" icon="💤" />
-            <KpiExecutivo titulo="Frequência média" valor={clientesAtivosIdentificadosE ? (clientesRankingE.reduce((s, c) => s + c.pedidosPeriodo, 0) / clientesAtivosIdentificadosE).toFixed(1) : "—"} desc="Pedidos por cliente no período" icon="📈" />
-            <KpiExecutivo titulo="Tempo médio entre compras" valor={(() => { const vals = clientesRankingE.filter((c) => c.totalPedidosVida > 1 && c.primeira && c.ultima).map((c) => (c.ultima - c.primeira) / 864e5 / (c.totalPedidosVida - 1)); return vals.length ? `${(vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(0)} dia(s)` : "—"; })()} desc="Entre clientes com 2+ compras" icon="⏱️" />
-            <KpiExecutivo titulo="Valor médio por cliente" valor={clientesAtivosIdentificadosE ? formatCurrency(clientesRankingE.reduce((s, c) => s + c.faturamentoTotal, 0) / clientesAtivosIdentificadosE) : "—"} desc="Faturamento total ÷ clientes" icon="💳" />
-            <KpiExecutivo titulo="Índice de fidelização" valor={clientesAtivosIdentificadosE ? `${Math.round((clientesRankingE.filter((c) => c.totalPedidosVida > 1).length / clientesAtivosIdentificadosE) * 100)}%` : "—"} desc="Clientes com mais de 1 compra" icon="🏅" />
-            <KpiExecutivo titulo="Taxa de retorno" valor={clientesAtivosIdentificadosE ? `${Math.round((clientesRankingE.filter((c) => c.status !== "inativo").length / clientesAtivosIdentificadosE) * 100)}%` : "—"} desc="Clientes ativos (≤ 30 dias)" icon="🔄" />
-          </div>
-
-          {/* 2. Alertas gerenciais */}
-          <div>
-            <h3 className="page-title mb-3 text-base font-bold text-[var(--pp-text)]">Alertas gerenciais</h3>
-            {alertasClientesE.length === 0 ? (
-              <p className="rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum alerta no momento.</p>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {alertasClientesE.slice(0, 12).map((al, i) => (
-                  <InsightCardVendas key={i} tom={al.nivel === "critico" ? "danger" : al.nivel === "atencao" ? "warning" : "violet"}
-                    titulo={`${al.tipo} · ${al.cliente}`} texto={`${al.desc}. ${al.motivo} ${al.acao}`}
-                    acaoLabel={clientesRankingE.some((c) => c.cliente === al.cliente) ? "Ver cliente" : undefined}
-                    onAcao={clientesRankingE.some((c) => c.cliente === al.cliente) ? () => setClienteSelecionadoE(clientesRankingE.find((c) => c.cliente === al.cliente)) : undefined} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 6. Insights (Oportunidades) */}
-          <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4">
-            <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">💡 Oportunidades</p>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-              {[
-                clienteEmRiscoAptoPromocaoE && ["Cliente apto para promoção", clienteEmRiscoAptoPromocaoE.cliente, formatCurrency(clienteEmRiscoAptoPromocaoE.faturamentoTotal)],
-                clientesRankingE.filter((c) => c.diasSemComprar > 30)[0] && ["Cliente sem retorno", clientesRankingE.filter((c) => c.diasSemComprar > 30)[0].cliente, `${clientesRankingE.filter((c) => c.diasSemComprar > 30)[0].diasSemComprar} dia(s)`],
-                clientesUmaCompraE[0] && ["Comprou somente uma vez", clientesUmaCompraE[0].cliente, formatCurrency(clientesUmaCompraE[0].faturamentoTotal)],
-                clienteAumentouTicketE && ["Aumentou o ticket", clienteAumentouTicketE.cliente, `${formatCurrency(clienteAumentouTicketE.ticketPeriodo)} vs. ${formatCurrency(clienteAumentouTicketE.ticketAnterior)}`],
-                clienteReduziuComprasE && ["Reduziu compras", clienteReduziuComprasE.cliente, `${clienteReduziuComprasE.variacaoPedidos} pedido(s) vs. período anterior`],
-                produtoFavoritoGeralE && ["Produto favorito da base", produtoFavoritoGeralE, null],
-                melhorHoraV?.label && ["Melhor horário", melhorHoraV.label, melhorHoraV.valor > 0 ? formatCurrency(melhorHoraV.valor) : null],
-                clienteMaiorLucroE && ["Maior margem gerada", clienteMaiorLucroE.cliente, formatCurrency(clienteMaiorLucroE.lucroGerado)],
-                clienteMaiorPotencialE && ["Maior potencial de upgrade", clienteMaiorPotencialE.cliente, `${CLIENTE_TIER[clienteMaiorPotencialE.classificacao]?.label} · ${clienteMaiorPotencialE.pedidosPeriodo} pedido(s)`],
-              ].filter(Boolean).map(([r, v, sub]) => (
-                <div key={r} className="rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{r}</p>
-                  <p className="mt-0.5 truncate text-sm font-black text-[var(--pp-text)]">{v}</p>
-                  {sub && <p className="truncate text-[11px] font-semibold text-[#012E46]">{sub}</p>}
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs leading-relaxed text-[var(--pp-text)]">💡 Campanha sugerida: {clientesRankingE.filter((c) => c.status === "risco").length > 0 ? `oferta de reativação para os ${clientesRankingE.filter((c) => c.status === "risco").length} cliente(s) em risco (15–30 dias sem comprar).` : clientesUmaCompraE.length > 0 ? `incentivo de segunda compra para os ${clientesUmaCompraE.length} cliente(s) que compraram apenas uma vez.` : "base de clientes estável no momento — sem campanha urgente identificada."}</p>
-          </div>
-
-          {/* 9. Dashboard CRM */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TopLista titulo="Top 10 clientes" icon="🏆" itens={top10ClientesE} vazio="Sem clientes identificados no período."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.cliente}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.faturamentoTotal)}</span></div>)} />
-            <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
-              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Clientes ativos x inativos</p>
-              {clientesRankingE.length === 0 ? <p className="py-2 text-xs text-[var(--pp-text-muted)]">Sem dados no período.</p> : <DonutChart dados={clientesAtivoXInativoE} label="Clientes" />}
-            </div>
-            <div className="h-full rounded-2xl border border-[var(--pp-border)] bg-white p-4 shadow-[0_1px_2px_rgba(13,27,42,0.04)]">
-              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">Clientes por canal</p>
-              {clientesPorCanalE.length === 0 ? <p className="py-2 text-xs text-[var(--pp-text-muted)]">Sem dados no período.</p> : <DonutChart dados={clientesPorCanalE} label="Canal" />}
-            </div>
-            <TopLista titulo="Clientes por forma de pagamento" icon="💳" itens={clientesPorFormaE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
-            <TopLista titulo="Clientes por frequência" icon="🔁" itens={clientesPorFrequenciaE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.faixa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
-            <TopLista titulo="Clientes por faixa de ticket" icon="🎟️" itens={clientesPorTicketE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.faixa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
-            <TopLista titulo="Clientes por horário preferido" icon="⏰" itens={clientesPorHorarioE} vazio="Sem dados no período."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.faixa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{f.qtd}</span></div>)} />
-          </div>
-          <p className="text-[11px] text-[var(--pp-text-muted)]">"Clientes por Cidade" não está disponível — o cadastro de cliente não tem campo de cidade no modelo de dados atual.</p>
-
-          {/* 8. Filtros */}
-          <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <input value={buscaClientesE} onChange={(e) => setBuscaClientesE(e.target.value)} placeholder="🔎 Buscar por cliente ou telefone…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46]" />
-              <button onClick={() => setMostrarFiltrosClientesE((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosClientesE || filtrosClientesAtivosE ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
-                ⚙️ Filtros{filtrosClientesAtivosE ? " •" : ""}
-              </button>
-            </div>
-            {mostrarFiltrosClientesE && (
-              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[var(--pp-bg)] pt-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className={labelClsClientesE}>Status</label>
-                  <DropdownSelect ariaLabel="Status" valor={fStatusClienteE} onSelecionar={setFStatusClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
-                    opcoes={[{ valor: "todos", rotulo: "Todos" }, ...Object.keys(CLIENTE_STATUS).map((s) => ({ valor: s, rotulo: CLIENTE_STATUS[s].label }))]} />
-                </div>
-                <div>
-                  <label className={labelClsClientesE}>Classificação</label>
-                  <DropdownSelect ariaLabel="Classificação" valor={fClassificacaoE} onSelecionar={setFClassificacaoE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
-                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...Object.keys(CLIENTE_TIER).map((s) => ({ valor: s, rotulo: CLIENTE_TIER[s].label }))]} />
-                </div>
-                <div>
-                  <label className={labelClsClientesE}>Canal / Origem</label>
-                  <DropdownSelect ariaLabel="Canal / Origem" valor={fCanalClienteE} onSelecionar={setFCanalClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
-                    opcoes={[{ valor: "todos", rotulo: "Todos" }, ...canaisClientesDisponiveisE.map((c) => ({ valor: c, rotulo: c }))]} />
-                </div>
-                <div>
-                  <label className={labelClsClientesE}>Forma de pagamento</label>
-                  <DropdownSelect ariaLabel="Forma de pagamento" valor={fFormaPagClienteE} onSelecionar={setFFormaPagClienteE} className={`${inputClsClientesE} flex items-center justify-between text-left`}
-                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...formasClientesDisponiveisE.map((c) => ({ valor: c, rotulo: c }))]} />
-                </div>
-                <div><label className={labelClsClientesE}>Valor gasto mínimo</label><input value={fValorGastoMinE} onChange={(e) => setFValorGastoMinE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 0,00" inputMode="decimal" className={inputClsClientesE} /></div>
-                <div><label className={labelClsClientesE}>Valor gasto máximo</label><input value={fValorGastoMaxE} onChange={(e) => setFValorGastoMaxE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 999,00" inputMode="decimal" className={inputClsClientesE} /></div>
-                <div><label className={labelClsClientesE}>Ticket mínimo</label><input value={fTicketMinE} onChange={(e) => setFTicketMinE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 0,00" inputMode="decimal" className={inputClsClientesE} /></div>
-                <div><label className={labelClsClientesE}>Ticket máximo</label><input value={fTicketMaxE} onChange={(e) => setFTicketMaxE(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="R$ 999,00" inputMode="decimal" className={inputClsClientesE} /></div>
-                <div><label className={labelClsClientesE}>Pedidos no período (mín.)</label><input value={fPedidosMinE} onChange={(e) => setFPedidosMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
-                <div><label className={labelClsClientesE}>Dias sem comprar (mín.)</label><input value={fDiasSemComprarMinE} onChange={(e) => setFDiasSemComprarMinE(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsClientesE} /></div>
-                {filtrosClientesAtivosE && (
-                  <button onClick={limparFiltrosClientesE} className="self-end text-left text-[11px] font-bold text-[#012E46] hover:text-[#012E46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 3. Ranking de clientes */}
-          <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white">
-            <div className="border-b border-[var(--pp-border)] px-5 py-3.5">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[var(--pp-text)]">Ranking de clientes</h3>
-              <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{clientesOrdenadosE.length} cliente(s) identificado(s) · "Responsável" e "Origem" (distinta de canal) não existem no cadastro atual</p>
-            </div>
-            <div className="max-h-[560px] overflow-auto">
-              <table className="w-full min-w-[1100px] border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-[var(--pp-bg)]">
-                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                    {[
-                      ["cliente", "Cliente"], ["telefone", "Telefone"], ["pedidosPeriodo", "Pedidos"], ["faturamentoPeriodo", "Faturamento"],
-                      ["ticketPeriodo", "Ticket médio"], ["lucroGerado", "Lucro gerado"], ["recencia", "Última compra"], ["antiguidade", "Primeira compra"],
-                      ["totalPedidosVida", "Frequência"], ["diasSemComprar", "Dias sem comprar"], ["status", "Status"], ["classificacao", "Classif."],
-                      ["canalPredominante", "Canal"], ["formaPagamentoFavorita", "Forma pagto."],
-                    ].map(([campo, rotulo]) => (
-                      <th key={campo} className="whitespace-nowrap border-b border-[var(--pp-border)] px-3 py-2.5 text-left">
-                        <button onClick={() => alternarOrdemClientesE(campo)} className="flex items-center gap-1 transition hover:text-[#012E46]">
-                          {rotulo}{ordenacaoClientesE.campo === campo ? (ordenacaoClientesE.dir === "desc" ? " ▼" : " ▲") : ""}
-                        </button>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientesVisiveisE.length === 0 && (
-                    <tr><td colSpan={14} className="px-5 py-8 text-center text-sm text-[var(--pp-text-muted)]">
-                      {clientesRankingE.length === 0 ? "Nenhum cliente identificado no período." : "Nenhum cliente encontrado para os filtros aplicados."}
-                    </td></tr>
-                  )}
-                  {clientesVisiveisE.map((c) => (
-                    <tr key={c.cliente} onClick={() => setClienteSelecionadoE(c)} className="cursor-pointer border-b border-[var(--pp-bg)] transition hover:bg-[var(--pp-bg)]">
-                      <td className="max-w-[180px] truncate px-3 py-2.5 font-semibold text-[var(--pp-text)]">{c.cliente}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.telefone || "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text)]">{c.pedidosPeriodo}</td>
-                      <td className="px-3 py-2.5 font-semibold text-[var(--pp-text)]">{formatCurrency(c.faturamentoPeriodo)}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{formatCurrency(c.ticketPeriodo)}</td>
-                      <td className="px-3 py-2.5 text-[#2F9E52]">{formatCurrency(c.lucroGerado)}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.ultima ? c.ultima.toLocaleDateString("pt-BR") : "—"}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.primeira ? c.primeira.toLocaleDateString("pt-BR") : "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text)]">{c.totalPedidosVida}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{c.diasSemComprar != null ? `${c.diasSemComprar}d` : "—"}</td>
-                      <td className="px-3 py-2.5"><BadgeCliente mapa={CLIENTE_STATUS} chave={c.status} /></td>
-                      <td className="px-3 py-2.5"><BadgeCliente mapa={CLIENTE_TIER} chave={c.classificacao} /></td>
-                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[var(--pp-text-muted)]">{c.canalPredominante}</td>
-                      <td className="max-w-[140px] truncate px-3 py-2.5 text-[var(--pp-text-muted)]">{c.formaPagamentoFavorita || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {clientesVisiveisE.length > 0 && (
-              <div className="border-t border-[var(--pp-bg)] px-5 py-3">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[var(--pp-text-muted)]">Ações rápidas por cliente</p>
-                <div className="space-y-1.5">
-                  {clientesVisiveisE.map((c) => {
-                    const temTelefone = !!telefoneValidoE(c.telefone);
-                    return (
-                      <div key={c.cliente} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] px-3 py-2">
-                        <span className="min-w-0 truncate text-xs font-semibold text-[var(--pp-text)]">{c.cliente}</span>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <IconAcaoCliente icone="👁️" label="Visualizar perfil completo" onClick={() => setClienteSelecionadoE(c)} />
-                          <IconAcaoCliente icone="💬" label={temTelefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!temTelefone} onClick={() => abrirWhatsAppClienteE(c)} />
-                          <IconAcaoCliente icone="📋" label={temTelefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!temTelefone} carregando={carregandoAcaoE === `telefone:${c.cliente}`} onClick={() => copiarTelefoneClienteE(c)} />
-                          <IconAcaoCliente icone="📇" label="Copiar cadastro" carregando={carregandoAcaoE === `cadastro:${c.cliente}`} onClick={() => copiarCadastroClienteE(c)} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-[10px] text-[var(--pp-text-muted)]">As mesmas ações (Visualizar, WhatsApp, Copiar telefone, Copiar cadastro) também ficam disponíveis ao clicar em qualquer linha da tabela.</p>
-              </div>
-            )}
-          </div>
-          <Paginacao pagina={paginaClientesAtualE} totalPaginas={totalPaginasClientesE} total={clientesOrdenadosE.length} porPagina={porPaginaClientes}
-            onMudar={setPaginaClientes} rotulo="cliente(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaClientes} mostrarExtremos />
-
-          {pedidosSemId > 0 && (
-            <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-5">
-              <h3 className="page-title text-sm font-bold text-[#012E46]">💡 Recomendação gerencial</h3>
-              <p className="mt-2 text-sm leading-6 text-[var(--pp-text)]">A maior parte dos pedidos está sem identificação do cliente. Considere incentivar o cadastro no tablet, oferecer benefício de fidelidade ou solicitar o telefone no fechamento da comanda para melhorar campanhas futuras.</p>
-            </div>
-          )}
-
-          {/* 4. Perfil do cliente */}
-          {clienteSelecionadoE && (
-            <ClientePerfilPainel cliente={clienteSelecionadoE} onFechar={() => setClienteSelecionadoE(null)}
-              onWhatsApp={abrirWhatsAppClienteE} onCopiarTelefone={copiarTelefoneClienteE}
-              onAbrirCupom={setPedidoVisualizarClienteE} onExportarHistorico={exportarHistoricoClienteE} />
-          )}
-          {/* 6. Detalhe do pedido — reaproveita o mesmo modal de detalhe já
-              usado na aba Cupom/Mesa/Comanda (itens, adicionais, observações,
-              financeiro e timeline da venda). */}
-          {pedidoVisualizarClienteE && (
-            <ModalVisualizarCupom pedido={pedidoVisualizarClienteE} lojaInfo={lojaInfo} custoPorNome={custoPorNome}
-              onFechar={() => setPedidoVisualizarClienteE(null)}
-              onReimprimir={() => { setCupomSelClienteE(pedidoVisualizarClienteE); setPedidoVisualizarClienteE(null); }}
-              onEnviar={() => { setCupomSelClienteE(pedidoVisualizarClienteE); setPedidoVisualizarClienteE(null); }} />
-          )}
-          {cupomSelClienteE && <CupomNaoFiscalModal pedido={cupomSelClienteE} lojaInfo={lojaInfo} onFechar={() => setCupomSelClienteE(null)} />}
-        </>
-      )}
-
-      {aba === "vendas" && (
-        <>
-          {/* 8. Ações rápidas */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <BotoesExport />
-              <button onClick={() => setCompararPeriodo((v) => !v)}
-                className={`rounded-2xl border px-4 py-2.5 text-sm font-bold transition ${compararPeriodo ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
-              <button onClick={compartilharRelatorioV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔗 Compartilhar</button>
-              <button onClick={atualizarVisaoV} className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
-            </div>
-            <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
-          </div>
-          {toastVendas && <p className="pp-anim-fade rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5 text-xs text-[var(--pp-text)]">{toastVendas}</p>}
-
-          {/* 1. Resumo executivo */}
-          <div className="rounded-[1.75rem] border border-[var(--pp-border)] bg-white p-5 sm:p-6">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h3 className="page-title text-base font-bold text-[var(--pp-text)]">Resumo executivo</h3>
-                <p className="mt-0.5 text-xs text-[var(--pp-text-muted)]">Visão consolidada do período selecionado</p>
-              </div>
-              {comparativo && (
-                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${comparativo.faturamento >= 0 ? "bg-[#2F9E52]/10 text-[#2F9E52]" : "bg-[#F38525]/10 text-[#F38525]"}`}>
-                  {comparativo.faturamento >= 0 ? "▲" : "▼"} {Math.abs(Math.round(comparativo.faturamento))}% vs. período anterior
-                </span>
-              )}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {[
-                { r: "Faturamento", v: formatCurrency(a.faturamento), s: compararPeriodo && comparativo ? `Antes: ${formatCurrency(comparativo.faturamentoAnterior)}` : "no período" },
-                { r: "Ticket médio", v: formatCurrency(a.ticket), s: compararPeriodo && comparativo ? `Antes: ${formatCurrency(comparativo.ticketAnterior)}` : "por pedido" },
-                { r: "Pedidos", v: a.totalPedidos, s: compararPeriodo && comparativo ? `Antes: ${comparativo.pedidosAnterior}` : "no período" },
-                { r: "Itens vendidos", v: itensVendidos, s: "unidades" },
-                { r: "Margem", v: formatCurrency(margemEstimada), s: `${margemPct.toFixed(0)}% do faturamento` },
-                { r: "Melhor horário", v: melhorHoraV.label, s: melhorHoraV.valor > 0 ? formatCurrency(melhorHoraV.valor) : "sem vendas" },
-                { r: "Melhor produto", v: a.topProdutos[0]?.nome || "—", s: a.topProdutos[0] ? `${a.topProdutos[0].qtd} un.` : "sem vendas" },
-                { r: "Melhor categoria", v: a.categorias[0]?.categoria || "—", s: a.categorias[0] ? formatCurrency(a.categorias[0].valor) : "sem vendas" },
-                { r: "Melhor forma de pagamento", v: formasPagamentoV[0]?.nome || "—", s: formasPagamentoV[0] ? formatCurrency(formasPagamentoV[0].valor) : "sem dados" },
-              ].map((c) => (
-                <div key={c.r} className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">{c.r}</p>
-                  <p className="page-title mt-1 truncate text-base font-bold text-[var(--pp-text)]">{c.v}</p>
-                  <p className="truncate text-[11px] font-semibold text-[#012E46]">{c.s}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 2. KPIs padronizados */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <KpiExecutivo titulo="Subtotal vendido" valor={formatCurrency(a.faturamentoSemTaxa)} desc="Antes da taxa de serviço (10%)" icon="💰" tendencia={evolucao.map((d) => d.valor)} />
-            <KpiExecutivo titulo="Faturamento + taxa" valor={formatCurrency(a.faturamento)} variacao={comparativo?.faturamento} desc="Com taxa de serviço" icon="📈" tendencia={evolucao.map((d) => d.valor)} />
-            <KpiExecutivo titulo="Ticket médio" valor={formatCurrency(a.ticket)} variacao={comparativo?.ticket} desc="Por pedido pago" icon="🎟️" />
-            <KpiExecutivo titulo="Qtd. de pedidos" valor={a.totalPedidos} variacao={comparativo?.pedidos} desc="No período selecionado" icon="🧾" />
-            <KpiExecutivo titulo="Itens vendidos" valor={itensVendidos} desc="Unidades nos pedidos pagos" icon="📦" />
-            <KpiExecutivo titulo="Margem estimada" valor={formatCurrency(margemEstimada)} desc={`${margemPct.toFixed(0)}% do faturamento · preço − custo cadastrado`} icon="📊" />
-          </div>
-
-          {/* 6. Gráficos padronizados (reaproveita os mesmos componentes/dados já usados na aba Visão geral) */}
-          <div className="grid gap-5 xl:grid-cols-3">
-            <Painel titulo="Evolução do faturamento" className="xl:col-span-2"><LinhaFaturamento dados={evolucao} /></Painel>
-            <Painel titulo="Vendas por categoria"><DonutChart dados={catDonutR} label="Categorias" /></Painel>
-          </div>
-          <Painel titulo="Faturamento por horário" descricao="Distribuição das vendas ao longo do período selecionado">
-            <BarrasHora dados={horarioGeral} paleta={{ semVenda: "#012E46", pico: "#F38525", acimaMedia: "#012E46", padrao: "#012E46", grade: "#EAE0D6", texto: "#8A7D73", textoValor: "#8A7D73" }} />
-          </Painel>
-
-          {/* 3. Produtos mais vendidos — ranking profissional (busca, ordenação, paginação) */}
-          <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--pp-border)] px-5 py-3.5">
-              <div>
-                <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[var(--pp-text)]">Produtos mais vendidos</h3>
-                <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">{produtosCompletosV.length} produto(s) com venda no período · toque para ver os cupons</p>
-              </div>
-              <input value={buscaProdV} onChange={(e) => setBuscaProdV(e.target.value)} placeholder="🔎 Buscar produto…"
-                className="w-full max-w-[220px] rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2 text-xs text-[var(--pp-text)] outline-none transition focus:border-[#012E46]" />
-            </div>
-            <div className="hidden items-center justify-between border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)] sm:flex">
-              <span>#, Produto e categoria</span>
-              <span className="flex gap-3">
-                <button onClick={() => alternarOrdemV("qtd")} className="transition hover:text-[#012E46]">Qtd{ordemProdV.campo === "qtd" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
-                <button onClick={() => alternarOrdemV("valor")} className="transition hover:text-[#012E46]">Faturamento{ordemProdV.campo === "valor" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
-                <span>%</span><span>Ticket médio</span>
-                <button onClick={() => alternarOrdemV("margem")} className="transition hover:text-[#012E46]">Margem{ordemProdV.campo === "margem" ? (ordemProdV.dir === "desc" ? " ▼" : " ▲") : ""}</button>
-              </span>
-            </div>
-            {produtosVisiveisV.length === 0 && (
-              <p className="px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum produto encontrado{buscaProdV ? " para essa busca" : " no período"}.</p>
-            )}
-            {produtosVisiveisV.map((p, i) => {
-              const rankGlobal = (paginaProdVAtual - 1) * porPaginaProdV + i + 1;
-              return (
-                <div key={p.nome} className="border-t border-[var(--pp-bg)] px-5 py-3.5 transition hover:bg-[var(--pp-bg)]">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black ${rankGlobal === 1 ? "bg-[#F38525]/15 text-[#F38525]" : "bg-[#012E46]/10 text-[#012E46]"}`}>{rankGlobal}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-[var(--pp-text)]">{p.nome}</p>
-                      <p className="truncate text-[11px] text-[var(--pp-text-muted)]">{p.categoria}</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-right text-xs">
-                      <span className="text-[var(--pp-text)]"><b className="text-[var(--pp-text)]">{p.qtd}</b> un</span>
-                      <span className="font-bold text-[var(--pp-text)]">{formatCurrency(p.valor)}</span>
-                      <span className="text-[var(--pp-text-muted)]">{p.pct.toFixed(1)}%</span>
-                      <span className="hidden text-[var(--pp-text-muted)] sm:inline">tkt {formatCurrency(p.ticket)}</span>
-                      <span className="hidden font-semibold text-[#2F9E52] sm:inline">{formatCurrency(p.margem)}</span>
-                    </div>
-                    <button onClick={() => setDrill({ nome: p.nome, cupons: cuponsDoProduto(p.nome) })}
-                      className="shrink-0 rounded-lg border border-[var(--pp-border)] px-2.5 py-1.5 text-[11px] font-bold text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.06)]">Ver detalhes</button>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--pp-bg)]"><div className="h-full rounded-full bg-[#012E46]" style={{ width: `${(p.qtd / maxQtdV) * 100}%` }} /></div>
-                </div>
-              );
-            })}
-          </div>
-          <Paginacao pagina={paginaProdVAtual} totalPaginas={totalPaginasProdV} total={produtosOrdenadosV.length} porPagina={porPaginaProdV}
-            onMudar={setPaginaProdV} rotulo="produto(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaProdV} />
-
-          {/* 4. Novos cards — Top categorias/clientes/mesas, produtos sem venda/baixo estoque/maior margem/faturamento, horário de pico, forma de pagamento e canal */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <TopLista titulo="Top categorias" icon="🏷️" itens={a.categorias.slice(0, 5)} vazio="Sem categorias vendidas no período."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.categoria}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.valor)}</span></div>)} />
-            <TopLista titulo="Top clientes" icon="👤" itens={clientesLista.filter((c) => c.identificado).slice(0, 5)} vazio="Sem clientes identificados no período."
-              acao={<button onClick={() => onAbaChange("clientes")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver todos →</button>}
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.cliente}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.faturamento)}</span></div>)} />
-            <TopLista titulo="Top mesas" icon="🍽️" itens={mesasFaturamento.slice(0, 5)} vazio="Sem vendas por mesa no período."
-              render={(m) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{m.mesa}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(m.faturamento)}</span></div>)} />
-            <TopLista titulo="Produtos sem venda" icon="🚫" itens={produtosSemVendaV.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
-              acao={produtosSemVendaV.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosSemVendaV.length - 5}</span> : null}
-              render={(p) => <span className="block truncate text-sm text-[var(--pp-text)]">{p.name}</span>} />
-            <TopLista titulo="Produtos com baixo estoque" icon="📉" itens={produtosBaixoEstoqueV.slice(0, 5)} vazio="Nenhum produto em estoque crítico."
-              acao={<button onClick={() => onAbaChange("estoque")} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Ver estoque →</button>}
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className={`shrink-0 font-bold ${l.zerado ? "text-[#C81E4A]" : "text-[#F38525]"}`}>{l.posterior} un</span></div>)} />
-            <TopLista titulo="Maior margem" icon="💎" itens={produtosPorMargemV.slice(0, 5)} vazio="Sem dados de margem no período."
-              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{p.nome}</span><span className="shrink-0 font-bold text-[#2F9E52]">{formatCurrency(p.margem)}</span></div>)} />
-            <TopLista titulo="Maior faturamento" icon="🏆" itens={produtosPorFaturamentoV.slice(0, 5)} vazio="Sem vendas no período."
-              render={(p) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{p.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(p.valor)}</span></div>)} />
-            <TopLista titulo="Horário de pico" icon="⏰" itens={[...horarioGeral].filter((h) => h.valor > 0).sort((x, y) => y.valor - x.valor).slice(0, 5)} vazio="Sem vendas no período."
-              render={(h) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="text-[var(--pp-text)]">{h.label}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(h.valor)}</span></div>)} />
-            <TopLista titulo="Forma de pagamento" icon="💳" itens={formasPagamentoV.slice(0, 5)} vazio="Sem dados de forma de pagamento."
-              render={(f) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{f.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(f.valor)}</span></div>)} />
-            <TopLista titulo="Canal de venda" icon="📡" itens={canalVendaV} vazio="Sem dados de canal de venda."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(c.valor)}</span></div>)} />
-          </div>
-
-          {/* 5. Insights */}
-          <div>
-            <h3 className="page-title mb-3 text-base font-bold text-[var(--pp-text)]">Insights</h3>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {a.topProdutos[0] && (
-                <InsightCardVendas tom="success" titulo="Produto destaque" texto={`${a.topProdutos[0].nome} lidera as vendas com ${a.topProdutos[0].qtd} un. (${formatCurrency(a.topProdutos[0].valor)}).`} />
-              )}
-              {produtosSemVendaV.length > 0 && (
-                <InsightCardVendas tom="warning" titulo="Produto parado" texto={`${produtosSemVendaV.length} produto(s) sem nenhuma venda no período, incluindo ${produtosSemVendaV[0].name}.`} acaoLabel="Ver estoque" onAcao={() => onAbaChange("estoque")} />
-              )}
-              {comparativo?.catCrescimento && comparativo.catCrescimento.variacao > 0 && (
-                <InsightCardVendas tom="success" titulo="Categoria em crescimento" texto={`${comparativo.catCrescimento.categoria} cresceu ${comparativo.catCrescimento.variacao.toFixed(0)}% vs. o período anterior.`} />
-              )}
-              {comparativo?.catQueda && comparativo.catQueda.variacao < 0 && (
-                <InsightCardVendas tom="warning" titulo="Categoria em queda" texto={`${comparativo.catQueda.categoria} caiu ${Math.abs(comparativo.catQueda.variacao).toFixed(0)}% vs. o período anterior.`} />
-              )}
-              {comparativo?.ticket != null && (
-                <InsightCardVendas tom={comparativo.ticket >= 0 ? "success" : "warning"} titulo={comparativo.ticket >= 0 ? "Ticket acima da média" : "Ticket abaixo da média"}
-                  texto={`Ticket médio de ${formatCurrency(a.ticket)}, ${comparativo.ticket >= 0 ? "acima" : "abaixo"} do período anterior (${formatCurrency(comparativo.ticketAnterior)}).`} />
-              )}
-              {piorHoraComVendaV && (
-                <InsightCardVendas tom="violet" titulo="Oportunidade de venda" texto={`Horário de menor movimento: ${piorHoraComVendaV.label}. Considere promoções ou combos neste intervalo.`} />
-              )}
-              {produtosBaixoEstoqueV.length > 0 && (
-                <InsightCardVendas tom="danger" titulo="Estoque crítico" texto={`${produtosBaixoEstoqueV.length} produto(s) com estoque baixo ou zerado.`} acaoLabel="Ver estoque" onAcao={() => onAbaChange("estoque")} />
-              )}
-              {a.topProdutos.length === 0 && produtosSemVendaV.length === 0 && !comparativo && produtosBaixoEstoqueV.length === 0 && (
-                <p className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum insight disponível para o período selecionado.</p>
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      {aba === "cupom" && <RelatorioCupom pedidos={filtrados} products={products} lojaInfo={lojaInfo} periodo={periodo} ini={ini} fim={fim} currentUser={currentUser} />}
-
-      {aba === "estoque" && (
-        <>
-          {/* 6. Ações rápidas */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={exportarEstoqueCSV} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📊 Exportar Excel</button>
-              <button onClick={exportarEstoquePDF} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📄 Exportar PDF</button>
-              <button onClick={() => setCompararPeriodoEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoEstoque ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>📅 Comparar período</button>
-              <button onClick={() => setSomenteCriticosEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteCriticosEstoque ? "border-[#C81E4A] bg-[#C81E4A]/10 text-[#C81E4A]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>🚨 Ver somente críticos</button>
-              <button onClick={atualizarEstoqueVisao} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">🔄 Atualizar</button>
-              <button onClick={irParaProdutos} className="rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2 text-xs font-bold text-[var(--pp-text)] transition hover:bg-[var(--pp-bg)]">📦 Abrir cadastro do produto</button>
-            </div>
-            <p className="text-[11px] text-[var(--pp-text-muted)]">Atualizado às {atualizadoEmEstoque.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
-          </div>
-
-          {/* 1. Resumo executivo */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-            <KpiExecutivo titulo="Estoque total atual" valor={`${totalEmEstoque} un.`} desc="Soma de todos os produtos ativos" icon="📦" />
-            <KpiExecutivo titulo="Itens vendidos no período" valor={`${totalVendidoPeriodo} un.`} variacao={compararPeriodoEstoque ? comparativoEstoqueE?.itensVendidos : null} desc="Unidades baixadas por venda paga" icon="🧾" />
-            <KpiExecutivo titulo="Maior estoque" valor={maiorEstoque ? maiorEstoque.name : "—"} desc={maiorEstoque ? `${maiorEstoque.estoque ?? 0} un.` : "Sem produtos"} icon="🔝" />
-            <KpiExecutivo titulo="Menor estoque" valor={menorEstoque ? menorEstoque.name : "—"} desc={menorEstoque ? `${menorEstoque.estoque ?? 0} un.` : "Sem produtos"} icon="🔻" />
-            <KpiExecutivo titulo="Produtos zerados" valor={zeradosCount} desc="Estoque atual igual a zero" icon="⛔" />
-            <KpiExecutivo titulo="Abaixo do mínimo" valor={baixoCount} desc="Estoque atual ≤ mínimo cadastrado" icon="⚠️" />
-            <KpiExecutivo titulo="Sem movimentação" valor={produtosParadosEstoqueE.length} desc="Nenhuma venda no período" icon="😴" />
-            <KpiExecutivo titulo="Valor estimado em estoque" valor={formatCurrency(valorEstoqueTotal)} desc="Estoque atual × custo cadastrado" icon="💰" />
-            <KpiExecutivo titulo="Custo dos itens vendidos" valor={formatCurrency(custoVendidoTotal)} variacao={compararPeriodoEstoque ? comparativoEstoqueE?.custoVendido : null} desc="CMV do período (custo cadastrado)" icon="🧮" />
-            <KpiExecutivo titulo="Cobertura média" valor={coberturaMediaDias != null ? `${coberturaMediaDias.toFixed(0)} dia(s)` : "—"} desc={coberturaMediaDias != null ? "Entre produtos com venda no período" : "Sem produtos com venda para calcular"} icon="⏳" />
-          </div>
-
-          {/* 2. Alertas de estoque */}
-          <div>
-            <h3 className="page-title mb-3 text-base font-bold text-[var(--pp-text)]">Alertas de estoque</h3>
-            {alertasEstoque.length === 0 ? (
-              <p className="rounded-2xl border border-[var(--pp-border)] bg-white px-5 py-6 text-center text-sm text-[var(--pp-text-muted)]">Nenhum alerta no momento — estoque dentro do esperado para o período.</p>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {(somenteCriticosEstoque ? alertasEstoque.filter((a) => a.nivel === "critico") : alertasEstoque).slice(0, 12).map((a, i) => (
-                  <InsightCardVendas key={i} tom={a.nivel === "critico" ? "danger" : a.nivel === "atencao" ? "warning" : "violet"}
-                    titulo={`${a.tipo} · ${a.produto}`} texto={`${a.evidencia}. ${a.acao}`}
-                    acaoLabel="Ver produto" onAcao={() => { const l = linhasEstoqueEnriquecidas.find((x) => x.nome === a.produto); if (l) setProdutoDetalheEstoque(l); }} />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 3. Tabela principal — busca, ordenação por coluna, filtros, paginação */}
-          <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-3.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <input value={buscaEstoque} onChange={(e) => setBuscaEstoque(e.target.value)} placeholder="🔎 Buscar por produto ou categoria…"
-                className="min-w-[220px] flex-1 rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-[var(--pp-text)] outline-none transition focus:border-[#012E46]" />
-              <button onClick={() => setMostrarFiltrosEstoque((v) => !v)}
-                className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosEstoque || filtrosEstoqueAtivos ? "border-[#012E46] bg-[rgba(1, 46, 70,0.06)] text-[#012E46]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text)] hover:bg-[var(--pp-bg)]"}`}>
-                ⚙️ Filtros{filtrosEstoqueAtivos ? " •" : ""}
-              </button>
-            </div>
-            {mostrarFiltrosEstoque && (
-              <div className="pp-anim-fade mt-3 grid gap-3 border-t border-[var(--pp-bg)] pt-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <label className={labelClsEstoque}>Categoria</label>
-                  <DropdownSelect ariaLabel="Categoria" valor={fCategoriaEstoque} onSelecionar={setFCategoriaEstoque} className={`${inputClsEstoque} flex items-center justify-between text-left`}
-                    opcoes={[{ valor: "todas", rotulo: "Todas" }, ...categoriasEstoqueDisponiveis.map((c) => ({ valor: c, rotulo: c }))]} />
-                </div>
-                <div>
-                  <label className={labelClsEstoque}>Status</label>
-                  <DropdownSelect ariaLabel="Status" valor={fStatusEstoque} onSelecionar={setFStatusEstoque} className={`${inputClsEstoque} flex items-center justify-between text-left`}
-                    opcoes={[{ valor: "todos", rotulo: "Todos" }, ...Object.keys(ESTOQUE_STATUS).map((s) => ({ valor: s, rotulo: ESTOQUE_STATUS[s].label }))]} />
-                </div>
-                <div><label className={labelClsEstoque}>Estoque mínimo (faixa)</label><input value={fEstoqueMin} onChange={(e) => setFEstoqueMin(e.target.value.replace(/[^\d]/g, ""))} placeholder="0" inputMode="numeric" className={inputClsEstoque} /></div>
-                <div><label className={labelClsEstoque}>Estoque máximo (faixa)</label><input value={fEstoqueMax} onChange={(e) => setFEstoqueMax(e.target.value.replace(/[^\d]/g, ""))} placeholder="999" inputMode="numeric" className={inputClsEstoque} /></div>
-                {filtrosEstoqueAtivos && (
-                  <button onClick={limparFiltrosEstoque} className="self-end text-left text-[11px] font-bold text-[#012E46] hover:text-[#012E46] sm:col-span-2 lg:col-span-4">✕ Limpar filtros</button>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="overflow-hidden rounded-[1.75rem] border border-[var(--pp-border)] bg-white">
-            <div className="border-b border-[var(--pp-border)] px-5 py-3.5">
-              <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[var(--pp-text)]">Estoque anterior x posterior (por venda)</h3>
-              <p className="mt-0.5 text-[11px] text-[var(--pp-text-muted)]">Anterior = atual + vendido no período · não considera restock manual feito fora deste período · {linhasEstoqueOrdenadas.length} produto(s)</p>
-            </div>
-            {/* Rolagem interna com cabeçalho fixo */}
-            <div className="max-h-[520px] overflow-auto">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
-                <thead className="sticky top-0 z-10 bg-[var(--pp-bg)]">
-                  <tr className="text-[10px] font-bold uppercase tracking-widest text-[var(--pp-text-muted)]">
-                    {[
-                      ["nome", "Produto"], ["categoria", "Categoria"], ["anterior", "Anterior"], ["vendido", "Vendido"],
-                      ["posterior", "Atual"], ["minimo", "Mínimo"], ["cobertura", "Cobertura"], ["custoUnit", "Custo un."], ["valorEstoque", "Valor"], ["status", "Status"],
-                    ].map(([campo, rotulo]) => (
-                      <th key={campo} className="whitespace-nowrap border-b border-[var(--pp-border)] px-3 py-2.5 text-left">
-                        <button onClick={() => alternarOrdemEstoque(campo)} className="flex items-center gap-1 transition hover:text-[#012E46]">
-                          {rotulo}{ordenacaoEstoque.campo === campo ? (ordenacaoEstoque.dir === "desc" ? " ▼" : " ▲") : ""}
-                        </button>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {linhasEstoqueVisiveis.length === 0 && (
-                    <tr><td colSpan={10} className="px-5 py-8 text-center text-sm text-[var(--pp-text-muted)]">
-                      {linhasEstoqueEnriquecidas.length === 0 ? "Nenhum produto cadastrado." : "Nenhum produto encontrado para os filtros aplicados."}
-                    </td></tr>
-                  )}
-                  {linhasEstoqueVisiveis.map((l) => (
-                    <tr key={l.nome} onClick={() => setProdutoDetalheEstoque(l)} className="cursor-pointer border-b border-[var(--pp-bg)] transition hover:bg-[var(--pp-bg)]">
-                      <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-[var(--pp-text)]">{l.nome}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{l.categoria || "—"}</td>
-                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text-muted)]">{l.anterior}</td>
-                      <td className="px-3 py-2.5 font-mono font-semibold text-[#012E46]">{l.vendido}</td>
-                      <td className="px-3 py-2.5 font-mono font-bold text-[var(--pp-text)]">{l.posterior}</td>
-                      <td className="px-3 py-2.5 font-mono text-[var(--pp-text-muted)]">{l.minimo}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{l.cobertura != null ? `${l.cobertura.toFixed(0)}d` : "—"}</td>
-                      <td className="px-3 py-2.5 text-[var(--pp-text-muted)]">{formatCurrency(l.custoUnit)}</td>
-                      <td className="px-3 py-2.5 font-semibold text-[var(--pp-text)]">{formatCurrency(l.valorEstoque)}</td>
-                      <td className="px-3 py-2.5"><BadgeEstoque status={l.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <Paginacao pagina={paginaEstoqueAtual} totalPaginas={totalPaginasEstoque} total={linhasEstoqueOrdenadas.length} porPagina={porPaginaEstoque}
-            onMudar={setPaginaEstoque} rotulo="produto(s)" tema="claro" porPaginaOpcoes={[10, 20, 50, 100]} onMudarPorPagina={setPorPaginaEstoque} mostrarExtremos />
-
-          {/* 5. Novas análises */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <TopLista titulo="Maior giro" icon="🔁" itens={maiorGiro} vazio="Sem dados de giro no período."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{l.giro.toFixed(2)}x</span></div>)} />
-            <TopLista titulo="Menor giro" icon="🐌" itens={menorGiro} vazio="Sem produtos com giro baixo (excluindo parados)."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[#F38525]">{l.giro.toFixed(2)}x</span></div>)} />
-            <TopLista titulo="Produtos parados" icon="😴" itens={produtosParadosEstoqueE.slice(0, 5)} vazio="Todos os produtos ativos venderam no período."
-              acao={produtosParadosEstoqueE.length > 5 ? <span className="text-[11px] text-[var(--pp-text-muted)]">+{produtosParadosEstoqueE.length - 5}</span> : null}
-              render={(l) => <span className="block truncate text-sm text-[var(--pp-text)]">{l.nome}</span>} />
-            <TopLista titulo="Maior valor imobilizado" icon="🏦" itens={maiorValorImobilizado} vazio="Sem dados de valor em estoque."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{formatCurrency(l.valorEstoque)}</span></div>)} />
-            <TopLista titulo="Risco de ruptura" icon="🚨" itens={riscoRuptura} vazio="Nenhum produto com risco de ruptura identificado."
-              render={(l) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span><span className="shrink-0 font-bold text-[#C81E4A]">{l.cobertura.toFixed(1)}d</span></div>)} />
-            <TopLista titulo="Categorias com maior consumo" icon="🏷️" itens={consumoPorCategoria} vazio="Sem categorias com consumo no período."
-              render={(c) => (<div className="flex items-center justify-between gap-2 text-sm"><span className="min-w-0 truncate text-[var(--pp-text)]">{c.categoria}</span><span className="shrink-0 font-bold text-[var(--pp-text)]">{c.vendido} un.</span></div>)} />
-            <TopLista titulo="Sugestão de reposição" icon="📋" itens={sugestoesReposicao} vazio="Nenhum produto abaixo do mínimo no momento." className="sm:col-span-2"
-              render={(l) => (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate text-[var(--pp-text)]">{l.nome}</span>
-                  <span className="shrink-0 text-right">
-                    <span className="font-bold text-[#012E46]">+{l.sugestaoQtd} un. até o mínimo</span>
-                    <span className="ml-2 text-[11px] text-[var(--pp-text-muted)]">média {l.mediaDiaria.toFixed(1)} un./dia</span>
-                  </span>
-                </div>
-              )} />
-          </div>
-
-          {produtosSemCustoEstoque.length > 0 && (
-            <p className="text-[11px] text-[var(--pp-text-muted)]">{produtosSemCustoEstoque.length} produto(s) sem custo cadastrado — valor em estoque e CMV podem estar subestimados para esses itens.</p>
-          )}
-
-          {produtoDetalheEstoque && (
-            <ModalDetalheProdutoEstoque produto={produtoDetalheEstoque} onFechar={() => setProdutoDetalheEstoque(null)}
-              onAbrirCadastro={() => { setProdutoDetalheEstoque(null); irParaProdutos(); }} />
-          )}
-        </>
-      )}
-
-      {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} products={products} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
-
-      {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} todasPesquisas={pesquisas} pedidos={filtrados} orders={orders} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
 
       {/* Drill-down: cupons de um produto */}
       {drill && <CuponsProdutoModal nome={drill.nome} cupons={drill.cupons} lojaInfo={lojaInfo} onFechar={() => setDrill(null)} />}
@@ -12351,6 +11393,7 @@ const ESTOQUE_STATUS = {
   critico: { label: "Crítico", cor: "#EF4444" },
   excesso: { label: "Excesso", cor: "#8B5CF6" },
   semMovimento: { label: "Sem movimento", cor: "#64748B" },
+  semControle: { label: "Sem controle", cor: "#667085" },
 };
 function BadgeEstoque({ status }) {
   const s = ESTOQUE_STATUS[status] || ESTOQUE_STATUS.normal;
@@ -12446,9 +11489,9 @@ function ModalDetalheProdutoEstoque({ produto, onFechar, onAbrirCadastro }) {
       rodape={<button onClick={onAbrirCadastro} className="w-full rounded-xl bg-[#012E46] py-2.5 text-sm font-bold text-white transition hover:bg-[#012E46]">Abrir cadastro do produto</button>}>
       <div className="grid grid-cols-2 gap-2.5">
         {[
-          ["Estoque anterior", `${l.anterior} un.`], ["Vendido no período", `${l.vendido} un.`],
-          ["Estoque atual", `${l.posterior} un.`], ["Estoque mínimo", `${l.minimo} un.`],
-          ["Custo unitário", formatCurrency(l.custoUnit)], ["Valor em estoque", formatCurrency(l.valorEstoque)],
+          ["Estoque anterior", l.controla ? `${l.anterior} un.` : "—"], ["Vendido no período", `${l.vendido} un.`],
+          ["Estoque atual", l.controla ? `${l.posterior} un.` : "—"], ["Estoque mínimo", l.controla ? `${l.minimo} un.` : "—"],
+          ["Custo unitário", l.custoUnit == null ? "—" : formatCurrency(l.custoUnit)], ["Valor em estoque", l.valorEstoque == null ? "—" : formatCurrency(l.valorEstoque)],
           ["Cobertura estimada", l.cobertura != null ? `${l.cobertura.toFixed(1)} dia(s)` : "—"], ["Status", ESTOQUE_STATUS[l.status]?.label || l.status],
         ].map(([r, v]) => (
           <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
@@ -12541,14 +11584,14 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
         {c.frequente && <BadgeCliente mapa={{ frequente: { label: "Frequente", cor: "#10B981" } }} chave="frequente" />}
       </>}
       acoes={<>
-        <IconAcaoCliente icone="💬" label={c.telefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onWhatsApp(c)} />
-        <IconAcaoCliente icone="📋" label={c.telefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onCopiarTelefone(c)} />
-        <IconAcaoCliente icone="🪪" label="Ver dados de cadastro" onClick={() => contatoRef.current?.scrollIntoView({ block: "nearest" })} />
+        <IconAcaoCliente icone={<MessageCircle className="h-4 w-4" />} label={c.telefone ? "Enviar WhatsApp" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onWhatsApp(c)} />
+        <IconAcaoCliente icone={<Copy className="h-4 w-4" />} label={c.telefone ? "Copiar telefone" : "Sem telefone válido cadastrado"} disabled={!telefoneValidoParaBadgeE(c.telefone)} onClick={() => onCopiarTelefone(c)} />
+        <IconAcaoCliente icone={<Users className="h-4 w-4" />} label="Ver dados de cadastro" onClick={() => contatoRef.current?.scrollIntoView({ block: "nearest" })} />
       </>}
       rodape={
         <div className="flex items-center gap-2 sm:hidden">
-          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#012E46] py-2.5 text-xs font-bold text-white transition hover:bg-[#012E46]">💬 WhatsApp</button>
-          <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar telefone</button>
+          <button onClick={() => onWhatsApp(c)} className="flex-1 rounded-xl bg-[#012E46] py-2.5 text-xs font-bold text-white transition hover:bg-[#012E46]">WhatsApp</button>
+          <button onClick={() => onCopiarTelefone(c)} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Copiar telefone</button>
         </div>
       }>
       {/* 3. Score de relacionamento */}
@@ -12630,7 +11673,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
 
           {/* 7. Insights e oportunidades */}
           <div>
-            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">💡 Insights e oportunidades</p>
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Insights e oportunidades</p>
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 c.status === "risco" && ["Apto para campanha", "Sim — em risco, ainda recuperável"],
@@ -12653,7 +11696,7 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-[#64748B]">Histórico de pedidos</p>
               {onExportarHistorico && (
-                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">📤 Exportar</button>
+                <button onClick={() => onExportarHistorico(c)} className="text-[11px] font-bold text-[#012E46] transition hover:text-[#012E46]">Exportar</button>
               )}
             </div>
             {(!c.ultimosPedidos || c.ultimosPedidos.length === 0) ? (
@@ -12672,12 +11715,12 @@ function ClientePerfilPainel({ cliente, onFechar, onWhatsApp, onCopiarTelefone, 
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#64748B]">
                           <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black ${statusMap[p.status]?.chip}`}>{statusMap[p.status]?.label}</span>
-                          <span>📍 {canalMesa}</span>
-                          <span>📦 {qtdItens} item(ns)</span>
-                          <span>💳 {p.pedidoObj?.pagamentoForma || "Não informado"}</span>
+                          <span>{canalMesa}</span>
+                          <span>{qtdItens} item(ns)</span>
+                          <span>{p.pedidoObj?.pagamentoForma || "Não informado"}</span>
                           {onAbrirCupom && (
                             <button onClick={() => onAbrirCupom(p.pedidoObj)} title="Ver cupom" aria-label="Ver detalhe deste cupom"
-                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">🧾 Ver cupom</button>
+                              className="ml-auto rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">Ver cupom</button>
                           )}
                         </div>
                       </div>
@@ -12750,19 +11793,19 @@ function TimelineVenda({ pedido }) {
 // aqui (fica em CupomNaoFiscalModal); oferece atalhos para abri-lo.
 function ModalVisualizarCupom({ pedido, lojaInfo, custoPorNome, anomalias = [], acao, onFechar, onReimprimir, onEnviar }) {
   const subtotal = orderTotal(pedido);
-  const taxa = subtotal * 0.1;
+  const taxa = totalComTaxa(pedido) - subtotal;
   const total = subtotal + taxa;
   const custoTotal = pedido.items.reduce((s, it) => s + (custoPorNome[it.name] ?? 0) * it.quantity, 0);
   const lucroBruto = subtotal - custoTotal;
   const margemPct = subtotal > 0 ? (lucroBruto / subtotal) * 100 : 0;
-  const canal = pedido.command ? "Mesa / QR Code" : pedido.table ? "Mesa" : "Balcão / Delivery";
+  const canal = canalDoPedido(pedido);
   return (
     <PainelDetalhe aberto={!!pedido} ariaLabel={`Cupom ${pedido.id}`} onFechar={onFechar}
-      titulo={`🧾 Cupom ${pedido.id} · Resumo da venda`}
+      titulo={`Cupom ${pedido.id} · Resumo da venda`}
       subtitulo={`${lojaInfo?.nome || "Restaurante"} · ${pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt}`}
       rodape={<div className="flex items-center gap-2">
-        <button onClick={onReimprimir} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Ir para impressão</button>
-        <button onClick={onEnviar} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ir para envio</button>
+        <button onClick={onReimprimir} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Ir para impressão</button>
+        <button onClick={onEnviar} className="flex-1 rounded-xl border border-[#E2E8F0] py-2.5 text-sm font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Ir para envio</button>
       </div>}>
           {anomalias.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -13080,16 +12123,12 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   const menuAnchorsRef = useRef({}); // id -> elemento do botão "⋯", usado para ancorar o menu em Portal
   const [toastCupom, setToastCupom] = useState("");
 
-  const pagos = pedidos.filter((o) => o.paymentStatus === "paid");
+  const pagos = pedidos.filter(ehPago);
+  const cancelados = pedidos.filter((o) => o.status === "cancelled");
   const nomeUsuarioAtual = currentUser?.name || currentUser?.email || "Usuário";
 
   // ── Painel resumo (mesmos totais já usados no relatório, sem consulta nova) ──
   const valores = pagos.map((o) => totalComTaxa(o));
-  const faturamentoCupons = valores.reduce((s, v) => s + v, 0);
-  const ticketMedioCupons = pagos.length ? faturamentoCupons / pagos.length : 0;
-  const maiorVendaCupom = valores.length ? Math.max(...valores) : 0;
-  const menorVendaCupom = valores.length ? Math.min(...valores) : 0;
-
   function registrarAcao(id, tipo) {
     const quando = new Date().toISOString();
     setAcoesLog((cur) => {
@@ -13105,8 +12144,6 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   // consulta nova) — usado no cabeçalho, no resumo financeiro e nas anomalias.
   const custoPorNome = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
   function margemPedido(o) { return orderTotal(o) - o.items.reduce((s, it) => s + (custoPorNome[it.name] ?? 0) * it.quantity, 0); }
-  function canalDoPedido(o) { return o.command ? "Mesa / QR Code" : o.table ? "Mesa" : "Balcão / Delivery"; }
-
   // ── Tempo — derivados dos timestamps já existentes no pedido
   // (createdAtISO, preparoEmISO, prontoEmISO, updatedAtISO) — nenhum dado novo. ──
   function tempoVenda(o) { return minutosEntreISO(o.createdAtISO, o.updatedAtISO); }
@@ -13123,14 +12160,12 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
   const tempoFechamentoMedioGlobal = tFechamentoValidos.length ? tFechamentoValidos.reduce((s, v) => s + v, 0) / tFechamentoValidos.length : 0;
   const tVendaValidos = pagos.map(tempoVenda).filter((v) => v != null);
   const tempoAtendimentoMedioGlobal = tVendaValidos.length ? tVendaValidos.reduce((s, v) => s + v, 0) / tVendaValidos.length : 0;
-  const lucroTotalCupons = pagos.reduce((s, o) => s + margemPedido(o), 0);
-  const subtotalTotalCupons = pagos.reduce((s, o) => s + orderTotal(o), 0);
-  const margemPctGlobal = subtotalTotalCupons > 0 ? (lucroTotalCupons / subtotalTotalCupons) * 100 : 0;
-  const cancelamentosCount = pagos.filter((o) => o.status === "cancelled").length;
-  const reimpressoesTotais = Array.from(acoesLog.values()).reduce((s, v) => s + (v.reimpressoCount || 0), 0);
-  const itensPorCupomGlobal = pagos.length ? pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + it.quantity, 0), 0) / pagos.length : 0;
-  const pedidosViaQr = pagos.filter((o) => !!o.command).length;
-  const pctViaQr = pagos.length ? (pedidosViaQr / pagos.length) * 100 : 0;
+  const itensPorCupom = pagos.length ? pagos.reduce((s, o) => s + o.items.reduce((x, it) => x + it.quantity, 0), 0) / pagos.length : null;
+  const porTotal = [...pagos].sort((a, b) => totalComTaxa(b) - totalComTaxa(a));
+  const maiorCupom = porTotal[0] || null;
+  const menorCupom = porTotal[porTotal.length - 1] || null;
+  const temCusto = products.some((p) => Number(p.cost) > 0);
+  const maiorLucro = temCusto ? [...pagos].sort((a, b) => margemPedido(b) - margemPedido(a))[0] || null : null;
 
   // ── Anomalias — detecção automática por cupom, só com dados reais (sem
   // limite configurável de desconto, troco ou histórico de forma de
@@ -13152,50 +12187,6 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     if (removidosTotal >= 3) lista.push({ cor: "azul", texto: "Muitos ingredientes removidos" });
     return lista;
   }
-
-  // ── Insights automáticos do período (tudo calculado sobre `pagos`) ──
-  const insights = (() => {
-    if (pagos.length === 0) return null;
-    const porProdutoLocal = {};
-    pagos.forEach((o) => o.items.forEach((it) => {
-      if (!porProdutoLocal[it.name]) porProdutoLocal[it.name] = { nome: it.name, qtd: 0, valor: 0 };
-      porProdutoLocal[it.name].qtd += it.quantity; porProdutoLocal[it.name].valor += it.price * it.quantity;
-    }));
-    const produtoMaisVendido = Object.values(porProdutoLocal).sort((a, b) => b.qtd - a.qtd)[0] || null;
-
-    const porClienteLocal = {};
-    pagos.filter((o) => o.customer).forEach((o) => {
-      if (!porClienteLocal[o.customer]) porClienteLocal[o.customer] = { nome: o.customer, pedidos: 0, valor: 0 };
-      porClienteLocal[o.customer].pedidos += 1; porClienteLocal[o.customer].valor += totalComTaxa(o);
-    });
-    const clienteVip = Object.values(porClienteLocal).sort((a, b) => b.valor - a.valor)[0] || null;
-    const clientesRecorrentes = Object.values(porClienteLocal).filter((c) => c.pedidos > 1).sort((a, b) => b.pedidos - a.pedidos);
-
-    const porHoraLocal = {};
-    pagos.forEach((o) => { if (!o.createdAtISO) return; const h = new Date(o.createdAtISO).getHours(); if (!porHoraLocal[h]) porHoraLocal[h] = { hora: h, lucro: 0 }; porHoraLocal[h].lucro += margemPedido(o); });
-    const horarioMaisLucrativo = Object.values(porHoraLocal).sort((a, b) => b.lucro - a.lucro)[0] || null;
-
-    const porFormaLocal = {};
-    pagos.forEach((o) => { const f = o.pagamentoForma || "Não informado"; porFormaLocal[f] = (porFormaLocal[f] || 0) + 1; });
-    const [formaPredominante, formaPredominanteQtd] = Object.entries(porFormaLocal).sort((a, b) => b[1] - a[1])[0] || [null, 0];
-
-    const pedidoMaiorLucro = [...pagos].sort((a, b) => margemPedido(b) - margemPedido(a))[0] || null;
-    const pedidoMaiorTicket = [...pagos].sort((a, b) => (totalComTaxa(b)) - (totalComTaxa(a)))[0] || null;
-    const comPermanencia = pagos.filter((o) => tempoVenda(o) != null);
-    const pedidoMaiorPermanencia = comPermanencia.length ? [...comPermanencia].sort((a, b) => tempoVenda(b) - tempoVenda(a))[0] : null;
-
-    const paresContagem = {};
-    pagos.forEach((o) => {
-      const nomesUnicos = Array.from(new Set(o.items.map((it) => it.name)));
-      for (let i = 0; i < nomesUnicos.length; i++) for (let j = i + 1; j < nomesUnicos.length; j++) {
-        const chave = [nomesUnicos[i], nomesUnicos[j]].sort().join(" + ");
-        paresContagem[chave] = (paresContagem[chave] || 0) + 1;
-      }
-    });
-    const [parMaisComum, parMaisComumQtd] = Object.entries(paresContagem).sort((a, b) => b[1] - a[1])[0] || [null, 0];
-
-    return { produtoMaisVendido, clienteVip, clientesRecorrentes, horarioMaisLucrativo, formaPredominante, formaPredominanteQtd, pedidoMaiorLucro, pedidoMaiorTicket, pedidoMaiorPermanencia, parMaisComum, parMaisComumQtd };
-  })();
 
   // ── Busca + filtros + ordenação (tudo local, sobre os pedidos já carregados) ──
   const formasDisponiveis = Array.from(new Set(pagos.map((o) => o.pagamentoForma || "Não informado"))).sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -13272,7 +12263,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     const empresa = lojaInfo?.nome || "Restaurante";
     const dataStr = o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt;
     const subtotalO = orderTotal(o);
-    const taxaO = subtotalO * 0.1;
+    const taxaO = totalComTaxa(o) - subtotalO;
     const linhas = o.items.map((it) => `<div class="row"><span>${it.quantity}x ${it.name}</span><span>${formatCurrency(it.price * it.quantity)}</span></div>`).join("");
     const corpo = `
       <p class="c b big">${empresa}</p>
@@ -13360,13 +12351,9 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
     j.document.close();
   }
   function exportarCupomExcel() {
-    let csv = "Cupom;Mesa;Comanda;Cliente;Data;Status;Forma pagamento;Valor\n";
-    ordenados.forEach((o) => { csv += `${o.id};${o.table || ""};${o.command || ""};${o.customer || ""};${o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt};${statusMap[o.status]?.label || o.status};${o.pagamentoForma || ""};${(totalComTaxa(o)).toFixed(2)}\n`; });
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url; link.download = `cupons-${periodo}.csv`; link.click();
-    URL.revokeObjectURL(url);
+    baixarCsv(`cupons-${periodo}.csv`, ["Cupom", "Mesa", "Comanda", "Cliente", "Data", "Status", "Forma de pagamento", "Valor"],
+      ordenados.map((o) => [o.id, o.table || "", o.command || "", o.customer || "", o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt,
+        statusMap[o.status]?.label || o.status, o.pagamentoForma || "", Number(totalComTaxa(o).toFixed(2))]));
   }
 
   const inputCls = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#012E46]";
@@ -13374,80 +12361,41 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
 
   return (
     <div className="space-y-4">
-      {/* 1. Cabeçalho executivo — cards padrão do Dashboard (CardMetrica) */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        <CardMetrica compact titulo="Total de cupons" valor={pagos.length} cor="text-dash-navy" />
-        <CardMetrica compact titulo="Faturamento" valor={formatCurrency(faturamentoCupons)} cor="text-dash-navy" tone="dashSuccess" />
-        <CardMetrica compact titulo="Ticket médio" valor={formatCurrency(ticketMedioCupons)} cor="text-dash-navy" tone="dashPrimary" />
-        <CardMetrica compact titulo="Maior venda" valor={formatCurrency(maiorVendaCupom)} cor="text-dash-navy" tone="dashWarning" />
-        <CardMetrica compact titulo="Menor venda" valor={formatCurrency(menorVendaCupom)} cor="text-dash-navy" />
-        <CardMetrica compact titulo="Desconto médio" valor="—" sub="sem desconto por pedido no modelo atual" cor="text-dash-navy" />
-        <CardMetrica compact titulo="Tempo médio de atendimento" valor={tempoAtendimentoMedioGlobal > 0 ? formatarDuracaoMin(tempoAtendimentoMedioGlobal) : "—"} sub="criação → pagamento" cor="text-dash-navy" tone="dashInfo" />
-        <CardMetrica compact titulo="Lucro estimado" valor={formatCurrency(lucroTotalCupons)} sub={`margem ${margemPctGlobal.toFixed(0)}% · preço − custo cadastrado`} cor="text-dash-navy" tone="dashSuccess" />
-        <CardMetrica compact titulo="Reimpressões" valor={reimpressoesTotais} sub="registradas nesta sessão" cor="text-dash-navy" tone="dashWarning" />
-        <CardMetrica compact titulo="Cancelamentos" valor={cancelamentosCount} cor="text-dash-navy" tone="dashDanger" />
-      </div>
+      <GradeIndicadores colunas={6}>
+        <Indicador rotulo="Cupons pagos" valor={pagos.length.toLocaleString("pt-BR")} icone={Receipt}
+          detalhe={itensPorCupom == null ? null : `${itensPorCupom.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} item(ns) por cupom`} />
+        <Indicador rotulo="Cupom mediano" valor={pagos.length ? formatCurrency(mediana(valores)) : "—"} icone={Wallet} detalhe="Metade vendeu até este valor" />
+        <Indicador rotulo="Maior venda" valor={maiorCupom ? formatCurrency(totalComTaxa(maiorCupom)) : "—"} icone={TrendingUp} detalhe={maiorCupom ? `Cupom ${maiorCupom.id}` : null} />
+        <Indicador rotulo="Menor venda" valor={menorCupom ? formatCurrency(totalComTaxa(menorCupom)) : "—"} icone={Tag} detalhe={menorCupom ? `Cupom ${menorCupom.id}` : null} />
+        <Indicador rotulo="Maior lucro estimado" valor={maiorLucro ? formatCurrency(margemPedido(maiorLucro)) : "—"} icone={Star}
+          detalhe={maiorLucro ? `Cupom ${maiorLucro.id} · preço − custo` : "Cadastre o custo dos produtos"} />
+        <Indicador rotulo="Cancelados" valor={cancelados.length.toLocaleString("pt-BR")} icone={XCircle} alerta={cancelados.length > 0}
+          detalhe={cancelados.length ? `${formatCurrency(cancelados.reduce((s, o) => s + totalComTaxa(o), 0))} não vendidos` : "Nenhum no período"} />
+      </GradeIndicadores>
 
-      {/* 9. Métricas premium */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Métricas premium do período</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {[
-            ["Tempo até cozinha", tempoCozinhaMedioGlobal > 0 ? formatarDuracaoMin(tempoCozinhaMedioGlobal) : "—"],
-            ["Tempo de preparo", tempoPreparoMedioGlobal > 0 ? formatarDuracaoMin(tempoPreparoMedioGlobal) : "—"],
-            ["Tempo até fechamento", tempoFechamentoMedioGlobal > 0 ? formatarDuracaoMin(tempoFechamentoMedioGlobal) : "—"],
-            ["Tempo total", tempoAtendimentoMedioGlobal > 0 ? formatarDuracaoMin(tempoAtendimentoMedioGlobal) : "—"],
-            ["Itens/cupom", itensPorCupomGlobal.toFixed(1)],
-            ["Ticket médio", formatCurrency(ticketMedioCupons)],
-            ["Margem", `${margemPctGlobal.toFixed(0)}%`],
-            ["Desconto %", "—"],
-            ["Reimpressões", reimpressoesTotais],
-            ["Cancelamentos", cancelamentosCount],
-            ["Pedidos via QR Code", `${pctViaQr.toFixed(0)}%`],
-          ].map(([r, v]) => (
-            <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5">
-              <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-              <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-[10px] text-[#94A3B8]">"Tempo até fechamento" cobre finalizado→pago (não há registro de evento distinto de entrega); "Desconto %" não tem dado de desconto por pedido no modelo atual.</p>
-      </div>
-
-      {/* 8. Insights automáticos */}
-      {insights && (
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#64748B]">💡 Insights</p>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-            {[
-              insights.produtoMaisVendido && ["Produto mais vendido", insights.produtoMaisVendido.nome, `${insights.produtoMaisVendido.qtd} un.`],
-              insights.clienteVip && ["Cliente VIP", insights.clienteVip.nome, formatCurrency(insights.clienteVip.valor)],
-              insights.horarioMaisLucrativo && ["Horário mais lucrativo", `${String(insights.horarioMaisLucrativo.hora).padStart(2, "0")}h`, formatCurrency(insights.horarioMaisLucrativo.lucro)],
-              insights.formaPredominante && ["Forma de pagamento predominante", insights.formaPredominante, `${insights.formaPredominanteQtd} venda(s)`],
-              tempoPreparoMedioGlobal > 0 && ["Tempo médio de preparo", formatarDuracaoMin(tempoPreparoMedioGlobal), null],
-              insights.pedidoMaiorLucro && ["Maior lucro", `Cupom ${insights.pedidoMaiorLucro.id}`, formatCurrency(margemPedido(insights.pedidoMaiorLucro))],
-              insights.pedidoMaiorTicket && ["Maior ticket", `Cupom ${insights.pedidoMaiorTicket.id}`, formatCurrency(orderTotal(insights.pedidoMaiorTicket) * 1.1)],
-              insights.pedidoMaiorPermanencia && ["Maior permanência", `Cupom ${insights.pedidoMaiorPermanencia.id}`, formatarDuracaoMin(tempoVenda(insights.pedidoMaiorPermanencia))],
-              insights.parMaisComum && ["Produtos vendidos juntos", insights.parMaisComum, `${insights.parMaisComumQtd}x`],
-              insights.clientesRecorrentes.length > 0 && ["Clientes recorrentes", `${insights.clientesRecorrentes.length} cliente(s)`, insights.clientesRecorrentes[0].nome],
-            ].filter(Boolean).map(([r, v, sub]) => (
-              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                <p className="mt-0.5 truncate text-sm font-black text-[#0D1B2A]">{v}</p>
-                {sub && <p className="truncate text-[11px] font-semibold text-[#012E46]">{sub}</p>}
-              </div>
-            ))}
-          </div>
-          {insights.pedidoMaiorPermanencia && tempoAtendimentoMedioGlobal > 0 && tempoVenda(insights.pedidoMaiorPermanencia) > tempoAtendimentoMedioGlobal * 1.8 && (
-            <p className="mt-3 rounded-xl bg-[#F38525]/10 px-3 py-2 text-xs font-semibold text-[#F38525]">Recomendação: revisar o fluxo de fechamento — a maior permanência do período ficou bem acima da média ({formatarDuracaoMin(tempoAtendimentoMedioGlobal)}).</p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Cartao titulo="Cupons por faixa de valor" descricao="Quantidade de vendas em cada faixa">
+          <GraficoColunas formatar={(v) => `${v} cupom(ns)`} formatarEixo={(v) => v} destacarMaior rotuloMaior="Faixa mais comum"
+            dados={distribuicaoPorValor(valores).map((f) => ({ rotulo: f.rotulo.replace("R$ ", "").replace("acima de ", "> "), valor: f.qtd, total: f.valor }))}
+            detalhe={(d) => formatCurrency(d.total)} />
+        </Cartao>
+        <Cartao titulo="Para onde vai o tempo" descricao="Médias dos cupons com os horários registrados">
+          <Composicao formatar={(v) => formatarDuracaoMin(Math.round(v))} vazio="Sem horários de preparo registrados no período."
+            partes={[
+              { rotulo: "Do pedido até a cozinha", valor: tempoCozinhaMedioGlobal, cor: "#89B4CA" },
+              { rotulo: "Preparo", valor: tempoPreparoMedioGlobal, cor: "#2A6F92" },
+              { rotulo: "Do pronto ao pagamento", valor: tempoFechamentoMedioGlobal, cor: "#012E46" },
+            ]} />
+          {tempoAtendimentoMedioGlobal > 0 && (
+            <p className="mt-3 rounded-xl bg-[#F8FAFC] px-3 py-2 text-xs text-[#475467]">Do pedido ao pagamento: <b className="text-[#012E46]">{formatarDuracaoMin(Math.round(tempoAtendimentoMedioGlobal))}</b> em média. Não há registro separado do momento da entrega.</p>
           )}
-        </div>
-      )}
+        </Cartao>
+      </div>
 
       {/* Busca + ordenação + filtros avançados */}
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
-          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="🔎 Buscar por cupom, comanda, produto ou cliente…"
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por cupom, comanda, produto ou cliente…"
             className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#012E46]" />
           <DropdownSelect ariaLabel="Ordenar por" valor={ordenacao} onSelecionar={setOrdenacao}
             className="flex items-center rounded-xl border border-[#E2E8F0] bg-white px-3 py-2.5 text-xs font-bold text-[#334155] outline-none transition hover:bg-[#F1F5F9] focus:border-[#012E46]"
@@ -13460,7 +12408,7 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
             ]} />
           <button onClick={() => setMostrarFiltros((v) => !v)}
             className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltros || filtrosAtivos ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
-            ⚙️ Filtros{filtrosAtivos ? " •" : ""}
+            <SlidersHorizontal className="mr-1.5 inline h-3.5 w-3.5" aria-hidden="true" />Filtros{filtrosAtivos ? " •" : ""}
           </button>
           <label className="flex items-center gap-1.5 text-xs font-bold text-[#334155]">
             <input type="checkbox" checked={mostrarArquivados} onChange={(e) => setMostrarArquivados(e.target.checked)} />
@@ -13518,27 +12466,23 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
         )}
       </div>
 
-      {/* 7. Ações em lote */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs font-bold text-[#334155]">
-            <input type="checkbox" checked={visiveis.length > 0 && visiveis.every((o) => selecionados.has(o.id))}
-              onChange={(e) => setSelecionados((cur) => { const n = new Set(cur); visiveis.forEach((o) => (e.target.checked ? n.add(o.id) : n.delete(o.id))); return n; })} />
-            Selecionar página {selecionados.size > 0 ? `(${selecionados.size})` : ""}
-          </label>
-          <button onClick={reimprimirSelecionados} disabled={selecionados.size === 0}
-            className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40">🖨️ Imprimir/Reimprimir selecionados</button>
-          <button onClick={exportarCupomPDF} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📄 Exportar PDF</button>
-          <button onClick={exportarCupomExcel} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
-          <button onClick={enviarSelecionadosWhatsApp} disabled={selecionados.size === 0}
-            className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40">💬 Enviar WhatsApp</button>
-          <button onClick={enviarSelecionadosEmail} disabled={selecionados.size === 0}
-            className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40">📧 Enviar e-mail</button>
-          <button onClick={arquivarSelecionados} disabled={selecionados.size === 0}
-            className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:cursor-not-allowed disabled:opacity-40">🗄️ Arquivar</button>
-        </div>
+      {/* Ações em lote */}
+      <div className="space-y-2 rounded-2xl border border-[#E5E7EB] bg-white p-3">
+        <label className="flex items-center gap-2 text-xs font-semibold text-[#344054]">
+          <input type="checkbox" checked={visiveis.length > 0 && visiveis.every((o) => selecionados.has(o.id))}
+            onChange={(e) => setSelecionados((cur) => { const n = new Set(cur); visiveis.forEach((o) => (e.target.checked ? n.add(o.id) : n.delete(o.id))); return n; })} />
+          Selecionar página {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+        </label>
+        <BarraDeAcoes>
+          <BotaoAcao icone={Printer} onClick={reimprimirSelecionados} disabled={selecionados.size === 0}>Imprimir selecionados</BotaoAcao>
+          <BotaoAcao icone={MessageCircle} onClick={enviarSelecionadosWhatsApp} disabled={selecionados.size === 0}>WhatsApp</BotaoAcao>
+          <BotaoAcao icone={Mail} onClick={enviarSelecionadosEmail} disabled={selecionados.size === 0}>E-mail</BotaoAcao>
+          <BotaoAcao icone={Archive} onClick={arquivarSelecionados} disabled={selecionados.size === 0}>Arquivar</BotaoAcao>
+          <BotaoAcao icone={FileText} onClick={() => exportarCupomPDF()} disabled={!ordenados.length}>PDF da lista</BotaoAcao>
+          <BotaoAcao icone={Download} onClick={exportarCupomExcel} disabled={!ordenados.length}>CSV da lista</BotaoAcao>
+        </BarraDeAcoes>
+        <p className="text-[11px] text-[#667085]">{ordenados.length} cupom(ns) na lista{filtrosAtivos || busca.trim() ? ` · ${formatCurrency(ordenados.reduce((s, o) => s + totalComTaxa(o), 0))} no filtro` : ""}. Arquivar e enviar valem só nesta sessão. Para cancelar um pedido, use Pedidos ou Cozinha.</p>
       </div>
-      <p className="text-[10px] text-[#94A3B8]">Cancelamento em lote não está disponível aqui — cancelar um pedido pago tem efeito financeiro/estoque e deve ser feito na tela de Pedidos/Cozinha. Arquivamento e envio por e-mail são registrados apenas nesta sessão (sem coluna no banco para isso hoje).</p>
       {toastCupom && <p className="pp-anim-fade rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-2.5 text-xs text-[#334155]">{toastCupom}</p>}
 
       {/* Listagem — cards expansíveis */}
@@ -13575,40 +12519,39 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
                       {anomalias.map((a, i) => <BadgeAnomalia key={i} cor={a.cor}>{a.texto}</BadgeAnomalia>)}
                     </div>
                   )}
-                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[#64748B] sm:grid-cols-3">
-                    <span>👤 {o.customer || "Cliente não identificado"}</span>
-                    <span>🕐 {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</span>
-                    <span>⏱️ {tempoVenda(o) != null ? formatarDuracaoMin(tempoVenda(o)) : "—"}</span>
-                    <span>🧑‍💼 Operador: —</span>
-                    <span>💳 {o.pagamentoForma || "Não informado"}</span>
-                    <span>📡 {canalDoPedido(o)}</span>
-                  </div>
+                  <dl className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <Dado rotulo="Cliente">{o.customer || "Não identificado"}</Dado>
+                    <Dado rotulo="Data">{o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : o.createdAt}</Dado>
+                    <Dado rotulo="Até o pagamento">{tempoVenda(o) != null ? formatarDuracaoMin(tempoVenda(o)) : "—"}</Dado>
+                    <Dado rotulo="Pagamento">{o.pagamentoForma || "Não informado"}</Dado>
+                    <Dado rotulo="Canal">{canalDoPedido(o)}</Dado>
+                  </dl>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
+                <div className="flex w-full flex-wrap items-center justify-between gap-2 sm:w-auto sm:shrink-0 sm:flex-col sm:items-end">
                   <span className="page-title text-lg font-black text-[#0D1B2A]">{formatCurrency(valor)}</span>
-                  <div className="relative flex items-center gap-1.5">
+                  <div className="relative flex flex-wrap items-center gap-1.5">
                     <button onClick={() => setCupomVisualizar(o)} title="Visualizar"
-                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">👁️ Visualizar</button>
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]"><Eye className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />Visualizar</button>
                     <button onClick={() => alternar(setExpandidos, o.id)} title={aberto ? "Recolher" : "Expandir"}
                       className="rounded-lg border border-[#E2E8F0] px-2 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">{aberto ? "▲" : "▼"}</button>
-                    <button onClick={() => { setCupomSel(o); registrarAcao(o.id, "reimpresso"); }} title="Reimprimir"
-                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️</button>
-                    <button onClick={() => { setCupomSel(o); registrarAcao(o.id, "enviado"); }} title="Enviar"
-                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬</button>
+                    <button onClick={() => { setCupomSel(o); registrarAcao(o.id, "reimpresso"); }} title="Reimprimir" aria-label="Reimprimir"
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]"><Printer className="h-3.5 w-3.5" aria-hidden="true" /></button>
+                    <button onClick={() => { setCupomSel(o); registrarAcao(o.id, "enviado"); }} title="Enviar" aria-label="Enviar"
+                      className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]"><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" /></button>
                     <button ref={(el) => { menuAnchorsRef.current[o.id] = el; }}
                       onClick={() => setMenuAberto((cur) => (cur === o.id ? null : o.id))} title="Mais opções"
                       aria-haspopup="menu" aria-expanded={menuAberto === o.id}
                       className="rounded-lg border border-[#E2E8F0] px-2.5 py-1.5 text-[11px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">⋯</button>
                     <MenuAcoesCupom anchorsRef={menuAnchorsRef} anchorId={o.id} aberto={menuAberto === o.id} onFechar={() => setMenuAberto(null)}
                       itens={[
-                        { icone: "👁️", label: "Visualizar cupom", onClick: () => setCupomVisualizar(o) },
-                        { icone: "🖨️", label: "Reimprimir", onClick: () => { setCupomSel(o); registrarAcao(o.id, "reimpresso"); } },
-                        { icone: "📄", label: "Exportar PDF", onClick: () => exportarCupomPDF([o]) },
-                        { icone: "💬", label: "Enviar por WhatsApp", onClick: () => { setCupomSel(o); registrarAcao(o.id, "enviado"); } },
-                        { icone: "📧", label: "Enviar por e-mail", onClick: () => enviarCupomEmail([o]) },
-                        { icone: "📜", label: "Ver auditoria", onClick: () => setExpandidos((cur) => new Set(cur).add(o.id)) },
+                        { icone: <Eye className="h-4 w-4" />, label: "Visualizar cupom", onClick: () => setCupomVisualizar(o) },
+                        { icone: <Printer className="h-4 w-4" />, label: "Reimprimir", onClick: () => { setCupomSel(o); registrarAcao(o.id, "reimpresso"); } },
+                        { icone: <FileText className="h-4 w-4" />, label: "Exportar PDF", onClick: () => exportarCupomPDF([o]) },
+                        { icone: <MessageCircle className="h-4 w-4" />, label: "Enviar por WhatsApp", onClick: () => { setCupomSel(o); registrarAcao(o.id, "enviado"); } },
+                        { icone: <Mail className="h-4 w-4" />, label: "Enviar por e-mail", onClick: () => enviarCupomEmail([o]) },
+                        { icone: <Clock className="h-4 w-4" />, label: "Ver auditoria", onClick: () => setExpandidos((cur) => new Set(cur).add(o.id)) },
                         {
-                          icone: arquivados.has(o.id) ? "↩️" : "🗄️", label: arquivados.has(o.id) ? "Desarquivar" : "Arquivar", perigo: !arquivados.has(o.id),
+                          icone: <Archive className="h-4 w-4" />, label: arquivados.has(o.id) ? "Desarquivar" : "Arquivar", perigo: !arquivados.has(o.id),
                           onClick: () => {
                             if (!arquivados.has(o.id) && !window.confirm(`Arquivar o cupom ${o.id}? Ele deixa de aparecer na listagem (nesta sessão), a menos que "Mostrar arquivados" esteja marcado.`)) return;
                             alternar(setArquivados, o.id);
@@ -13649,10 +12592,8 @@ function RelatorioCupom({ pedidos, products = [], lojaInfo, periodo, ini, fim, c
 
                   <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                     {[
-                      { r: "Desconto", v: "—" }, { r: "Acréscimos", v: "—" },
-                      { r: "Taxa de serviço (10%)", v: formatCurrency(orderTotal(o) * 0.1) }, { r: "Forma de pagamento", v: o.pagamentoForma || "Não informado" },
-                      { r: "Recebimento", v: "—" }, { r: "Troco", v: "—" },
-                      { r: "Tempo de preparo", v: tempoPreparoPedido(o) != null ? formatarDuracaoMin(tempoPreparoPedido(o)) : "—" }, { r: "Tempo de fechamento", v: tempoVenda(o) != null ? formatarDuracaoMin(tempoVenda(o)) : "—" },
+                      { r: "Taxa de serviço", v: formatCurrency(totalComTaxa(o) - orderTotal(o)) }, { r: "Forma de pagamento", v: o.pagamentoForma || "Não informado" },
+                      { r: "Tempo de preparo", v: tempoPreparoPedido(o) != null ? formatarDuracaoMin(tempoPreparoPedido(o)) : "—" }, { r: "Tempo até o pagamento", v: tempoVenda(o) != null ? formatarDuracaoMin(tempoVenda(o)) : "—" },
                     ].map((c) => (
                       <div key={c.r} className="rounded-xl border border-[#E2E8F0] bg-white p-2.5">
                         <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{c.r}</p>
@@ -13710,7 +12651,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
   const [formato, setFormato] = useState("80mm"); // "80mm" | "a4"
   const empresa = lojaInfo?.nome || "Restaurante";
   const subtotal = orderTotal(pedido);
-  const taxa = subtotal * 0.1;
+  const taxa = totalComTaxa(pedido) - subtotal;
   const total = subtotal + taxa;
   const dataStr = pedido.createdAtISO ? new Date(pedido.createdAtISO).toLocaleString("pt-BR") : pedido.createdAt;
   const totalItens = pedido.items.reduce((s, it) => s + it.quantity, 0);
@@ -13857,7 +12798,7 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onFechar}>
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-sm flex-col overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900 shadow-2xl max-h-[92vh]">
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 className="text-base font-black text-white">🧾 Cupom não fiscal</h2>
+          <h2 className="text-base font-black text-white">Cupom não fiscal</h2>
           <button onClick={onFechar} className="rounded-2xl border border-white/10 bg-white/[0.08] px-4 py-2 text-sm font-black text-slate-300 hover:bg-white/20">✕</button>
         </div>
         {/* Prévia 80mm */}
@@ -13894,11 +12835,11 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
             <div className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.04] p-1">
               <button onClick={() => setFormato("80mm")}
                 className={`flex-1 rounded-xl py-2 text-xs font-black transition ${formato === "80mm" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
-                🧾 Cupom 80mm
+                Cupom 80mm
               </button>
               <button onClick={() => setFormato("a4")}
                 className={`flex-1 rounded-xl py-2 text-xs font-black transition ${formato === "a4" ? "bg-blue-500 text-white" : "text-slate-300 hover:bg-white/5"}`}>
-                📄 Folha A4
+                Folha A4
               </button>
             </div>
             <p className="mt-1 text-[10px] text-slate-500">
@@ -13906,9 +12847,9 @@ function CupomNaoFiscalModal({ pedido, lojaInfo, onFechar, onAcao = () => {} }) 
             </p>
           </div>
           <button onClick={imprimirCupom} className="w-full rounded-2xl bg-blue-500 py-3.5 text-sm font-black text-white hover:bg-blue-400 transition active:scale-95">
-            🖨️ Imprimir {formato === "a4" ? "em A4" : "cupom 80mm"}
+            Imprimir {formato === "a4" ? "em A4" : "cupom 80mm"}
           </button>
-          <button onClick={enviarWhatsApp} className="w-full rounded-2xl bg-emerald-500/90 py-3.5 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">💬 Enviar pelo WhatsApp</button>
+          <button onClick={enviarWhatsApp} className="w-full rounded-2xl bg-emerald-500/90 py-3.5 text-sm font-black text-white hover:bg-emerald-500 transition active:scale-95">Enviar pelo WhatsApp</button>
         </div>
       </div>
     </div>
@@ -14024,15 +12965,15 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
   return (
     <>
       <PainelDetalhe aberto ariaLabel={`Cupons do produto ${nome}`} onFechar={onFechar}
-        titulo={`🧾 Cupons — ${nome}`} subtitulo={`${cupons.length} cupom(ns) • ${totalQtd} un • ${formatCurrency(totalValor)}`}
+        titulo={`Cupons — ${nome}`} subtitulo={`${cupons.length} cupom(ns) • ${totalQtd} un • ${formatCurrency(totalValor)}`}
         acoes={<>
           <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <button onClick={() => setFormato("80mm")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#012E46] text-white" : "text-[#64748B] hover:bg-white"}`}>🧾 80mm</button>
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "80mm" ? "bg-[#012E46] text-white" : "text-[#64748B] hover:bg-white"}`}>80mm</button>
             <button onClick={() => setFormato("a4")}
-              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#012E46] text-white" : "text-[#64748B] hover:bg-white"}`}>📄 A4</button>
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-black transition ${formato === "a4" ? "bg-[#012E46] text-white" : "text-[#64748B] hover:bg-white"}`}>A4</button>
           </div>
-          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#012E46] px-4 py-2 text-xs font-black text-white transition hover:bg-[#012E46]">🖨️ Imprimir</button>
+          <button onClick={imprimirRelatorio} className="rounded-xl bg-[#012E46] px-4 py-2 text-xs font-black text-white transition hover:bg-[#012E46]">Imprimir</button>
         </>}
         rodape={null}>
         {cupons.length === 0 && <p className="py-8 text-center text-sm text-[#64748B]">Nenhum cupom pago com este produto no período.</p>}
@@ -14045,14 +12986,14 @@ function CuponsProdutoModal({ nome, cupons, lojaInfo, onFechar }) {
               <div key={o.id} className="flex items-center gap-3 rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-bold uppercase tracking-widest text-[#64748B]">{o.id} • {o.table} • {o.command}</p>
-                  <p className="truncate text-sm text-[#0D1B2A]">👤 {o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
+                  <p className="truncate text-sm text-[#0D1B2A]">{o.customer || "-"} • {o.createdAtISO ? new Date(o.createdAtISO).toLocaleString("pt-BR") : o.createdAt}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-black text-[#0D1B2A]">{q} un</p>
                   <p className="text-sm font-black text-[#10B981]">{formatCurrency(v)}</p>
                 </div>
                 <button onClick={() => setCupomSel(o)} title="Ver cupom não fiscal (imprimir / WhatsApp)"
-                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#012E46] transition hover:bg-[#E8EDF0]">🧾 Cupom</button>
+                  className="shrink-0 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-black text-[#012E46] transition hover:bg-[#E8EDF0]">Cupom</button>
               </div>
             );
           })}
@@ -14120,13 +13061,10 @@ function ModalDetalheComanda({
     ["📅", "Abertura", new Date(c.inicio).toLocaleString("pt-BR"), "Início do atendimento"],
     ["🏁", "Fechamento", new Date(c.fim).toLocaleString("pt-BR"), "Encerramento / pagamento"],
     ["⏱️", "Permanência", formatarDuracaoMin(c.minutos), "Tempo total na mesa"],
-    ["💰", "Valor total", formatCurrency(c.valor), "Já com taxa de serviço (10%)"],
+    ["💰", "Valor total", formatCurrency(c.valor), "Total cobrado"],
     ["🎯", "Ticket médio", formatCurrency(c.ticketMedio), "Por pedido da comanda"],
     ["📦", "Qtde itens", `${c.itens}`, "Itens consumidos"],
     ["💳", "Forma de pagamento", c.formaPagamento || "Não informado", "Registrada no pedido"],
-    ["🧑‍💼", "Operador", "—", "Não disponível no cadastro atual"],
-    ["🧍", "Garçom", "—", "Não disponível no cadastro atual"],
-    ["👨‍🍳", "Cozinha responsável", "—", "Não disponível no cadastro atual"],
     ["📊", "Comparação com a média", variacaoPct != null ? `${variacaoPct >= 0 ? "+" : ""}${variacaoPct.toFixed(0)}%` : "—", "Frente à média do período"],
     ["📈", "Lucro estimado", lucroEstimado != null ? `${formatCurrency(lucroEstimado)} · ${margemPct.toFixed(0)}%` : "—", temCusto ? "Preço − custo cadastrado" : "Nenhum produto com custo cadastrado"],
   ];
@@ -14142,6 +13080,7 @@ function ModalDetalheComanda({
   if (mediaItensGeral > 0 && c.itens > mediaItensGeral * 1.5) indicadores.push({ texto: "Comanda longa", cor: "#012E46" });
 
   // ── Insights — apenas comparações com dados já calculados no período ──
+  const subtotalComanda = c.pedidos.reduce((s, o) => s + orderTotal(o), 0);
   const insights = [];
   if (variacaoPct != null && variacaoPct > 20) insights.push(`Tempo acima da média do período (+${variacaoPct.toFixed(0)}%).`);
   if (c.tempoAtePagamento != null && mediaTempoAtePagamentoGeral > 0 && c.tempoAtePagamento > mediaTempoAtePagamentoGeral * 1.3) insights.push("Fluxo lento no fechamento — tempo entre o pedido pronto e o pagamento acima da média.");
@@ -14160,8 +13099,8 @@ function ModalDetalheComanda({
         <span className="text-[#64748B]">Valor total: <b className="text-[#0D1B2A]">{formatCurrency(c.valor)}</b></span>
       </>}
       acoes={<>
-        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">🧾 Ver cupom</button>
-        <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ Imprimir</button>
+        <button onClick={() => onVerCupom?.(ultimoPedido)} title="Ver o cupom do pedido mais recente desta comanda" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#012E46] transition hover:bg-[#E8EDF0]">Ver cupom</button>
+        <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Imprimir o cupom do pedido mais recente" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Imprimir</button>
         <button onClick={() => onImprimirCompartilhar?.(ultimoPedido)} title="Compartilhar o cupom por WhatsApp" className="rounded-xl border border-[#E2E8F0] px-3 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Compartilhar</button>
       </>}>
       {c.pedidos.length > 1 && <p className="-mt-3 text-[10px] text-[#94A3B8]">Esta comanda agrupa {c.pedidos.length} pedidos — as ações acima usam o cupom do pedido mais recente ({ultimoPedido.id}), pois não existe um cupom único por comanda no modelo de dados.</p>}
@@ -14211,8 +13150,8 @@ function ModalDetalheComanda({
             <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-[#64748B]">Resumo financeiro</p>
             <div className="divide-y divide-[#F1F5F9] rounded-2xl border border-[#E2E8F0]">
               {[
-                ["Subtotal", formatCurrency(c.valor / 1.1)], ["Desconto", "—"], ["Acréscimos", "—"],
-                ["Taxa de serviço (10%)", formatCurrency(c.valor - c.valor / 1.1)], ["Taxa de entrega", "—"],
+                ["Subtotal", formatCurrency(subtotalComanda)], ["Desconto", "—"], ["Acréscimos", "—"],
+                ["Taxa de serviço", formatCurrency(c.valor - subtotalComanda)], ["Taxa de entrega", "—"],
               ].map(([r, v]) => (
                 <div key={r} className="flex items-center justify-between px-3.5 py-2 text-sm">
                   <span className="text-[#64748B]">{r}</span><span className="font-semibold text-[#334155]">{v}</span>
@@ -14295,27 +13234,15 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   const [fFaixaPermE, setFFaixaPermE] = useState("todas");
   const [mostrarFiltrosPermE, setMostrarFiltrosPermE] = useState(false);
   const [somenteAcimaMediaPermE, setSomenteAcimaMediaPermE] = useState(false);
-  const [compararPeriodoPermE, setCompararPeriodoPermE] = useState(false);
-  const [atualizadoEmPermE, setAtualizadoEmPermE] = useState(() => new Date());
   const [comandaDetalheE, setComandaDetalheE] = useState(null);
   const [cupomSelPermE, setCupomSelPermE] = useState(null);
   const [pedidoVisualizarPermE, setPedidoVisualizarPermE] = useState(null);
   const custoPorNomePermE = Object.fromEntries(products.map((p) => [p.name, Number(p.cost) || 0]));
 
-  // Agrupa por comanda: primeiro pedido (início) e último pagamento (fim) —
-  // mesma regra já existente, agora também acumulando os pedidos da comanda
-  // (para itens/valor/forma de pagamento/canal e o detalhe "Ver cupom").
-  const porComanda = {};
-  pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO && o.updatedAtISO).forEach((o) => {
-    const k = o.command;
-    if (!porComanda[k]) porComanda[k] = { comanda: k, mesa: o.table, inicio: o.createdAtISO, fim: o.updatedAtISO, pedidos: [] };
-    if (new Date(o.createdAtISO) < new Date(porComanda[k].inicio)) porComanda[k].inicio = o.createdAtISO;
-    if (new Date(o.updatedAtISO) > new Date(porComanda[k].fim)) porComanda[k].fim = o.updatedAtISO;
-    porComanda[k].pedidos.push(o);
-  });
-  const listaBase = Object.values(porComanda).map((c) => {
+  // Uma linha por atendimento: a comanda reutilizada depois do pagamento abre outra.
+  const listaBase = agruparVisitas(pedidos).map((c) => {
     const ms = new Date(c.fim) - new Date(c.inicio);
-    const minutos = Math.round(ms / 60000);
+    const minutos = c.minutos;
     const dia = new Date(c.inicio).toLocaleDateString("pt-BR", { weekday: "long" });
     const horaIni = new Date(c.inicio).getHours();
     const valor = c.pedidos.reduce((s, o) => s + totalComTaxa(o), 0);
@@ -14323,7 +13250,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
     const ticketMedio = c.pedidos.length ? valor / c.pedidos.length : 0;
     const prontos = c.pedidos.map((o) => o.prontoEmISO).filter(Boolean).sort();
     const tempoAtePagamento = prontos.length ? minutosEntreISO(prontos[prontos.length - 1], c.fim) : null;
-    const canal = c.pedidos.some((o) => o.command) ? "Mesa / QR Code" : c.pedidos.some((o) => o.table) ? "Mesa" : "Balcão / Delivery";
+    const canal = canalDoPedido(c.pedidos[0]);
     const formaPagamento = c.pedidos.find((o) => o.pagamentoForma)?.pagamentoForma || null;
     return { ...c, ms, minutos, dia, horaIni, valor, itens, ticketMedio, tempoAtePagamento, canal, formaPagamento };
   });
@@ -14376,35 +13303,28 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
       return d >= new Date(a0.getTime() - dur - 1) && d <= new Date(a0.getTime() - 1);
     });
     if (anterioresP.length === 0) return null;
-    const porComandaAnt = {};
-    anterioresP.forEach((o) => {
-      const k = o.command;
-      if (!porComandaAnt[k]) porComandaAnt[k] = { inicio: o.createdAtISO, fim: o.updatedAtISO };
-      if (new Date(o.createdAtISO) < new Date(porComandaAnt[k].inicio)) porComandaAnt[k].inicio = o.createdAtISO;
-      if (new Date(o.updatedAtISO) > new Date(porComandaAnt[k].fim)) porComandaAnt[k].fim = o.updatedAtISO;
-    });
-    const listaAnt = Object.values(porComandaAnt).map((c) => Math.round((new Date(c.fim) - new Date(c.inicio)) / 60000));
+    const listaAnt = agruparVisitas(anterioresP).map((v) => v.minutos);
     const mediaAnt = listaAnt.length ? listaAnt.reduce((s, v) => s + v, 0) / listaAnt.length : 0;
     const varPct = (at, an) => an > 0 ? ((at - an) / an) * 100 : (at > 0 ? 100 : null);
     return { mediaAnterior: mediaAnt, comandasAnterior: listaAnt.length, variacaoMedia: varPct(mediaGeralMinutos, mediaAnt), variacaoComandas: varPct(lista.length, listaAnt.length) };
   })();
 
   // ── 1. KPIs adicionais ──
-  const maiorPermanenciaE = lista.length ? [...lista].sort((a, b) => b.minutos - a.minutos)[0] : null;
-  const menorPermanenciaE = lista.length ? [...lista].sort((a, b) => a.minutos - b.minutos)[0] : null;
   const comandasAcimaMediaE = lista.filter((c) => c.minutos > mediaGeralMinutos).length;
-  const mesasDistintasPermE = new Set(lista.map((c) => c.mesa).filter(Boolean));
-  const giroMedioMesasE = mesasDistintasPermE.size ? lista.length / mesasDistintasPermE.size : null;
+  const noSalao = lista.filter((c) => c.canal === "Mesa / QR Code" && c.mesa);
+  const mesasDistintasPermE = new Set(noSalao.map((c) => c.mesa));
+  const giroMedioMesasE = mesasDistintasPermE.size ? noSalao.length / mesasDistintasPermE.size : null;
   // Tempo ocioso estimado: intervalo entre o fechamento de uma comanda e a
   // abertura da próxima NA MESMA mesa (só quando a mesa teve 2+ comandas).
   const tempoOciosoEstimadoE = (() => {
     const porMesaOrd = {};
-    lista.forEach((c) => { if (!c.mesa) return; (porMesaOrd[c.mesa] ||= []).push(c); });
+    noSalao.forEach((c) => { (porMesaOrd[c.mesa] ||= []).push(c); });
     const gaps = [];
     Object.values(porMesaOrd).forEach((doMesa) => {
       const ord = [...doMesa].sort((a, b) => new Date(a.inicio) - new Date(b.inicio));
       for (let i = 1; i < ord.length; i++) {
-        const gap = minutosEntreISO(ord[i - 1].fim, ord[i].inicio);
+        const mesmoDia = chaveDia(ord[i - 1].fim) === chaveDia(ord[i].inicio);
+        const gap = mesmoDia ? minutosEntreISO(ord[i - 1].fim, ord[i].inicio) : null;
         if (gap != null) gaps.push(gap);
       }
     });
@@ -14412,31 +13332,22 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   })();
   const porHoraPermE = {};
   lista.forEach((c) => { (porHoraPermE[c.horaIni] ||= { soma: 0, n: 0 }); porHoraPermE[c.horaIni].soma += c.minutos; porHoraPermE[c.horaIni].n += 1; });
-  const horariosPermE = Object.entries(porHoraPermE).map(([h, v]) => ({ hora: Number(h), media: v.soma / v.n, n: v.n }));
+  const horariosPermE = Object.entries(porHoraPermE).map(([h, v]) => ({ hora: Number(h), media: mediana(lista.filter((c) => c.horaIni === Number(h)).map((c) => c.minutos)), n: v.n }));
   const horarioMaiorPermanenciaE = horariosPermE.length ? horariosPermE.reduce((b, d) => (d.media > b.media ? d : b)) : null;
   const temposAtePagamentoE = lista.map((c) => c.tempoAtePagamento).filter((v) => v != null);
   const tempoMedioAtePagamentoE = temposAtePagamentoE.length ? temposAtePagamentoE.reduce((s, v) => s + v, 0) / temposAtePagamentoE.length : null;
 
-  // ── 2. Resumo inteligente — só com o que já foi calculado acima ──
-  const diaMaisCriticoE = (() => {
-    const porDiaCrit = {};
-    lista.forEach((c) => { (porDiaCrit[c.dia] ||= { soma: 0, n: 0 }); porDiaCrit[c.dia].soma += c.minutos; porDiaCrit[c.dia].n += 1; });
-    const arr = Object.entries(porDiaCrit).map(([dia, v]) => ({ dia, media: v.soma / v.n }));
-    return arr.length ? arr.reduce((b, d) => (d.media > b.media ? d : b)) : null;
-  })();
-  const resumoInteligenteE = lista.length === 0 ? null : {
-    diagnostico: mediaGeralMinutos <= 45 ? "Operação com giro saudável — permanência dentro do esperado." : mediaGeralMinutos <= 75 ? "Permanência moderada — atenção a mesas específicas." : "Permanência elevada — pode estar limitando o giro de mesas.",
-    gargalo: horarioMaiorPermanenciaE ? `Horário das ${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h concentra a maior permanência média (${formatarDuracaoMin(Math.round(horarioMaiorPermanenciaE.media))}).` : "Sem dados suficientes.",
-    melhorResultado: menorPermanenciaE ? `Comanda ${menorPermanenciaE.comanda} finalizada em ${formatarDuracaoMin(menorPermanenciaE.minutos)} — ritmo ideal de atendimento.` : "Sem dados suficientes.",
-    diaCritico: diaMaisCriticoE ? `${diaMaisCriticoE.dia} tem a maior permanência média (${formatarDuracaoMin(Math.round(diaMaisCriticoE.media))}).` : "Sem dados suficientes.",
-    oportunidade: giroMedioMesasE != null ? `Giro médio de ${giroMedioMesasE.toFixed(1)} comanda(s) por mesa no período — reduzir a permanência das mesas acima da média pode aumentar o giro.` : "Sem dados suficientes.",
-    recomendacao: comandasAcimaMediaE > lista.length / 2 ? "Mais da metade das comandas está acima da média — revisar o fluxo de fechamento de conta." : "Permanência sob controle — manter o padrão atual de atendimento.",
-  };
+  const medianaMinutos = mediana(lista.map((c) => c.minutos));
+  const p90Minutos = percentil(lista.map((c) => c.minutos), 90);
+  const fechadosOutroDia = lista.filter((c) => chaveDia(c.inicio) !== chaveDia(c.fim)).length;
+  const medianaAtePagamentoE = mediana(lista.map((c) => c.tempoAtePagamento).filter((v) => v != null));
+  const eixoTempo = (v) => (v >= 120 ? `${Math.round(v / 60)}h` : `${v}min`);
 
-  // ── 3. Permanência por dia (gráfico) ──
-  const porDiaE = {};
-  lista.forEach((c) => { (porDiaE[c.dia] ||= { soma: 0, n: 0 }); porDiaE[c.dia].soma += c.minutos; porDiaE[c.dia].n += 1; });
-  const diasGraficoE = Object.entries(porDiaE).map(([dia, v]) => ({ rotulo: dia, valor: Math.round(v.soma / v.n), qtd: v.n, variacao: mediaGeralMinutos > 0 ? (((v.soma / v.n) - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
+  // Permanência típica por dia da semana, na ordem do calendário.
+  const diasGraficoE = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"].map((nome) => {
+    const doDia = lista.filter((c) => c.dia.startsWith(nome));
+    return { rotulo: nome.slice(0, 3), valor: Math.round(mediana(doDia.map((c) => c.minutos)) ?? 0), qtd: doDia.length };
+  });
 
   // ── 4. Distribuição por faixa ──
   const FAIXAS_PERM_E = [
@@ -14453,7 +13364,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   }
 
   // ── 5. Análise por horário ──
-  const horariosGraficoE = horariosPermE.map((h) => ({ rotulo: `${String(h.hora).padStart(2, "0")}h`, valor: Math.round(h.media), qtd: h.n, variacao: mediaGeralMinutos > 0 ? ((h.media - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
+  const horariosGraficoE = [...horariosPermE].sort((a, b) => ((a.hora + 18) % 24) - ((b.hora + 18) % 24)).map((h) => ({ rotulo: `${String(h.hora).padStart(2, "0")}h`, valor: Math.round(h.media), qtd: h.n, variacao: mediaGeralMinutos > 0 ? ((h.media - mediaGeralMinutos) / mediaGeralMinutos) * 100 : null }));
   const faturamentoPorHoraE = {};
   pedidos.filter((o) => o.paymentStatus === "paid" && o.createdAtISO).forEach((o) => { const h = new Date(o.createdAtISO).getHours(); faturamentoPorHoraE[h] = (faturamentoPorHoraE[h] || 0) + totalComTaxa(o); });
   const horaPicoFaturamentoE = Object.entries(faturamentoPorHoraE).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -14499,18 +13410,7 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
   const paginaAtual = Math.min(pagina, totalPaginas);
   const listaVisivel = listaOrdenada.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
 
-  // ── 7. Insights operacionais ──
-  const insightsPermE = [];
-  if (maiorPermanenciaE) insightsPermE.push({ titulo: "Mesa com maior permanência", texto: `${maiorPermanenciaE.mesa || "Balcão"} (comanda ${maiorPermanenciaE.comanda}) ficou ${formatarDuracaoMin(maiorPermanenciaE.minutos)} aberta.`, tom: maiorPermanenciaE.status === "critico" ? "danger" : "warning", comanda: maiorPermanenciaE });
-  const comandaMaisDemoradaFechamentoE = [...lista].filter((c) => c.tempoAtePagamento != null).sort((a, b) => b.tempoAtePagamento - a.tempoAtePagamento)[0] || null;
-  if (comandaMaisDemoradaFechamentoE) insightsPermE.push({ titulo: "Demora no fechamento", texto: `Comanda ${comandaMaisDemoradaFechamentoE.comanda} levou ${formatarDuracaoMin(Math.round(comandaMaisDemoradaFechamentoE.tempoAtePagamento))} entre o pedido ficar pronto e o pagamento.`, tom: "warning", comanda: comandaMaisDemoradaFechamentoE });
-  if (diaMaisCriticoE) insightsPermE.push({ titulo: "Dia com baixa rotatividade", texto: `${diaMaisCriticoE.dia} tem a maior permanência média (${formatarDuracaoMin(Math.round(diaMaisCriticoE.media))}), indicando giro mais lento.`, tom: "warning" });
-  if (horarioMaiorPermanenciaE) insightsPermE.push({ titulo: "Horário de maior concentração", texto: `${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h concentra ${horarioMaiorPermanenciaE.n} comanda(s) com permanência média de ${formatarDuracaoMin(Math.round(horarioMaiorPermanenciaE.media))}.`, tom: "info" });
-  if (comandasAcimaMediaE > 0) insightsPermE.push({ titulo: "Possível gargalo de atendimento", texto: `${comandasAcimaMediaE} comanda(s) ficaram acima da média do período (${formatarDuracaoMin(Math.round(mediaGeralMinutos))}).`, tom: comandasAcimaMediaE > lista.length / 2 ? "danger" : "warning" });
-  if (tempoOciosoEstimadoE != null) insightsPermE.push({ titulo: "Oportunidade de aumentar o giro", texto: `Tempo ocioso médio estimado entre comandas na mesma mesa: ${formatarDuracaoMin(Math.round(tempoOciosoEstimadoE))}. Reduzir esse intervalo aumenta o giro sem precisar de mais mesas.`, tom: "violet" });
-
   // ── 8. Ações rápidas ──
-  function atualizarPermVisaoE() { setAtualizadoEmPermE(new Date()); }
   function exportarPermExcelE() {
     let csv = "Comanda;Mesa;Canal;Abertura;Fechamento;Permanencia (min);Valor;Ticket medio;Itens;Status\n";
     listaOrdenada.forEach((c) => {
@@ -14554,96 +13454,48 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
 
   return (
     <div className="space-y-6">
-      {/* 8. Ações rápidas */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={exportarPermExcelE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📊 Exportar Excel</button>
-          <button onClick={exportarPermPDFE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🖨️ PDF / Imprimir</button>
-          <button onClick={() => setCompararPeriodoPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoPermE ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
-          <button onClick={() => setSomenteAcimaMediaPermE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteAcimaMediaPermE ? "border-[#F38525] bg-[#F38525]/10 text-[#F38525]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas acima da média</button>
-          <button onClick={atualizarPermVisaoE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
-        </div>
-        <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmPermE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
-      </div>
+      <BarraDeAcoes>
+        <BotaoAcao icone={Download} onClick={exportarPermExcelE} disabled={!listaOrdenada.length}>Exportar CSV</BotaoAcao>
+        <BotaoAcao icone={Printer} onClick={exportarPermPDFE} disabled={!listaOrdenada.length}>PDF / Imprimir</BotaoAcao>
+        <BotaoAcao icone={AlertTriangle} ativo={somenteAcimaMediaPermE} aria-pressed={somenteAcimaMediaPermE} onClick={() => setSomenteAcimaMediaPermE((v) => !v)}>Acima da média ({comandasAcimaMediaE})</BotaoAcao>
+      </BarraDeAcoes>
 
-      {/* 1. KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
-        <KpiExecutivo titulo="Permanência média" valor={formatarDuracaoMin(Math.round(mediaGeralMinutos))} variacao={compararPeriodoPermE ? comparativoPermE?.variacaoMedia : null} desc={`${lista.length} comanda(s) analisada(s)`} icon="⏱️" />
-        <KpiExecutivo titulo="Comandas finalizadas" valor={lista.length} variacao={compararPeriodoPermE ? comparativoPermE?.variacaoComandas : null} desc="Do pedido ao pagamento" icon="🧾" />
-        <KpiExecutivo titulo="Tempo médio até pagamento" valor={tempoMedioAtePagamentoE != null ? formatarDuracaoMin(Math.round(tempoMedioAtePagamentoE)) : "—"} desc="Do pedido pronto ao pagamento" icon="💳" />
-        <KpiExecutivo titulo="Maior permanência" valor={maiorPermanenciaE ? formatarDuracaoMin(maiorPermanenciaE.minutos) : "—"} desc={maiorPermanenciaE ? `Comanda ${maiorPermanenciaE.comanda} · ${maiorPermanenciaE.mesa || "Balcão"}` : "Sem dados"} icon="🔺" />
-        <KpiExecutivo titulo="Menor permanência" valor={menorPermanenciaE ? formatarDuracaoMin(menorPermanenciaE.minutos) : "—"} desc={menorPermanenciaE ? `Comanda ${menorPermanenciaE.comanda} · ${menorPermanenciaE.mesa || "Balcão"}` : "Sem dados"} icon="🔻" />
-        <KpiExecutivo titulo="Mesas acima da média" valor={comandasAcimaMediaE} desc={`de ${lista.length} comanda(s) no período`} icon="⚠️" />
-        <KpiExecutivo titulo="Giro médio de mesas" valor={giroMedioMesasE != null ? `${giroMedioMesasE.toFixed(1)}x` : "—"} desc="Comandas por mesa no período" icon="🔁" />
-        <KpiExecutivo titulo="Tempo ocioso estimado" valor={tempoOciosoEstimadoE != null ? formatarDuracaoMin(Math.round(tempoOciosoEstimadoE)) : "—"} desc="Entre comandas na mesma mesa" icon="💤" />
-        <KpiExecutivo titulo="Horário de maior permanência" valor={horarioMaiorPermanenciaE ? `${String(horarioMaiorPermanenciaE.hora).padStart(2, "0")}h` : "—"} desc={horarioMaiorPermanenciaE ? formatarDuracaoMin(Math.round(horarioMaiorPermanenciaE.media)) : "Sem dados"} icon="🕐" />
-      </div>
-      <p className="text-[11px] text-[#94A3B8]">"Impacto estimado no faturamento" não está disponível — calcular um valor monetário exigiria supor quantos clientes a mais caberiam com um giro mais rápido, o que não é um dado real, apenas uma projeção.</p>
+      <GradeIndicadores colunas={6}>
+        <Indicador rotulo="Permanência média" valor={lista.length ? formatarDuracaoMin(Math.round(mediaGeralMinutos)) : "—"} icone={Clock}
+          variacao={comparativoPermE?.variacaoMedia} comparadoA={rotuloComparacao(periodo)} inverter detalhe={`${lista.length} atendimento(s) pagos`} />
+        <Indicador rotulo="Mediana" valor={medianaMinutos == null ? "—" : formatarDuracaoMin(Math.round(medianaMinutos))} icone={Hourglass}
+          detalhe={p90Minutos == null ? null : `9 em cada 10 fecham em até ${formatarDuracaoMin(Math.round(p90Minutos))}`} />
+        <Indicador rotulo="Do pronto ao pagamento" valor={medianaAtePagamentoE != null ? formatarDuracaoMin(Math.round(medianaAtePagamentoE)) : "—"} icone={Wallet} detalhe="Mediana por atendimento" />
+        <Indicador rotulo="Giro por mesa" valor={giroMedioMesasE != null ? `${giroMedioMesasE.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}×` : "—"} icone={Repeat} detalhe="Atendimentos por mesa usada" />
+        <Indicador rotulo="Intervalo entre atendimentos" valor={tempoOciosoEstimadoE != null ? formatarDuracaoMin(Math.round(tempoOciosoEstimadoE)) : "—"} icone={Snowflake} detalhe="Mesma mesa, no mesmo dia" />
+        <Indicador rotulo="Pagos em outro dia" valor={fechadosOutroDia.toLocaleString("pt-BR")} icone={AlertTriangle} alerta={fechadosOutroDia > 0}
+          detalhe={fechadosOutroDia ? "Contas que ficaram abertas e aumentam a média" : "Todos pagos no mesmo dia"} />
+      </GradeIndicadores>
 
-      {/* 2. Resumo inteligente */}
-      {resumoInteligenteE && (
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-          <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Resumo inteligente do período</h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["Diagnóstico", resumoInteligenteE.diagnostico], ["Principal gargalo", resumoInteligenteE.gargalo],
-              ["Melhor resultado", resumoInteligenteE.melhorResultado], ["Dia mais crítico", resumoInteligenteE.diaCritico],
-              ["Oportunidade operacional", resumoInteligenteE.oportunidade], ["Recomendação", resumoInteligenteE.recomendacao],
-            ].map(([r, v]) => (
-              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                <p className="mt-0.5 text-xs font-semibold leading-relaxed text-[#334155]">{v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* 3. Permanência por dia */}
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-          <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Permanência por dia da semana</h3>
-          <BarrasRankeadas dados={diasGraficoE} formatarValor={(v) => formatarDuracaoMin(v)} />
-        </div>
-        {/* 4. Distribuição por faixa */}
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-          <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Distribuição por faixa de permanência</h3>
-          {lista.length === 0 ? <p className="text-sm text-[#64748B]">Sem dados no período.</p> : <DonutChart dados={distribuicaoFaixasE} label="Comandas" />}
-        </div>
-      </div>
-
-      {/* 5. Análise por horário */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-        <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Permanência média por horário</h3>
-        <BarrasRankeadas dados={horariosGraficoE} formatarValor={(v) => formatarDuracaoMin(v)} />
-        {relacaoPermanenciaFaturamentoE && <p className="mt-3 rounded-xl bg-[#8B5CF6]/10 px-3 py-2 text-xs font-semibold text-[#8B5CF6]">{relacaoPermanenciaFaturamentoE}</p>}
-      </div>
-
-      {/* 7. Insights operacionais */}
-      <div>
-        <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Insights operacionais</h3>
-        {insightsPermE.length === 0 ? (
-          <p className="rounded-2xl border border-[#E2E8F0] bg-white px-5 py-6 text-center text-sm text-[#64748B]">Nenhum insight disponível para o período.</p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {insightsPermE.map((ins, i) => (
-              <InsightCardVendas key={i} tom={ins.tom} titulo={ins.titulo} texto={ins.texto}
-                acaoLabel={ins.comanda ? "Ver detalhe" : undefined} onAcao={ins.comanda ? () => setComandaDetalheE(ins.comanda) : undefined} />
-            ))}
-          </div>
-        )}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Cartao titulo="Quanto tempo leva" descricao="Atendimentos por faixa de permanência">
+          <GraficoColunas formatar={(v) => `${v} atendimento(s)`} formatarEixo={(v) => v} rotuloMaior="Faixa mais comum"
+            dados={distribuicaoFaixasE.map((f) => ({ rotulo: f.label.replace(" min", "").replace("Acima de ", "> ").replace("Até ", "≤ "), valor: f.valor }))} />
+        </Cartao>
+        <Cartao titulo="Por dia da semana" descricao="Tempo típico (mediana)">
+          <GraficoColunas formatar={(v) => formatarDuracaoMin(v)} formatarEixo={eixoTempo} rotuloMaior="Mais demorado" dados={diasGraficoE}
+            detalhe={(d) => `${d.qtd} atendimento(s)`} />
+        </Cartao>
+        <Cartao className="lg:col-span-2" titulo="Por horário de abertura" descricao="Tempo típico (mediana)">
+          <GraficoColunas formatar={(v) => formatarDuracaoMin(v)} formatarEixo={eixoTempo} rotuloMaior="Mais demorado" dados={horariosGraficoE}
+            detalhe={(d) => `${d.qtd} atendimento(s)`} />
+          {relacaoPermanenciaFaturamentoE && <p className="mt-3 rounded-xl bg-[#F8FAFC] px-3 py-2 text-xs text-[#475467]">{relacaoPermanenciaFaturamentoE}</p>}
+        </Cartao>
       </div>
 
       {/* Busca + filtros */}
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
-          <input value={buscaPermE} onChange={(e) => setBuscaPermE(e.target.value)} placeholder="🔎 Buscar por comanda ou mesa…"
+          <input value={buscaPermE} onChange={(e) => setBuscaPermE(e.target.value)} placeholder="Buscar por comanda ou mesa…"
             className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#012E46]" />
           <button onClick={() => setMostrarFiltrosPermE((v) => !v)}
             className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosPermE || filtrosPermAtivosE ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
-            ⚙️ Filtros{filtrosPermAtivosE ? " •" : ""}
+            <SlidersHorizontal className="mr-1.5 inline h-3.5 w-3.5" aria-hidden="true" />Filtros{filtrosPermAtivosE ? " •" : ""}
           </button>
         </div>
         {mostrarFiltrosPermE && (
@@ -14681,8 +13533,40 @@ function RelatorioPermanencia({ pedidos, orders = [], products = [], periodo, in
           <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Detalhe por comanda</h3>
           <p className="mt-0.5 text-[11px] text-[#64748B]">{listaOrdenada.length} comanda(s) · "Responsável" não existe no modelo de dados atual</p>
         </div>
-        <div className="max-h-[520px] overflow-auto">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+        {listaVisivel.length === 0 && (
+          <p className="px-5 py-8 text-center text-sm text-[#667085] xl:hidden">{lista.length === 0 ? "Nenhum atendimento pago no período." : "Nada encontrado para os filtros aplicados."}</p>
+        )}
+        {listaVisivel.length > 0 && (
+          <div className="p-3 xl:hidden">
+            <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-[#667085]">Ordenar por
+              <select value={ordenacaoPermE.campo} onChange={(e) => setOrdenacaoPermE({ campo: e.target.value, dir: "desc" })} className={`${CAMPO_FILTRO} mt-1 normal-case`}>
+                <option value="minutos">Maior permanência</option><option value="valor">Maior valor</option><option value="inicio">Mais recente</option><option value="itens">Mais itens</option>
+              </select>
+            </label>
+            <ul className="grid gap-2 md:grid-cols-2">
+              {listaVisivel.map((c) => (
+                <li key={`${c.comanda}-${c.inicio}`} className="min-w-0">
+                  <button type="button" onClick={() => setComandaDetalheE(c)} className="block w-full rounded-xl border border-[#E5E7EB] p-3 text-left transition hover:bg-[#F8FAFC]">
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[#012E46] [overflow-wrap:anywhere]">Comanda {c.comanda}</span>
+                        <span className="block text-[11px] text-[#667085]">{c.mesa || "Balcão"} · {new Date(c.inicio).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                      </span>
+                      <BadgeEstoque status={c.status} />
+                    </span>
+                    <dl className="mt-2 grid grid-cols-3 gap-2">
+                      <Dado rotulo="Permanência">{formatarDuracaoMin(c.minutos)}</Dado>
+                      <Dado rotulo="Valor">{formatCurrency(c.valor)}</Dado>
+                      <Dado rotulo="Itens">{c.itens}</Dado>
+                    </dl>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="hidden max-h-[520px] overflow-auto xl:block">
+          <table className="w-full border-collapse text-[13px]">
             <thead className="sticky top-0 z-10 bg-[#F8FAFC]">
               <tr className="text-[10px] font-bold uppercase tracking-widest text-[#64748B]">
                 {[
@@ -14754,77 +13638,6 @@ const SATISF_PERGUNTAS = [
   { key: "status_pedido", label: "Comunicação do status" },
   { key: "recomendacao", label: "Recomendaria o local" },
 ];
-function EstrelasMedia({ nota }) {
-  return (
-    <span className="whitespace-nowrap text-base leading-none">
-      {[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= Math.round(nota) ? "text-amber-500" : "text-slate-300"}>★</span>)}
-    </span>
-  );
-}
-
-// Gráfico de linha genérico (média/NPS/volume ao longo do tempo) — mesma
-// técnica de LinhaFaturamento (SVG puro, sem libs), só que sem formatação
-// de moeda embutida, para reaproveitar em métricas não-monetárias. Suporta
-// uma segunda linha tracejada opcional (comparação com período anterior).
-function LinhaMetrica({ dados, formatarValor, sufixo = "" }) {
-  const [ativo, setAtivo] = useState(null);
-  if (!dados.length) return <div className="flex h-40 items-center justify-center text-sm text-[#64748B]">Sem dados no período.</div>;
-  const max = Math.max(1, ...dados.map((d) => d.valor), ...dados.map((d) => d.valorAnterior ?? 0));
-  const W = 640, H = 170, P = 26, n = dados.length;
-  const x = (i) => P + (n > 1 ? (i / (n - 1)) * (W - 2 * P) : (W - 2 * P) / 2);
-  const y = (v) => H - P - (v / max) * (H - 2 * P);
-  const pts = dados.map((d, i) => [x(i), y(d.valor)]);
-  const linha = pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-  const area = `${linha} L${x(n - 1).toFixed(1)},${H - P} L${x(0).toFixed(1)},${H - P} Z`;
-  const idxs = n <= 5 ? dados.map((_, i) => i) : [0, Math.round(n / 4), Math.round(n / 2), Math.round((3 * n) / 4), n - 1];
-  const valorMax = Math.max(...dados.map((d) => d.valor));
-  const valorMin = Math.min(...dados.map((d) => d.valor));
-  const idxMax = dados.findIndex((d) => d.valor === valorMax);
-  const idxMin = dados.findIndex((d) => d.valor === valorMin);
-  const media = dados.reduce((s, d) => s + d.valor, 0) / n;
-  const yMedia = y(media);
-  const corPonto = (i) => (i === idxMax ? "#10B981" : i === idxMin ? "#F38525" : "#012E46");
-  const temComparacao = dados.some((d) => d.valorAnterior != null);
-  const ptsAnt = temComparacao ? dados.map((d, i) => [x(i), y(d.valorAnterior ?? 0)]) : null;
-  const linhaAnt = ptsAnt ? ptsAnt.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ") : null;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="pp-chart-container w-full overflow-visible" style={{ height: 190 }}>
-      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => (<line key={i} x1={P} x2={W - P} y1={y(max * f)} y2={y(max * f)} stroke="#E2E8F0" />))}
-      {n > 1 && <line x1={P} x2={W - P} y1={yMedia} y2={yMedia} stroke="#64748B" strokeWidth="1" strokeDasharray="4 3" />}
-      {linhaAnt && <path d={linhaAnt} fill="none" stroke="#8B5CF6" strokeWidth="2" strokeDasharray="5 4" strokeLinejoin="round" strokeLinecap="round" />}
-      <path d={area} fill="#012E46" fillOpacity="0.08" />
-      <path d={linha} fill="none" stroke="#012E46" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (
-        <g key={i} className="pp-chart-focus-svg" style={{ cursor: "pointer" }} tabIndex={0} role="img" aria-label={`${dados[i].label}: ${formatarValor(dados[i].valor)}${sufixo}`}
-          onMouseEnter={() => setAtivo(i)} onMouseLeave={() => setAtivo((c) => (c === i ? null : c))}
-          onFocus={() => setAtivo(i)} onBlur={() => setAtivo((c) => (c === i ? null : c))}>
-          <circle cx={p[0]} cy={p[1]} r="8" fill="transparent" />
-          <circle cx={p[0]} cy={p[1]} r={i === idxMax || i === idxMin ? 4 : 3} fill={corPonto(i)} />
-        </g>
-      ))}
-      {idxs.map((i) => (<text key={i} x={x(i)} y={H - 8} textAnchor="middle" fill="#64748B" style={{ fontSize: 9 }}>{dados[i].label}</text>))}
-      {ativo != null && (() => {
-        const p = pts[ativo]; const d = dados[ativo];
-        const linhas = [`${formatarValor(d.valor)}${sufixo}`];
-        if (d.nps != null) linhas.push(`NPS: ${d.nps}`);
-        if (d.volume != null) linhas.push(`${d.volume} resposta(s)`);
-        const boxW = 96, boxH = 14 + linhas.length * 13;
-        const bx = Math.min(Math.max(p[0] - boxW / 2, 2), W - boxW - 2);
-        const by = Math.max(p[1] - boxH - 10, 2);
-        return (
-          <g pointerEvents="none">
-            <rect x={bx} y={by} width={boxW} height={boxH} rx="6" fill="#FFFFFF" stroke="#E2E8F0" />
-            <text x={bx + boxW / 2} y={by + 13} textAnchor="middle" fill="#334155" style={{ fontSize: 9, fontWeight: 700 }}>{d.label}</text>
-            {linhas.map((l, li) => (
-              <text key={li} x={bx + boxW / 2} y={by + 26 + li * 13} textAnchor="middle" fill={li === 0 ? "#012E46" : "#64748B"} style={{ fontSize: 9, fontWeight: li === 0 ? 800 : 600 }}>{l}</text>
-            ))}
-          </g>
-        );
-      })()}
-    </svg>
-  );
-}
-
 // Categorização de comentários por tema — regra local por palavras-chave
 // (sem IA/serviço externo, nenhum dado pessoal sai do navegador). Um
 // comentário pode pertencer a mais de um tema; sem correspondência cai em
@@ -14864,12 +13677,10 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const [fComentarioSatE, setFComentarioSatE] = useState("todos");
   const [mostrarFiltrosSatE, setMostrarFiltrosSatE] = useState(false);
   const [somenteDetratoresSatE, setSomenteDetratoresSatE] = useState(false);
-  const [compararPeriodoSatE, setCompararPeriodoSatE] = useState(false);
   const [ordenarNotasSatE, setOrdenarNotasSatE] = useState("piores");
   const [ordenacaoComentariosSatE, setOrdenacaoComentariosSatE] = useState("recentes");
   const [paginaSatE, setPaginaSatE] = useState(1);
   const [porPaginaSatE, setPorPaginaSatE] = useState(10);
-  const [atualizadoEmSatE, setAtualizadoEmSatE] = useState(() => new Date());
   const [avisoSatE, setAvisoSatE] = useState(null);
   const [cupomSelSatE, setCupomSelSatE] = useState(null);
   const comentariosRef = useRef(null);
@@ -14897,8 +13708,6 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
     return { ...p, media: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0, n: vals.length, dist: [1, 2, 3, 4, 5].map((n) => vals.filter((v) => v === n).length) };
   });
   const perguntasComDados = medias.filter((m) => m.n > 0);
-  const melhorPergunta = perguntasComDados.length ? [...perguntasComDados].sort((a, b) => b.media - a.media)[0] : null;
-  const piorPergunta = perguntasComDados.length ? [...perguntasComDados].sort((a, b) => a.media - b.media)[0] : null;
   const todasNotas = lista.flatMap((q) => Object.values(q.notas || {}).filter((v) => v != null && v > 0));
   const mediaGeral = todasNotas.length ? todasNotas.reduce((s, v) => s + v, 0) / todasNotas.length : 0;
   const recVals = lista.map((q) => q.notas?.recomendacao).filter((v) => v != null && v > 0);
@@ -14909,7 +13718,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const comentarios = lista.filter((q) => (q.comentario || "").trim());
   const pedidosPagosPeriodo = pedidos.filter((o) => o.paymentStatus === "paid").length;
   const taxaResposta = pedidosPagosPeriodo > 0 ? (lista.length / pedidosPagosPeriodo) * 100 : null;
-  const origemTxt = (o) => o === "externo" ? "🛵 Delivery" : o === "mesa" ? "🍽️ Mesa" : (o || "—");
+  const origemTxt = (o) => o === "externo" ? "Delivery" : o === "mesa" ? "Mesa" : (o || "Outro");
   const telMasc = (t) => { const d = String(t || "").replace(/\D/g, ""); return d.length >= 4 ? `****-${d.slice(-4)}` : "—"; };
   // Escala 1→5. Âmbar e verde levemente aprofundados (#F38525/#059669) para o
   // NÚMERO BRANCO ter contraste em todos os segmentos (padrão único de leitura).
@@ -14947,16 +13756,16 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const porDiaSatE = {};
   lista.forEach((q) => {
     if (!q.criadoEmISO) return;
-    const chave = new Date(q.criadoEmISO).toISOString().slice(0, 10);
+    const chave = chaveDia(q.criadoEmISO);
     if (!porDiaSatE[chave]) porDiaSatE[chave] = { label: new Date(q.criadoEmISO).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), notas: [], rec: [], respostas: 0 };
     Object.values(q.notas || {}).forEach((v) => { if (v != null && v > 0) porDiaSatE[chave].notas.push(v); });
     if (q.notas?.recomendacao != null) porDiaSatE[chave].rec.push(q.notas.recomendacao);
     porDiaSatE[chave].respostas += 1;
   });
-  const evolucaoSatE = Object.entries(porDiaSatE).sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => {
+  const evolucaoSatE = Object.entries(porDiaSatE).sort((a, b) => a[0].localeCompare(b[0])).map(([chave, v]) => {
     const media = v.notas.length ? v.notas.reduce((s, x) => s + x, 0) / v.notas.length : 0;
     const prom = v.rec.filter((x) => x >= 4).length, det = v.rec.filter((x) => x <= 2).length;
-    return { label: v.label, valor: Number(media.toFixed(2)), volume: v.respostas, nps: v.rec.length ? Math.round(((prom - det) / v.rec.length) * 100) : null };
+    return { chave, rotulo: v.label, valor: Number(media.toFixed(2)), qtd: v.respostas, nps: v.rec.length ? Math.round(((prom - det) / v.rec.length) * 100) : null };
   });
 
   // ── Temas e causas (categorização por palavra-chave) ──
@@ -14981,22 +13790,17 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
   const porCanalSatE = {};
   lista.forEach((q) => { const nv = Object.values(q.notas || {}).filter((v) => v != null && v > 0); if (!nv.length) return; const c = q.origem || "outro"; (porCanalSatE[c] ||= []).push(...nv); });
   const canaisMediaSatE = Object.entries(porCanalSatE).map(([c, vals]) => ({ canal: c, media: vals.reduce((s, v) => s + v, 0) / vals.length, n: vals.length }));
-  const piorCanalSatE = canaisMediaSatE.length > 1 ? canaisMediaSatE.reduce((b, d) => (d.media < b.media ? d : b)) : null;
   const notasBaixasComPedido = lista.filter((q) => { const m = mediaNotasValidas(q.notas); return m != null && m <= 2.5 && q.pedidoId; });
   const contagemProdutosBaixaSatE = {};
   notasBaixasComPedido.forEach((q) => { const pedido = orders.find((o) => o.id === q.pedidoId); pedido?.items.forEach((it) => { contagemProdutosBaixaSatE[it.name] = (contagemProdutosBaixaSatE[it.name] || 0) + 1; }); });
   const produtoMaisLigadoBaixaSatE = Object.entries(contagemProdutosBaixaSatE).sort((a, b) => b[1] - a[1])[0] || null;
 
   const insightsSatE = [];
-  const perguntasAbaixoMeta = perguntasComDados.filter((m) => m.media < 3.5);
-  if (perguntasAbaixoMeta.length > 0) insightsSatE.push({ titulo: "Perguntas abaixo da meta", texto: `${perguntasAbaixoMeta.length} pergunta(s) com média abaixo de 3,5: ${perguntasAbaixoMeta.map((m) => m.label).join(", ")}.`, tom: "warning" });
   if (comparativoSatE?.variacaoMedia != null && comparativoSatE.variacaoMedia <= -10) insightsSatE.push({ titulo: "Queda relevante de satisfação", texto: `Média geral caiu ${Math.abs(comparativoSatE.variacaoMedia).toFixed(0)}% frente ao período anterior.`, tom: "danger" });
   if (elogioRecorrenteSatE) insightsSatE.push({ titulo: "Elogio recorrente", texto: `Tema "${elogioRecorrenteSatE.tema}" aparece em ${elogioRecorrenteSatE.n} comentário(s) com nota alta (4-5).`, tom: "success" });
   if (reclamacaoRecorrenteSatE) insightsSatE.push({ titulo: "Reclamação recorrente", texto: `Tema "${reclamacaoRecorrenteSatE.tema}" aparece em ${reclamacaoRecorrenteSatE.n} comentário(s) com nota baixa (≤2,5).`, tom: "danger" });
   if (piorHorarioSatE && horariosMediaSatE.length > 1) insightsSatE.push({ titulo: "Horário com pior avaliação", texto: `${String(piorHorarioSatE.hora).padStart(2, "0")}h tem a menor média (${piorHorarioSatE.media.toFixed(1)}★, ${piorHorarioSatE.n} resposta(s)).`, tom: "warning" });
-  if (piorCanalSatE) insightsSatE.push({ titulo: "Canal com pior avaliação", texto: `${origemTxt(piorCanalSatE.canal)} tem a menor média entre os canais (${piorCanalSatE.media.toFixed(1)}★).`, tom: "warning" });
   if (produtoMaisLigadoBaixaSatE) insightsSatE.push({ titulo: "Produto ligado a notas baixas", texto: `"${produtoMaisLigadoBaixaSatE[0]}" apareceu em ${produtoMaisLigadoBaixaSatE[1]} pedido(s) com avaliação baixa.`, tom: "danger" });
-  if (nps != null && nps >= 50) insightsSatE.push({ titulo: "Oportunidade de fidelização", texto: `NPS de ${nps} indica boa base de promotores (${promotores}) — bom momento para incentivar indicações.`, tom: "violet" });
 
   // ── Comentários: busca, ordenação, paginação ──
   const comentariosFiltradosOrdenados = [...comentarios].sort((a, b) => {
@@ -15066,7 +13870,6 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
     if (!j) return;
     j.document.write(html); j.document.close();
   }
-  function atualizarSatE() { setAtualizadoEmSatE(new Date()); }
 
   const inputClsSatE = "w-full rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-xs text-[#334155] outline-none transition focus:border-[#012E46]";
   const labelClsSatE = "mb-1 block text-[10px] font-bold uppercase tracking-widest text-[#64748B]";
@@ -15074,29 +13877,21 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
 
   return (
     <div className="space-y-6">
-      {/* 11. Ações gerenciais */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E2E8F0] bg-white p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={exportarCSV} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">📊 Exportar CSV</button>
-          <button onClick={exportarPDF} disabled={lista.length === 0} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9] disabled:opacity-40">🖨️ PDF / Imprimir</button>
-          <button onClick={() => setCompararPeriodoSatE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${compararPeriodoSatE ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>📅 Comparar períodos</button>
-          <button onClick={() => setSomenteDetratoresSatE((v) => !v)}
-            className={`rounded-xl border px-3.5 py-2 text-xs font-bold transition ${somenteDetratoresSatE ? "border-[#EF4444] bg-[#EF4444]/10 text-[#EF4444]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>⚠️ Ver apenas detratores</button>
-          <button onClick={() => comentariosRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">💬 Ver comentários</button>
-          <button onClick={atualizarSatE} className="rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2 text-xs font-bold text-[#334155] transition hover:bg-[#F1F5F9]">🔄 Atualizar</button>
-        </div>
-        <p className="text-[11px] text-[#94A3B8]">Atualizado às {atualizadoEmSatE.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
-      </div>
+      <BarraDeAcoes>
+        <BotaoAcao icone={Download} onClick={exportarCSV} disabled={lista.length === 0}>Exportar CSV</BotaoAcao>
+        <BotaoAcao icone={Printer} onClick={exportarPDF} disabled={lista.length === 0}>PDF / Imprimir</BotaoAcao>
+        <BotaoAcao icone={AlertTriangle} ativo={somenteDetratoresSatE} perigo aria-pressed={somenteDetratoresSatE} onClick={() => setSomenteDetratoresSatE((v) => !v)}>Só detratores</BotaoAcao>
+        <BotaoAcao icone={MessageSquare} onClick={() => comentariosRef.current?.scrollIntoView({ block: "start", behavior: "smooth" })}>Comentários</BotaoAcao>
+      </BarraDeAcoes>
 
       {/* 1. Filtros */}
       <div className="rounded-2xl border border-[#E2E8F0] bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-2.5">
-          <input value={buscaSatE} onChange={(e) => setBuscaSatE(e.target.value)} placeholder="🔎 Buscar por telefone ou nº do pedido…"
+          <input value={buscaSatE} onChange={(e) => setBuscaSatE(e.target.value)} placeholder="Buscar por telefone ou nº do pedido…"
             className="min-w-[220px] flex-1 rounded-xl border border-[#E2E8F0] bg-white px-3.5 py-2.5 text-sm text-[#334155] outline-none transition focus:border-[#012E46]" />
           <button onClick={() => setMostrarFiltrosSatE((v) => !v)}
             className={`rounded-xl border px-3.5 py-2.5 text-xs font-bold transition ${mostrarFiltrosSatE || chipsAtivosSatE.length > 0 ? "border-[#012E46] bg-[#E8EDF0] text-[#012E46]" : "border-[#E2E8F0] bg-white text-[#334155] hover:bg-[#F1F5F9]"}`}>
-            ⚙️ Filtros{chipsAtivosSatE.length > 0 ? ` • ${chipsAtivosSatE.length}` : ""}
+            <SlidersHorizontal className="mr-1.5 inline h-3.5 w-3.5" aria-hidden="true" />Filtros{chipsAtivosSatE.length > 0 ? ` • ${chipsAtivosSatE.length}` : ""}
           </button>
         </div>
         {mostrarFiltrosSatE && (
@@ -15104,7 +13899,7 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
             <div>
               <label className={labelClsSatE}>Canal</label>
               <DropdownSelect ariaLabel="Canal" valor={fCanalSatE} onSelecionar={setFCanalSatE} className={`${inputClsSatE} flex items-center justify-between text-left`}
-                opcoes={[{ valor: "todos", rotulo: "Todos" }, { valor: "mesa", rotulo: "🍽️ Mesa" }, { valor: "externo", rotulo: "🛵 Delivery" }]} />
+                opcoes={[{ valor: "todos", rotulo: "Todos" }, { valor: "mesa", rotulo: "Mesa" }, { valor: "externo", rotulo: "Delivery" }]} />
             </div>
             <div>
               <label className={labelClsSatE}>Pergunta</label>
@@ -15136,140 +13931,82 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
         )}
       </div>
 
-      {/* 2. KPIs executivos */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {[
-          { titulo: "Total de respostas", valor: lista.length, variacao: compararPeriodoSatE ? comparativoSatE?.variacaoRespostas : null, desc: "No período selecionado", icon: "📝" },
-          taxaResposta != null && { titulo: "Taxa de resposta", valor: `${taxaResposta.toFixed(0)}%`, desc: `${lista.length} de ${pedidosPagosPeriodo} pedido(s)`, icon: "📈" },
-          { titulo: "Média geral (CSAT)", valor: mediaGeral ? mediaGeral.toFixed(1) : "—", variacao: compararPeriodoSatE ? comparativoSatE?.variacaoMedia : null, desc: "De 1 a 5 estrelas", icon: "⭐" },
-          { titulo: "NPS", valor: nps != null ? `${nps}` : "—", variacao: compararPeriodoSatE ? comparativoSatE?.variacaoNps : null, desc: nps != null ? (classificacaoMediaSatE(mediaGeral)?.label || "—") : "Sem dados suficientes", icon: "👍" },
-          { titulo: "Promotores / Neutros / Detratores", valor: `${promotores} / ${neutros} / ${detratores}`, desc: "Pergunta: recomendaria o local", icon: "👥" },
-          { titulo: "Com comentário", valor: comentarios.length, desc: `${lista.length ? ((comentarios.length / lista.length) * 100).toFixed(0) : 0}% das respostas`, icon: "💬" },
-          melhorPergunta && { titulo: "Melhor pergunta", valor: melhorPergunta.media.toFixed(1), desc: melhorPergunta.label, icon: "🏆" },
-          piorPergunta && { titulo: "Pergunta com pior avaliação", valor: piorPergunta.media.toFixed(1), desc: piorPergunta.label, icon: "⚠️" },
-        ].filter(Boolean).map((k) => (
-          <div key={k.titulo} title={k.desc}><KpiExecutivo {...k} /></div>
-        ))}
+      <GradeIndicadores>
+        <Indicador rotulo="Respostas" valor={lista.length.toLocaleString("pt-BR")} icone={MessageSquare}
+          variacao={comparativoSatE?.variacaoRespostas} comparadoA={rotuloComparacao(periodo)}
+          detalhe={taxaResposta == null ? null : `${taxaResposta.toFixed(0)}% de ${pedidosPagosPeriodo} pedido(s) pagos`} />
+        <Indicador rotulo="Média geral" valor={mediaGeral ? `${mediaGeral.toFixed(1).replace(".", ",")} de 5` : "—"} icone={Star}
+          variacao={comparativoSatE?.variacaoMedia} comparadoA={rotuloComparacao(periodo)} detalhe={classificacaoMediaSatE(mediaGeral || null)?.label} />
+        <Indicador rotulo="NPS" valor={nps ?? "—"} icone={ThumbsUp}
+          detalhe={comparativoSatE?.variacaoNps != null ? `${comparativoSatE.variacaoNps >= 0 ? "+" : ""}${comparativoSatE.variacaoNps} ponto(s) vs. ${rotuloComparacao(periodo)}` : "De −100 a 100"} />
+        <Indicador rotulo="Com comentário" valor={comentarios.length.toLocaleString("pt-BR")} icone={MessageCircle}
+          detalhe={lista.length ? `${((comentarios.length / lista.length) * 100).toFixed(0)}% das respostas` : null} />
+      </GradeIndicadores>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Cartao titulo="Recomendaria o local" descricao="Notas 4–5 promovem · 3 é neutro · 1–2 detratam">
+          <Composicao formatar={(v) => `${v} resposta(s)`} vazio="Nenhuma resposta a essa pergunta."
+            partes={[
+              { rotulo: "Promotores", valor: promotores, cor: "#2F9E52" },
+              { rotulo: "Neutros", valor: neutros, cor: "#9CA3AF" },
+              { rotulo: "Detratores", valor: detratores, cor: "#C81E4A" },
+            ]} />
+          <p className="mt-3 text-[11px] leading-snug text-[#667085]">NPS = (promotores − detratores) ÷ respostas × 100. A pesquisa usa escala de 1 a 5.</p>
+        </Cartao>
+        <Cartao titulo="Média por canal" descricao="Todas as perguntas, de 1 a 5">
+          <Ranking vazio="Nenhuma avaliação no filtro." maximo={5} formatar={(v) => v.toFixed(1).replace(".", ",")}
+            itens={[...canaisMediaSatE].sort((a, b) => b.media - a.media).map((c) => ({ chave: c.canal, rotulo: origemTxt(c.canal), valor: c.media, detalhe: `${c.n} nota(s)` }))} />
+        </Cartao>
       </div>
 
-      {/* 3. Resumo inteligente */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-        <h3 className="page-title mb-3 text-base font-bold text-[#0D1B2A]">Diagnóstico da experiência</h3>
-        {lista.length === 0 ? <p className="text-sm text-[#64748B]">Dados insuficientes para diagnóstico neste período.</p> : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              ["Resultado geral", `${classificacaoMediaSatE(mediaGeral)?.label || "—"} — média ${mediaGeral.toFixed(1)} de 5${nps != null ? `, NPS ${nps}` : ""}.`],
-              ["Principal ponto positivo", melhorPergunta ? `${melhorPergunta.label} (${melhorPergunta.media.toFixed(1)})` : "Dados insuficientes"],
-              ["Maior ponto de atenção", piorPergunta ? `${piorPergunta.label} (${piorPergunta.media.toFixed(1)})` : "Dados insuficientes"],
-              ["Evolução vs. período anterior", comparativoSatE?.variacaoMedia != null ? `${comparativoSatE.variacaoMedia >= 0 ? "+" : ""}${comparativoSatE.variacaoMedia.toFixed(0)}% na média geral` : "Dados insuficientes"],
-              ["Recomendação", piorPergunta && piorPergunta.media < 3.5 ? `Priorizar ações sobre "${piorPergunta.label}", pergunta com menor média do período.` : "Nenhum ponto crítico identificado — manter o padrão atual."],
-            ].map(([r, v]) => (
-              <div key={r} className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">{r}</p>
-                <p className="mt-0.5 text-xs font-semibold leading-relaxed text-[#334155]">{v}</p>
-              </div>
-            ))}
+      <Cartao titulo="Notas por pergunta" descricao="Média e distribuição das notas"
+        acao={(
+          <div className="flex gap-1.5">
+            <BotaoAcao ativo={ordenarNotasSatE === "piores"} onClick={() => setOrdenarNotasSatE("piores")}>Piores primeiro</BotaoAcao>
+            <BotaoAcao ativo={ordenarNotasSatE === "melhores"} onClick={() => setOrdenarNotasSatE("melhores")}>Melhores</BotaoAcao>
           </div>
-        )}
-      </div>
-
-      {/* 10. Perfil NPS */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-        <h3 className="page-title mb-4 text-base font-bold text-[#0D1B2A]">Perfil NPS</h3>
-        {recVals.length === 0 ? <p className="text-sm text-[#64748B]">Dados insuficientes (nenhuma resposta à pergunta "Recomendaria o local").</p> : (
+        )}>
+        {perguntasComDados.length === 0 ? <Vazio titulo="Nenhuma avaliação no filtro selecionado." /> : (
           <>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Promotores (4-5)</p><p className="mt-0.5 text-xl font-black text-[#10B981]">{promotores} <span className="text-xs font-bold text-[#94A3B8]">({((promotores / recVals.length) * 100).toFixed(0)}%)</span></p></div>
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Neutros (3)</p><p className="mt-0.5 text-xl font-black text-[#64748B]">{neutros} <span className="text-xs font-bold text-[#94A3B8]">({((neutros / recVals.length) * 100).toFixed(0)}%)</span></p></div>
-              <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3"><p className="text-[9px] font-bold uppercase tracking-widest text-[#64748B]">Detratores (1-2)</p><p className="mt-0.5 text-xl font-black text-[#EF4444]">{detratores} <span className="text-xs font-bold text-[#94A3B8]">({((detratores / recVals.length) * 100).toFixed(0)}%)</span></p></div>
+            <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-semibold text-[#667085]">
+              {["1 Muito ruim", "2 Ruim", "3 Regular", "4 Bom", "5 Excelente"].map((l, i) => (
+                <span key={l} className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: CORES_NOTA[i] }} />{l}</span>
+              ))}
             </div>
-            <p className="mt-3 text-sm font-bold text-[#0D1B2A]">NPS calculado: <span className="text-[#012E46]">{nps}</span>{comparativoSatE?.variacaoNps != null && <span className="ml-2 text-xs font-semibold text-[#64748B]">({comparativoSatE.variacaoNps >= 0 ? "+" : ""}{comparativoSatE.variacaoNps} vs. período anterior)</span>}</p>
-            <p className="mt-1.5 text-[10px] text-[#94A3B8]">Fórmula: ((promotores − detratores) ÷ respostas) × 100. A pesquisa usa escala de 1 a 5 (não a escala clássica de 0 a 10) — nota 4-5 conta como promotor, 1-2 como detrator, 3 como neutro.</p>
-          </>
-        )}
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* 4. Distribuição das notas */}
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="page-title text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Distribuição das notas</h3>
-            <div className="flex items-center gap-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-1">
-              <button onClick={() => setOrdenarNotasSatE("piores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "piores" ? "bg-[#012E46] text-white" : "text-[#64748B]"}`}>Piores primeiro</button>
-              <button onClick={() => setOrdenarNotasSatE("melhores")} className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${ordenarNotasSatE === "melhores" ? "bg-[#012E46] text-white" : "text-[#64748B]"}`}>Melhores primeiro</button>
-            </div>
-          </div>
-          <div className="mb-3 flex flex-wrap gap-2 text-[10px] font-bold text-[#64748B]">
-            {["1 Muito ruim", "2 Ruim", "3 Regular", "4 Bom", "5 Excelente"].map((l, i) => (
-              <span key={l} className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: CORES_NOTA[i] }} />{l}</span>
-            ))}
-          </div>
-          {lista.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma avaliação no filtro selecionado.</p> : (
-            <div className="space-y-3">
-              {notasOrdenadas.map((m) => { const tot = m.dist.reduce((s, v) => s + v, 0);
+            <ul className="grid gap-x-6 gap-y-4 lg:grid-cols-2">
+              {notasOrdenadas.filter((m) => m.n > 0).map((m) => {
+                const melhor = perguntasComDados.reduce((b, x) => (x.media > b.media ? x : b)).key === m.key;
+                const classe = classificacaoMediaSatE(m.media);
+                const varAnt = comparativoSatE?.mediasPorPergunta?.[m.key];
+                const variacao = variacaoPct(m.media, varAnt);
                 return (
-                  <div key={m.key}>
-                    <div className="mb-1 flex items-center justify-between text-xs"><span className="font-semibold text-[#334155]">{m.label}</span><span className="font-bold text-[#64748B]">{tot} resposta(s)</span></div>
-                    <div className="flex h-6 overflow-hidden rounded-lg bg-[#F1F5F9]">
+                  <li key={m.key} className="min-w-0">
+                    <div className="mb-1 flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 text-[13px] font-semibold text-[#1F2933]">{m.label}</span>
+                      <span className="shrink-0 text-[13px] font-semibold tabular-nums" style={{ color: melhor ? "#9A4D0B" : "#012E46" }}>{m.media.toFixed(1).replace(".", ",")} · {classe.label}</span>
+                    </div>
+                    <div className="flex h-5 gap-0.5 overflow-hidden rounded-md bg-[#F1F4F6]">
                       {m.dist.map((c, i) => c > 0 && (
-                        <div key={i} className="flex items-center justify-center text-[10px] font-black" style={{ width: `${(c / tot) * 100}%`, background: CORES_NOTA[i], color: corTextoContraste(CORES_NOTA[i]) }} title={`${i + 1}★: ${c} (${((c / tot) * 100).toFixed(0)}%)`}>{(c / tot) >= 0.08 ? c : ""}</div>
+                        <div key={i} className="flex items-center justify-center text-[10px] font-semibold" style={{ flexGrow: c, flexBasis: 0, minWidth: 6, background: CORES_NOTA[i], color: corTextoContraste(CORES_NOTA[i]) }} title={`Nota ${i + 1}: ${c} (${((c / m.n) * 100).toFixed(0)}%)`}>{c / m.n >= 0.1 ? c : ""}</div>
                       ))}
                     </div>
-                  </div>
+                    <p className="mt-1 text-[11px] text-[#667085]">{m.n} resposta(s){variacao != null ? ` · ${variacao >= 0 ? "+" : ""}${variacao.toFixed(0)}% vs. ${rotuloComparacao(periodo)}` : ""}</p>
+                  </li>
                 );
               })}
-            </div>
-          )}
-        </div>
+            </ul>
+          </>
+        )}
+      </Cartao>
 
-        {/* 5. Média por pergunta */}
-        <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-          <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Média por pergunta</h3>
-          {lista.length === 0 ? <p className="text-sm text-[#64748B]">Nenhuma avaliação no filtro selecionado.</p> : (
-            <div className="space-y-3.5">
-              {(() => {
-                // DESTAQUE (skill destaque-laranja-claro): a MELHOR média do
-                // conjunto recebe o laranja claro (--pp-destaque); as demais barras
-                // ficam em azul petróleo. Facilita identificar o ponto forte.
-                const keyDestaque = medias.reduce((b, m) => (m.n > 0 && m.media > b.media ? { media: m.media, key: m.key } : b), { media: -1, key: null }).key;
-                return medias.map((m) => {
-                const classe = classificacaoMediaSatE(m.n > 0 ? m.media : null);
-                const ehDestaque = m.key === keyDestaque;
-                const varAnt = comparativoSatE?.mediasPorPergunta?.[m.key];
-                const varPct = varAnt != null && varAnt > 0 && m.n > 0 ? ((m.media - varAnt) / varAnt) * 100 : null;
-                return (
-                  <div key={m.key}>
-                    <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-[#334155]">{m.label}</span>
-                      <span className="flex items-center gap-2">
-                        {classe && <span className="rounded-full px-2 py-0.5 text-[9px] font-black" style={ehDestaque ? { background: "var(--pp-destaque-soft)", color: "#F38525" } : { background: `${classe.cor}1A`, color: classe.cor }}>{classe.label}</span>}
-                        <EstrelasMedia nota={m.media} /><span className="w-8 text-right font-bold text-[#0D1B2A]">{m.n ? m.media.toFixed(1) : "—"}</span>
-                      </span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-[#F1F5F9]">
-                      <div className="h-full rounded-full" style={{ width: `${(m.media / 5) * 100}%`, background: ehDestaque ? "var(--pp-destaque)" : "#012E46" }} />
-                    </div>
-                    <p className="mt-0.5 text-[10px] text-[#94A3B8]">{m.n} resposta(s){compararPeriodoSatE && varPct != null ? ` · ${varPct >= 0 ? "+" : ""}${varPct.toFixed(0)}% vs. período anterior` : ""}</p>
-                  </div>
-                );
-                });
-              })()}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 6. Evolução da satisfação */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-        <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Evolução da satisfação</h3>
-        <LinhaMetrica dados={evolucaoSatE} formatarValor={(v) => v.toFixed(1)} />
-      </div>
-
-      {/* 8. Temas e causas */}
-      <div className="rounded-2xl border border-[#E2E8F0] bg-white p-5">
-        <h3 className="page-title mb-4 text-sm font-bold uppercase tracking-wider text-[#0D1B2A]">Temas e causas nos comentários</h3>
-        {comentarios.length === 0 ? <p className="text-sm text-[#64748B]">Nenhum comentário no filtro selecionado.</p> : <DonutChart dados={distribuicaoTemasSatE} label="Comentários" />}
-        <p className="mt-2 text-[10px] text-[#94A3B8]">Classificação por palavras-chave, processada localmente — nenhum comentário é enviado a serviços externos.</p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Cartao titulo="Evolução da satisfação" descricao="Média das notas por dia">
+          <GraficoTendencia pontos={evolucaoSatE} formatar={(v) => v.toFixed(1).replace(".", ",")} descricaoQtd="resposta(s)" rotuloColunaQtd="Resp." titulo="Média das notas por dia" />
+        </Cartao>
+        <Cartao titulo="Assuntos dos comentários" descricao="Classificação por palavras-chave, feita no próprio navegador">
+          <Ranking vazio="Nenhum comentário no filtro selecionado." formatar={(v) => `${v}`}
+            itens={distribuicaoTemasSatE.slice(0, 6).map((t) => ({ chave: t.label, rotulo: t.label, valor: t.valor }))} />
+        </Cartao>
       </div>
 
       {/* 9. Insights e oportunidades */}
@@ -15304,15 +14041,15 @@ function RelatorioSatisfacao({ pesquisas = [], todasPesquisas = [], pedidos = []
           return (
             <div key={q.id} className="border-t border-[#F1F5F9] px-5 py-3.5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#64748B]">
-                <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}{q.clienteTelefone ? ` · 📞 ${telMasc(q.clienteTelefone)}` : ""}</span>
+                <span>{origemTxt(q.origem)}{q.mesa && q.origem === "mesa" ? ` · ${q.mesa}` : ""}{q.clienteTelefone ? ` · ${telMasc(q.clienteTelefone)}` : ""}</span>
                 <span>{q.criadoEmISO ? new Date(q.criadoEmISO).toLocaleString("pt-BR") : ""}{media != null ? ` · ${media.toFixed(1)}★` : ""}</span>
               </div>
               {q.comentario && <p className="mt-1 text-sm text-[#334155]">"{q.comentario}"</p>}
               <div className="mt-2 flex flex-wrap gap-2">
                 <button onClick={() => abrirPedidoRelacionadoSatE(q.pedidoId)} disabled={!pedidoEncontrado} title={pedidoEncontrado ? "Ver pedido/cupom relacionado" : "Pedido não encontrado no histórico"}
-                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">🧾 Ver pedido</button>
+                  className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#012E46] transition hover:bg-[#E8EDF0] disabled:cursor-not-allowed disabled:text-[#94A3B8] disabled:opacity-60">Ver pedido</button>
                 {q.comentario && (
-                  <button onClick={() => copiarComentarioSatE(q.comentario)} title="Copiar comentário" className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">📋 Copiar</button>
+                  <button onClick={() => copiarComentarioSatE(q.comentario)} title="Copiar comentário" className="rounded-lg border border-[#E2E8F0] px-2 py-1 text-[10px] font-bold text-[#334155] transition hover:bg-[#F1F5F9]">Copiar</button>
                 )}
               </div>
             </div>
