@@ -39,9 +39,10 @@ export const textoDaVariacao = (m) => `${variacaoDoMovimento(m) > 0 ? "+" : vari
 
 /** Justificativa mostrada na linha: a venda (pedido e nota) ou o motivo informado. */
 export function justificativaDoMovimento(m) {
+  const daVenda = () => [`Pedido ${(m.pedidos || []).join(", ")}`, textoDaNota(m.notas?.[0]), m.cliente].filter(Boolean).join(" · ");
+  if (m.tipo === "estorno" && m.vendaId) return `${m.motivo || "Estorno"} · ${daVenda()}`;
   if (m.tipo !== "venda") return m.motivo || "—";
-  if (!m.vendaId) return "Venda sem registro detalhado";
-  return [`Pedido ${(m.pedidos || []).join(", ")}`, textoDaNota(m.notas?.[0]), m.cliente].filter(Boolean).join(" · ");
+  return m.vendaId ? daVenda() : "Venda sem registro detalhado";
 }
 
 /** A função ainda não existe neste banco (migration 225 não rodada). */
@@ -85,6 +86,77 @@ export function mensagemDoHistorico(erro) {
   return RECUSAS.find(([codigo]) => texto.includes(codigo))?.[1] || `Não foi possível concluir${texto ? `: ${texto}` : ""}.`;
 }
 
+// ── Estorno de venda (migration 226) ────────────────────────
+export const MOTIVO_ESTORNO_MINIMO = 15;
+
+export const buscarPreviaDoEstorno = (supabase, vendaId) => consultar(supabase, "app_venda_estorno_previa", { p_venda_id: vendaId });
+
+export async function estornarVenda(supabase, { vendaId, motivo }) {
+  const { data, error } = await supabase.rpc("app_venda_estornar", { p_venda_id: vendaId, p_motivo: motivo });
+  if (error) throw error;
+  return data;
+}
+
+/** Vendas ainda não estornadas cobertas por uma nota. Vazio para quem não administra ou sem a migration. */
+export async function vendasDaNota(supabase, documentoId) {
+  const r = await consultar(supabase, "app_venda_da_nota", { p_documento_id: documentoId });
+  return Array.isArray(r) ? r : [];
+}
+
+const BLOQUEIOS = {
+  venda_ja_estornada: () => "Esta venda já foi estornada.",
+  pedido_nao_consta_como_pago: () => "Um pedido desta venda não consta mais como pago. Confira o pedido antes de estornar.",
+  venda_com_nota_ativa: (detalhe) => `A venda tem nota fiscal ativa${detalhe ? `: ${detalhe}` : ""}. Cancele ou descarte a nota antes, no menu Fiscal.`,
+  abra_o_caixa_para_estornar: () => "Há dinheiro a devolver: abra o caixa antes de estornar.",
+  venda_nao_encontrada: () => "Venda não encontrada ou sem permissão para estornar.",
+  justificativa_obrigatoria: () => `Escreva a justificativa do estorno (pelo menos ${MOTIVO_ESTORNO_MINIMO} letras).`,
+};
+export const textoDoBloqueio = (b) => BLOQUEIOS[b?.codigo]?.(b.detalhe) || "Esta venda não pode ser estornada agora.";
+
+export function mensagemDoEstorno(erro) {
+  const texto = String(erro?.message || "");
+  const codigo = Object.keys(BLOQUEIOS).find((c) => texto.includes(c));
+  return codigo ? BLOQUEIOS[codigo](erro?.details) : mensagemDoHistorico(erro);
+}
+
+/** O que o estorno vai fazer, em frases, a partir da prévia calculada pelo banco. */
+export function efeitosDoEstorno(plano) {
+  if (!plano) return [];
+  const efeitos = [{ titulo: "Pedidos", linhas: [`${(plano.pedidos || []).join(", ")} passam a cancelados e saem do faturamento.`] }];
+  efeitos.push({
+    titulo: "Estoque",
+    linhas: plano.semRegistroDeEstoque
+      ? ["Esta venda não tem baixa registrada: o estoque não muda."]
+      : plano.estoque.map((e) => (e.existe ? `${e.produto}: voltam ${e.quantidade}` : `${e.produto}: produto excluído, não volta ao estoque`)),
+  });
+  if (plano.pontos?.length) {
+    const porCliente = new Map();
+    for (const p of plano.pontos) {
+      const c = porCliente.get(p.clienteId) || { nome: p.cliente || "Cliente", saldo: Number(p.saldo) || 0, soma: 0, partes: [] };
+      c.soma += Number(p.pontos) || 0;
+      c.partes.push(`${p.pontos > 0 ? "+" : ""}${p.pontos}`);
+      porCliente.set(p.clienteId, c);
+    }
+    efeitos.push({
+      titulo: "Pontos",
+      linhas: [...porCliente.values()].map((c) => `${c.nome}: ${c.partes.join(" e ")} pts, saldo de ${c.saldo} para ${c.saldo + c.soma}${c.saldo + c.soma < 0 ? " (os pontos já foram usados: o saldo fica negativo)" : ""}`),
+    });
+  }
+  // A parte paga com pontos volta em pontos (acima); aqui entra só o que o cliente recebe de volta.
+  const aDevolver = (plano.caixa || []).filter((c) => !/pontos/i.test(c.forma));
+  efeitos.push({
+    titulo: "Dinheiro",
+    linhas: [
+      aDevolver.length ? `Devolva ao cliente: ${textoDasFormas(aDevolver)}. O sistema não faz o reembolso no cartão nem no PIX.` : "Nada a devolver em dinheiro, cartão ou PIX.",
+      plano.caixaId == null ? "Nenhum caixa aberto: a saída não é lançada no caixa." : "A saída é lançada no caixa aberto.",
+    ],
+  });
+  if (plano.cupom) {
+    efeitos.push({ titulo: "Cupom", linhas: [plano.cupomUsoId == null ? `Cupom ${plano.cupom}: uso não localizado, o contador não muda.` : `O uso do cupom ${plano.cupom} volta a ficar disponível.`] });
+  }
+  return efeitos;
+}
+
 /** Todas as linhas do filtro, em lotes, para a exportação. `buscar` recebe { pagina, porPagina }. */
 export async function todasAsLinhas(buscar) {
   const linhas = [];
@@ -99,12 +171,13 @@ export async function todasAsLinhas(buscar) {
 
 const numeroOuVazio = (v) => (v == null ? "" : Number(v));
 
-export const CABECALHO_VENDAS = ["Data", "Pedidos", "Cliente", "Telefone", "Canal", "Mesa", "Operador", "Formas", "Subtotal", "Taxa de serviço", "Acréscimo", "Desconto", "Desconto de cupom", "Cupom", "Total", "Itens", "Custo", "Nota fiscal", "Origem do registro"];
+export const CABECALHO_VENDAS = ["Data", "Pedidos", "Cliente", "Telefone", "Canal", "Mesa", "Operador", "Formas", "Subtotal", "Taxa de serviço", "Acréscimo", "Desconto", "Desconto de cupom", "Cupom", "Total", "Itens", "Custo", "Nota fiscal", "Origem do registro", "Situação", "Motivo do estorno"];
 export const linhaCsvDaVenda = (v) => [
   dataHora(v.quando), (v.pedidos || []).join(", "), v.cliente || "", v.telefone || "", CANAIS[v.canal] || v.canal, v.mesa || "", v.operador || "",
   textoDasFormas(v.formas), numeroOuVazio(v.subtotal), numeroOuVazio(v.taxa), numeroOuVazio(v.acrescimo), numeroOuVazio(v.descontoManual),
   numeroOuVazio(v.descontoCupom), v.cupom || "", numeroOuVazio(v.total), numeroOuVazio(v.itens), numeroOuVazio(v.custo),
   textoDaNota(v.notas?.[0]), v.origem === "reconstruida" ? "Reconstruída" : "Na venda",
+  v.estorno ? `Estornada em ${dataHora(v.estorno.quando)} por ${v.estorno.por || "—"}` : "Válida", v.estorno?.motivo || "",
 ];
 
 export const CABECALHO_MOVIMENTOS = ["Data", "Produto", "Tipo", "Movimento", "Antes", "Depois", "Justificativa", "Usuário"];

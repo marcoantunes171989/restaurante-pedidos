@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buscarEmitenteFiscal } from "../../../lib/fiscal/fiscalApi";
 import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
+import PerguntaEstornoDaNota from "../PerguntaEstornoDaNota.jsx";
 
 // Tela de cancelamento (NFC-e e NF-e): lista SOMENTE as notas que ainda podem ser canceladas, com a contagem regressiva. Passou do
 // prazo, a nota sai da lista sozinha. As regras de cada modelo vêm em `regras` (CancelamentoNfce.jsx e CancelamentoNfe.jsx).
@@ -84,6 +85,7 @@ export default function CancelamentoNota({ supabase, lojaInfo, regras }) {
   const [aberto, setAberto] = useState(null);
   const [ocupado, setOcupado] = useState(null);
   const [resultados, setResultados] = useState({});
+  const [pergunta, setPergunta] = useState(null); // depois de cancelar: estornar também a venda?
   const ufRef = useRef("");
 
   const carregar = useCallback(async () => {
@@ -110,7 +112,7 @@ export default function CancelamentoNota({ supabase, lojaInfo, regras }) {
     setOcupado(nota.id);
     try {
       const r = await postarApiFiscal(supabase, { acao: "cancelar", documentoId: nota.id, xJust });
-      if (r?.ok) { setResultados((v) => ({ ...v, [nota.id]: { ok: true, texto: `${regras.sigla} nº ${nota.numero} cancelada na SEFAZ. Protocolo ${r.protocolo || "—"}.` } })); setAberto(null); carregar(); }
+      if (r?.ok) { setResultados((v) => ({ ...v, [nota.id]: { ok: true, texto: `${regras.sigla} nº ${nota.numero} cancelada na SEFAZ. Protocolo ${r.protocolo || "—"}.` } })); setAberto(null); setPergunta({ documentoId: nota.id, motivo: xJust }); carregar(); }
       else setResultados((v) => ({ ...v, [nota.id]: { ok: false, texto: r?.erro || r?.xMotivo || "Não foi possível cancelar." } }));
     } catch { setResultados((v) => ({ ...v, [nota.id]: { ok: false, texto: "Não foi possível cancelar agora. Tente novamente." } })); } finally { setOcupado(null); }
   }
@@ -146,6 +148,7 @@ export default function CancelamentoNota({ supabase, lojaInfo, regras }) {
           {estado.parcial && <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]" data-testid="canc-parcial">A busca parou nas notas mais recentes. Uma nota mais antiga pode ser cancelada em Notas emitidas.</p>}
         </>
       )}
+      {pergunta && <PerguntaEstornoDaNota supabase={supabase} documentoId={pergunta.documentoId} motivo={pergunta.motivo} onFechar={() => setPergunta(null)} />}
     </section>
   );
 }

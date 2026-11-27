@@ -1,4 +1,6 @@
+import { useState } from "react";
 import ModalCentral from "../../../components/ModalCentral.jsx";
+import EstornoDeVenda from "../../../components/admin/EstornoDeVenda.jsx";
 import { AvisoErro, Cartao, Carregando, Dado } from "../../../components/graficos/Graficos.jsx";
 import { CANAIS, TIPOS_MOVIMENTO, buscarVenda, dataHora, mensagemDoHistorico, textoDaNota, textoDaVariacao, textoDasFormas } from "../../../lib/relatorios/historicos.js";
 import { formatCurrency } from "../../pdv/pdvHelpers.js";
@@ -7,16 +9,38 @@ import { useConsulta } from "./useConsulta.js";
 const GRADE = "grid grid-cols-2 gap-3 sm:grid-cols-3";
 const dinheiro = (v) => (v == null ? "—" : formatCurrency(v));
 
-/** Tudo o que o banco registrou de uma venda. */
-export default function DetalheDaVenda({ supabase, vendaId, onFechar }) {
+/** Tudo o que o banco registrou de uma venda, com o estorno quando houver. */
+export default function DetalheDaVenda({ supabase, vendaId, onFechar, onMudou }) {
   const { dados, erro, atualizar } = useConsulta(() => buscarVenda(supabase, vendaId), String(vendaId));
+  const [estornando, setEstornando] = useState(false);
   const v = dados?.venda;
+  const estorno = dados?.estorno;
+  // Bancos sem a migration 226 não devolvem o campo "estorno": o botão não aparece.
+  const podeEstornar = !!v && dados.estorno === null;
 
   return (
     <ModalCentral ariaLabel="Detalhe da venda" titulo={v ? `Venda de ${formatCurrency(v.total)}` : "Venda"}
-      subtitulo={v ? `${dataHora(v.vendido_em)} · ${(v.pedidos_ids || []).join(", ")}` : null} colunas={v ? 2 : 1} tamanho="xl" onFechar={onFechar}>
+      subtitulo={v ? `${dataHora(v.vendido_em)} · ${(v.pedidos_ids || []).join(", ")}` : null} colunas={v ? 2 : 1} tamanho="xl" onFechar={onFechar}
+      badges={estorno ? <span className="rounded-full bg-[#FDECEF] px-2.5 py-1 text-[11px] font-semibold text-[#C81E4A]">Estornada</span> : null}
+      rodape={podeEstornar ? (
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          <button type="button" data-testid="estornar-venda" onClick={() => setEstornando(true)}
+            className="h-11 rounded-xl border border-[#C81E4A] px-6 text-sm font-semibold text-[#C81E4A] transition hover:bg-[#FDECEF]">Estornar venda</button>
+          <button type="button" onClick={onFechar} className="h-11 rounded-xl border border-[#D0D5DD] px-6 text-sm font-semibold text-[#344054] sm:min-w-[10rem]">Fechar</button>
+        </div>
+      ) : undefined}>
       {erro ? <AvisoErro mensagem={mensagemDoHistorico(erro)} onTentar={atualizar} /> : !v ? <Carregando rotulo="Carregando a venda…" /> : (
         <>
+          {estorno && (
+            <Cartao titulo="Estorno">
+              <dl className={GRADE}>
+                <Dado rotulo="Quando">{dataHora(estorno.quando)}</Dado>
+                <Dado rotulo="Quem estornou">{estorno.por || "—"}</Dado>
+                <Dado rotulo="Valor">{dinheiro(estorno.valor)}</Dado>
+              </dl>
+              <p className="mt-3 text-[13px] text-[#1F2933]"><span className="font-semibold">Justificativa:</span> {estorno.motivo}</p>
+            </Cartao>
+          )}
           <Cartao titulo="Resumo">
             <dl className={GRADE}>
               <Dado rotulo="Cliente">{v.cliente_nome || "Não identificado"}{v.cliente_telefone && <span className="block text-[11px] font-medium text-[#667085]">{v.cliente_telefone}</span>}</Dado>
@@ -65,7 +89,7 @@ export default function DetalheDaVenda({ supabase, vendaId, onFechar }) {
               </ul>
             )}
           </Cartao>
-          <Cartao titulo="Baixa de estoque">
+          <Cartao titulo="Movimentação de estoque">
             {(dados.estoque || []).length === 0 ? <p className="text-[13px] text-[#667085]">Sem movimentação registrada para esta venda.</p> : (
               <ul className="divide-y divide-[#E5E7EB]">
                 {dados.estoque.map((m, i) => (
@@ -90,6 +114,10 @@ export default function DetalheDaVenda({ supabase, vendaId, onFechar }) {
             )}
           </Cartao>
         </>
+      )}
+      {estornando && (
+        <EstornoDeVenda supabase={supabase} vendaId={vendaId} onFechar={() => setEstornando(false)}
+          onEstornado={() => { atualizar(); onMudou?.(); }} />
       )}
     </ModalCentral>
   );

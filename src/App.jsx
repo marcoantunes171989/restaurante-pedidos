@@ -72,6 +72,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
+import { resumoDoCaixa, saiDoCaixa } from "./lib/caixaResumo";
 import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
 import { useCobranca } from "./hooks/useCobranca";
 import { juntarTransacoes, mensagemDeRecusaDePontos, pontosDaVenda, pontosPor, transacaoDoBanco } from "./lib/fidelidade";
@@ -6428,7 +6429,8 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
   const fidPagoComPontosReais = fidTransacoes.reduce((s, t) => {
     if (t.tipo !== "redeem" || !noPeriodo(t.criadoEmISO)) return s;
     const r = reaisDeResgate(t.descricao);
-    return s + (r != null ? r : Math.abs(Number(t.pontos) || 0) / pprFin);
+    // Pontos positivos num resgate são o estorno dele: o valor sai da conta.
+    return s + (r != null ? r : Math.abs(Number(t.pontos) || 0) / pprFin) * (Number(t.pontos) > 0 ? -1 : 1);
   }, 0);
   return (
     <main className="space-y-5">
@@ -15588,15 +15590,7 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
     return () => { vivo = false; };
   }, [caixaAberto?.id]);
 
-  const soma = (tipo) => movs.filter((m) => m.tipo === tipo).reduce((s, m) => s + m.valor, 0);
-  const suprimentos = soma("suprimento");
-  const sangrias = soma("sangria");
-  const vendas = soma("venda");
-  const formaDe = (m) => (m.descricao || "").replace(/^Venda\s*/i, "").split(" · ")[0] || "—";
-  const vendasPorForma = (() => { const r = {}; movs.filter((m) => m.tipo === "venda").forEach((m) => { const f = formaDe(m); r[f] = (r[f] || 0) + m.valor; }); return r; })();
-  const vendasDinheiro = movs.filter((m) => m.tipo === "venda" && /dinheiro/i.test(formaDe(m))).reduce((s, m) => s + m.valor, 0);
-  const abertura = caixaAberto?.valorAbertura || 0;
-  const esperadoDinheiro = abertura + suprimentos - sangrias + vendasDinheiro;
+  const { suprimentos, sangrias, porForma: vendasPorForma, totalVendido: vendas, quantidadeDeVendas, totalEstornado, esperadoEmDinheiro: esperadoDinheiro } = resumoDoCaixa(movs, caixaAberto?.valorAbertura || 0);
   const fechados = caixas.filter((c) => c.status === "fechado");
 
   async function recarregar() { if (caixaAberto && api?.fetchMovimentos) setMovs(await api.fetchMovimentos(caixaAberto.id).catch(() => [])); }
@@ -15626,7 +15620,7 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <CardMetrica compact titulo="Aberto em" valor={caixaAberto.abertoEmISO ? new Date(caixaAberto.abertoEmISO).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"} sub="sessão atual" cor="text-white" />
-            <CardMetrica compact titulo="Total vendido" valor={formatCurrency(vendas)} sub={`${movs.filter((m) => m.tipo === "venda").length} venda(s)`} cor="text-emerald-400" />
+            <CardMetrica compact titulo="Total vendido" valor={formatCurrency(vendas)} sub={`${quantidadeDeVendas} venda(s)${totalEstornado > 0 ? ` · estornado ${formatCurrency(totalEstornado)}` : ""}`} cor="text-emerald-400" />
             <CardMetrica compact titulo="Suprimentos − Sangrias" valor={formatCurrency(suprimentos - sangrias)} sub={`+${formatCurrency(suprimentos)} / −${formatCurrency(sangrias)}`} cor="text-white" />
             <CardMetrica compact titulo="Esperado em dinheiro" valor={formatCurrency(esperadoDinheiro)} sub="abertura + dinheiro − sangria" cor="text-gold-400" />
           </div>
@@ -15657,9 +15651,9 @@ function CaixaSessaoAdmin({ caixaAberto, caixas = [], api }) {
               <div className="max-h-64 overflow-y-auto">
                 {[...movs].reverse().map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-2 border-t border-white/5 px-5 py-2.5 text-sm">
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${m.tipo === "venda" ? "bg-emerald-500/15 text-emerald-300" : m.tipo === "suprimento" ? "bg-blue-500/15 text-blue-300" : m.tipo === "sangria" ? "bg-amber-500/15 text-amber-300" : "bg-white/[0.06] text-slate-400"}`}>{m.tipo}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${m.tipo === "venda" ? "bg-emerald-500/15 text-emerald-300" : m.tipo === "suprimento" ? "bg-blue-500/15 text-blue-300" : saiDoCaixa(m) ? "bg-amber-500/15 text-amber-300" : "bg-white/[0.06] text-slate-400"}`}>{m.tipo}</span>
                     <span className="min-w-0 flex-1 truncate text-slate-400">{m.descricao || "—"}</span>
-                    <span className={`font-black ${m.tipo === "sangria" ? "text-amber-300" : "text-white"}`}>{m.tipo === "sangria" ? "−" : "+"}{formatCurrency(m.valor)}</span>
+                    <span className={`font-black ${saiDoCaixa(m) ? "text-amber-300" : "text-white"}`}>{saiDoCaixa(m) ? "−" : "+"}{formatCurrency(m.valor)}</span>
                   </div>
                 ))}
               </div>
@@ -15863,7 +15857,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
   function exportarMovimentacoes() {
     const nomeCli = {}; clientes.forEach((c) => (nomeCli[c.id] = c.nome));
     baixarCsv("fidelidade-movimentacoes.csv", [["Data", "Cliente", "Tipo", "Pontos", "Descrição"],
-      ...transacoes.map((t) => [t.criadoEmISO ? new Date(t.criadoEmISO).toLocaleString("pt-BR") : "", nomeCli[t.clienteId] || "—", t.tipo === "redeem" ? "Resgate" : "Emissão", t.pontos, t.descricao || ""])]);
+      ...transacoes.map((t) => [t.criadoEmISO ? new Date(t.criadoEmISO).toLocaleString("pt-BR") : "", nomeCli[t.clienteId] || "—", /^Estorno/i.test(t.descricao || "") ? "Estorno" : t.tipo === "redeem" ? "Resgate" : "Emissão", t.pontos, t.descricao || ""])]);
   }
 
   const inpCard = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#F38525]";

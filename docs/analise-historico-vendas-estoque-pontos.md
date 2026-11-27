@@ -33,6 +33,15 @@ Cada entrega: migration com teste, tela, validação na homologação e, só com
 - Venda com nota autorizada: a nota é cancelada antes, dentro do prazo que o sistema já controla. Fora do prazo, o sistema recusa e informa; o tratamento fiscal desse caso fica fora desta entrega.
 - Estorno acontece uma única vez, em uma operação (tudo ou nada).
 
+Regras implementadas (migration 226):
+- Só quem administra a empresa, com justificativa de 15 letras ou mais. O botão fica no detalhe da venda; ao cancelar uma nota, a tela pergunta se estorna a venda ou só a nota.
+- Impedem o estorno: nota autorizada, em envio, em contingência ou com erro; pedido que não consta mais como pago; dinheiro a devolver sem caixa aberto (só em empresa que usa o caixa).
+- O estoque recebe de volta o que a venda baixou. Venda sem baixa registrada é estornada sem mexer no estoque, com aviso.
+- Pontos: lançamento contrário do mesmo tipo (o saldo pode ficar negativo se já foram usados, e a tela avisa).
+- Caixa: movimento "estorno" por forma de pagamento, sem o troco, no caixa aberto mais recente. O reembolso no cartão ou PIX é feito fora do sistema.
+- Cupom de desconto: o uso volta a ficar disponível.
+- Pedidos passam a cancelados e sem pagamento; a venda e o pagamento originais não mudam. A venda estornada não recebe nota nova.
+
 ### Entrega 3 — Pontos: expiração e visão gerencial
 - Validade em dias por empresa (sem prazo definido, nada vence).
 - O resgate consome primeiro os pontos mais antigos; o que vence vira um lançamento "expirado" com data.

@@ -59,7 +59,7 @@ export default function HistoricoVendas({ supabase, lojaId, periodo, ini, fim })
   return (
     <div className="space-y-3" aria-busy={carregando}>
       <GradeIndicadores>
-        <Indicador rotulo="Vendas" valor={inteiro(r.vendas)} detalhe="Pagamentos no período" />
+        <Indicador rotulo="Vendas" valor={inteiro(r.vendas)} detalhe={r.estornadas > 0 ? `${inteiro(r.estornadas)} estornada(s) fora dos totais: ${formatCurrency(r.valorEstornado)}` : "Pagamentos no período"} />
         <Indicador rotulo="Valor recebido" valor={formatCurrency(r.valor)} detalhe={`Taxa de serviço ${formatCurrency(r.taxa)}`} />
         <Indicador rotulo="Descontos" valor={formatCurrency(r.descontos)} detalhe={`Acréscimos ${formatCurrency(r.acrescimos)}`} />
         <Indicador rotulo="Lucro bruto" valor={lucro == null ? "—" : formatCurrency(lucro)}
@@ -99,7 +99,10 @@ export default function HistoricoVendas({ supabase, lojaId, periodo, ini, fim })
                     <Dado rotulo="Cliente">{v.cliente || "Não identificado"}<span className="block text-[11px] font-medium text-[#667085]">{CANAIS[v.canal] || v.canal} · {(v.pedidos || []).join(", ")}</span></Dado>
                     <Dado rotulo="Pagamento">{textoDasFormas(v.formas)}{v.cupom && <span className="block text-[11px] font-medium text-[#667085]">Cupom {v.cupom}</span>}</Dado>
                     <Dado rotulo="Nota fiscal">{textoDaNota(v.notas?.[0])}</Dado>
-                    <Dado rotulo="Total">{formatCurrency(v.total)}</Dado>
+                    <Dado rotulo="Total">
+                      <span className={v.estorno ? "line-through opacity-60" : ""}>{formatCurrency(v.total)}</span>
+                      {v.estorno && <span className="block text-[11px] font-semibold text-[#C81E4A]">Estornada</span>}
+                    </Dado>
                   </dl>
                 </button>
               </li>
@@ -109,7 +112,7 @@ export default function HistoricoVendas({ supabase, lojaId, periodo, ini, fim })
         <Paginador pagina={pagina} total={Number(dados.total) || 0} porPagina={POR_PAGINA} onMudar={setPagina} rotulo="venda(s)" />
       </Cartao>
 
-      {vendaAberta != null && <DetalheDaVenda supabase={supabase} vendaId={vendaAberta} onFechar={() => setVendaAberta(null)} />}
+      {vendaAberta != null && <DetalheDaVenda supabase={supabase} vendaId={vendaAberta} onFechar={() => setVendaAberta(null)} onMudou={atualizar} />}
     </div>
   );
 }

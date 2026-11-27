@@ -73,7 +73,8 @@ describe("histórico de vendas", () => {
     expect(texto()).toContain("1 venda(s) sem custo");
     await act(async () => document.querySelector('[data-testid="venda-3"]').click());
     expect(supabase.rpc).toHaveBeenLastCalledWith("app_venda_detalhe", { p_venda_id: 3 });
-    expect(texto()).toContain("Baixa de estoque");
+    expect(texto()).toContain("Movimentação de estoque");
+    expect(document.querySelector('[data-testid="estornar-venda"]')).toBeNull(); // banco sem a 226
     expect(texto()).toContain("−1 (5 → 4)");
   });
   it("sem empresa em foco não consulta", async () => {

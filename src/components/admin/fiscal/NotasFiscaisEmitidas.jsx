@@ -3,6 +3,7 @@ import DetalhesNotaFiscal from "./DetalhesNotaFiscal";
 import XmlDaNota from "./XmlDaNota";
 import ChaveAcessoNota from "./ChaveAcessoNota";
 import ManutencaoFiscal from "./ManutencaoFiscal";
+import PerguntaEstornoDaNota from "../PerguntaEstornoDaNota.jsx";
 import { podeManutencao } from "../../../lib/fiscal/manutencaoCampos";
 import { nfceForaDoPrazo } from "../../../lib/fiscal/prazoCancelamento";
 import { baixarXml, buscarXmlDaNota, nomeArquivoXml } from "../../../lib/fiscal/xmlNota";
@@ -29,7 +30,7 @@ const TOM = {
 const moeda = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const data = (iso) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
-function PainelEvento({ nota, acao, onFechar, onConcluido, supabase }) {
+function PainelEvento({ nota, acao, onFechar, onConcluido, onCancelada, supabase }) {
   const [texto, setTexto] = useState("");
   const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -46,6 +47,7 @@ function PainelEvento({ nota, acao, onFechar, onConcluido, supabase }) {
       const r = await pedirEventoFiscal(supabase, corpo);
       setResultado({ ok: true, texto: cancelar ? `Nota cancelada na SEFAZ. Protocolo ${r.protocolo}.` : `Correção registrada na SEFAZ (carta nº ${r.nSeq}). Protocolo ${r.protocolo}.` });
       onConcluido();
+      if (cancelar) onCancelada?.(nota.id, texto.trim());
     } catch (err) {
       setResultado({ ok: false, texto: err.message });
     } finally {
@@ -201,6 +203,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
   const [notas, setNotas] = useState([]);
   const [estado, setEstado] = useState({ carregando: true, erro: "" });
   const [aberto, setAberto] = useState(null); // { id, acao }
+  const [pergunta, setPergunta] = useState(null); // depois de cancelar: estornar também a venda?
   const [ocupado, setOcupado] = useState(null); // nota com envio/consulta em andamento
   const [avisos, setAvisos] = useState({}); // id → { ok, texto }
   const [filtro, setFiltro] = useState("todas");
@@ -445,7 +448,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                         {xmlId === n.id && <XmlDaNota nota={n} buscar={(corpo) => postarApiFiscal(supabase, corpo)} onFechar={() => setXmlId(null)} />}
                         {detalhesId === n.id && <DetalhesNotaFiscal nota={n} supabase={supabase} tentativas={tentativas[n.id] || []} onFechar={() => setDetalhesId(null)} />}
                         {aberto?.id === n.id && aberto.acao === "descartar" && <PainelDescartar nota={n} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
-                        {aberto?.id === n.id && aberto.acao !== "descartar" && <PainelEvento nota={n} acao={aberto.acao} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} />}
+                        {aberto?.id === n.id && aberto.acao !== "descartar" && <PainelEvento nota={n} acao={aberto.acao} supabase={supabase} onFechar={() => setAberto(null)} onConcluido={recarregar} onCancelada={(documentoId, motivo) => setPergunta({ documentoId, motivo })} />}
                     </div>
                   )}
                 </li>
@@ -455,6 +458,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
           <Paginacao pag={pag} onPagina={setPagina} onPorPagina={trocarPorPagina} />
         </>
       )}
+      {pergunta && <PerguntaEstornoDaNota supabase={supabase} documentoId={pergunta.documentoId} motivo={pergunta.motivo} onFechar={() => setPergunta(null)} />}
     </section>
   );
 }
