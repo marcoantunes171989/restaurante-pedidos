@@ -41,15 +41,19 @@ export default function EstornoDeVenda({ supabase, vendaId, motivoInicial = "", 
   return (
     <ModalCentral ariaLabel="Estornar venda" titulo="Estornar venda" subtitulo={plano?.total != null ? formatCurrency(plano.total) : null} tamanho="md" onFechar={onFechar}
       rodape={(
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          {feito ? <button type="button" className={principal} onClick={onFechar}>Concluir</button> : (
-            <>
-              <button type="button" className={secundario} disabled={gravando} onClick={confirmando ? () => setConfirmando(false) : onFechar}>{confirmando ? "Revisar" : "Não estornar"}</button>
-              {podeEstornar && (confirmando
-                ? <button type="button" data-testid="estorno-confirmar" className={principal} disabled={gravando || faltam > 0} onClick={confirmar}>{gravando ? "Estornando…" : "Sim, estornar"}</button>
-                : <button type="button" data-testid="estorno-continuar" className={principal} disabled={faltam > 0} onClick={() => setConfirmando(true)}>Estornar venda</button>)}
-            </>
-          )}
+        <div className="space-y-2">
+          {/* No rodapé fixo: em tela baixa o aviso ficava escondido abaixo da rolagem. */}
+          {confirmando && !feito && <p role="status" data-testid="estorno-aviso" className="text-[13px] font-semibold text-[#B45309] sm:text-right">O estorno não pode ser desfeito. Confirmar?</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            {feito ? <button type="button" className={principal} onClick={onFechar}>Concluir</button> : (
+              <>
+                <button type="button" className={secundario} disabled={gravando} onClick={confirmando ? () => setConfirmando(false) : onFechar}>{confirmando ? "Revisar" : "Não estornar"}</button>
+                {podeEstornar && (confirmando
+                  ? <button type="button" data-testid="estorno-confirmar" className={principal} disabled={gravando || faltam > 0} onClick={confirmar}>{gravando ? "Estornando…" : "Sim, estornar"}</button>
+                  : <button type="button" data-testid="estorno-continuar" className={principal} disabled={faltam > 0} onClick={() => setConfirmando(true)}>Estornar venda</button>)}
+              </>
+            )}
+          </div>
         </div>
       )}>
       {feito ? (
@@ -78,7 +82,6 @@ export default function EstornoDeVenda({ supabase, vendaId, motivoInicial = "", 
                   className="mt-1 w-full rounded-xl border border-[#D0D5DD] bg-white p-3 text-[13px] text-[#1F2933] outline-none focus:border-[#012E46] disabled:bg-[#F7F9FA]" />
                 {faltam > 0 && <span className="mt-1 block text-xs font-medium text-[#667085]">Faltam {faltam} letra(s).</span>}
               </label>
-              {confirmando && <p role="status" className="text-[13px] font-semibold text-[#B45309]">O estorno não pode ser desfeito. Confirmar?</p>}
             </>
           )}
           {falha && <p role="alert" className="text-xs font-semibold text-[#C81E4A]">{falha}</p>}

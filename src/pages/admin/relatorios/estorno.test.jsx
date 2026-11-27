@@ -103,6 +103,8 @@ describe("estornar pelo detalhe da venda", () => {
     await escrever(document.querySelector('[aria-label="Justificativa do estorno"]'), "Cliente desistiu da compra");
     await clicar("estorno-continuar");
     expect(supabase.rpc).not.toHaveBeenCalledWith("app_venda_estornar", expect.anything());
+    // O aviso fica junto dos botões (rodapé fixo), não no conteúdo que rola.
+    expect(item("estorno-aviso").parentElement.contains(item("estorno-confirmar"))).toBe(true);
     await clicar("estorno-confirmar");
     expect(supabase.rpc).toHaveBeenCalledWith("app_venda_estornar", { p_venda_id: 3, p_motivo: "Cliente desistiu da compra" });
     expect(item("estorno-feito")).not.toBeNull();
