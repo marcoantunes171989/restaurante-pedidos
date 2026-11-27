@@ -32,6 +32,22 @@ export function itemPersistidoDoCarrinho(i) {
   });
 }
 
+// Recusas do banco ao gravar itens (migration 217). O nome do item vem em `details`.
+const RECUSAS_DE_ITEM = [
+  ["item_preco_abaixo_do_cadastro", (n) => `O preço de ${n} está abaixo do cadastro. Atualize a tela e inclua o item novamente.`],
+  ["item_sem_produto_no_cadastro", (n) => `${n} não está no cadastro de produtos desta empresa. Inclua o item pela lista de produtos.`],
+  ["item_invalido", (n) => `Confira a quantidade e o preço de ${n}.`],
+];
+
+/** Mensagem para o usuário quando o banco recusa um item; null se o erro for outro. */
+export function mensagemDeItemRecusado(erro) {
+  const texto = String(erro?.message || "");
+  const achada = RECUSAS_DE_ITEM.find(([codigo]) => texto.includes(codigo));
+  if (!achada) return null;
+  const nome = String(erro?.details || "").trim();
+  return achada[1](nome ? `"${nome}"` : "um item");
+}
+
 /**
  * Cópia de um item já gravado (separar/transferir itens). Só productId gravado
  * conta — `id` aqui pode ser de outra coisa, então não é usado.

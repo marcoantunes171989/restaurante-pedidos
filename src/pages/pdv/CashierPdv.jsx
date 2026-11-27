@@ -1444,10 +1444,10 @@ export default function CashierPdv({
   async function alterarQtdItem(orderId, index, novaQtd) {
     if (produtosBloqueados) {
       notify("error", "Comprovante emitido — alteração dos itens atuais bloqueada. Inclua novos produtos pela comanda do cliente.");
-      return;
+      return false;
     }
     const pedido = orders.find((o) => o.id === orderId);
-    if (!pedido) return;
+    if (!pedido) return false;
     const itens = [...(pedido.items || [])];
     if (novaQtd <= 0) {
       itens.splice(index, 1);
@@ -1456,9 +1456,9 @@ export default function CashierPdv({
     }
     if (itens.length === 0) {
       notify("error", "A conta precisa de ao menos um produto. Remova a conta pelo fluxo de cancelamento se necessário.");
-      return;
+      return false;
     }
-    await editarItensPedido(orderId, itens);
+    return editarItensPedido(orderId, itens);
   }
 
   /** Abre confirmação antes de excluir o produto da conta. */
@@ -1488,7 +1488,7 @@ export default function CashierPdv({
     const { orderId, index, name, quantity, price } = excluirPendente;
     setAcaoProcessando(true);
     try {
-      await alterarQtdItem(orderId, index, 0);
+      if (await alterarQtdItem(orderId, index, 0) === false) return;
       auditar("excluir_produto_conta", "pedido", orderId, {
         mesa: contaSel.mesa,
         produto: name,
@@ -1538,7 +1538,7 @@ export default function CashierPdv({
           } else {
             itens.push(novo);
           }
-          await editarItensPedido(pedidoComanda.id, itens);
+          if (await editarItensPedido(pedidoComanda.id, itens) === false) return;
         } else {
           const criado = await criarPedidoCaixa({
             table: contaSel.mesa,
@@ -1563,7 +1563,7 @@ export default function CashierPdv({
         } else {
           itens.push(novo);
         }
-        await editarItensPedido(alvo.id, itens);
+        if (await editarItensPedido(alvo.id, itens) === false) return;
         notify("success", `${produto.name} incluído na conta.`);
       }
 

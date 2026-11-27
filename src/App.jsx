@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { cobraTaxaServico } from "./lib/taxaServico";
 import { createPortal } from "react-dom";
-import { itemPersistidoDoCarrinho, copiarItemPedido } from "./lib/pedidoItem.js";
+import { itemPersistidoDoCarrinho, copiarItemPedido, mensagemDeItemRecusado } from "./lib/pedidoItem.js";
 import { buscarEmitenteFiscal, buscarConfigFiscalVenda, configVendaParaSelo } from "./lib/fiscal/fiscalApi.js";
 import { produtosSemFiscal } from "./lib/fiscal/ativacaoFiscal.js";
 import { descricaoProdutoFiscal } from "./lib/fiscal/nfeXml.js";
@@ -2161,7 +2161,7 @@ export default function RestaurantePedidoApp() {
         // O Realtime vai propagar para cozinha e painel automaticamente
       } catch (err) {
         console.error("Falha ao salvar pedido no Supabase:", err);
-        return notify("error", `Erro ao salvar o pedido no banco: ${err.message || err}. Tente novamente.`);
+        return notify("error", mensagemDeItemRecusado(err) || `Erro ao salvar o pedido no banco: ${err.message || err}. Tente novamente.`);
       }
     } else {
       // Modo offline — apenas local
@@ -2445,7 +2445,7 @@ export default function RestaurantePedidoApp() {
         auditar("criar_pedido_caixa", "pedido", saved.id, { mesa, comanda, qtdItens: lista.length });
         return saved;
       } catch (err) {
-        notify("error", `Erro ao vincular a nova venda: ${err.message || err}`);
+        notify("error", mensagemDeItemRecusado(err) || `Erro ao vincular a nova venda: ${err.message || err}`);
         return null;
       }
     }
@@ -2458,19 +2458,22 @@ export default function RestaurantePedidoApp() {
   // Edição de itens da conta no caixa (ajuste de conta). Atualiza o pedido em
   // memória e persiste a coluna JSON tab_pedidos.itens via atualizarItensPedido.
   // NOTA: é ajuste de conta — NÃO gera ticket de cozinha nem baixa de estoque.
+  // Devolve false quando a alteração não foi salva (quem chama não anuncia sucesso).
   async function editarItensPedido(orderId, novosItens) {
-    if (!canAccess(currentUser, "cashier")) return notify("error", "Usuário sem permissão para editar a conta.");
+    if (!canAccess(currentUser, "cashier")) { notify("error", "Usuário sem permissão para editar a conta."); return false; }
     const anterior = ordersAll.find((o) => o.id === orderId)?.items;
     setOrders((cur) => cur.map((o) => o.id === orderId ? { ...o, items: novosItens } : o));
     if (dbReady) {
       try { await atualizarItensPedido(orderId, novosItens); }
-      catch {
+      catch (err) {
         // rollback otimista em caso de falha de persistência
         setOrders((cur) => cur.map((o) => o.id === orderId ? { ...o, items: anterior ?? o.items } : o));
-        return notify("error", "Não foi possível salvar a alteração do item.");
+        notify("error", mensagemDeItemRecusado(err) || "Não foi possível salvar a alteração do item.");
+        return false;
       }
     }
     auditar("editar_itens_conta", "pedido", orderId, { qtdItens: novosItens.length });
+    return true;
   }
 
   // PDV — incluir/trocar cliente e telefone nos pedidos da conta (momento da compra).
@@ -2537,6 +2540,7 @@ export default function RestaurantePedidoApp() {
     if (!destino || !lista.length) return notify("error", "Selecione itens e a mesa destino.");
 
     const mesaOrigem = String(origemMesa || "").trim();
+    if (destino === mesaOrigem) return notify("error", "Escolha uma mesa de destino diferente da origem.");
     const abertosOrigem = ordersAll.filter((o) =>
       o.table === mesaOrigem && o.paymentStatus !== "paid" && o.status !== "cancelled",
     );
@@ -2558,16 +2562,10 @@ export default function RestaurantePedidoApp() {
       o.table === destino && o.paymentStatus !== "paid" && o.status !== "cancelled",
     );
 
-    for (const [orderId, grupo] of Object.entries(porOrigem)) {
-      const pedido = ordersAll.find((o) => o.id === orderId);
-      if (!pedido) continue;
-      const indices = new Set(grupo.map((g) => g.index));
-      const novosItens = (pedido.items || []).filter((_, idx) => !indices.has(idx));
-      await editarItensPedido(orderId, novosItens);
-    }
-
+    // Primeiro grava no destino e só depois tira da origem: uma falha não perde itens, e o banco reconhece
+    // o preço da venda porque o item ainda está na conta de origem.
     if (pedidoDestino) {
-      await editarItensPedido(pedidoDestino.id, [...(pedidoDestino.items || []), ...movidos]);
+      if (await editarItensPedido(pedidoDestino.id, [...(pedidoDestino.items || []), ...movidos]) === false) return;
     } else {
       const prefixo = lojaInfo?.prefixo || "CX";
       const newOrder = {
@@ -2588,10 +2586,20 @@ export default function RestaurantePedidoApp() {
           const saved = await inserirPedido(newOrder);
           setOrders((cur) => [saved, ...cur.filter((o) => o.id !== saved.id)]);
         } catch (err) {
-          return notify("error", `Erro ao criar conta na mesa destino: ${err.message || err}`);
+          return notify("error", mensagemDeItemRecusado(err) || `Erro ao criar conta na mesa destino: ${err.message || err}`);
         }
       } else {
         setOrders((cur) => [newOrder, ...cur]);
+      }
+    }
+
+    for (const [orderId, grupo] of Object.entries(porOrigem)) {
+      const pedido = ordersAll.find((o) => o.id === orderId);
+      if (!pedido) continue;
+      const indices = new Set(grupo.map((g) => g.index));
+      const novosItens = (pedido.items || []).filter((_, idx) => !indices.has(idx));
+      if (await editarItensPedido(orderId, novosItens) === false) {
+        return notify("error", `Os itens entraram em ${destino}, mas não saíram de ${mesaOrigem}. Remova-os da conta de origem.`);
       }
     }
 
