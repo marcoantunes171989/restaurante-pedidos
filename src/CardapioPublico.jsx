@@ -11,7 +11,7 @@ import EnderecoEntregaCampos from "./components/EnderecoEntregaCampos";
 import { cardapioViaRpc } from "./lib/authMode";
 import { resumoDosPedidos, textoDoPercentual, valorDaTaxa } from "./lib/parametrosCaixa";
 import { useTaxaPublica } from "./hooks/useTaxaPublica";
-import { pontosPor } from "./lib/fidelidade";
+import { pontosPor, reaisDosPontos } from "./lib/fidelidade";
 import { nomeLembrado, lembrarNome } from "./lib/nomeNoAparelho";
 import { useScrollLock } from "./lib/scrollLock";
 import { CATEGORIA_TODOS, agruparProdutosPorCategoria, montarListaCategorias, escolherCategoriaAtiva, calcularDestinoScroll } from "./lib/cardapioCategorias";
@@ -1125,7 +1125,7 @@ export default function CardapioPublico() {
   const totalAberto = resumoDosPedidos(meusPedidos.filter((o) => o.paymentStatus !== "paid"), taxaPct).total;
   const pontosGanharConta = pontosPor(totalAberto, valorPorPontoPub);
   const clienteIdentificado = telDig.length >= 10;
-  const reaisEmPontosSaldo = saldoPontos > 0 ? Math.floor((saldoPontos / pontosPorRealPub) * 100) / 100 : 0;
+  const reaisEmPontosSaldo = reaisDosPontos(saldoPontos, pontosPorRealPub);
   const podeFechar = meusPedidos.length > 0 && meusPedidos.every((o) => o.status === "delivered");
   const contaSolicitada = meusPedidos.some((o) => o.paymentStatus === "requested");
   const contaPaga = meusPedidos.length > 0 && meusPedidos.every((o) => o.paymentStatus === "paid");

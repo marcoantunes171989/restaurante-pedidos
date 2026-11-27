@@ -3,7 +3,7 @@ import { cobraTaxaServico } from "../../../lib/taxaServico";
 import { X, Utensils, CalendarClock, Star } from "lucide-react";
 import { formatCurrency } from "../../../App";
 import { usePagamentoConta } from "./usePagamentoConta";
-import { pontosPor } from "../../../lib/fidelidade";
+import { pontosPor, reaisDosPontos } from "../../../lib/fidelidade";
 import CheckoutTopBar from "./CheckoutTopBar";
 import CheckoutQuickLookup from "./CheckoutQuickLookup";
 import CheckoutItemsTable from "./CheckoutItemsTable";
@@ -33,7 +33,7 @@ export default function CashierCheckout({
   // Fidelidade: saldo do cliente identificado + R$ que os pontos cobrem.
   const pontosPorReal = Number(fidCaixa?.pontosPorReal) || 100;
   const saldoPontos = (fidCaixa?.ativo && o.clienteTelefone) ? (fidCaixa.saldoPorTelefone?.[o.clienteTelefone] || 0) : 0;
-  const reaisEmPontos = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
+  const reaisEmPontos = reaisDosPontos(saldoPontos, pontosPorReal);
   const maxPontosReais = Math.min(total, reaisEmPontos);
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
   // Pontos que o cliente identificado ganha nesta compra (incentivo no fechamento).

@@ -5,6 +5,16 @@ export function numeroFidelidade(valor, fallback = 0) {
 
 const centavos = (v) => Math.round((Number(v) || 0) * 100);
 
+/**
+ * Quanto um saldo de pontos vale em reais, sempre para baixo no centavo (como o servidor confere).
+ * Conta em inteiros: dividir e depois multiplicar por 100 perdia 1 centavo (58 pontos davam R$ 0,57).
+ */
+export function reaisDosPontos(pontos, pontosPorReal) {
+  const porReal = centavos(numeroFidelidade(pontosPorReal)); // pontos por R$ 1,00, com duas casas
+  const saldo = Math.floor(Number(pontos) || 0);
+  return porReal > 0 && saldo > 0 ? Math.floor((saldo * 10000) / porReal) / 100 : 0;
+}
+
 /** Pontos de um valor pago em reais: 1 ponto a cada `valorPorPonto`. Contas em centavos. */
 export function pontosPor(valorEmReais, valorPorPonto) {
   const porPonto = centavos(numeroFidelidade(valorPorPonto));

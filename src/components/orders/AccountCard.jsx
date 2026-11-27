@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { cobraTaxaServico } from "../../lib/taxaServico";
 import { textoDoPercentual } from "../../lib/parametrosCaixa";
-import { pontosPor } from "../../lib/fidelidade";
+import { pontosPor, reaisDosPontos } from "../../lib/fidelidade";
 import { User, Phone, Loader2, CreditCard, Check } from "lucide-react";
 import { formatCurrency } from "../../App";
 import AccountStatusBadge from "./AccountStatusBadge";
@@ -37,7 +37,7 @@ export default function AccountCard({
   // Fidelidade: saldo de pontos do cliente identificado e quanto (R$) ele cobre.
   const pontosPorReal = Number(fidCaixa?.pontosPorReal) || 100;
   const saldoPontos = (fidCaixa?.ativo && o.clienteTelefone) ? (fidCaixa.saldoPorTelefone?.[o.clienteTelefone] || 0) : 0;
-  const reaisEmPontos = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
+  const reaisEmPontos = reaisDosPontos(saldoPontos, pontosPorReal);
   const maxPontosReais = Math.min(total, reaisEmPontos);
   const pediuPontos = /pontos/i.test(o.pagamentoForma || "");
   // Pontos que o cliente identificado ganha ao pagar esta conta (incentivo).

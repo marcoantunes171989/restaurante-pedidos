@@ -1,7 +1,7 @@
 // Pontos de fidelidade sobre o TOTAL PAGO: o aviso do caixa e o crédito usam a mesma conta.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { pontosDaVenda, pontosDoCliente, pontosPor } from "./fidelidade";
+import { pontosDaVenda, pontosDoCliente, pontosPor, reaisDosPontos } from "./fidelidade";
 
 const pedido = (id, preco, telefone = "11900000000") => ({ id, clienteTelefone: telefone, valor: preco });
 const venda = (pedidos, total, mais = {}) => pontosDaVenda({ pedidos, total, valorPorPonto: 1, valorDoPedido: (o) => o.valor, ...mais });
@@ -35,6 +35,32 @@ describe("pontos sobre o total pago", () => {
     expect(pontosDoCliente(m, "(2)")).toBe(50);
     expect(pontosDoCliente(m, "9")).toBe(0);
   });
+});
+
+describe("saldo de pontos em reais", () => {
+  it("não perde centavo: 29, 57 e 58 pontos", () => {
+    expect([29, 57, 58, 121].map((s) => reaisDosPontos(s, 100))).toEqual([0.29, 0.57, 0.58, 1.21]);
+  });
+  it("com 100 pontos por real, cada ponto vale exatamente 1 centavo", () => {
+    for (let s = 0; s <= 20000; s += 1) expect(Math.round(reaisDosPontos(s, 100) * 100)).toBe(s);
+  });
+  it("arredonda para baixo e nunca pede mais pontos do que o saldo", () => {
+    expect(reaisDosPontos(10, 3)).toBe(3.33);
+    expect(reaisDosPontos(10, 2.5)).toBe(4);
+    expect(reaisDosPontos(199, 200)).toBe(0.99);
+    for (const porReal of [1, 2.5, 3, 7, 33.33, 90, 100, 150]) {
+      for (let s = 0; s <= 3000; s += 1) expect(Math.round(reaisDosPontos(s, porReal) * porReal)).toBeLessThanOrEqual(s);
+    }
+  });
+  it("sem saldo ou sem conversão, vale zero", () => {
+    expect([reaisDosPontos(0, 100), reaisDosPontos(-5, 100), reaisDosPontos(50, 0), reaisDosPontos(null, null)]).toEqual([0, 0, 0, 0]);
+  });
+  it.each(["src/pages/pdv/CashierPdv.jsx", "src/components/orders/AccountCard.jsx", "src/components/orders/checkout/CashierCheckout.jsx", "src/CardapioPublico.jsx"])(
+    "%s usa a conta única", (arquivo) => {
+      const codigo = readFileSync(arquivo, "utf8");
+      expect(codigo).toContain("reaisDosPontos(saldoPontos, ");
+      expect(codigo).not.toMatch(/saldoPontos \/ \w+\) \* 100/);
+    });
 });
 
 describe("todas as telas usam a mesma regra", () => {

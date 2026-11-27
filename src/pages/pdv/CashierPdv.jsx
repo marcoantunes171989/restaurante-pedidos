@@ -64,7 +64,7 @@ import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJane
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
 import { cobraTaxaServico } from "../../lib/taxaServico";
 import { emCentavos, limiteEmReais, resumoDosPedidos, totalDoPedido, valorDaTaxa } from "../../lib/parametrosCaixa";
-import { pontosDaVenda, pontosDoCliente } from "../../lib/fidelidade";
+import { pontosDaVenda, pontosDoCliente, reaisDosPontos } from "../../lib/fidelidade";
 import { useParametrosCaixa } from "../../hooks/useParametrosCaixa";
 import {
   abrirCupomTermico,
@@ -393,7 +393,7 @@ export default function CashierPdv({
   const telefoneConta = String(contaSel?.telefone || "").replace(/\D/g, "");
   const clienteIdentificado = !!(contaSel && (contaSel.telefone || contaSel.cliente));
   const saldoPontos = (fidAtiva && telefoneConta) ? (fidCaixa?.saldoPorTelefone?.[contaSel.telefone] || fidCaixa?.saldoPorTelefone?.[telefoneConta] || 0) : 0;
-  const pontosEmReais = Math.floor((saldoPontos / pontosPorReal) * 100) / 100;
+  const pontosEmReais = reaisDosPontos(saldoPontos, pontosPorReal);
 
   // Pagamento dividido: cada OK vira uma parcela; o painel cobra só o restante.
   const pagamentosSel = (contaSel && pagamentosPorConta[contaSel.key]) || [];
@@ -402,7 +402,7 @@ export default function CashierPdv({
   const restanteSel = Math.max(0, totalCobrar - recebidoEfetivo);
   const trocoSel = Math.max(0, recebidoEfetivo - totalCobrar);
   const trocoLiberado = formaPermiteTroco(formaAtual);
-  const pontosDisponiveisReais = Math.max(0, pontosEmReais - pontosJaUsados);
+  const pontosDisponiveisReais = Math.max(0, emCentavos(pontosEmReais) - emCentavos(pontosJaUsados)) / 100;
 
   // Etapa 1c — selo "Nota fiscal" (só prévia; null quando a loja não emite nota).
   const seloFiscal = useMemo(() => seloFiscalDaConta({
