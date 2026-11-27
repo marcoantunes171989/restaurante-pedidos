@@ -73,6 +73,7 @@ import {
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
 import { resumoDoCaixa, saiDoCaixa } from "./lib/caixaResumo";
+import { registrarVencimentos, rotuloDoLancamento } from "./lib/relatorios/pontos";
 import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
 import { useCobranca } from "./hooks/useCobranca";
 import { juntarTransacoes, mensagemDeRecusaDePontos, pontosDaVenda, pontosPor, transacaoDoBanco } from "./lib/fidelidade";
@@ -187,6 +188,8 @@ const DashboardGerencial = React.lazy(() => import("./pages/admin/DashboardGeren
 const RelatorioVisaoGeral = React.lazy(() => import("./pages/admin/relatorios/RelatorioVisaoGeral.jsx"));
 const RelatorioVendas = React.lazy(() => import("./pages/admin/relatorios/RelatorioVendas.jsx"));
 const HistoricoVendas = React.lazy(() => import("./pages/admin/relatorios/HistoricoVendas.jsx"));
+const PontosUsadosVencidos = React.lazy(() => import("./pages/admin/fidelidade/PontosUsadosVencidos.jsx"));
+const HistoricoDoCliente = React.lazy(() => import("./pages/admin/fidelidade/HistoricoDoCliente.jsx"));
 const MovimentacoesEstoque = React.lazy(() => import("./pages/admin/relatorios/MovimentacoesEstoque.jsx"));
 const AmbientesAdmin = React.lazy(() => import("./pages/admin/AmbientesAdmin"));
 const CopilotoIA = React.lazy(() => import("./pages/admin/CopilotoIA.jsx"));
@@ -1514,6 +1517,8 @@ export default function RestaurantePedidoApp() {
   // O super admin não tem empresa fixa: escolhe uma "empresa em foco" para gerenciar os cadastros
   const lojaAtual = currentUser?.lojaId ?? (isSuperAdmin ? lojaContexto : null);
   const lojaInfo = lojas.find((l) => Number(l.id) === Number(lojaAtual)) || null;
+  // Pontos vencidos viram lançamento ao entrar (o saldo do banco já os desconta mesmo antes disso).
+  useEffect(() => { if (currentUser?.id && lojaAtual != null) registrarVencimentos(supabase, lojaAtual); }, [currentUser?.id, lojaAtual]);
   // Controle de Acessos — heartbeat de presença (não confundir com tab_dispositivos)
   // Se admin encerrar a sessão remotamente, força logout local no próximo heartbeat.
   useUserSessionHeartbeat(currentUser, {
@@ -6415,7 +6420,8 @@ function FinanceiroVisaoAdmin({ orders = [], fidRegra = null, fidTransacoes = []
   const pprFin = Number(String(fidRegra?.pontosPorReal ?? 100).replace(",", ".")) || 100; // pts por R$ 1,00
   const fidEmitidosTot = fidTransacoes.reduce((s, t) => s + (t.tipo === "earn" ? (Number(t.pontos) || 0) : 0), 0);
   const fidResgatadosTot = Math.abs(fidTransacoes.reduce((s, t) => s + (t.tipo === "redeem" ? (Number(t.pontos) || 0) : 0), 0));
-  const fidCirculante = Math.max(0, fidEmitidosTot - fidResgatadosTot);           // saldo de pontos em circulação
+  const fidVencidosTot = -fidTransacoes.reduce((s, t) => s + (t.tipo === "expire" ? (Number(t.pontos) || 0) : 0), 0);
+  const fidCirculante = Math.max(0, fidEmitidosTot - fidResgatadosTot - fidVencidosTot); // saldo de pontos em circulação
   const fidPassivoReais = fidCirculante / pprFin;                                  // R$ que ainda podem ser resgatados
   const fidResgatadosPeriodo = Math.abs(fidTransacoes.reduce((s, t) => s + ((t.tipo === "redeem" && noPeriodo(t.criadoEmISO)) ? (Number(t.pontos) || 0) : 0), 0));
   // Valor pago com pontos pela TAXA HISTÓRICA de cada resgate: a descrição do
@@ -7969,7 +7975,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           ))}
           {ativo === "relatorios" && <RelatoriosAdmin orders={orders} products={products} lojaInfo={lojaInfo} pesquisas={filtraLoja(pesquisas)} irParaMesas={() => setAdminSection("mesas")} irParaProdutos={() => setAdminSection("products")} currentUser={currentUser} aba={relatorioSub} onAbaChange={onRelatorioSubChange} />}
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
-          {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
+          {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin key={lojaInfo?.id ?? "sem-loja"} supabase={supabase} lojaId={lojaInfo?.id ?? null} regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
           {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
           {ativo === "como-funciona-fiscal" && (
@@ -15777,7 +15783,10 @@ function deltaMesFid(atual, anterior) {
   return { txt: "sem movimento este mês", cor: "var(--pp-text-muted)" };
 }
 
-function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = [], orders = [], api, onVerClientes }) {
+function FidelidadeAdmin({ supabase, lojaId = null, regra, recompensas = [], transacoes = [], clientes = [], orders = [], api, onVerClientes }) {
+  const [visao, setVisao] = useState("programa"); // programa | pontos
+  const [clienteHistorico, setClienteHistorico] = useState(null);
+  const [validade, setValidade] = useState(String(regra?.validadeDias ?? ""));
   const [valorPorPonto, setValorPorPonto] = useState(regra?.valorPorPonto ?? 1);
   const [pontosPorReal, setPontosPorReal] = useState(regra?.pontosPorReal ?? 100); // resgate: pts que valem R$1
   const [configAberto, setConfigAberto] = useState(false);
@@ -15785,7 +15794,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
   const [confirmarExcluir, setConfirmarExcluir] = useState(null);
   const [verTodasRec, setVerTodasRec] = useState(false);
   const regraRef = useRef(null);
-  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); setPontosPorReal(regra?.pontosPorReal ?? 100); }, [regra?.id, regra?.valorPorPonto, regra?.pontosPorReal]);
+  useEffect(() => { setValorPorPonto(regra?.valorPorPonto ?? 1); setPontosPorReal(regra?.pontosPorReal ?? 100); setValidade(String(regra?.validadeDias ?? "")); }, [regra?.id, regra?.valorPorPonto, regra?.pontosPorReal, regra?.validadeDias]);
 
   const programaAtivo = fidelidadeHabilitada(regra);
   const vpp = numeroFidelidade(regra?.valorPorPonto ?? valorPorPonto, 1);
@@ -15857,7 +15866,7 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
   function exportarMovimentacoes() {
     const nomeCli = {}; clientes.forEach((c) => (nomeCli[c.id] = c.nome));
     baixarCsv("fidelidade-movimentacoes.csv", [["Data", "Cliente", "Tipo", "Pontos", "Descrição"],
-      ...transacoes.map((t) => [t.criadoEmISO ? new Date(t.criadoEmISO).toLocaleString("pt-BR") : "", nomeCli[t.clienteId] || "—", /^Estorno/i.test(t.descricao || "") ? "Estorno" : t.tipo === "redeem" ? "Resgate" : "Emissão", t.pontos, t.descricao || ""])]);
+      ...transacoes.map((t) => [t.criadoEmISO ? new Date(t.criadoEmISO).toLocaleString("pt-BR") : "", nomeCli[t.clienteId] || "—", rotuloDoLancamento(t), t.pontos, t.descricao || ""])]);
   }
 
   const inpCard = "w-full rounded-xl border border-[var(--pp-border)] bg-white px-3.5 py-2.5 text-sm text-dash-navy outline-none transition focus:border-[#F38525]";
@@ -15894,6 +15903,13 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
           )}
         </div>} />
 
+      <AlternarVisao rotulo="Visão do programa" valor={visao} onMudar={setVisao} opcoes={[["programa", "Programa"], ["pontos", "Usados e vencidos"]]} />
+      {visao === "pontos" && (
+        <React.Suspense fallback={<p className="text-sm text-[var(--pp-text-muted)]">Carregando…</p>}>
+          <PontosUsadosVencidos supabase={supabase} lojaId={lojaId} />
+        </React.Suspense>
+      )}
+      {visao === "programa" && (<>
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {KPIS.map((k) => (
@@ -15941,8 +15957,17 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
             <p className="mt-4 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3 text-sm leading-6 text-[var(--pp-text-body)]">
               {regraLiveAtiva ? <><b className="text-dash-navy">Como funciona hoje:</b> o cliente ganha <b className="text-dash-navy">1 ponto</b> a cada <b className="text-dash-navy">R$ {String(vppLive).replace(".", ",")}</b> em compras e pode usar <b className="text-dash-navy">{fmtInt(pprLive)} pontos</b> para abater <b className="text-dash-navy">R$ 1,00</b> no pagamento da conta. Exemplo: uma compra de <b className="text-dash-navy">R$ 100,00</b> gera <b className="text-dash-navy">{fmtInt(ptsEmCem)} pontos</b> (≈ <b className="text-dash-navy">{formatCurrency(creditoCem)}</b> em créditos para resgate).</> : <><b className="text-dash-navy">Programa sem pontuação:</b> ao salvar ganho e resgate com valor zero, novos pontos não serão acumulados ou trocados. Os saldos já existentes permanecerão armazenados internamente e não serão exibidos aos clientes.</>}
             </p>
+            {regra?.temValidade && (
+              <div className="mt-4">
+                <label htmlFor="validade-pontos" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[var(--pp-text-muted)]">Validade dos pontos (dias)</label>
+                <input id="validade-pontos" inputMode="numeric" value={validade} onChange={(e) => setValidade(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="Não vencem" className={`${inpCard} max-w-[12rem] font-black`} />
+                <p className="mt-1.5 text-xs text-[var(--pp-text-muted)]">{Number(validade) > 0
+                  ? <>Pontos lançados a partir de agora vencem em <b className="text-dash-navy">{Number(validade)} dia(s)</b>. Os que o cliente já tem não mudam. No resgate saem primeiro os que vencem antes.</>
+                  : "Vazio: os pontos novos não vencem. Os que já têm data continuam com ela."}</p>
+              </div>
+            )}
             <div className="mt-4 flex justify-end">
-              <button onClick={() => api?.salvarRegra({ valorPorPonto: vppLive, pontosPorReal: pprLive, ativo: regraLiveAtiva && (programaAtivo || !regra) })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
+              <button onClick={() => api?.salvarRegra({ valorPorPonto: vppLive, pontosPorReal: pprLive, ativo: regraLiveAtiva && (programaAtivo || !regra), ...(regra?.temValidade ? { validadeDias: validade } : {}) })} className="btn-laranja rounded-xl px-5 py-2.5 text-sm font-bold">Salvar Regra</button>
             </div>
           </section>
 
@@ -16017,7 +16042,9 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
                         <td className="py-3 pr-3">
                           <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${medalha ? "text-white" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"}`} style={medalha ? { background: medalha } : undefined}>{i + 1}</span>
                         </td>
-                        <td className="py-3 pr-3 font-bold text-dash-navy">{c.nome}</td>
+                        <td className="py-3 pr-3 font-bold text-dash-navy">
+                          <button type="button" onClick={() => setClienteHistorico(c.id)} title="Ver histórico" className="text-left font-bold text-[#012E46] underline-offset-2 hover:underline">{c.nome}</button>
+                        </td>
                         <td className="py-3 pr-3 font-black text-[#F38525]">{fmtInt(c.pontos)} pts</td>
                         <td className="py-3 pr-3 text-[var(--pp-text-muted)]">{c.ultimo ? new Date(c.ultimo).toLocaleDateString("pt-BR") : "—"}</td>
                         <td className="py-3 text-right font-bold text-dash-navy">{formatCurrency(c.total)}</td>
@@ -16073,6 +16100,14 @@ function FidelidadeAdmin({ regra, recompensas = [], transacoes = [], clientes = 
           </section>
         </div>
       </div>
+
+      </>)}
+
+      {clienteHistorico != null && (
+        <React.Suspense fallback={null}>
+          <HistoricoDoCliente supabase={supabase} lojaId={lojaId} clienteId={clienteHistorico} onFechar={() => setClienteHistorico(null)} />
+        </React.Suspense>
+      )}
 
       {/* Modal nova/editar recompensa */}
       {modalRec && (

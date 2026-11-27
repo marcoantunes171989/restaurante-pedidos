@@ -47,6 +47,13 @@ Regras implementadas (migration 226):
 - O resgate consome primeiro os pontos mais antigos; o que vence vira um lançamento "expirado" com data.
 - Painel: **utilizados** e **expirados** separados, por data, cliente, cupom fiscal e cupom de desconto; histórico de consumo do cliente.
 
+Regras implementadas (migration 228), com as decisões do dono em 27/11/2026:
+- A validade é definida em Programa de Fidelidade (vazio = não vence) e vale só para pontos lançados depois, inclusive os lançados à mão. O ponto vale até o fim do último dia (horário de Brasília). Mudar o prazo não altera datas já gravadas.
+- **No resgate saem primeiro os pontos que vencem antes**; os antigos, sem validade, ficam por último (substitui "mais antigos primeiro" do plano).
+- O vencido deixa de contar no saldo na hora; o lançamento "vencimento" é gravado quando alguém entra no sistema, antes de um resgate ou pela rotina diária (quando o banco tem o agendador).
+- Estorno de venda: o ponto usado volta ao lote de origem (se já venceu, vence em seguida); o ganho vencido de uma venda estornada tem o vencimento desfeito.
+- Painel em Programa de Fidelidade › Usados e vencidos, com histórico por cliente. Só quem administra a empresa.
+
 ## 3. Premissas adotadas (corrija se não for isso)
 - "Cliente acompanha a baixa de estoque" = o estabelecimento, no painel. O consumidor final não vê estoque.
 - "Cupom utilizado" = mostrar os dois: o cupom fiscal (nota) e o cupom de desconto da venda.

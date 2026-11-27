@@ -1405,12 +1405,15 @@ export async function fetchFidelidadeRegras() {
   const { data, error } = await supabase.from('tab_fidelidade_regras').select('*')
   if (error || !data) return []
   // pontos_por_real (migration 073): quantos pontos valem R$ 1 no RESGATE (default 100).
-  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: numeroFidelidade(r.valor_por_ponto, 1), pontosPorReal: numeroFidelidade(r.pontos_por_real, 100), ativo: r.ativo !== false }))
+  // validade_dias (migration 228): temValidade diz se o banco já tem a coluna, para a tela mostrar o campo.
+  return data.map((r) => ({ id: r.id, lojaId: r.loja_id, nome: r.nome, valorPorPonto: numeroFidelidade(r.valor_por_ponto, 1), pontosPorReal: numeroFidelidade(r.pontos_por_real, 100), ativo: r.ativo !== false, temValidade: r.validade_dias !== undefined, validadeDias: r.validade_dias ?? null }))
 }
 export async function salvarFidelidadeRegra(lojaId, campos) {
   // pontos_por_real só entra no patch quando informado — tolera a coluna ausente
   // (migration 073 ainda não aplicada) sem quebrar o salvamento do restante.
   const extra = campos.pontosPorReal != null ? { pontos_por_real: numeroFidelidade(campos.pontosPorReal, 100) } : {}
+  // Validade: undefined não mexe; vazio ou zero = não vence.
+  if (campos.validadeDias !== undefined) extra.validade_dias = Number(campos.validadeDias) > 0 ? Math.min(3650, Math.floor(Number(campos.validadeDias))) : null
   // upsert "manual": existe regra da loja? atualiza; senão insere
   const { data: ex } = await supabase.from('tab_fidelidade_regras').select('id').eq('loja_id', lojaId).limit(1)
   if (ex && ex.length) {
