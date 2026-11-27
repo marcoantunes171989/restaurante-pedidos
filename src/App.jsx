@@ -185,6 +185,8 @@ const LandingAnalyticsAdmin = React.lazy(() => import("./pages/admin/LandingAnal
 const DashboardGerencial = React.lazy(() => import("./pages/admin/DashboardGerencial"));
 const RelatorioVisaoGeral = React.lazy(() => import("./pages/admin/relatorios/RelatorioVisaoGeral.jsx"));
 const RelatorioVendas = React.lazy(() => import("./pages/admin/relatorios/RelatorioVendas.jsx"));
+const HistoricoVendas = React.lazy(() => import("./pages/admin/relatorios/HistoricoVendas.jsx"));
+const MovimentacoesEstoque = React.lazy(() => import("./pages/admin/relatorios/MovimentacoesEstoque.jsx"));
 const AmbientesAdmin = React.lazy(() => import("./pages/admin/AmbientesAdmin"));
 const CopilotoIA = React.lazy(() => import("./pages/admin/CopilotoIA.jsx"));
 const ControleAtualizacaoAdmin = React.lazy(() => import("./pages/admin/ControleAtualizacaoAdmin"));
@@ -9513,6 +9515,15 @@ function AtalhoRelatorio({ icone: Icone, titulo, texto, onClick }) {
   );
 }
 
+/** Alterna entre as duas visões de uma aba de relatório. */
+function AlternarVisao({ rotulo, valor, onMudar, opcoes }) {
+  return (
+    <div role="group" aria-label={rotulo} className="pp-filter-panel flex flex-wrap gap-2">
+      {opcoes.map(([id, texto]) => <FilterChip key={id} size="sm" selected={valor === id} label={texto} onClick={() => onMudar(id)} />)}
+    </div>
+  );
+}
+
 function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMesas = () => {}, irParaProdutos = () => {}, currentUser = null, aba: abaProp = "geral", onAbaChange = () => {} }) {
   const [periodo, setPeriodo] = useState("7");
   const [ini, setIni] = useState("");
@@ -9522,6 +9533,8 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
   // inválido/ausente cai em "geral" (mesmo fallback do contrato de rota).
   const aba = ehIdRelatorioValido(abaProp) ? abaProp : "geral"; // geral | vendas | cupom | estoque | clientes | permanencia | satisfacao
   const [drill, setDrill] = useState(null);  // produto clicado → cupons
+  const [visaoVendas, setVisaoVendas] = useState("analise");   // analise | historico
+  const [visaoEstoque, setVisaoEstoque] = useState("situacao"); // situacao | movimentos
   const dados = useDadosVendas();
 
   const filtrados = useMemo(() => filtrarPedidosPorPeriodo(orders, periodo, ini, fim), [orders, periodo, ini, fim]);
@@ -9565,9 +9578,23 @@ function RelatoriosAdmin({ orders, products, lojaInfo, pesquisas = [], irParaMes
               </nav>
             </>
           )}
-          {aba === "vendas" && <RelatorioVendas {...comum} rotuloPeriodo={rotuloPeriodo} onVerCupons={verCupons} />}
+          {aba === "vendas" && (
+            <>
+              <AlternarVisao rotulo="Visão de vendas" valor={visaoVendas} onMudar={setVisaoVendas} opcoes={[["analise", "Análise"], ["historico", "Histórico de vendas"]]} />
+              {visaoVendas === "analise"
+                ? <RelatorioVendas {...comum} rotuloPeriodo={rotuloPeriodo} onVerCupons={verCupons} />
+                : <HistoricoVendas key={lojaInfo?.id ?? "todas"} supabase={supabase} lojaId={lojaInfo?.id ?? null} periodo={periodo} ini={ini} fim={fim} />}
+            </>
+          )}
           {aba === "cupom" && <RelatorioCupom pedidos={filtrados} products={products} lojaInfo={lojaInfo} periodo={periodo} ini={ini} fim={fim} currentUser={currentUser} />}
-          {aba === "estoque" && <RelatorioEstoque {...comum} irParaProdutos={irParaProdutos} />}
+          {aba === "estoque" && (
+            <>
+              <AlternarVisao rotulo="Visão de estoque" valor={visaoEstoque} onMudar={setVisaoEstoque} opcoes={[["situacao", "Situação"], ["movimentos", "Movimentações"]]} />
+              {visaoEstoque === "situacao"
+                ? <RelatorioEstoque {...comum} irParaProdutos={irParaProdutos} />
+                : <MovimentacoesEstoque key={lojaInfo?.id ?? "todas"} supabase={supabase} lojaId={lojaInfo?.id ?? null} products={products} periodo={periodo} ini={ini} fim={fim} />}
+            </>
+          )}
           {aba === "clientes" && <RelatorioClientes {...comum} />}
           {aba === "permanencia" && <RelatorioPermanencia pedidos={filtrados} orders={orders} products={products} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
           {aba === "satisfacao" && <RelatorioSatisfacao pesquisas={filtrarPesquisasPorPeriodo(pesquisas, periodo, ini, fim)} todasPesquisas={pesquisas} pedidos={filtrados} orders={orders} periodo={periodo} ini={ini} fim={fim} lojaInfo={lojaInfo} />}
