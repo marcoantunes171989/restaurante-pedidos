@@ -13,7 +13,7 @@
  * na seção "Cupons térmicos" (pdvDocumentacao.js).
  */
 
-import { formatCurrency } from "./pdvHelpers";
+import { cotaPorPessoa, formatCurrency } from "./pdvHelpers";
 
 const MARCA = "PEDIDO PRIME";
 const SITE = "pedidoprime.com.br";
@@ -504,9 +504,8 @@ export function htmlPreConta(ctx = {}) {
     formasAceitas = "PIX · Dinheiro · Débito · Crédito",
   } = ctx;
   const nPessoas = Math.max(0, Number(pessoas) || 0);
-  const porPessoa = nPessoas > 0 ? total / nPessoas : 0;
-  const arredondado = nPessoas > 0 ? Math.ceil(porPessoa * 100) / 100 : 0;
-  const ajuste = nPessoas > 0 ? (arredondado * nPessoas) - total : 0;
+  const arredondado = cotaPorPessoa(total, nPessoas);
+  const ajuste = arredondado > 0 ? (Math.round(arredondado * 100) * Math.floor(nPessoas) - Math.round((Number(total) || 0) * 100)) / 100 : 0;
   return `
     ${cabecalhoHtml(lojaInfo, [
       "PRÉ-CONTA",

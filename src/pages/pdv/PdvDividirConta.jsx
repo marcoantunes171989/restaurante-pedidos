@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Minus, Percent, Plus, Users, UtensilsCrossed, X } from "lucide-react";
-import { formatCurrency } from "./pdvHelpers";
+import { cotaPorPessoa, formatCurrency } from "./pdvHelpers";
 
 const MODOS = [
   { id: "pessoas", label: "Por pessoa", Icon: Users },
@@ -23,8 +23,9 @@ export default function ModalDividirConta({ total = 0, restante = 0, itens = [],
   const [percentual, setPercentual] = useState(50);
   const [divisores, setDivisores] = useState({});
 
-  const porPessoa = pessoas > 0 ? total / pessoas : 0;
-  const valorPessoas = porPessoa * Math.min(cotas, pessoas);
+  // Cota arredondada para cima: a última pessoa paga o que falta e a conta não sobra com centavos em aberto.
+  const porPessoa = cotaPorPessoa(total, pessoas);
+  const valorPessoas = Math.min(Math.round(porPessoa * 100) * Math.min(cotas, pessoas), Math.round(total * 100)) / 100;
   const valorPercentual = (total * percentual) / 100;
 
   const valorProdutos = useMemo(

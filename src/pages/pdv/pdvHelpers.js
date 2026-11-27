@@ -26,6 +26,16 @@ export function formatCurrency(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+/**
+ * Quanto cabe a cada pessoa ao dividir um valor, sempre para cima no centavo (a soma das cotas cobre a conta).
+ * Conta em centavos: arredondar o número decimal cobrava 1 centavo a mais em divisões exatas (0,14 ÷ 2 dava 0,08).
+ */
+export function cotaPorPessoa(total, pessoas) {
+  const centavos = Math.round((Number(total) || 0) * 100);
+  const n = Math.floor(Number(pessoas) || 0);
+  return centavos > 0 && n > 0 ? Math.ceil(centavos / n) / 100 : 0;
+}
+
 export function formatarDuracaoMin(mins) {
   const m = Math.max(0, Math.round(Number(mins) || 0));
   return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}min` : `${m}min`;

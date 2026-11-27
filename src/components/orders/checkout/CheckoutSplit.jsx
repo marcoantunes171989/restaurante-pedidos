@@ -1,5 +1,6 @@
 import { Users, ListChecks, Pencil, Clock4 } from "lucide-react";
 import { formatCurrency } from "../../../App";
+import { cotaPorPessoa } from "../../../pages/pdv/pdvHelpers";
 
 // "Divisão da conta" do PDV. "Dividir igualmente" é funcional (valor por pessoa
 // = total / nº de pessoas); os demais modos (por item, valor personalizado,
@@ -12,7 +13,7 @@ const MODOS = [
 ];
 
 export default function CheckoutSplit({ total, pessoas, onPessoas }) {
-  const valorPorPessoa = pessoas > 0 ? total / pessoas : total;
+  const valorPorPessoa = pessoas > 0 ? cotaPorPessoa(total, pessoas) : total;
   return (
     <section className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-surface)] p-4 shadow-[0_1px_2px_rgba(43,35,32,0.04)]">
       <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.14em] text-[var(--pp-text-muted)]">Divisão da conta</h2>
