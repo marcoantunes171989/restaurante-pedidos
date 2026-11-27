@@ -52,13 +52,12 @@ async function checkAuth(req) {
 
   const email = clean(user?.email, 160)?.toLowerCase();
   if (!email) return { status: 401, error: "Token inválido." };
-  // Conta-raiz criada pela migration 013 (mesmo bypass de landing-analytics.js).
-  if (email === "admin@restaurante.com") return { status: 200 };
 
+  // No ilike, "_" e "%" são curingas: sem o escape, um e-mail parecido casaria com o de outra pessoa.
   let rows;
   try {
     const response = await fetch(
-      `${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email)}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`,
+      `${baseUrl()}/rest/v1/tab_usuarios?email=ilike.${encodeURIComponent(email.replace(/[\\%_*]/g, "\\$&"))}&select=ativo,super_admin,loja_id,ids_acesso&limit=1`,
       { headers: { apikey: serviceKey(), authorization: `Bearer ${serviceKey()}` } },
     );
     if (!response.ok) return { status: 500, error: "Erro interno ao validar operador." };

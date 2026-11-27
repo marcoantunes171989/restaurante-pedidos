@@ -34,17 +34,24 @@ const PERFIS_ADMIN = new Set([
 ]);
 const ehPerfilAdmin = (p: unknown) => PERFIS_ADMIN.has(String(p ?? "").trim().toLowerCase());
 
+// No `ilike`, `_` também é curinga: a linha só vale se o e-mail for exatamente o pedido.
+// deno-lint-ignore no-explicit-any
+async function usuarioPorEmail(email: string, colunas: string): Promise<any> {
+  const alvo = email.trim().toLowerCase();
+  if (!alvo) return null;
+  const { data, error } = await admin.from("tab_usuarios").select(colunas).ilike("email", alvo);
+  if (error) throw error;
+  // deno-lint-ignore no-explicit-any
+  return ((data || []) as any[]).find((r) => String(r.email || "").trim().toLowerCase() === alvo) || null;
+}
+
 async function operadorDoToken(req: Request) {
   const auth = req.headers.get("authorization") || "";
   const token = auth.replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data?.user?.email) return null;
-  const { data: u } = await admin
-    .from("tab_usuarios")
-    .select("id, email, loja_id, ativo, super_admin, ids_acesso, perfil")
-    .ilike("email", data.user.email)
-    .maybeSingle();
+  const u = await usuarioPorEmail(data.user.email, "id, email, loja_id, ativo, super_admin, ids_acesso, perfil");
   if (!u || u.ativo === false) return null;
   const ids = Array.isArray(u.ids_acesso) ? u.ids_acesso : [];
   // Admin por super_admin OU ids_acesso 'admin' OU perfil administrativo. O
@@ -71,6 +78,37 @@ function podeGerenciarLoja(operador: { superAdmin: boolean; lojaId: unknown }, l
   if (operador.superAdmin) return true;
   if (lojaIdAlvo == null || lojaIdAlvo === "") return false;
   return String(operador.lojaId) === String(lojaIdAlvo);
+}
+
+const RECUSA_OUTRA_EMPRESA: Record<string, string> = {
+  criar: "Só é possível cadastrar usuários da sua empresa.",
+  atualizar: "Só é possível editar usuários da sua empresa.",
+  excluir: "Só é possível excluir usuários da sua empresa.",
+};
+
+// Quem não é administrador geral só mexe em acessos da própria empresa. Confere a
+// empresa pedida e cada conta que o pedido alcança (e-mail atual e e-mail novo).
+// Mesma regra da rota Vercel. Devolve a recusa ou null.
+async function recusaAoOperadorDeLoja(
+  operador: { superAdmin: boolean; lojaId: unknown },
+  p: { acao: string; lojaId: unknown; emails: string[] },
+) {
+  if (operador.superAdmin) return null;
+  const outraEmpresa = RECUSA_OUTRA_EMPRESA[p.acao];
+  if (p.lojaId != null && !podeGerenciarLoja(operador, p.lojaId)) return outraEmpresa;
+  const alvos = [];
+  for (const e of new Set(p.emails.filter((v) => v.includes("@")))) {
+    const linha = await usuarioPorEmail(e, "email, loja_id, super_admin");
+    if (linha) alvos.push(linha);
+    else if (await encontrarAuthPorEmail(e)) {
+      return "Só é possível usar um e-mail sem acesso anterior ou de um usuário da sua empresa. Fale com o administrador geral.";
+    }
+  }
+  if (alvos.some((u) => !podeGerenciarLoja(operador, u.loja_id))) return outraEmpresa;
+  if (alvos.some((u) => u.super_admin)) {
+    return "Só é possível alterar um administrador geral com acesso de administrador geral.";
+  }
+  return null;
 }
 
 // Fase 1 (gate R0H-C5C10D3): allowlist de colunas seguras — mesma allowlist
@@ -139,6 +177,11 @@ Deno.serve(async (req) => {
 
     if (!["criar", "atualizar", "excluir"].includes(acao)) return json({ error: "Ação inválida." }, 400);
     if (!email || !email.includes("@")) return json({ error: "E-mail inválido." }, 400);
+    // Curingas de busca não fazem parte de um e-mail válido aqui.
+    if ([email, emailAnterior].some((e) => /[%*\\]/.test(e))) return json({ error: "E-mail inválido." }, 400);
+
+    const recusa = await recusaAoOperadorDeLoja(operador, { acao, lojaId, emails: [email, emailAnterior] });
+    if (recusa) return json({ error: recusa }, 403);
 
     if (acao === "criar") {
       if (!podeGerenciarLoja(operador, lojaId)) {
@@ -184,9 +227,7 @@ Deno.serve(async (req) => {
 
     if (acao === "atualizar") {
       const emailBusca = emailAnterior || email;
-      const { data: rowApp } = await admin.from("tab_usuarios")
-        .select("id, loja_id, nome, perfil, cargo_id, ids_acesso")
-        .ilike("email", emailBusca).maybeSingle();
+      const rowApp = await usuarioPorEmail(emailBusca, "id, email, loja_id, nome, perfil, cargo_id, ids_acesso");
       if (rowApp && !podeGerenciarLoja(operador, rowApp.loja_id) && !operador.superAdmin) {
         return json({ error: "Só é possível editar usuários da sua empresa." }, 403);
       }
@@ -253,7 +294,7 @@ Deno.serve(async (req) => {
       return json({ ok: true, id: authId, usuario });
     }
 
-    const { data: rowApp } = await admin.from("tab_usuarios").select("loja_id").ilike("email", email).maybeSingle();
+    const rowApp = await usuarioPorEmail(email, "id, email, loja_id");
     if (rowApp && !podeGerenciarLoja(operador, rowApp.loja_id) && !operador.superAdmin) {
       return json({ error: "Só é possível excluir usuários da sua empresa." }, 403);
     }
@@ -262,8 +303,8 @@ Deno.serve(async (req) => {
       const { error } = await admin.auth.admin.deleteUser(authUser.id);
       if (error) throw error;
     }
-    if (persistirPerfil) {
-      const { error } = await admin.from("tab_usuarios").delete().ilike("email", email);
+    if (persistirPerfil && rowApp) {
+      const { error } = await admin.from("tab_usuarios").delete().eq("id", rowApp.id);
       if (error) throw error;
     }
     return json({ ok: true, removido: !!authUser, perfilRemovido: persistirPerfil });
