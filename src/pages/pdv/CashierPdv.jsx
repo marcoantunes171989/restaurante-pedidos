@@ -63,7 +63,7 @@ import { AvisoFiscalPdv } from "../../components/fiscal/AlertasFiscais";
 import { imprimirNotaFiscal as imprimirDanfe, abrirJanelaDeImpressao, fecharJanelaDeImpressao } from "../../lib/fiscal/imprimirNota";
 import AvisoNotaFiscal from "../../components/fiscal/AvisoNotaFiscal";
 import { cobraTaxaServico } from "../../lib/taxaServico";
-import { emCentavos, limiteEmReais, valorDaTaxa } from "../../lib/parametrosCaixa";
+import { emCentavos, limiteEmReais, resumoDosPedidos, valorDaTaxa } from "../../lib/parametrosCaixa";
 import { useParametrosCaixa } from "../../hooks/useParametrosCaixa";
 import {
   abrirCupomTermico,
@@ -272,7 +272,7 @@ export default function CashierPdv({
         const conta = {
           ...m,
           comandas: [...m.comandas],
-          total: m.subtotal * (1 + taxaPct / 100),
+          total: resumoDosPedidos(m.pedidos, taxaPct).total,
           situacao: m.solicitada ? "solicitado" : m.pendentePreparo ? "entrega" : "pagamento",
           statusPedido: statusPedidosConta(m.pedidos),
         };
@@ -331,7 +331,7 @@ export default function CashierPdv({
       pedidosIds,
       pedidos,
       subtotal,
-      total: subtotal * (1 + taxaPct / 100),
+      total: resumoDosPedidos(pedidos, taxaPct).total,
       aberturaISO,
       cliente,
       telefone,
@@ -529,7 +529,7 @@ export default function CashierPdv({
       .map((o) => ({
         ...o,
         customer: nomeClienteDe(o, clientes) || o.customer || "Cliente",
-        total: orderTotal(o) * (1 + taxaPct / 100),
+        total: resumoDosPedidos([o], taxaPct).total,
       }))
       .sort((a, b) => new Date(a.createdAtISO || 0) - new Date(b.createdAtISO || 0));
   }, [orders, taxaPct, clientes]);
@@ -549,7 +549,8 @@ export default function CashierPdv({
     });
   }, [orders]);
 
-  const faturamentoDia = pagosHoje.reduce((s, o) => s + orderTotal(o) * (1 + taxaPct / 100), 0);
+  // Como no fechamento: retirada e entrega externas não somam taxa de serviço.
+  const faturamentoDia = pagosHoje.reduce((s, o) => s + resumoDosPedidos([o], taxaPct).total, 0);
   const ticketMedio = pagosHoje.length ? faturamentoDia / pagosHoje.length : 0;
   const statusCozinha = useMemo(() => resumoCozinha(orders), [orders]);
   const mesasDisponiveis = mesasPainel.filter((m) => m.status === "livre").length;
@@ -661,7 +662,6 @@ export default function CashierPdv({
     return contasAbertas.flatMap((c) =>
       (c.comandas || []).map((cmd) => {
         const pedidos = orders.filter((o) => o.command === cmd && o.paymentStatus !== "paid" && o.status !== "cancelled");
-        const sub = pedidos.reduce((s, o) => s + orderTotal(o), 0);
         const nomes = pedidos.flatMap((o) => (o.items || []).map((it) => `${it.quantity}x ${it.name}`));
         return {
           key: `cmd-${cmd}`,
@@ -672,7 +672,7 @@ export default function CashierPdv({
           subtitulo: c.cliente || (c.externo ? "Delivery" : c.mesa),
           telefone: c.telefone || "",
           mesa: c.externo ? null : c.mesa,
-          total: sub * (1 + taxaPct / 100),
+          total: resumoDosPedidos(pedidos, taxaPct).total,
           aberturaISO: c.aberturaISO,
           vip: !!c.vip,
           status: c.solicitada ? "pendente" : "ocupada",
@@ -689,7 +689,7 @@ export default function CashierPdv({
     return orders
       .filter((o) => o.paymentStatus !== "paid" && o.status !== "cancelled")
       .map((o) => {
-        const tot = orderTotal(o) * (1 + taxaPct / 100);
+        const tot = resumoDosPedidos([o], taxaPct).total;
         const nomes = (o.items || []).map((it) => `${it.quantity}x ${it.name}`);
         const conta = contasAbertas.find((c) => c.comandas.includes(o.command) || c.pedidosIds?.includes(o.id));
         // Status vem em inglês do banco — o card sempre mostra o rótulo em PT-BR.

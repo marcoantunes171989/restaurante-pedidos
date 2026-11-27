@@ -3,7 +3,8 @@ import {
   ChevronDown, X, DoorClosed, DoorOpen, Wallet, CheckCircle2, TrendingUp, Ticket,
   ChefHat, Flame, PackageCheck, PieChart, Hourglass, Bike, UtensilsCrossed, Percent,
 } from "lucide-react";
-import { ehPedidoExterno, formatCurrency, orderTotal } from "./pdvHelpers";
+import { ehPedidoExterno, formatCurrency } from "./pdvHelpers";
+import { resumoDosPedidos } from "../../lib/parametrosCaixa";
 
 /**
  * Faixa de resumo do turno — botão abre detalhe (métricas + análise financeira).
@@ -267,7 +268,7 @@ function ModalResumoTurno({
             ) : (
               <ul className="space-y-2">
                 {pagos.slice(0, 30).map((o) => {
-                  const tot = orderTotal(o) * (1 + (Number(taxaPct) || 0) / 100);
+                  const tot = resumoDosPedidos([o], taxaPct).total;
                   const externo = ehPedidoExterno(o);
                   return (
                     <li key={o.id} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-2.5">
@@ -313,7 +314,6 @@ function montarAnaliseFinanceira({
   totalMesas = 0,
   faturamentoDia = 0,
 }) {
-  const fator = 1 + (Number(taxaPct) || 0) / 100;
   const contasMesa = (contasAbertas || []).filter((c) => !c.externo);
   const contasDelivery = (contasAbertas || []).filter((c) => c.externo);
   const totalAberto = (contasAbertas || []).reduce((s, c) => s + (Number(c.total) || 0), 0);
@@ -327,7 +327,7 @@ function montarAnaliseFinanceira({
   const mapaForma = {};
 
   pagos.forEach((o) => {
-    const tot = orderTotal(o) * fator;
+    const tot = resumoDosPedidos([o], taxaPct).total;
     maiorVenda = Math.max(maiorVenda, tot);
     if (ehPedidoExterno(o)) {
       fatDelivery += tot;
