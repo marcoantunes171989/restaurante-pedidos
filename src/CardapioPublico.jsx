@@ -23,6 +23,13 @@ import {
 import { LogoPP } from "./components/BrandLogo";
 import { normalizarFuncionamento, avaliarDisponibilidadeCanal, MOTIVO } from "./lib/horarioFuncionamentoService";
 import { criarUrlPedidoWhatsApp, numeroWhatsAppValido } from "./lib/whatsappPedido";
+import CardapioBoasVindas from "./pages/cardapio/CardapioBoasVindas.jsx";
+import {
+  CkIconCheck, CkIconCoracao, CkIconTag, CkIconEstrela, CkIconCalendario, CkIconAlerta, CkIconLixeira,
+  CkIconRelogio, CkIconLoja, CkIconMoto, CkIconGarfo, CkIconCartao, CkIconPix, CkIconDinheiro, CkIconSpinner,
+  CkIconRecibo, CkIconCarteira, CkIconChevron, CkIconWifiOff, CkIconPanela, CkIconCaixaEntrada, CkIconSino,
+  CkIconSacola, CkIconCarrinho, CkIconMesa, CkIconAjuda, CkIconLimpeza,
+} from "./components/cardapio/CkIcons.jsx";
 
 // ════════════════════════════════════════════════════════════
 //  Cardápio digital PÚBLICO (cliente, externo) — ver + pedir + acompanhar
@@ -1609,301 +1616,23 @@ export default function CardapioPublico() {
   }
 
   // ── Tela de boas-vindas (QR da mesa / link externo) ──────────
-  // Versão anterior (marca + mesa/estabelecimento + carrossel),
-  // sem sombra azul na foto e sem sombra azul/laranja no CTA.
+  // Extraída para src/pages/cardapio/CardapioBoasVindas.jsx (mesmo
+  // comportamento; cores/tipografia agora nos tokens --client-* oficiais).
   if (etapa === "welcome") {
     const lojaStatus = abertoAgora ? "aberto" : disp.motivo === MOTIVO.FORA_HORARIO ? "fechado" : null;
     const fechaHoje = abertoAgora ? (disp.intervaloAtual?.fecha || null) : null;
-    const partesNome = String(loja.nome || "").trim().split(/\s+/).filter(Boolean);
-    const nomePrimario = partesNome[0] || loja.nome || "Estabelecimento";
-    const nomeSecundario = partesNome.slice(1).join(" ");
-
-    const dispon = produtos.filter((p) => p.disponivel !== false);
-    const ordenarDestaque = (a, b) => (Number(a.featuredOrder) || 0) - (Number(b.featuredOrder) || 0);
-    const featured = dispon.filter((p) => p.isFeatured).sort(ordenarDestaque);
-    const comBadge = dispon.filter((p) => p.badge && !featured.some((f) => f.id === p.id));
-    const resto = dispon.filter((p) => !featured.some((f) => f.id === p.id) && !comBadge.some((f) => f.id === p.id));
-    const destaques = [...featured, ...comBadge, ...resto].slice(0, 6);
-    const nSlides = destaques.length;
-    const slideAtual = nSlides ? ((welcomeSlide % nSlides) + nSlides) % nSlides : 0;
-    const produtoAtivo = nSlides ? destaques[slideAtual] : null;
-    const produtoAnterior = nSlides > 1 ? destaques[(slideAtual - 1 + nSlides) % nSlides] : null;
-    const produtoProximo = nSlides > 1 ? destaques[(slideAtual + 1) % nSlides] : null;
-    const irSlide = (dir) => {
-      if (nSlides <= 1) return;
-      setWelcomeSlide((cur) => {
-        const base = ((cur % nSlides) + nSlides) % nSlides;
-        return (base + dir + nSlides) % nSlides;
-      });
-    };
-    const descCurta = (p) => {
-      const d = String(p?.description || p?.category || catNomePorId[p?.categoriaId] || "").trim();
-      if (!d) return "Destaque da casa";
-      return d.length > 56 ? `${d.slice(0, 54)}…` : d;
-    };
-    const onTouchStart = (e) => {
-      const t = e.changedTouches?.[0];
-      if (!t) return;
-      welcomeTouchRef.current = { x: t.clientX, y: t.clientY };
-    };
-    const onTouchEnd = (e) => {
-      const t = e.changedTouches?.[0];
-      if (!t || nSlides <= 1) return;
-      const dx = t.clientX - welcomeTouchRef.current.x;
-      const dy = t.clientY - welcomeTouchRef.current.y;
-      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
-      irSlide(dx < 0 ? 1 : -1);
-    };
-
     return (
-      <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col overflow-x-clip bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}
-        style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="pp-welcome-inner relative flex flex-col pt-[clamp(0.35rem,1.2vh,0.75rem)] pb-[clamp(0.25rem,0.8vh,0.5rem)]">
-          {/* ── Estabelecimento ── */}
-          <header className="flex w-full min-w-0 shrink-0 flex-col items-center text-center">
-            {loja.logoUrl ? (
-              <img src={loja.logoUrl} alt={`Logo ${loja.nome}`} className="h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] rounded-full border-[3px] border-[#E6E6E6] object-cover bg-white" onError={(e) => { e.currentTarget.style.display = "none"; }} />
-            ) : (
-              <span className="flex h-[clamp(44px,7vh,64px)] w-[clamp(44px,7vh,64px)] items-center justify-center rounded-full border-[3px] border-[#E6E6E6] bg-white text-xl font-black" aria-hidden="true">
-                <span className="text-[#012E46]">{(loja.prefixo || nomePrimario).slice(0, 1)}</span>
-                <span className="text-[#F38525]">{(loja.prefixo || nomePrimario).slice(1, 2) || ""}</span>
-              </span>
-            )}
-            <h1 className="mt-[clamp(0.25rem,0.8vh,0.5rem)] max-w-full px-1 font-black leading-none tracking-tight break-words">
-              <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#012E46]">{nomePrimario}</span>
-              {nomeSecundario ? <span className="text-[clamp(1.15rem,3.4vh,1.7rem)] text-[#F38525]"> {nomeSecundario}</span> : null}
-            </h1>
-            <div className="pp-welcome-brand-sub mt-1 flex items-center gap-2">
-              <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
-              <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#012E46]">Cardápio digital</p>
-              <span className="h-px w-6 bg-[#E6E6E6]" aria-hidden="true" />
-            </div>
-          </header>
-
-          {/* ── Mesa + status do estabelecimento ── */}
-          {(modoExterno || currentTable || lojaStatus) && (
-            <div className="pp-welcome-status mt-[clamp(0.4rem,1.2vh,0.7rem)] grid w-full shrink-0 grid-cols-2 gap-2">
-              {currentTable ? (
-                <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#F38525]"><CkIconMesa width={16} height={16} /></span>
-                  <span className="min-w-0 flex-1 overflow-hidden">
-                    <span className="block truncate text-[13px] font-black text-[#012E46]">{currentTable}</span>
-                    <span className="block truncate text-[10px] font-medium text-[#6B7280]">Sua comanda</span>
-                  </span>
-                </div>
-              ) : (
-                <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                  <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#F38525]"><CkIconLoja width={16} height={16} /></span>
-                  <span className="min-w-0 flex-1 overflow-hidden">
-                    <span className="block truncate text-[13px] font-black text-[#012E46]">Pedido online</span>
-                    <span className="block truncate text-[10px] font-medium text-[#6B7280]">Cardápio externo</span>
-                  </span>
-                </div>
-              )}
-              <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-2.5 py-[clamp(0.45rem,1.1vh,0.7rem)]">
-                {lojaStatus === "aberto" ? (
-                  <>
-                    <span className="pp-welcome-status-icon relative flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white">
-                      <span className="absolute h-2 w-2 rounded-full bg-[#5E8C31]" aria-hidden="true" />
-                      <span className="absolute h-2 w-2 animate-ping rounded-full bg-[#5E8C31]/50" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1 overflow-hidden">
-                      <span className="block truncate text-[13px] font-black text-[#5E8C31]">Aberto agora</span>
-                      <span className="block truncate text-[10px] font-medium text-[#6B7280]">{fechaHoje ? `Até ${fechaHoje}` : "Pronto para receber"}</span>
-                    </span>
-                  </>
-                ) : lojaStatus === "fechado" ? (
-                  <>
-                    <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#52606D]"><CkIconRelogio width={15} height={15} /></span>
-                    <span className="min-w-0 flex-1 overflow-hidden">
-                      <span className="block truncate text-[13px] font-black text-[#52606D]">Fechado agora</span>
-                      <span className="block truncate text-[10px] font-medium text-[#6B7280]">Fora do horário</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="pp-welcome-status-icon flex h-8 w-8 items-center justify-center rounded-xl border border-[#E6E6E6] bg-white text-[#012E46]"><CkIconRelogio width={15} height={15} /></span>
-                    <span className="min-w-0 flex-1 overflow-hidden">
-                      <span className="block truncate text-[13px] font-black text-[#012E46]">Atendimento</span>
-                      <span className="block truncate text-[10px] font-medium text-[#6B7280]">Consulte a equipe</span>
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Carrossel: foto sem overlay; infos abaixo ── */}
-          {produtoAtivo && (
-            <section className="mt-[clamp(0.35rem,1.1vh,0.65rem)] flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden" aria-labelledby="pp-destaques-titulo"
-              onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-              <div className="mb-1.5 flex min-w-0 shrink-0 items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden">
-                  <CkIconEstrela width={23} height={23} className="mt-0.5 shrink-0 text-[#F38525]" />
-                  <div className="min-w-0">
-                    <h2 id="pp-destaques-titulo" className="truncate text-[clamp(12px,1.8vh,14px)] font-black text-[#012E46]">Destaques da casa</h2>
-                    <p className="text-[9px] text-[#6B7280]">{slideAtual + 1} de {nSlides}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pp-welcome-stage relative flex min-h-0 flex-1 items-stretch justify-center">
-                {produtoAnterior && <button type="button" onClick={() => irSlide(-1)} aria-label={`Ver destaque anterior: ${produtoAnterior.name}`}
-                  className="pp-welcome-side pp-welcome-side-left" style={{ backgroundImage: `url(${JSON.stringify(String(produtoAnterior.imageUrl || fallbackImage))})` }}>
-                  <img src={produtoAnterior.imageUrl || fallbackImage} alt="" loading="eager" decoding="async" onError={(e) => { e.currentTarget.src = fallbackImage; }} />
-                </button>}
-                {produtoProximo && <button type="button" onClick={() => irSlide(1)} aria-label={`Ver próximo destaque: ${produtoProximo.name}`}
-                  className="pp-welcome-side pp-welcome-side-right" style={{ backgroundImage: `url(${JSON.stringify(String(produtoProximo.imageUrl || fallbackImage))})` }}>
-                  <img src={produtoProximo.imageUrl || fallbackImage} alt="" loading="eager" decoding="async" onError={(e) => { e.currentTarget.src = fallbackImage; }} />
-                </button>}
-
-              {/* div[role=button] em vez de <button>: no iOS/Safari imagens
-                  dentro de <button> com layout flex/absolute podem ficar em branco. */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  setEtapa("cardapio");
-                  setDetalhe(produtoAtivo);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setEtapa("cardapio");
-                    setDetalhe(produtoAtivo);
-                  }
-                }}
-                aria-label={`Ver ${produtoAtivo.name}`}
-                className="pp-welcome-card group relative flex min-h-0 w-full min-w-0 max-w-full flex-1 cursor-pointer flex-col overflow-hidden rounded-[1.35rem] border border-[#E6E6E6] bg-white text-left transition active:opacity-95"
-              >
-                {(() => {
-                  const fotoSrc = produtoAtivo.imageUrl || fallbackImage;
-                  return (
-                    <div
-                      className="pp-welcome-foto"
-                      style={{ backgroundImage: `url(${JSON.stringify(String(fotoSrc))})` }}
-                    >
-                      <img
-                        key={produtoAtivo.id}
-                        src={fotoSrc}
-                        alt={produtoAtivo.name}
-                        loading="eager"
-                        decoding="async"
-                        fetchPriority="high"
-                        sizes="100%"
-                        onError={(e) => {
-                          if (e.currentTarget.src !== fallbackImage) {
-                            e.currentTarget.src = fallbackImage;
-                            const box = e.currentTarget.parentElement;
-                            if (box) box.style.backgroundImage = `url(${JSON.stringify(fallbackImage)})`;
-                          }
-                        }}
-                        className="pp-img-fill"
-                      />
-                      {!modoExterno && <span className="pp-welcome-foto-badge pointer-events-none absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[#E6E6E6] bg-white text-[12px] font-black text-[#012E46]">{slideAtual + 1}</span>}
-                      {!modoExterno && produtoAtivo.badge ? (
-                        <span className="pp-welcome-foto-badge pointer-events-none absolute right-2 top-2 truncate rounded-full border border-[#E6E6E6] bg-white px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#F38525]">{produtoAtivo.badge}</span>
-                      ) : null}
-                    </div>
-                  );
-                })()}
-                <div className="pp-welcome-product-info min-w-0 shrink-0 border-t border-[#E6E6E6] bg-white px-3 py-2">
-                  <p className="truncate text-[clamp(13px,2vh,16px)] font-black leading-tight text-[#012E46]">{produtoAtivo.name}</p>
-                  <p className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-[#6B7280]">{descCurta(produtoAtivo)}</p>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="inline-flex min-w-0 items-center gap-1 truncate text-[9px] font-semibold text-[#6B7280]">
-                      <CkIconRelogio width={10} height={10} className="shrink-0" /> {produtoAtivo.time || "Consulte o preparo"}
-                    </span>
-                    <span className="shrink-0 text-[13px] font-black text-[#012E46]">{formatCurrency(produtoAtivo.price)}</span>
-                  </div>
-                  <p className="mt-1 truncate border-t border-[#EEF1F3] pt-1 text-[9px] font-semibold text-[#52606D]">Toque para ver detalhes e adicionar</p>
-                </div>
-              </div>
-              </div>
-
-              {nSlides > 1 && (
-                <div className="pp-welcome-dots mt-1.5 flex shrink-0 justify-center gap-1.5" role="tablist" aria-label="Destaques">
-                  {destaques.map((p, i) => (
-                    <button key={p.id} type="button" role="tab" aria-selected={i === slideAtual} aria-label={`Destaque ${i + 1}: ${p.name}`}
-                      onClick={() => setWelcomeSlide(i)}
-                      className={`h-1.5 rounded-full transition-all ${i === slideAtual ? "w-4 bg-[#F38525]" : "w-1.5 bg-[#E6E6E6]"}`} />
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* ── CTA + rodapé ── */}
-          <div className="mt-[clamp(0.35rem,1vh,0.6rem)] flex w-full min-w-0 shrink-0 flex-col">
-            {!modoExterno && <div className="pp-mesa-opt-sub flex min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6E6E6] bg-white px-3 py-2">
-              <span className="shrink-0 text-xl" aria-hidden="true">👋</span>
-              <p className="min-w-0 flex-1 text-[11px] leading-snug text-[#374151]">
-                <b className="font-black text-[#012E46]">Olá! Seja bem-vindo!</b>{" "}
-                Cardápio especial para você aproveitar cada momento.
-              </p>
-            </div>}
-
-            <button type="button" onClick={() => setEtapa("cardapio")}
-              className="pp-welcome-cta mt-2 flex w-full min-h-[48px] min-w-0 items-center gap-2.5 rounded-2xl btn-laranja px-3 text-[12px] font-black text-[#012E46] transition active:opacity-95 sm:px-4">
-              <CkIconRecibo width={16} height={16} className="shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-left">Ver cardápio completo</span>
-              <span className="shrink-0" aria-hidden="true">→</span>
-            </button>
-
-            {modoExterno && (
-              <div className="pp-welcome-benefits mt-1.5 grid grid-cols-3 rounded-xl border border-[#E6E6E6] bg-white px-1.5 py-2">
-                {[
-                  [CkIconSacola, "Ingredientes", "Selecionados"],
-                  [CkIconPanela, "Preparo", "Na hora"],
-                  [CkIconEstrela, "Qualidade", "Garantida"],
-                ].map(([Icone, titulo, texto], i) => (
-                  <div key={titulo} className={`flex min-w-0 items-center justify-center gap-1 px-1 ${i ? "border-l border-[#E6E6E6]" : ""}`}>
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[#F38525]"><Icone width={15} height={15} /></span>
-                    <span className="min-w-0 leading-tight">
-                      <b className="block truncate text-[9px] font-black text-[#012E46]">{titulo}</b>
-                      <span className="block truncate text-[8px] text-[#6B7280]">{texto}</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {meusPedidos.length > 0 && (
-              <button type="button" onClick={() => { setEtapa("cardapio"); setAba("conta"); }}
-                className="mt-1 inline-flex min-h-9 items-center justify-center gap-1.5 self-center px-2 text-[12px] font-bold text-[var(--client-info)]">
-                <CkIconRecibo width={13} height={13} /> Acompanhar pedido ({meusPedidos.length})
-              </button>
-            )}
-
-            {!modoExterno && mesa && (
-              <div className="pp-mesa-opt1 mt-1.5 flex items-center justify-between gap-2 rounded-xl border border-[#E6E6E6] bg-white px-2.5 py-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280]">Precisa de algo?</p>
-                <div className="flex gap-1">
-                  {[["garcom", CkIconSino, "Chamar garçom", "Garçom"], ["ajuda", CkIconAjuda, "Pedir ajuda", "Ajuda"], ["limpeza", CkIconLimpeza, "Solicitar limpeza", "Limpeza"]].map(([t, Icone, aria, rotulo]) => {
-                    const emAndamento = chamando === t;
-                    return (
-                      <button key={t} type="button" onClick={() => chamar(t, rotulo)} disabled={!!chamando} aria-busy={emAndamento} aria-label={aria} title={aria}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#E6E6E6] bg-white text-[#012E46] transition active:scale-90 disabled:opacity-60">
-                        {emAndamento ? <CkIconSpinner /> : <Icone width={15} height={15} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {msg && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-20 mx-auto w-full max-w-[420px] px-3.5">
-            <div role={msg.t === "error" ? "alert" : "status"} aria-live={msg.t === "error" ? "assertive" : "polite"}
-              className={`pointer-events-auto rounded-2xl border px-3 py-2 text-center text-xs font-bold ${msg.t === "error" ? "border-[var(--client-error-border)] bg-[var(--client-error-soft)] text-[var(--client-error)]" : "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"}`}>
-              {msg.m}
-            </div>
-          </div>
-        )}
-        {detalhe && <ProdutoModal produto={detalhe} grupos={gruposOpcoes} opcoes={opcoes} onFechar={() => setDetalhe(null)} onAdicionar={addConfigurado} />}
-      </div>
+      <CardapioBoasVindas
+        loja={loja} modoExterno={modoExterno} currentTable={currentTable}
+        lojaStatus={lojaStatus} fechaHoje={fechaHoje}
+        produtos={produtos} catNomePorId={catNomePorId}
+        mesa={mesa} meusPedidos={meusPedidos} chamando={chamando} chamar={chamar} msg={msg}
+        detalhe={detalhe} gruposOpcoes={gruposOpcoes} opcoes={opcoes} addConfigurado={addConfigurado}
+        onFecharDetalhe={() => setDetalhe(null)}
+        onAbrirCardapio={() => setEtapa("cardapio")}
+        onAbrirProduto={(p) => { setEtapa("cardapio"); setDetalhe(p); }}
+        onAcompanharPedido={() => { setEtapa("cardapio"); setAba("conta"); }}
+      />
     );
   }
 
@@ -2780,44 +2509,6 @@ function LinhaTempoOperacional({ status, setorStatus = {}, setoresPedido = [], m
     </ol>
   );
 }
-// ════════════════════════════════════════════════════════════
-//  Finalização do pedido — ícones inline (sem emoji, sem lib externa —
-//  mesma convenção de src/App.jsx ProdutoModal: stroke=currentColor).
-// ════════════════════════════════════════════════════════════
-const ckIconBase = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
-const CkIconCheck    = (p) => (<svg {...ckIconBase} {...p}><path d="M20 6 9 17l-5-5" /></svg>);
-const CkIconCoracao  = (p) => (<svg {...ckIconBase} fill="currentColor" {...p}><path d="M12 20.5s-7.5-4.6-10-9.3C.4 7.8 2 4.5 5.4 4A5 5 0 0 1 12 7a5 5 0 0 1 6.6-3c3.4.5 5 3.8 3.4 7.2-2.5 4.7-10 9.3-10 9.3Z" /></svg>);
-const CkIconTag      = (p) => (<svg {...ckIconBase} {...p}><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-6.2-6.2A2 2 0 0 1 3.8 13V6a2 2 0 0 1 2-2h7a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.4Z" /><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none" /></svg>);
-const CkIconEstrela  = (p) => (<svg {...ckIconBase} {...p}><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" /></svg>);
-const CkIconCalendario = (p) => (<svg {...ckIconBase} {...p}><rect x="3.5" y="5" width="17" height="16" rx="2" /><path d="M8 3v4M16 3v4M3.5 10h17" /></svg>);
-const CkIconAlerta   = (p) => (<svg {...ckIconBase} {...p}><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.9 2 18a1.5 1.5 0 0 0 1.3 2.3h17.4A1.5 1.5 0 0 0 22 18L13.7 3.9a1.7 1.7 0 0 0-3.4 0Z" /></svg>);
-const CkIconLixeira  = (p) => (<svg {...ckIconBase} {...p}><path d="M3 6h18" /><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" /><path d="M19 6l-.9 13.2A2 2 0 0 1 16.1 21H7.9a2 2 0 0 1-2-1.8L5 6" /><path d="M10 11v6M14 11v6" /></svg>);
-const CkIconRelogio  = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
-const CkIconLoja     = (p) => (<svg {...ckIconBase} {...p}><path d="M4 9 5.2 4.5A1 1 0 0 1 6.2 4h11.6a1 1 0 0 1 1 .5L20 9" /><path d="M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9Z" /><path d="M9 20v-5h6v5" /></svg>);
-const CkIconMoto     = (p) => (<svg {...ckIconBase} {...p}><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="M9 18h6l3-6h-4l-2-4H8l-2 3" /><path d="M13 8h4" /></svg>);
-const CkIconGarfo    = (p) => (<svg {...ckIconBase} {...p}><path d="M7 3v7a2 2 0 0 0 4 0V3" /><path d="M9 10v11" /><path d="M16 3c-1.1 0-2 1.3-2 4s.9 4 2 4 2-1.3 2-4-.9-4-2-4Z" /><path d="M16 11v10" /></svg>);
-const CkIconCartao   = (p) => (<svg {...ckIconBase} {...p}><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="M2.5 10h19" /><path d="M6 14.5h4" /></svg>);
-const CkIconPix      = (p) => (<svg {...ckIconBase} {...p}><path d="M9.5 4.5 4.5 9.5a2 2 0 0 0 0 2.8l6.7 6.7a2 2 0 0 0 2.8 0l6.7-6.7a2 2 0 0 0 0-2.8L14.5 3a2 2 0 0 0-2 0" /><path d="m8.3 8.3 2.2 2.2a2 2 0 0 0 2.8 0l2.2-2.2M8.3 15.7l2.2-2.2a2 2 0 0 1 2.8 0l2.2 2.2" /></svg>);
-const CkIconDinheiro = (p) => (<svg {...ckIconBase} {...p}><rect x="2.5" y="6" width="19" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M6 9v0M18 15v0" /></svg>);
-const CkIconSpinner  = () => (<svg className="animate-spin" width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity=".25" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" /></svg>);
-const CkIconRecibo   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 3h12v18l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5V3Z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>);
-const CkIconCarteira = (p) => (<svg {...ckIconBase} {...p}><path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" /><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M16 13.5h3" /></svg>);
-const CkIconChevron  = (p) => (<svg {...ckIconBase} {...p}><path d="m6 9 6 6 6-6" /></svg>);
-const CkIconWifiOff  = (p) => (<svg {...ckIconBase} {...p}><path d="M2 8.5a17 17 0 0 1 5-3M22 8.5a17 17 0 0 0-8.5-4.4M6.3 12a11 11 0 0 1 4-2M17.7 12a11 11 0 0 0-2.7-1.8" /><path d="M9 16a5.5 5.5 0 0 1 6 0" /><circle cx="12" cy="19.5" r="0.6" fill="currentColor" stroke="none" /><path d="M2 2l20 20" /></svg>);
-const CkIconPanela   = (p) => (<svg {...ckIconBase} {...p}><path d="M3 11h18v3a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5v-3Z" /><path d="M1 11h22" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>);
-const CkIconCaixaEntrada = (p) => (<svg {...ckIconBase} {...p}><path d="M3 12h4.5l1.5 3h6l1.5-3H21" /><path d="M5.5 5h13l2.5 7v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6l2.5-7Z" /></svg>);
-const CkIconSino     = (p) => (<svg {...ckIconBase} {...p}><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>);
-const CkIconSacola   = (p) => (<svg {...ckIconBase} {...p}><path d="M6 8h12l1 12.5a1 1 0 0 1-1 1.5H6a1 1 0 0 1-1-1.5L6 8Z" /><path d="M9 8V6a3 3 0 0 1 6 0v2" /></svg>);
-// Carrinho de compras — mesmo traço dos demais Ck* e igual ao ShoppingCart do
-// tablet (lucide), para o ícone de CARRINHO ficar idêntico em todas as telas.
-const CkIconCarrinho = (p) => (<svg {...ckIconBase} {...p}><circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" /><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" /></svg>);
-const CkIconMesa     = (p) => (<svg {...ckIconBase} {...p}><path d="M12 21s7-7.1 7-12a7 7 0 1 0-14 0c0 4.9 7 12 7 12Z" /><circle cx="12" cy="9" r="2.5" /></svg>);
-const CkIconAjuda    = (p) => (<svg {...ckIconBase} {...p}><circle cx="12" cy="12" r="9" /><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.6 1.9-2.6 3.6" /><path d="M12 17.2h.01" /></svg>);
-const CkIconLimpeza  = (p) => (<svg {...ckIconBase} {...p}><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6.3 6.3l2 2M15.7 15.7l2 2M17.7 6.3l-2 2M8.3 15.7l-2 2" /><circle cx="12" cy="12" r="2.2" /></svg>);
-// Mesmo desenho do selo "Personalizável" sobre a imagem do produto — promovido
-// a componente para reuso também no aviso "Personalize do seu jeito!".
-const CkIconAjustes  = (p) => (<svg {...ckIconBase} {...p}><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none" /><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none" /><circle cx="8" cy="17" r="2" fill="currentColor" stroke="none" /></svg>);
-
 // Indicador compacto de progresso — Pedido → Identificação → Confirmação
 // (nunca "Pagamento": ele pode nem existir, ver regra do consumo local).
 // Não depende só de cor: número/check + rótulo sempre visíveis.
