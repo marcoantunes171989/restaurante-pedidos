@@ -7836,6 +7836,12 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const botaoMenuRef = useRef(null);
   useEffect(() => { setMenuMobileAberto(false); }, [adminSection]); // fecha ao navegar
+  // Toda tela do admin começa do topo: o conteúdo (pp-admin-content) é um único
+  // container rolável reaproveitado entre as seções (só remonta ao trocar a
+  // "Empresa em foco"), então sem isso a tela nova abria com o scroll onde a
+  // anterior tinha ficado, em vez de do início.
+  const conteudoAdminRef = useRef(null);
+  useEffect(() => { conteudoAdminRef.current?.scrollTo(0, 0); }, [ativo, relatorioSub]);
   // Painel Fiscal → abre a Configuração Fiscal já na aba certa; some ao sair da tela (menu volta ao padrão).
   const [fiscalAba, setFiscalAba] = useState(null);
   useEffect(() => { if (adminSection !== "config-fiscal") setFiscalAba(null); }, [adminSection]);
@@ -7942,7 +7948,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
         {/* Conteúdo rolável — remonta ao trocar a "Empresa em foco" para refletir a empresa selecionada em todas as telas.
             Padding responsivo: no celular usa p-4 (mais largura útil, sem estourar em telas de 320px);
             cresce para p-5/p-6 em telas maiores. */}
-        <div key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area pp-admin-content flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5 lg:p-6">
+        <div ref={conteudoAdminRef} key={`ctx-${lojaContexto ?? "geral"}`} className="tema-claro-area pp-admin-content flex-1 overflow-y-auto overflow-x-hidden bg-white p-4 sm:p-5 lg:p-6">
           {forcarBloqueioCozinha ? (
             <ModuloBloqueado slug={ADMIN_COZINHA_NAV.id} />
           ) : !canAccessModule(ativo, { assinatura: assinaturaAtual, plano: planoAtual, planoModulos, isSuperAdmin }) ? (
