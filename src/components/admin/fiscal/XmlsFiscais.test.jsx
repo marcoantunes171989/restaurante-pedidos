@@ -140,10 +140,10 @@ describe("Tela XMLs fiscais", () => {
     vi.stubGlobal("fetch", fetchMock);
     await digitar(q("xmls-email-destinatario"), "contador@exemplo.com.br");
     await act(async () => { q("xmls-email-enviar").click(); }); await esperar();
-    expect(fetchMock).toHaveBeenCalledWith("/api/fiscal-xml-email", expect.objectContaining({
+    expect(fetchMock).toHaveBeenCalledWith("/api/fiscal-emitir", expect.objectContaining({
       method: "POST", headers: expect.objectContaining({ authorization: "Bearer t" }),
     }));
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ ids: ["n1"], destinatario: "contador@exemplo.com.br" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ acao: "enviar_email_xml", ids: ["n1"], destinatario: "contador@exemplo.com.br" });
     expect(q("xmls-aviso").textContent).toContain("enviado(s) por e-mail para contador@exemplo.com.br");
     expect(q("xmls-email-form")).toBeFalsy();
   });

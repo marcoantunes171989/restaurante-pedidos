@@ -1,8 +1,10 @@
 // ════════════════════════════════════════════════════════════
-//  XMLs fiscais: enviar por e-mail (servidor, via /api/fiscal-xml-email — o
-//  servidor busca o XML de novo, nunca confia no que vem do navegador) e
-//  compartilhar por WhatsApp (compartilhamento nativo do aparelho, com o
-//  arquivo .xml anexado quando o navegador suportar).
+//  XMLs fiscais: enviar por e-mail (servidor, acao "enviar_email_xml" do
+//  endpoint /api/fiscal-emitir — já existente, para não passar do limite de
+//  12 Serverless Functions do plano Hobby da Vercel; o servidor busca o XML
+//  de novo, nunca confia no que vem do navegador) e compartilhar por
+//  WhatsApp (compartilhamento nativo do aparelho, com o arquivo .xml
+//  anexado quando o navegador suportar).
 // ════════════════════════════════════════════════════════════
 
 import { nomeArquivoXml } from "./xmlNota";
@@ -14,10 +16,10 @@ export async function enviarXmlPorEmail(supabase, { ids, destinatario }, { fetch
   if (!token) return { ok: false, code: "SEM_LOGIN", erro: "Faça login novamente para enviar." };
   let resp;
   try {
-    resp = await fetchFn("/api/fiscal-xml-email", {
+    resp = await fetchFn("/api/fiscal-emitir", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ids, destinatario }),
+      body: JSON.stringify({ acao: "enviar_email_xml", ids, destinatario }),
     });
   } catch { return { ok: false, code: "REDE", erro: "Sem conexão com o servidor." }; }
   try { return (await resp.json()) || { ok: false, code: `HTTP_${resp.status}` }; } catch { return { ok: false, code: `HTTP_${resp.status}`, erro: "Resposta inválida do servidor." }; }
