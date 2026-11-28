@@ -72,7 +72,7 @@ import {
 } from "./lib/supabase";
 import { usandoSupabaseAuth } from "./lib/authMode";
 import { fecharContaNoServidor, mensagemDeRecusaDoCaixa, taxaDaMesa, totalDoPedido, valorDaTaxa } from "./lib/parametrosCaixa";
-import { resumoDoCaixa, saiDoCaixa } from "./lib/caixaResumo";
+import { parcelasNoCaixa, resumoDoCaixa, saiDoCaixa } from "./lib/caixaResumo";
 import { registrarVencimentos, rotuloDoLancamento } from "./lib/relatorios/pontos";
 import { useParametrosCaixa } from "./hooks/useParametrosCaixa";
 import { useCobranca } from "./hooks/useCobranca";
@@ -2696,10 +2696,10 @@ export default function RestaurantePedidoApp() {
           const r = await baixarEstoque(itensVendidos, lojaAtual, comandas); // baixa correta por loja + registro
           alertasEstoque = r?.alertas || [];
           if (info && !noServidor) await registrarPagamento({ ...info, comandas }); // histórico de pagamento
-          // Caixa aberto: registra a venda como movimento (por forma de pagamento). Tolerante.
+          // Caixa aberto: registra a venda como movimento (por forma de pagamento), sem o troco. Tolerante.
           if (info && caixaAberto && !noServidor) {
             try {
-              const formas = Array.isArray(info.detalhes) && info.detalhes.length ? info.detalhes : [{ forma: "Pagamento", valor: info.total }];
+              const formas = Array.isArray(info.detalhes) && info.detalhes.length ? parcelasNoCaixa(info.detalhes, info.total, formasPagamentoLoja) : [{ forma: "Pagamento", valor: info.total }];
               await Promise.all(formas.map((d) => registrarMovimentoCaixa({ caixaId: caixaAberto.id, lojaId: lojaAtual, tipo: "venda", valor: d.valor, descricao: `Venda ${d.forma || ""} · ${info.mesa || ""}`.trim(), usuarioId: currentUser?.id ?? null })));
             } catch {}
           }
