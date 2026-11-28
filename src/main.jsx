@@ -1,8 +1,8 @@
 import { StrictMode, Component, Suspense, lazy, useState, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import PwaExperienceProvider from './components/PwaExperienceProvider.jsx'
 import { solicitarNavegacaoInterna } from './lib/historicoNavegacao'
+import { guardarPromptInstalacao, limparPromptInstalacao } from './lib/pwaInstallBridge'
 
 // Cada porta de entrada baixa só o que usa: site, sistema ou cardápio.
 const App = lazy(() => import('./App.jsx'))
@@ -154,6 +154,22 @@ function Root() {
     iniciarSW()
   }, [])
 
+  // ── Ponte do prompt nativo de instalação (beforeinstallprompt) ──────────
+  // Sem diálogo/sugestão de instalação em nenhuma tela — só guarda o evento
+  // para o botão "Instalar o Pedido Prime" dentro de Configurações de
+  // notificação (NotificationSettings.jsx, via pwaInstallBridge), que o usa
+  // quando a ativação de push exige o app instalado.
+  useEffect(() => {
+    const onBIP = (e) => { e.preventDefault(); guardarPromptInstalacao(e) }
+    const onInstalled = () => limparPromptInstalacao()
+    window.addEventListener('beforeinstallprompt', onBIP)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBIP)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
   // ── Campo focado sempre visível acima do teclado (todo o projeto) ───────────
   // Ao focar qualquer input/textarea/select, rola o campo para a área visível
   // (centralizado), evitando que o teclado do celular o esconda.
@@ -235,12 +251,9 @@ function Root() {
   if (ehCardapio) return <Suspense fallback={<Abrindo />}><CardapioPublico /></Suspense>
 
   return (
-    <>
-      <Suspense fallback={<Abrindo />}>
-        {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
-      </Suspense>
-      <PwaExperienceProvider />
-    </>
+    <Suspense fallback={<Abrindo />}>
+      {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
+    </Suspense>
   )
 }
 
