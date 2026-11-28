@@ -5580,9 +5580,9 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 }
 
 const kitchenCols = [
-  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[#012E46]", text: "text-[#012E46]", header: "border-[#9BB4C0] bg-[#E8EDF0]", card: "border-[#E5E7EB]" },
-  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-[#F38525]", text: "text-[#9A6A00]", header: "border-[#F4D27A] bg-[#FFF7E0]", card: "border-[#E5E7EB]" },
-  { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[#16A34A]", text: "text-[#047857]", header: "border-[#86EFAC] bg-[#ECFDF3]", card: "border-[#E5E7EB]" },
+  { key: "received",  label: "Aguardando", sub: "Na fila",           dot: "bg-[var(--pp-info)]",    text: "text-[var(--pp-info)]",         header: "border-[var(--pp-info)]/20 bg-[var(--pp-info-soft)]" },
+  { key: "preparing", label: "Preparando", sub: "Em produção",       dot: "bg-[var(--pp-warning)]", text: "text-[var(--pp-warning-text)]", header: "border-[var(--pp-warning)]/30 bg-[var(--pp-warning-soft)]" },
+  { key: "ready",     label: "Finalizado", sub: "Pronto p/ retirada",dot: "bg-[var(--pp-success)]", text: "text-[var(--pp-success-text)]", header: "border-[var(--pp-success)]/25 bg-[var(--pp-success-soft)]" },
 ];
 
 function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entregandoId = null, statusAtualizandoIds = null, cancelarPedido, currentUser, lojaInfo, setores = [], produtos = [], setorInicial = null }) {
@@ -5621,54 +5621,54 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
   const totalGeral   = totalAtivo + totalFinal;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#F7F8FA] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--pp-bg)] overflow-hidden" style={{ paddingTop: "calc(env(safe-area-inset-top) + 24px)" }}>
 
       {/* ── Cabeçalho mínimo ──────────────────────────────────── */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E5E7EB] bg-white px-6 py-3">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[var(--pp-border)] bg-white px-6 py-3">
         <div className="flex items-center gap-3">
           <LogoPP size={36} />
           <div>
-            <p className="text-lg font-black text-[#182230] leading-tight">👨‍🍳 Cozinha{lojaInfo && <span className="ml-2 text-sm font-bold text-[#9A6A00]">· {lojaInfo.nome}</span>}</p>
-            <p className="text-xs text-[#667085]">{currentUser?.name}</p>
+            <p className="text-lg font-semibold text-[var(--pp-text)] leading-tight">👨‍🍳 Cozinha{lojaInfo && <span className="ml-2 text-sm font-semibold text-[var(--pp-text-muted)]">· {lojaInfo.nome}</span>}</p>
+            <p className="text-xs text-[var(--pp-text-muted)]">{currentUser?.name}</p>
           </div>
         </div>
 
         {/* Métricas centrais */}
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl border border-[#F4D27A] bg-[#FFF7E0] px-4 py-1.5 text-center">
-            <p className="text-xs font-bold text-[#9A6A00]">Em aberto</p>
-            <p className="text-xl font-black text-[#9A6A00]">{totalAtivo}</p>
+          <div className="rounded-2xl border border-[var(--pp-warning)]/30 bg-[var(--pp-warning-soft)] px-4 py-1.5 text-center">
+            <p className="text-xs font-semibold text-[var(--pp-warning-text)]">Em aberto</p>
+            <p className="text-xl font-semibold text-[var(--pp-warning-text)]">{totalAtivo}</p>
           </div>
-          <div className="rounded-2xl border border-[#86EFAC] bg-[#ECFDF3] px-4 py-1.5 text-center">
-            <p className="text-xs font-bold text-[#047857]">Finalizados</p>
-            <p className="text-xl font-black text-[#047857]">{totalFinal}</p>
+          <div className="rounded-2xl border border-[var(--pp-success)]/25 bg-[var(--pp-success-soft)] px-4 py-1.5 text-center">
+            <p className="text-xs font-semibold text-[var(--pp-success-text)]">Finalizados</p>
+            <p className="text-xl font-semibold text-[var(--pp-success-text)]">{totalFinal}</p>
           </div>
-          <div className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-1.5 text-center">
-            <p className="text-xs font-bold text-[#667085]">Total</p>
-            <p className="text-xl font-black text-[#182230]">{totalGeral}</p>
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-1.5 text-center">
+            <p className="text-xs font-semibold text-[var(--pp-text-muted)]">Total</p>
+            <p className="text-xl font-semibold text-[var(--pp-text)]">{totalGeral}</p>
           </div>
         </div>
 
         {/* Relógio */}
         <div className="flex items-center gap-3">
-          <p className="font-black tabular-nums text-[#182230] text-xl">{hora}</p>
+          <p className="font-semibold tabular-nums text-[var(--pp-text)] text-xl">{hora}</p>
         </div>
       </header>
 
       {/* Filtro por setor de cozinha (migration 041) */}
       {setoresAtivos.length > 0 && (
-        <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-[#E5E7EB] bg-white px-6 py-2">
-          <span className="shrink-0 text-[11px] font-bold uppercase tracking-widest text-[#667085]">Setor:</span>
-          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro == null ? "border-[#F38525] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>Todos</button>
+        <div className="shrink-0 flex items-center gap-2 overflow-x-auto border-b border-[var(--pp-border)] bg-white px-6 py-2">
+          <span className="shrink-0 text-[11px] font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">Setor:</span>
+          <button onClick={() => setSetorFiltro(null)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition duration-200 ${setorFiltro == null ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>Todos</button>
           {setoresAtivos.map((s) => (
-            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition duration-200 ${setorFiltro === s.id ? "border-[#F38525] bg-[#FFF7E0] text-[#182230]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>{s.nome}</button>
+            <button key={s.id} onClick={() => setSetorFiltro(s.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition duration-200 ${setorFiltro === s.id ? "border-[var(--pp-primary)] bg-[var(--pp-primary-soft)] text-[var(--pp-primary-text)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>{s.nome}</button>
           ))}
         </div>
       )}
 
       {/* ── 3 Colunas de pedidos ──────────────────────────────── */}
       <div className="flex flex-1 overflow-x-auto overflow-y-hidden">
-        {kitchenCols.map(({ key, label, sub, dot, text, header, card }) => {
+        {kitchenCols.map(({ key, label, sub, dot, text, header }) => {
           const lista = groupedOrders[key] || [];
           // Agrupa os pedidos da coluna por MESA (mantendo a ordem de chegada).
           // Cada grupo reúne os pedidos da mesma mesa (e suas comandas).
@@ -5682,17 +5682,17 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
             return Array.from(mapa, ([mesa, pedidos]) => ({ mesa, pedidos }));
           })();
           return (
-            <div key={key} className={`flex flex-1 flex-col border-r border-[#E5E7EB] last:border-r-0 min-w-[280px] bg-[#F7F8FA]`}>
+            <div key={key} className={`flex flex-1 flex-col border-r border-[var(--pp-border)] last:border-r-0 min-w-[280px] bg-[var(--pp-bg)]`}>
 
               {/* Cabeçalho da coluna */}
               <div className={`shrink-0 border-b px-5 py-3 ${header}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className={`h-3 w-3 rounded-full ${dot} shadow-sm`} />
-                    <h2 className={`text-base font-black ${text}`}>{label}</h2>
+                    <h2 className={`text-base font-semibold ${text}`}>{label}</h2>
                     <span className={`text-xs ${text}/70`}>— {sub}</span>
                   </div>
-                  <span className={`rounded-full border border-white bg-white/70 px-3 py-0.5 text-xs font-black ${text}`}>
+                  <span className={`rounded-full border border-white bg-white/70 px-3 py-0.5 text-xs font-semibold ${text}`}>
                     {lista.length}
                   </span>
                 </div>
@@ -5703,22 +5703,22 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                 {lista.length === 0 && (
                   <div className="mt-6 flex flex-col items-center justify-center gap-2 opacity-70">
                     <span className="text-4xl">🕐</span>
-                    <p className="text-sm font-bold text-[#98A2B3]">Nenhum pedido no momento</p>
+                    <p className="text-sm font-semibold text-[var(--pp-text-muted)]">Nenhum pedido no momento</p>
                   </div>
                 )}
                 {grupos.map(({ mesa, pedidos }) => {
                   const totalItensMesa = pedidos.reduce((s, p) => s + p.items.reduce((a, it) => a + it.quantity, 0), 0);
                   return (
-                  <section key={mesa} className="overflow-hidden rounded-3xl border border-[#E5E7EB] bg-white shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
+                  <section key={mesa} className="overflow-hidden rounded-3xl border border-[var(--pp-border)] bg-white shadow-[0_8px_24px_rgba(43,35,32,0.06)]">
                     {/* Cabeçalho da MESA (agrupa as comandas/pedidos) */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2.5">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">🍽️</span>
-                        <h3 className="text-xl font-black leading-tight text-[#182230]">{mesa}</h3>
+                        <h3 className="text-xl font-semibold leading-tight text-[var(--pp-text)]">{mesa}</h3>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="rounded-full border border-[#E5E7EB] bg-white px-2.5 py-0.5 text-[11px] font-black text-[#475467]">{pedidos.length} pedido(s)</span>
-                        <span className="rounded-full border border-[#9BB4C0] bg-[#E8EDF0] px-2.5 py-0.5 text-[11px] font-black text-[#012E46]">{totalItensMesa} item(ns)</span>
+                        <span className="rounded-full border border-[var(--pp-border)] bg-white px-2.5 py-0.5 text-[11px] font-semibold text-[var(--pp-text-body)]">{pedidos.length} pedido(s)</span>
+                        <span className="rounded-full border border-[var(--pp-info)]/25 bg-[var(--pp-info-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--pp-info)]">{totalItensMesa} item(ns)</span>
                       </div>
                     </div>
 
@@ -5729,16 +5729,16 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                   const minutos = order.createdAtISO ? Math.max(0, Math.floor((Date.now() - new Date(order.createdAtISO).getTime()) / 60000)) : null;
                   const atrasado = minutos != null && minutos >= 20 && (order.status === "received" || order.status === "preparing");
                   return (
-                  <article key={order.id} className={`overflow-hidden rounded-2xl border bg-white ${card} ${key === "ready" ? "ring-1 ring-[#16A34A]/30" : ""} ${atrasado ? "!border-[#FDA4AF] ring-2 ring-[#FDA4AF]/40" : ""}`}>
+                  <article key={order.id} className={`overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white ${key === "ready" ? "ring-1 ring-[var(--pp-success)]/30" : ""} ${atrasado ? "!border-[var(--pp-danger)] ring-2 ring-[var(--pp-danger)]/30" : ""}`}>
 
                     {/* Topo do card */}
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#E5E7EB] px-4 py-2.5">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--pp-border)] px-4 py-2.5">
                       <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-[#98A2B3]">{order.id} • {order.createdAt}</p>
-                        <p className="mt-0.5 font-mono text-sm font-black text-[#012E46]">{order.command}</p>
-                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-bold text-[#9A6A00]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}{order.pagamentoTrocoPara > 0 ? ` · Troco p/ ${formatCurrency(order.pagamentoTrocoPara)}` : ""}</p>}
+                        <p className="text-xs font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">{order.id} • {order.createdAt}</p>
+                        <p className="mt-0.5 font-mono text-sm font-semibold text-[var(--pp-info)]">{order.command}</p>
+                        {order.pagamentoForma && <p className="mt-0.5 text-[11px] font-semibold text-[var(--pp-warning-text)]">💳 {order.pagamentoForma}{order.pagamentoMomento ? ` · ${order.pagamentoMomento}` : ""}{order.pagamentoTrocoPara > 0 ? ` · Troco p/ ${formatCurrency(order.pagamentoTrocoPara)}` : ""}</p>}
                         {pedidoAguardandoPagamento(order) && (
-                          <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-[#FDA4AF] bg-[#FFF1F2] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#B42318]">
+                          <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--pp-danger)]">
                             ⚠ Aguardando pagamento no caixa
                           </p>
                         )}
@@ -5746,7 +5746,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                       <div className="flex flex-col items-end gap-1">
                         <StatusChip status={order.status} />
                         {minutos != null && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums ${atrasado ? "bg-[#DC2626] text-white" : "border border-[#E5E7EB] bg-[#F8FAFC] text-[#475467]"}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums ${atrasado ? "bg-[var(--pp-danger)] text-white" : "border border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-body)]"}`}>
                             {atrasado ? "⚠ ATRASADO · " : "⏱ "}{minutos} min
                           </span>
                         )}
@@ -5756,35 +5756,35 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                     {/* Itens */}
                     <div className="space-y-2 px-4 py-3">
                       {order.items.map((item, idx) => (
-                        <div key={`${order.id}-${idx}`} className="rounded-2xl bg-[#F8FAFC] px-3 py-2">
-                          <p className="text-sm font-black text-[#182230] break-words">{item.quantity}x {item.name}</p>
+                        <div key={`${order.id}-${idx}`} className="rounded-2xl bg-[var(--pp-bg)] px-3 py-2">
+                          <p className="text-sm font-semibold text-[var(--pp-text)] break-words">{item.quantity}x {item.name}</p>
                           {itemDetails(item) && (
-                            <p className="mt-0.5 text-xs leading-5 text-[#DC2626]">{itemDetails(item)}</p>
+                            <p className="mt-0.5 text-xs leading-5 text-[var(--pp-danger)]">{itemDetails(item)}</p>
                           )}
                         </div>
                       ))}
                     </div>
 
                     {/* Botões de status */}
-                    <div className="border-t border-[#E5E7EB] px-4 py-3 space-y-2">
+                    <div className="border-t border-[var(--pp-border)] px-4 py-3 space-y-2">
                       {/* Preparar + Finalizar */}
                       <div className="grid grid-cols-2 gap-2">
                         <button
                           onClick={() => updateOrderStatus(order.id, "preparing")}
                           disabled={statusAtualizandoIds?.has(order.id) || order.status === "ready"}
-                          className={`rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95
+                          className={`rounded-2xl border py-3 text-sm font-semibold transition duration-200 active:scale-95
                             ${statusAtualizandoIds?.has(order.id) || order.status === "ready"
-                              ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
-                              : "border-[#F4D27A] bg-[#FFF7E0] text-[#9A6A00] hover:bg-[#F4D27A]/50"}`}>
+                              ? "cursor-not-allowed border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"
+                              : "border-[var(--pp-warning)]/30 bg-[var(--pp-warning-soft)] text-[var(--pp-warning-text)] hover:brightness-95"}`}>
                           {statusAtualizandoIds?.has(order.id) ? "Alterando…" : "👨‍🍳 Preparar"}
                         </button>
                         <button
                           onClick={() => updateOrderStatus(order.id, "ready")}
                           disabled={statusAtualizandoIds?.has(order.id) || order.status === "ready"}
-                          className={`rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95
+                          className={`rounded-2xl border py-3 text-sm font-semibold transition duration-200 active:scale-95
                             ${statusAtualizandoIds?.has(order.id) || order.status === "ready"
-                              ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
-                              : "border-[#86EFAC] bg-[#ECFDF3] text-[#047857] hover:bg-[#86EFAC]/40"}`}>
+                              ? "cursor-not-allowed border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"
+                              : "border-[var(--pp-success)]/25 bg-[var(--pp-success-soft)] text-[var(--pp-success-text)] hover:brightness-95"}`}>
                           {statusAtualizandoIds?.has(order.id) ? "Alterando…" : "✅ Finalizar"}
                         </button>
                       </div>
@@ -5797,12 +5797,12 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                             if (r?.blocked && r.motivo === "pagamento") setAvisoPagamentoPendente(r.pedido || order);
                           }}
                           disabled={entregandoId === order.id}
-                          className={`w-full rounded-2xl border py-3 text-sm font-black transition duration-200 active:scale-95 shadow-sm
+                          className={`w-full rounded-2xl border py-3 text-sm font-semibold transition duration-200 active:scale-95 shadow-sm
                             ${entregandoId === order.id
-                              ? "cursor-not-allowed border-[#E5E7EB] bg-[#F3F4F6] text-[#98A2B3]"
+                              ? "cursor-not-allowed border-[var(--pp-border)] bg-[var(--pp-bg)] text-[var(--pp-text-muted)]"
                               : pedidoAguardandoPagamento(order)
-                              ? "border-[#FDE1B0] bg-[#FFF4E5] text-[#012E46] hover:bg-[#FDE1B0]"
-                              : "border-[#F38525] bg-[#F38525] text-[#182230] hover:bg-[#F38525]"}`}>
+                              ? "border-[var(--pp-warning)]/30 bg-[var(--pp-warning-soft)] text-[var(--pp-info)] hover:brightness-95"
+                              : "border-[var(--pp-primary)] bg-[var(--pp-primary)] text-[var(--pp-primary-text)] hover:brightness-110"}`}>
                           {entregandoId === order.id ? "Enviando…" : "🛎️ Marcar como Entregue"}
                         </button>
                       )}
@@ -5811,7 +5811,7 @@ function KitchenView({ groupedOrders, updateOrderStatus, marcarEntregue, entrega
                       {order.status !== "delivered" && (
                         <button
                           onClick={() => setCancelando(order)}
-                          className="w-full rounded-2xl border border-[#FDA4AF] bg-[#FFF1F2] py-2.5 text-xs font-black text-[#B42318] hover:bg-[#FFE4E6] transition duration-200">
+                          className="w-full rounded-2xl border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] py-2.5 text-xs font-semibold text-[var(--pp-danger)] hover:brightness-95 transition duration-200">
                           ✕ Cancelar pedido
                         </button>
                       )}
@@ -5854,32 +5854,32 @@ function CancelarModal({ pedido, onConfirmar, onFechar }) {
   const [motivo, setMotivo] = useState("DESISTÊNCIA");
   const [obs, setObs] = useState("");
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)]">
-        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[24px] border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-6 py-4">
           <div>
-            <h2 className="text-lg font-black text-[#182230]">✕ Cancelar pedido</h2>
-            <p className="text-xs text-[#667085]">{pedido.id} • {pedido.table} • {pedido.command}</p>
+            <h2 className="text-lg font-semibold text-[var(--pp-text)]">✕ Cancelar pedido</h2>
+            <p className="text-xs text-[var(--pp-text-muted)]">{pedido.id} • {pedido.table} • {pedido.command}</p>
           </div>
-          <button onClick={onFechar} className="rounded-full border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-2 text-sm font-black text-[#475467] hover:bg-[#F1F5F9] transition duration-200">✕</button>
+          <button onClick={onFechar} className="rounded-full border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-2 text-sm font-semibold text-[var(--pp-text-body)] hover:bg-[var(--pp-border)]/40 transition duration-200">✕</button>
         </div>
         <div className="px-6 py-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#667085]">Justificativa do cancelamento</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-[var(--pp-text-muted)]">Justificativa do cancelamento</p>
           <div className="grid grid-cols-2 gap-2">
             {motivos.map((m) => (
               <button key={m} onClick={() => setMotivo(m)}
-                className={`rounded-2xl border px-3 py-2.5 text-xs font-black transition duration-200 ${motivo === m ? "border-[#DC2626] bg-[#FFF1F2] text-[#B42318]" : "border-[#E5E7EB] bg-white text-[#475467] hover:bg-[#F8FAFC]"}`}>
+                className={`rounded-2xl border px-3 py-2.5 text-xs font-semibold transition duration-200 ${motivo === m ? "border-[var(--pp-danger)] bg-[var(--pp-danger-soft)] text-[var(--pp-danger)]" : "border-[var(--pp-border)] bg-white text-[var(--pp-text-body)] hover:bg-[var(--pp-bg)]"}`}>
                 {m}
               </button>
             ))}
           </div>
           {motivo === "Outro" && (
             <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Descreva o motivo..."
-              className="w-full rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-[#182230] outline-none focus:border-[#DC2626] focus:ring-2 focus:ring-[#DC2626]/15" />
+              className="w-full rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3 text-[var(--pp-text)] outline-none focus:border-[var(--pp-danger)] focus:ring-2 focus:ring-[var(--pp-danger)]/15" />
           )}
           <button
             onClick={() => onConfirmar(motivo === "Outro" ? (obs.trim() || "Outro") : motivo)}
-            className="mt-1 w-full rounded-2xl bg-[#DC2626] py-4 text-sm font-black text-white hover:bg-[#C81E1E] transition duration-200 active:scale-95">
+            className="mt-1 w-full rounded-2xl bg-[var(--pp-danger)] py-4 text-sm font-semibold text-white hover:brightness-90 transition duration-200 active:scale-95">
             Confirmar cancelamento
           </button>
         </div>
@@ -5895,30 +5895,30 @@ function CancelarModal({ pedido, onConfirmar, onFechar }) {
 // ════════════════════════════════════════════════════════════
 function AvisoPagamentoPendenteModal({ pedido, onFechar }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[rgba(15,23,42,0.5)] backdrop-blur-sm p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[24px] border border-[#E5E7EB] bg-white shadow-[0_20px_60px_rgba(16,24,40,0.16)]">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[24px] border border-[var(--pp-border)] bg-white shadow-2xl">
         <div className="px-6 pt-6 text-center">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FFF4E5] text-2xl">⚠️</span>
-          <h2 className="mt-3 text-lg font-black text-[#182230]">Pagamento pendente</h2>
-          <p className="mt-1 text-xs text-[#667085]">{pedido.id} • {pedido.command}</p>
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--pp-warning-soft)] text-2xl">⚠️</span>
+          <h2 className="mt-3 text-lg font-semibold text-[var(--pp-text)]">Pagamento pendente</h2>
+          <p className="mt-1 text-xs text-[var(--pp-text-muted)]">{pedido.id} • {pedido.command}</p>
         </div>
         <div className="px-6 py-4">
-          <p className="text-sm leading-6 text-[#475467]">
-            Este pedido é de <strong className="text-[#182230]">retirada/entrega</strong> e ainda não tem o pagamento confirmado
-            {pedido.pagamentoForma ? <> (forma escolhida: <strong className="text-[#182230]">{pedido.pagamentoForma}</strong>)</> : ""}.
-            Por regra do estabelecimento, o produto só pode ser liberado depois que o pagamento for confirmado no <strong className="text-[#182230]">Caixa</strong>.
+          <p className="text-sm leading-6 text-[var(--pp-text-body)]">
+            Este pedido é de <strong className="text-[var(--pp-text)]">retirada/entrega</strong> e ainda não tem o pagamento confirmado
+            {pedido.pagamentoForma ? <> (forma escolhida: <strong className="text-[var(--pp-text)]">{pedido.pagamentoForma}</strong>)</> : ""}.
+            Por regra do estabelecimento, o produto só pode ser liberado depois que o pagamento for confirmado no <strong className="text-[var(--pp-text)]">Caixa</strong>.
           </p>
-          <div className="mt-3 rounded-2xl border border-[#FDE1B0] bg-[#FFF4E5] p-3.5">
-            <p className="text-xs font-black uppercase tracking-widest text-[#012E46]">O que fazer agora</p>
-            <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs leading-5 text-[#7A4A00]">
+          <div className="mt-3 rounded-2xl border border-[var(--pp-warning)]/30 bg-[var(--pp-warning-soft)] p-3.5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-[var(--pp-info)]">O que fazer agora</p>
+            <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-xs leading-5 text-[var(--pp-warning-text)]">
               <li>Encaminhe o cliente (ou o pedido) para o Caixa.</li>
               <li>No Caixa, confirme o recebimento do pagamento.</li>
               <li>Volte aqui e toque em "Marcar como Entregue" novamente.</li>
             </ol>
           </div>
         </div>
-        <div className="border-t border-[#E5E7EB] px-6 py-4">
-          <button onClick={onFechar} className="w-full rounded-2xl bg-[#182230] py-3.5 text-sm font-black text-white transition duration-200 hover:bg-[#0F1620] active:scale-95">
+        <div className="border-t border-[var(--pp-border)] px-6 py-4">
+          <button onClick={onFechar} className="w-full rounded-2xl bg-[var(--pp-info)] py-3.5 text-sm font-semibold text-white transition duration-200 hover:brightness-110 active:scale-95">
             Entendi
           </button>
         </div>
