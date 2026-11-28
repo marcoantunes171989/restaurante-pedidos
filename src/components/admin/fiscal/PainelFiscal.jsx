@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, AlertTriangle, XCircle, Receipt, Wallet, Clock3, FileText, KeyRound, Calculator, ArrowRight } from "lucide-react";
 import {
   buscarEmitenteFiscal, resumoCredenciaisFiscais, listarSeriesFiscais, buscarConfigFiscalVenda, resumoTabelasIbpt,
 } from "../../../lib/fiscal/fiscalApi";
@@ -11,6 +12,8 @@ import { indicadoresNotas, alertaIbpt, destinoDoPasso, destinoDoAlerta, statusGe
 //  Painel Fiscal (etapa 2) — visão geral SÓ DE LEITURA: nada aqui grava.
 //  Junta o passo a passo "Ativar nota fiscal", os indicadores das notas e os
 //  alertas; cada botão leva à tela/aba onde a ação de fato acontece.
+//  Visual: ícone fixo por indicador/atalho (reconhecimento rápido, sem ler o
+//  rótulo todo) no lugar dos emojis — mesma lógica/dados de antes.
 // ════════════════════════════════════════════════════════════
 
 const TOM_STATUS = {
@@ -19,15 +22,20 @@ const TOM_STATUS = {
   erro: "border-[#F5C2CD] bg-[#FDECEF] text-[#C81E4A]",
   neutro: "border-[var(--pp-border)] bg-white text-[var(--pp-text-muted)]",
 };
-const botaoLeve = "inline-flex min-h-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#012E46] hover:border-[#012E46]";
+const ICONE_STATUS = { ok: CheckCircle2, alerta: AlertTriangle, erro: XCircle, neutro: Receipt };
+const botaoLeve = "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#012E46] transition hover:border-[#012E46] hover:bg-[#012E46]/5";
 const brl = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-function Indicador({ valor, rotulo, tom }) {
+function Indicador({ valor, rotulo, tom, Icone }) {
   const cor = tom === "erro" ? "text-[#C81E4A]" : tom === "alerta" ? "text-[#B45309]" : "text-[var(--pp-text)]";
+  const fundoIcone = tom === "erro" ? "bg-[#FDECEF] text-[#C81E4A]" : tom === "alerta" ? "bg-[#FEF3E2] text-[#B45309]" : "bg-[#012E46]/[0.06] text-[#012E46]";
   return (
-    <div className="rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-3">
-      <p className={`text-[20px] font-bold leading-tight ${cor}`}>{valor}</p>
-      <p className="text-[12px] text-[var(--pp-text-muted)]">{rotulo}</p>
+    <div className="flex items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-white px-4 py-3">
+      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${fundoIcone}`} aria-hidden="true"><Icone size={17} /></span>
+      <div className="min-w-0">
+        <p className={`text-[20px] font-bold leading-tight ${cor}`}>{valor}</p>
+        <p className="text-[12px] text-[var(--pp-text-muted)]">{rotulo}</p>
+      </div>
     </div>
   );
 }
@@ -86,13 +94,18 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
   const amb = estado.dados.emitente?.nfceAmbiente;
   const proximo = ativacao.passos.find((p) => !p.ok);
 
+  const IconeStatus = ICONE_STATUS[status.tom] || Receipt;
+
   return (
     <div className="space-y-4" data-testid="painel-fiscal">
       <div className={`rounded-2xl border px-4 py-3 ${TOM_STATUS[status.tom]}`} role="status">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-[15px] font-bold">{status.titulo}</p>
-            <p className="text-[12px] opacity-90">{status.detalhe}</p>
+          <div className="flex items-start gap-2.5">
+            <IconeStatus size={19} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="text-[15px] font-bold">{status.titulo}</p>
+              <p className="text-[12px] opacity-90">{status.detalhe}</p>
+            </div>
           </div>
           <span className="rounded-full border border-current px-3 py-1 text-[12px] font-bold">
             {amb === "producao" ? "Produção (valor fiscal)" : amb === "homologacao" ? "Homologação (sem valor fiscal)" : "Simulação (emissão desligada)"}
@@ -101,23 +114,26 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Indicador valor={ind.hoje} rotulo="notas hoje" />
-        <Indicador valor={brl(ind.valorHoje)} rotulo="autorizado hoje" />
-        <Indicador valor={ind.comProblema} rotulo="com problema (7 dias)" tom={ind.comProblema ? "erro" : undefined} />
-        <Indicador valor={ind.emContingencia} rotulo="em contingência" tom={ind.emContingencia ? "alerta" : undefined} />
+        <Indicador valor={ind.hoje} rotulo="notas hoje" Icone={FileText} />
+        <Indicador valor={brl(ind.valorHoje)} rotulo="autorizado hoje" Icone={Wallet} />
+        <Indicador valor={ind.comProblema} rotulo="com problema (7 dias)" tom={ind.comProblema ? "erro" : undefined} Icone={AlertTriangle} />
+        <Indicador valor={ind.emContingencia} rotulo="em contingência" tom={ind.emContingencia ? "alerta" : undefined} Icone={Clock3} />
       </div>
 
       {alertas.length > 0 && (
         <section className="space-y-2" aria-label="Alertas fiscais" data-testid="painel-alertas">
-          {alertas.map((a) => (
-            <div key={a.id} className={`flex flex-wrap items-center gap-2 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold ${TOM_STATUS[a.nivel]}`}>
-              <span aria-hidden="true">{a.nivel === "erro" ? "⛔" : "⚠"}</span>
-              <span className="min-w-0 flex-1">{a.texto}</span>
-              <button type="button" className={botaoLeve} onClick={() => onIr(destinoDoAlerta(a.destino))}>
-                {a.destino === "emissao" ? "Abrir Emissão" : a.destino === "ibpt" ? "Abrir Tributos (IBPT)" : "Ver notas"}
-              </button>
-            </div>
-          ))}
+          {alertas.map((a) => {
+            const IconeAlerta = a.nivel === "erro" ? XCircle : AlertTriangle;
+            return (
+              <div key={a.id} className={`flex flex-wrap items-center gap-2 rounded-2xl border px-4 py-2.5 text-[13px] font-semibold ${TOM_STATUS[a.nivel]}`}>
+                <IconeAlerta size={16} className="shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1">{a.texto}</span>
+                <button type="button" className={botaoLeve} onClick={() => onIr(destinoDoAlerta(a.destino))}>
+                  {a.destino === "emissao" ? "Abrir Emissão" : a.destino === "ibpt" ? "Abrir Tributos (IBPT)" : "Ver notas"}
+                </button>
+              </div>
+            );
+          })}
         </section>
       )}
 
@@ -145,7 +161,11 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
                       </ul>
                     )}
                   </div>
-                  {!p.ok && <button type="button" className={botaoLeve} onClick={() => onIr(destinoDoPasso(p.alvo))}>{p.id === "ligar" ? "Ir para Emissão" : `${p.acao || "Fazer agora"} →`}</button>}
+                  {!p.ok && (
+                    <button type="button" className={botaoLeve} onClick={() => onIr(destinoDoPasso(p.alvo))}>
+                      {p.id === "ligar" ? "Ir para Emissão" : p.acao || "Fazer agora"} <ArrowRight size={13} aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </li>
             );
@@ -155,9 +175,15 @@ export default function PainelFiscal({ supabase, lojaInfo, formasPagamento = [],
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3" aria-label="Atalhos">
-        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "notas-fiscais", aba: null })}>📄 Notas emitidas</button>
-        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "emissao-fiscal", aba: null })}>🔐 Certificado, CSC e séries</button>
-        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "tributos-ibpt", aba: null })}>🧮 Tributos (IBPT)</button>
+        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "notas-fiscais", aba: null })}>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06]" aria-hidden="true"><FileText size={14} /></span> Notas emitidas
+        </button>
+        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "emissao-fiscal", aba: null })}>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06]" aria-hidden="true"><KeyRound size={14} /></span> Certificado, CSC e séries
+        </button>
+        <button type="button" className={`${botaoLeve} justify-start py-3`} onClick={() => onIr({ tela: "tributos-ibpt", aba: null })}>
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06]" aria-hidden="true"><Calculator size={14} /></span> Tributos (IBPT)
+        </button>
       </section>
     </div>
   );
