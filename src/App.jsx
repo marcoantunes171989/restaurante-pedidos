@@ -5417,7 +5417,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
         {/* Feedback discreto de favorito — logo abaixo dos botões */}
         {toastFav && (
-          <div role="status" className="pointer-events-none absolute left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-1.5 text-xs font-bold text-[var(--client-text-primary)] shadow-md" style={{ top: "calc(max(0.875rem, env(safe-area-inset-top)) + 3.75rem)" }}>{toastFav}</div>
+          <div role="status" className="pointer-events-none absolute left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3.5 py-1.5 text-xs font-semibold text-[var(--client-text-primary)] shadow-md" style={{ top: "calc(max(0.875rem, env(safe-area-inset-top)) + 3.75rem)" }}>{toastFav}</div>
         )}
 
         {/* ── Imagem do produto — RESPONSIVA por layout:
@@ -5436,10 +5436,10 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
             onError={() => { if (imgSrc !== fallbackImage) { setImgSrc(fallbackImage); setImgPronta(false); } else setImgPronta(true); }}
             className={`h-full w-full object-cover object-center lg:object-contain lg:p-6 transition-opacity duration-300 motion-reduce:transition-none ${imgPronta ? "opacity-100" : "opacity-0"}`} />
           {produto.badge && (
-            <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-offer-hover)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
+            <span className="absolute left-4 bottom-4 rounded-md bg-[var(--client-offer-hover)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white shadow-lg">{produto.badge}</span>
           )}
           {indisponivel && (
-            <span className="absolute right-4 bottom-4 rounded-full border border-white/50 bg-[rgba(33,24,20,.7)] px-3 py-1 text-[11px] font-bold text-white backdrop-blur-sm">Indisponível no momento</span>
+            <span className="absolute right-4 bottom-4 rounded-full border border-white/50 bg-[rgba(33,24,20,.7)] px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">Indisponível no momento</span>
           )}
         </div>
 
@@ -5450,7 +5450,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
           {/* Transição elegante da imagem pro conteúdo + informações do produto */}
           <div className="shrink-0 bg-white px-3.5 pt-3 lg:px-5 lg:pt-4">
             {produto.isFeatured && !indisponivel && (
-              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--client-primary-soft)] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
+              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--client-primary-soft)] px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--client-primary-hover)]">
                 <PmIconEstrela aria-hidden="true" /> {produto.featuredLabel || "Mais vendido"}
               </span>
             )}
@@ -5459,15 +5459,15 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               {produto.category && produto.time && <span aria-hidden="true" className="text-[var(--client-text-muted)]">•</span>}
               {produto.time && <span className="inline-flex items-center gap-1"><PmIconRelogio aria-hidden="true" /> {produto.time}</span>}
             </p>
-            <h2 id="pm-titulo" className="mt-1 text-[18px] font-bold leading-tight tracking-tight text-[var(--client-text-primary)]">{produto.name}</h2>
-            <p className="mt-0.5 text-base font-bold text-[var(--client-text-primary)]">{formatCurrency(produto.price)}</p>
+            <h2 id="pm-titulo" className="mt-1 text-[18px] font-semibold leading-tight tracking-tight text-[var(--client-text-primary)]">{produto.name}</h2>
+            <p className="mt-0.5 text-base font-semibold text-[var(--client-text-primary)]">{formatCurrency(produto.price)}</p>
             {produto.description && <p className="mt-1 text-xs leading-5 text-[var(--client-text-secondary)]">{produto.description}</p>}
           </div>
 
           {/* Corpo — personalização + observação. No mobile flui na rolagem do
               dialog; no desktop tem scroll próprio (lg:overflow-y-auto). */}
           <div className="mt-3 space-y-4 bg-white px-3.5 pb-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:px-5">
-            {!semPersonalizacao && <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-secondary)]">Personalize seu pedido</p>}
+            {!semPersonalizacao && <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--client-text-secondary)]">Personalize seu pedido</p>}
 
             {/* Grupos de variações/adicionais estruturados (migration 040) */}
             {gruposProduto.map((g) => {
@@ -5518,7 +5518,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
 
             {/* Observação — card clean, expansão controlada */}
             <div>
-              <label htmlFor="pm-observacao" className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--client-text-primary)]">Observação</label>
+              <label htmlFor="pm-observacao" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--client-text-primary)]">Observação</label>
               <div className="rounded-xl border border-[var(--client-border)] bg-white p-2.5 transition-colors duration-150 focus-within:border-[var(--client-primary)] focus-within:ring-2 focus-within:ring-[var(--client-focus-primary)]">
                 <textarea id="pm-observacao" ref={obsRef} value={observacao}
                   onChange={(e) => setObservacao(e.target.value)}
@@ -5535,7 +5535,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               estático no fim da coluna. Fundo sólido cobre o conteúdo por baixo. */}
           <div className="sticky bottom-0 z-20 shrink-0 border-t border-[var(--client-border)] bg-white px-3.5 py-2.5 lg:static lg:px-5" style={{ paddingBottom: "max(0.625rem, calc(env(safe-area-inset-bottom) + 0.35rem))" }}>
             {!podeAdicionar && !indisponivel && (
-              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-bold text-[var(--client-error)]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
+              <p className="mb-2.5 flex items-center gap-1.5 text-xs font-semibold text-[var(--client-error)]"><PmIconAlerta /> Escolha uma opção em "{grupoFaltando?.nome}" para continuar</p>
             )}
             <div className="flex items-stretch gap-2">
               {/* Seletor de quantidade — compacto o bastante pra caber ao lado
@@ -5546,7 +5546,7 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
                   className="flex h-10 w-9 items-center justify-center rounded-lg text-[var(--client-text-primary)] transition duration-150 active:scale-90 disabled:cursor-not-allowed disabled:text-[var(--client-disabled-text)]">
                   <PmIconMenos />
                 </button>
-                <span className="w-6 text-center text-base font-bold text-[var(--client-text-primary)]" aria-live="polite" aria-atomic="true">{quantidade}</span>
+                <span className="w-6 text-center text-base font-semibold text-[var(--client-text-primary)]" aria-live="polite" aria-atomic="true">{quantidade}</span>
                 <button type="button" onClick={() => setQuantidade((q) => q + 1)} aria-label="Aumentar quantidade"
                   className="flex h-10 w-9 items-center justify-center rounded-lg text-[var(--client-text-primary)] transition duration-150 active:scale-90">
                   <PmIconMais />
@@ -5554,9 +5554,9 @@ export function ProdutoModal({ produto, onFechar, onAdicionar, grupos = [], opco
               </div>
               {/* Botão adicionar — laranja (ação principal), com estados idle/enviando/sucesso/erro/desabilitado */}
               <button type="button" onClick={confirmar} disabled={!podeAdicionar || statusEnvio === "enviando"}
-                className={`flex min-h-[40px] flex-1 items-center justify-between gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
+                className={`flex min-h-[40px] flex-1 items-center justify-between gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold text-white transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed ${
                   statusEnvio === "erro" ? "bg-[var(--client-error)]" : "btn-laranja bg-[var(--client-primary-hover)] hover:bg-[var(--client-primary)]"
-                } disabled:opacity-50 shadow-lg shadow-[#F38525]/20`}>
+                } disabled:opacity-50 shadow-lg shadow-[var(--client-primary)]/20`}>
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
                   {statusEnvio === "enviando" && <PmIconSpinner />}
                   {statusEnvio === "sucesso" && <PmIconCheck width={16} height={16} />}
