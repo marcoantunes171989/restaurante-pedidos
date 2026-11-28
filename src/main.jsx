@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { solicitarNavegacaoInterna } from './lib/historicoNavegacao'
 import { guardarPromptInstalacao, limparPromptInstalacao } from './lib/pwaInstallBridge'
+import BiometriaEnrollDialog from './components/BiometriaEnrollDialog.jsx'
 
 // Cada porta de entrada baixa só o que usa: site, sistema ou cardápio.
 const App = lazy(() => import('./App.jsx'))
@@ -251,9 +252,12 @@ function Root() {
   if (ehCardapio) return <Suspense fallback={<Abrindo />}><CardapioPublico /></Suspense>
 
   return (
-    <Suspense fallback={<Abrindo />}>
-      {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
-    </Suspense>
+    <>
+      <Suspense fallback={<Abrindo />}>
+        {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
+      </Suspense>
+      {(ehSistema || sessaoAtiva) && <BiometriaEnrollDialog />}
+    </>
   )
 }
 

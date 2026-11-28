@@ -671,6 +671,10 @@ const CHAVE_REDIRECT_POS_LOGIN = "pp_pos_login_redirect";
 const CHAVE_SESSAO_ATIVA = "pp_sessao_ativa";
 const CHAVE_SESSAO_EMAIL = "pp_sessao_email";
 const CHAVE_RESTORE_ONCE = "pp_restore_once";
+// Login recém-digitado (não F5/restauração) nesta aba — só sinaliza a
+// oportunidade do convite de biometria (ver BiometriaEnrollDialog); consumido
+// (removido) assim que o diálogo decide mostrar ou não, nunca persiste.
+const CHAVE_LOGIN_RECENTE = "pp_login_recente";
 function limparRedirectPosLogin() {
   try { sessionStorage.removeItem(CHAVE_REDIRECT_POS_LOGIN); } catch { /* sessionStorage indisponível */ }
 }
@@ -1073,7 +1077,10 @@ export default function RestaurantePedidoApp() {
         }
         if (u && u.active !== false) {
           limparRedirectPosLogin();
-          if (pousoHomePosLogin) forcarUrlLogin();
+          if (pousoHomePosLogin) {
+            forcarUrlLogin();
+            try { sessionStorage.setItem(CHAVE_LOGIN_RECENTE, "1"); } catch { /* ignore */ }
+          }
           aplicarLogin(u, { silencioso: true, forcarHome: pousoHomePosLogin });
         } else {
           limparMarcadoresSessaoLocal();
@@ -1895,6 +1902,7 @@ export default function RestaurantePedidoApp() {
     try {
       sessionStorage.setItem(CHAVE_SESSAO_ATIVA, "1");
       sessionStorage.setItem(CHAVE_SESSAO_EMAIL, email);
+      sessionStorage.setItem(CHAVE_LOGIN_RECENTE, "1");
     } catch { /* ignore */ }
     forcarUrlLogin();
 

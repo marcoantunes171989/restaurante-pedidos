@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Fingerprint } from "lucide-react";
 import { LogoPP } from "../components/BrandLogo";
 import { IconSpinner, IconAlerta } from "../components/PrimeIcons";
 import { IconMail, IconQr } from "./icons";
@@ -6,6 +7,7 @@ import PasswordField from "./PasswordField";
 import LoginAlert from "./LoginAlert";
 import { FORM, VALIDACAO, emailValido } from "./content";
 import { lerLoginLembrado, salvarLoginLembrado, limparLoginLembrado } from "../lib/lembrarLogin";
+import { biometriaDisponivel, lerCredencialBiometrica, confirmarBiometria } from "../lib/biometriaLogin";
 
 // Campos mais enxutos (elegantes) e com FOCO NEUTRO (sem borda/anel colorido) —
 // visual gourmet: no foco só um leve escurecer da borda + sombra neutra suave.
@@ -32,10 +34,36 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
   // duas vezes antes do primeiro re-render aplicar o novo estado, chamando
   // login() (e a API de auth) duas vezes. Ref não sofre esse atraso.
   const enviandoRef = useRef(false);
+  // Botão "Entrar com biometria": só aparece com credencial cadastrada
+  // neste aparelho (ver BiometriaEnrollDialog) E o autenticador de
+  // plataforma realmente disponível agora (checagem assíncrona do SO).
+  const [credencialBiometrica] = useState(() => lerCredencialBiometrica());
+  const [biometriaPronta, setBiometriaPronta] = useState(false);
+  const [autenticandoBiometria, setAutenticandoBiometria] = useState(false);
 
   // Mensagem vinda do servidor (credenciais inválidas, licença etc.) encerra
   // o estado "Entrando..." local — preserva o comportamento original.
   useEffect(() => { if (message && message.text) { setEntrando(false); enviandoRef.current = false; } }, [message]);
+
+  useEffect(() => {
+    if (!credencialBiometrica) return;
+    biometriaDisponivel().then((ok) => { if (ok) setBiometriaPronta(true); });
+  }, [credencialBiometrica]);
+
+  async function entrarComBiometria() {
+    if (!credencialBiometrica || autenticandoBiometria) return;
+    setAutenticandoBiometria(true);
+    try {
+      const reconhecida = await confirmarBiometria(credencialBiometrica.credentialId);
+      if (!reconhecida) return;
+      const lembrado = lerLoginLembrado();
+      if (!lembrado?.email || !lembrado?.password) return; // credencial sem o que liberar (ex.: "Lembrar" foi desligado depois)
+      setEntrando(true);
+      login({ email: lembrado.email, password: lembrado.password });
+    } finally {
+      setAutenticandoBiometria(false);
+    }
+  }
 
   // Preenche e-mail/senha salvos neste dispositivo — só uma vez, ao montar,
   // e só se o formulário ainda estiver vazio (nunca sobrescreve o que o
@@ -164,6 +192,13 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
           className="mt-1 flex h-[46px] w-full items-center justify-center gap-2 rounded-[11px] btn-petroleo px-5 text-sm font-bold text-white shadow-[0_10px_24px_rgba(1,46,70,0.16)] transition duration-200 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0">
           {entrando ? <><IconSpinner /> {FORM.botaoEntrando}</> : FORM.botaoEntrar}
         </button>
+
+        {biometriaPronta && (
+          <button type="button" onClick={entrarComBiometria} disabled={entrando || autenticandoBiometria}
+            className="flex h-[44px] w-full items-center justify-center gap-2 rounded-[11px] border border-[#012E46]/15 bg-white text-sm font-semibold text-[#012E46] transition hover:border-[#012E46]/30 hover:bg-[#F7F9FA] disabled:cursor-not-allowed disabled:opacity-70">
+            <Fingerprint size={17} aria-hidden="true" /> {autenticandoBiometria ? "Confirmando…" : "Entrar com biometria"}
+          </button>
+        )}
       </form>
 
       {onQrClick && (
