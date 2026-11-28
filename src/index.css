@@ -112,14 +112,7 @@
    genérico como o .pp-reveal, porque aqui o alvo é width, não opacity/transform). */
 .pp-timeline-fill { transition: width 1.6s cubic-bezier(.2,.7,.3,1); }
 
-/* ── Splash / carregamento inicial "gourmet" ─────────────────────────────
-   Ícones de restaurante que "pulam" em sequência (staggered via animation-delay
-   no elemento) + barra de progresso indeterminada que desliza (petróleo→laranja).
-   Dá um ar premium e temático ao boot do app. */
-@keyframes pp-load-bounce { 0%, 70%, 100% { transform: translateY(0); opacity: .5; } 35% { transform: translateY(-9px); opacity: 1; } }
-.pp-load-bounce { display: inline-flex; animation: pp-load-bounce 1.25s cubic-bezier(.3,.7,.4,1) infinite; }
-@keyframes pp-load-bar { 0% { transform: translateX(-130%); } 100% { transform: translateX(360%); } }
-.pp-load-bar { animation: pp-load-bar 1.35s cubic-bezier(.5,0,.4,1) infinite; }
+/* ── Indicador de carregamento (spinner leve, usado em todo o boot) ──── */
 @keyframes pp-load-ring { to { transform: rotate(360deg); } }
 .pp-load-ring { animation: pp-load-ring 2.4s linear infinite; }
 
@@ -127,7 +120,7 @@
   .pp-reveal { opacity: 1; transform: none; transition: none; }
   .pp-pulse-ring, .pp-float, .pp-hero-mockup, .pp-hero-chip, .pp-anim-fade, .pp-anim-up, .pp-anim-left,
   .pp-line-flow, .pp-glow-pulse, .pp-travel,
-  .pp-load-bounce, .pp-load-bar, .pp-load-ring { animation: none; }
+  .pp-load-ring { animation: none; }
   .pp-timeline-fill { transition: none; }
 }
 
@@ -793,11 +786,10 @@ a[class~="bg-[#012E46]"] > *,
 [data-theme="light"].pp-admin-module .tema-claro-area {
   background-color: #FFFFFF !important;
 }
-/* Tela de LOGIN e SPLASH de carregamento: fundo BRANCO (sobrepõem o off-white
-   geral do tema claro). A especificidade (.pp-*-shell.tema-claro-area) vence o
-   !important da regra base acima. */
-[data-theme="light"] .pp-login-shell.tema-claro-area,
-[data-theme="light"] .pp-splash-shell.tema-claro-area {
+/* Tela de LOGIN: fundo BRANCO (sobrepõe o off-white geral do tema claro).
+   A especificidade (.pp-login-shell.tema-claro-area) vence o !important da
+   regra base acima. */
+[data-theme="light"] .pp-login-shell.tema-claro-area {
   background-color: #FFFFFF !important;
 }
 /* Padrão "superfícies brancas" (skill superficies-brancas-admin): as caixinhas/
