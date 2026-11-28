@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ProdutoModal, formatCurrency, fallbackImage } from "../../App";
 import {
   CkIconMesa, CkIconLoja, CkIconRelogio, CkIconEstrela, CkIconRecibo,
@@ -64,6 +64,13 @@ export default function CardapioBoasVindas({
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
     irSlide(dx < 0 ? 1 : -1);
   };
+
+  // Carrossel infinito — avança sozinho a cada 4s (o módulo por nSlides acontece na renderização).
+  useEffect(() => {
+    if (nSlides <= 1) return undefined;
+    const iv = setInterval(() => setWelcomeSlide((cur) => cur + 1), 4000);
+    return () => clearInterval(iv);
+  }, [nSlides]);
 
   return (
     <div data-theme="light" className={`pp-mesa-welcome tema-claro-area relative flex h-[100dvh] max-h-[100dvh] w-full max-w-full flex-col overflow-x-clip bg-white text-[var(--client-text-primary)] ${modoExterno ? "pp-welcome-ext" : ""}`}

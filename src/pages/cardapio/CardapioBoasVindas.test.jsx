@@ -103,4 +103,13 @@ describe("Tela de boas-vindas do Cardápio Externo", () => {
     montar({ produtos: [] });
     expect(container.textContent).not.toContain("Destaques da casa");
   });
+
+  it("avança o carrossel sozinho a cada 4s (regressão: o timer precisa viver aqui, não no componente pai)", async () => {
+    vi.useFakeTimers();
+    montar();
+    expect(container.textContent).toContain("X-Bacon");
+    await act(async () => { vi.advanceTimersByTime(4000); });
+    expect(container.textContent).toContain("Batata Frita");
+    vi.useRealTimers();
+  });
 });
