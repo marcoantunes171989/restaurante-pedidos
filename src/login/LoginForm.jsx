@@ -5,6 +5,7 @@ import { IconMail, IconQr } from "./icons";
 import PasswordField from "./PasswordField";
 import LoginAlert from "./LoginAlert";
 import { FORM, VALIDACAO, emailValido } from "./content";
+import { lerLoginLembrado, salvarLoginLembrado, limparLoginLembrado } from "../lib/lembrarLogin";
 
 // Campos mais enxutos (elegantes) e com FOCO NEUTRO (sem borda/anel colorido) —
 // visual gourmet: no foco só um leve escurecer da borda + sombra neutra suave.
@@ -23,6 +24,9 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
   const [avisoSenha, setAvisoSenha] = useState(false);
   const [tocado, setTocado] = useState({ email: false, senha: false });
   const [tentativa, setTentativa] = useState(false);
+  // "Lembrar neste dispositivo": começa marcado quando já existe e-mail/senha
+  // salvos (ver lembrarLogin.js) — reflete o estado real, não assume opt-in.
+  const [lembrar, setLembrar] = useState(() => !!lerLoginLembrado());
   // Guarda em ref (síncrona) — o guard só em useState(entrando) tem uma
   // janela de corrida real: dois cliques rápidos podem rodar handleSubmit
   // duas vezes antes do primeiro re-render aplicar o novo estado, chamando
@@ -32,6 +36,17 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
   // Mensagem vinda do servidor (credenciais inválidas, licença etc.) encerra
   // o estado "Entrando..." local — preserva o comportamento original.
   useEffect(() => { if (message && message.text) { setEntrando(false); enviandoRef.current = false; } }, [message]);
+
+  // Preenche e-mail/senha salvos neste dispositivo — só uma vez, ao montar,
+  // e só se o formulário ainda estiver vazio (nunca sobrescreve o que o
+  // usuário já digitou ou um restore em andamento).
+  useEffect(() => {
+    const salvo = lerLoginLembrado();
+    if (salvo && !loginForm.email && !loginForm.password) {
+      setLoginForm({ email: salvo.email, password: salvo.password });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const emailVazio = !loginForm.email.trim();
   const emailFormatoInvalido = !emailVazio && !emailValido(loginForm.email);
@@ -46,6 +61,8 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
     if (enviandoRef.current) return; // impede envio duplicado
     setTentativa(true);
     if (emailVazio || emailFormatoInvalido || senhaVazia) return; // validação local — não chama login()
+    if (lembrar) salvarLoginLembrado(loginForm.email, loginForm.password);
+    else limparLoginLembrado();
     enviandoRef.current = true;
     setEntrando(true);
     login();
@@ -128,6 +145,18 @@ export default function LoginForm({ loginForm, setLoginForm, login, message, dbR
           className={`-mt-2.5 min-h-[36px] rounded-xl border p-2.5 text-xs transition-opacity duration-150 ${avisoSenha ? "border-[var(--login-border)] bg-[var(--login-surface-secondary)] text-[var(--login-text-secondary)] opacity-100" : "border-transparent bg-transparent opacity-0"}`}>
           {FORM.avisoSenha}
         </p>
+
+        {/* "Lembrar" — salva e-mail/senha neste dispositivo (ver lembrarLogin.js).
+            Some junto com a desmarcação: ao desmarcar e enviar, o que já
+            estava salvo é apagado (handleSubmit). */}
+        <label htmlFor="login-lembrar" className="-mt-1 flex cursor-pointer select-none items-center gap-2 text-[13px] font-semibold text-[var(--login-text-secondary)]">
+          <input
+            id="login-lembrar" type="checkbox" checked={lembrar}
+            onChange={(e) => setLembrar(e.target.checked)}
+            className="h-4 w-4 shrink-0 rounded border-[var(--login-border)] text-[var(--login-primary)] accent-[var(--login-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--login-primary)]"
+          />
+          Lembrar meu e-mail e senha neste dispositivo
+        </label>
 
         <LoginAlert id="login-mensagem" message={message} />
 
