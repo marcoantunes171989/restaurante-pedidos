@@ -129,4 +129,51 @@ describe("Tela XMLs fiscais", () => {
     await escolherCanceladas("nao");
     expect(q("xmls-contagem").textContent).toContain("2 selecionada(s)");
   });
+  it("enviar por e-mail: abre o formulário, manda ids+destinatario pro servidor com o token e avisa o resultado", async () => {
+    montar(); await pesquisar();
+    const caixas = [...container.querySelectorAll('[data-testid="xmls-linha"] input[type="checkbox"]')];
+    await act(async () => { caixas[0].click(); });
+    expect(q("xmls-email-abrir").textContent).toContain("Enviar por e-mail (1)");
+    await act(async () => { q("xmls-email-abrir").click(); });
+    expect(q("xmls-email-form")).toBeTruthy();
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, enviados: 1 }) }));
+    vi.stubGlobal("fetch", fetchMock);
+    await digitar(q("xmls-email-destinatario"), "contador@exemplo.com.br");
+    await act(async () => { q("xmls-email-enviar").click(); }); await esperar();
+    expect(fetchMock).toHaveBeenCalledWith("/api/fiscal-xml-email", expect.objectContaining({
+      method: "POST", headers: expect.objectContaining({ authorization: "Bearer t" }),
+    }));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ ids: ["n1"], destinatario: "contador@exemplo.com.br" });
+    expect(q("xmls-aviso").textContent).toContain("enviado(s) por e-mail para contador@exemplo.com.br");
+    expect(q("xmls-email-form")).toBeFalsy();
+  });
+  it("enviar por e-mail: erro do servidor mostra a mensagem e mantém o formulário aberto", async () => {
+    montar(); await pesquisar();
+    await act(async () => { [...container.querySelectorAll('[data-testid="xmls-linha"] input[type="checkbox"]')][0].click(); });
+    await act(async () => { q("xmls-email-abrir").click(); });
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ ok: false, erro: "E-mail inválido." }) })));
+    await digitar(q("xmls-email-destinatario"), "x@x.com");
+    await act(async () => { q("xmls-email-enviar").click(); }); await esperar();
+    expect(q("xmls-aviso").textContent).toContain("E-mail inválido.");
+    expect(q("xmls-email-form")).toBeTruthy();
+  });
+  it("enviar por WhatsApp: busca o XML e abre o compartilhamento nativo com o arquivo anexado", async () => {
+    montar(); await pesquisar();
+    await act(async () => { [...container.querySelectorAll('[data-testid="xmls-linha"] input[type="checkbox"]')][0].click(); });
+    const share = vi.fn(async () => {});
+    const canShare = vi.fn(() => true);
+    vi.stubGlobal("navigator", { ...globalThis.navigator, share, canShare });
+    await act(async () => { q("xmls-whatsapp").click(); }); await esperar();
+    expect(rpc).toHaveBeenCalledWith("app_fiscal_xml_lote", { p_ids: ["n1"] });
+    expect(canShare).toHaveBeenCalled();
+    expect(share).toHaveBeenCalledWith(expect.objectContaining({ files: expect.arrayContaining([expect.any(File)]) }));
+    expect(q("xmls-aviso").textContent).toContain("Compartilhamento aberto");
+  });
+  it("enviar por WhatsApp sem suporte do navegador: avisa para baixar e enviar manualmente", async () => {
+    montar(); await pesquisar();
+    await act(async () => { [...container.querySelectorAll('[data-testid="xmls-linha"] input[type="checkbox"]')][0].click(); });
+    vi.stubGlobal("navigator", { ...globalThis.navigator, share: undefined, canShare: undefined });
+    await act(async () => { q("xmls-whatsapp").click(); }); await esperar();
+    expect(q("xmls-aviso").textContent).toContain("Baixe o XML e envie pelo WhatsApp manualmente");
+  });
 });

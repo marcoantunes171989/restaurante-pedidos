@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { atalhoDePeriodo, baixarBytes, baixarLote, buscarXmls, intervaloDoPeriodo, montarZip, nomeDoZip, OPCOES_CANCELADAS, aplicarCanceladas } from "../../../lib/fiscal/xmlExportacao";
 import { baixarXml, nomeArquivoXml } from "../../../lib/fiscal/xmlNota";
 import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
+import { enviarXmlPorEmail, compartilharXmlsPorWhatsApp } from "../../../lib/fiscal/xmlEnvio";
 import XmlDaNota from "./XmlDaNota";
 import FiltroPeriodo from "../../FiltroPeriodo.jsx";
 
@@ -27,6 +28,10 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
   const [exportando, setExportando] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [verId, setVerId] = useState(null);
+  const [formEmail, setFormEmail] = useState(false);
+  const [destinatario, setDestinatario] = useState("");
+  const [enviandoEmail, setEnviandoEmail] = useState(false);
+  const [enviandoWhats, setEnviandoWhats] = useState(false);
 
   async function pesquisar(e) {
     e?.preventDefault();
@@ -67,6 +72,27 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
       baixarXml(x.xml, nome);
       setAviso({ ok: true, texto: `XML baixado: ${nome}` });
     } catch (err) { setAviso({ ok: false, texto: err.message || "Não foi possível baixar." }); }
+  }
+  async function enviarEmail(e) {
+    e?.preventDefault();
+    if (!selecionadas.length || enviandoEmail) return;
+    setEnviandoEmail(true); setAviso(null);
+    try {
+      const r = await enviarXmlPorEmail(supabase, { ids: selecionadas.map((n) => n.id), destinatario });
+      if (!r?.ok) throw new Error(r?.erro || "Não foi possível enviar.");
+      setAviso({ ok: true, texto: `${r.enviados ?? selecionadas.length} XML(s) enviado(s) por e-mail para ${destinatario}.` });
+      setFormEmail(false); setDestinatario("");
+    } catch (err) { setAviso({ ok: false, texto: err.message || "Não foi possível enviar." }); } finally { setEnviandoEmail(false); }
+  }
+  async function enviarWhatsApp(notas) {
+    if (!notas.length || enviandoWhats) return;
+    setEnviandoWhats(true); setAviso(null);
+    try {
+      const xmls = await baixarLote(supabase, notas.map((n) => n.id));
+      const r = await compartilharXmlsPorWhatsApp(xmls);
+      if (r.ok) setAviso({ ok: true, texto: "Compartilhamento aberto — escolha o WhatsApp na lista do aparelho." });
+      else if (r.code !== "CANCELADO") setAviso({ ok: false, texto: r.erro || "Não foi possível compartilhar." });
+    } catch (err) { setAviso({ ok: false, texto: err.message || "Não foi possível preparar o envio." }); } finally { setEnviandoWhats(false); }
   }
 
   if (lojaId == null) return <p className="text-[13px] text-[var(--pp-text-muted)]">Selecione uma empresa.</p>;
@@ -113,8 +139,21 @@ export default function XmlsFiscais({ supabase, lojaInfo }) {
                 {exportando ? `Exportando ${exportando.feito}/${exportando.total}…` : `Exportar selecionadas (${selecionadas.length})`}
               </button>
               <button type="button" className={botaoLeve} disabled={!visiveis.length || !!exportando} onClick={() => exportar(visiveis)} data-testid="xmls-exportar-todas">Exportar todas as {visiveis.length}</button>
+              <button type="button" className={botaoLeve} disabled={!selecionadas.length} onClick={() => setFormEmail((s) => !s)} data-testid="xmls-email-abrir">Enviar por e-mail ({selecionadas.length})</button>
+              <button type="button" className={botaoLeve} disabled={!selecionadas.length || enviandoWhats} onClick={() => enviarWhatsApp(selecionadas)} data-testid="xmls-whatsapp">
+                {enviandoWhats ? "Preparando…" : `Enviar por WhatsApp (${selecionadas.length})`}
+              </button>
             </div>
           </div>
+
+          {formEmail && (
+            <form onSubmit={enviarEmail} className="mt-2 flex flex-wrap items-end gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-2" data-testid="xmls-email-form">
+              <label className="block min-w-[220px] flex-1"><span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--pp-text-muted)]">E-mail do destinatário</span>
+                <input type="email" required value={destinatario} onChange={(e) => setDestinatario(e.target.value)} className={`${campo} mt-0.5 block w-full`} data-testid="xmls-email-destinatario" placeholder="contador@exemplo.com.br" /></label>
+              <button type="submit" className={botao} disabled={enviandoEmail} data-testid="xmls-email-enviar">{enviandoEmail ? "Enviando…" : `Enviar ${selecionadas.length} XML(s)`}</button>
+              <button type="button" className={botaoLeve} onClick={() => { setFormEmail(false); setDestinatario(""); }} data-testid="xmls-email-cancelar">Cancelar</button>
+            </form>
+          )}
 
           {visiveis.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-[var(--pp-border)] p-4 text-center text-[13px] text-[var(--pp-text-muted)]" data-testid="xmls-vazio">{estado.notas.length > 0 ? "Nenhuma nota com essa opção de canceladas. Troque o filtro \"Notas canceladas\"." : "Nenhum XML encontrado para esse período e essa busca."}</p>
