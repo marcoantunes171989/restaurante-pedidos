@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FileText, RefreshCw, Send, RotateCw, Ban, Printer, Wrench, Download, FileCode2, Search, XCircle, FileEdit, History,
+} from "lucide-react";
 import DetalhesNotaFiscal from "./DetalhesNotaFiscal";
 import XmlDaNota from "./XmlDaNota";
 import ChaveAcessoNota from "./ChaveAcessoNota";
@@ -21,8 +24,8 @@ import { postarApiFiscal } from "../../../lib/fiscal/emissaoPdv";
 //  "Consultar na SEFAZ" para a nota que ficou sem resposta.
 // ════════════════════════════════════════════════════════════
 
-const botao = "inline-flex min-h-9 items-center justify-center rounded-xl bg-[#012E46] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45";
-const botaoLeve = "inline-flex min-h-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[var(--pp-text-body)] transition hover:border-[#012E46]";
+const botao = "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-[#012E46] px-3 py-1.5 text-[12px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45";
+const botaoLeve = "inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-[12px] font-semibold text-[var(--pp-text-body)] transition hover:border-[#012E46]";
 const TOM = {
   ok: "bg-[#E8F5EC] text-[#1F7A3D]", erro: "bg-[#FDECEF] text-[#C81E4A]",
   alerta: "bg-[#FEF3E2] text-[#B45309]", neutro: "bg-[var(--pp-bg)] text-[var(--pp-text-body)]",
@@ -331,11 +334,14 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
   return (
     <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5" aria-labelledby="notas-titulo" data-testid="notas-fiscais-emitidas">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 id="notas-titulo" className="text-[15px] font-bold text-[var(--pp-text)]">Notas emitidas</h3>
-          <p className="text-[12px] text-[var(--pp-text-muted)]" data-testid="notas-empresa">Empresa: {lojaInfo?.nome || "—"} (código {lojaId})</p>
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#012E46]/[0.06] text-[#012E46]" aria-hidden="true"><FileText size={17} /></span>
+          <div>
+            <h3 id="notas-titulo" className="text-[15px] font-bold text-[var(--pp-text)]">Notas emitidas</h3>
+            <p className="text-[12px] text-[var(--pp-text-muted)]" data-testid="notas-empresa">Empresa: {lojaInfo?.nome || "—"} (código {lojaId})</p>
+          </div>
         </div>
-        <button type="button" className={botaoLeve} onClick={recarregar}>Atualizar</button>
+        <button type="button" className={botaoLeve} onClick={recarregar}><RefreshCw size={13} aria-hidden="true" />Atualizar</button>
       </div>
       {resumo.pendentes > 0 && <AvisoContingencia resumo={resumo} supabase={supabase} onConcluido={recarregar} />}
       {notas.length > 0 && (
@@ -387,7 +393,7 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
               const aberta = expandidas.has(n.id);
               const rotulo = `${n.modelo === 65 ? "NFC-e" : "NF-e"} ${n.numero}`;
               return (
-                <li key={n.id} className="py-2" data-testid="nota-linha" data-nota={n.id} data-ambiente={n.ambiente}>
+                <li key={n.id} className="rounded-lg px-1 py-2 transition-colors hover:bg-[var(--pp-bg)]" data-testid="nota-linha" data-nota={n.id} data-ambiente={n.ambiente}>
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                     <button type="button" onClick={() => alternarNota(n.id)} aria-expanded={aberta} aria-label={`${aberta ? "Recolher" : "Expandir"} ${rotulo}`} data-testid="btn-expandir"
                       className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--pp-border)] bg-white text-[16px] font-bold leading-none text-[var(--pp-text-body)] transition hover:border-[#012E46]">{aberta ? "−" : "+"}</button>
@@ -427,20 +433,20 @@ export default function NotasFiscaisEmitidas({ supabase, lojaInfo, produtos = []
                         {avisos[n.id] && <p role="status" data-testid="aviso-nota" className={`mt-1 text-[12px] font-semibold ${avisos[n.id].sugerir ? "text-[#B45309]" : avisos[n.id].ok ? "text-[#1F7A3D]" : "text-[#C81E4A]"}`}>{avisos[n.id].texto}</p>}
                         {aberto?.id !== n.id && (
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {a.emitir && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => emitirAgora(n)}>{ocupado === n.id ? "Enviando…" : "Emitir agora"}</button>}
-                            {a.reenviar && <button type="button" data-testid="btn-reenviar" className={`${botao}${avisos[n.id]?.sugerir === "reenviar" ? " ring-2 ring-[#F38525] ring-offset-2" : ""}`} disabled={ocupado === n.id} onClick={() => emitirAgora(n)} title="Reenvia com a mesma numeração; o sistema consulta a SEFAZ antes e nunca duplica uma nota já autorizada.">{ocupado === n.id ? "Reenviando…" : "Reenviar à SEFAZ"}</button>}
-                            {a.refazer && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => corrigirEEmitir(n)}>{ocupado === n.id ? "Enviando…" : "Corrigir e emitir de novo"}</button>}
-                            {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}>Inutilizar número</button>}
-                            {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}>{n.modelo === 55 ? "Imprimir DANFE" : "Imprimir NFC-e"}</button>}
-                            {podeManutencao(n) && <button type="button" className={botaoLeve} aria-expanded={manutId === n.id} onClick={() => setManutId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-manutencao">{manutId === n.id ? "Fechar manutenção" : "Manutenção fiscal"}</button>}
-                            {a.imprimir && <button type="button" className={botaoLeve} onClick={() => baixarDireto(n)} data-testid="btn-baixar-xml">Baixar XML</button>}
-                            {a.imprimir && <button type="button" className={botaoLeve} aria-expanded={xmlId === n.id} onClick={() => setXmlId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-ver-xml">{xmlId === n.id ? "Ocultar XML" : "Ver / pesquisar XML"}</button>}
-                            {a.enviar && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "enviar")}>{ocupado === n.id ? "Enviando…" : "Enviar agora"}</button>}
-                            {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}>{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
-                            {a.cancelar && !(Number(n.modelo) === 65 && !n.contingenciaNumero && Number(n.tpEmis || 1) === 1 && nfceForaDoPrazo(n)) && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}>Cancelar nota</button>}
+                            {a.emitir && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => emitirAgora(n)}><Send size={13} aria-hidden="true" />{ocupado === n.id ? "Enviando…" : "Emitir agora"}</button>}
+                            {a.reenviar && <button type="button" data-testid="btn-reenviar" className={`${botao}${avisos[n.id]?.sugerir === "reenviar" ? " ring-2 ring-[#F38525] ring-offset-2" : ""}`} disabled={ocupado === n.id} onClick={() => emitirAgora(n)} title="Reenvia com a mesma numeração; o sistema consulta a SEFAZ antes e nunca duplica uma nota já autorizada."><Send size={13} aria-hidden="true" />{ocupado === n.id ? "Reenviando…" : "Reenviar à SEFAZ"}</button>}
+                            {a.refazer && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => corrigirEEmitir(n)}><RotateCw size={13} aria-hidden="true" />{ocupado === n.id ? "Enviando…" : "Corrigir e emitir de novo"}</button>}
+                            {a.descartar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => setAberto({ id: n.id, acao: "descartar" })}><Ban size={13} aria-hidden="true" />Inutilizar número</button>}
+                            {a.imprimir && <button type="button" className={botaoLeve} onClick={() => imprimir(n)}><Printer size={13} aria-hidden="true" />{n.modelo === 55 ? "Imprimir DANFE" : "Imprimir NFC-e"}</button>}
+                            {podeManutencao(n) && <button type="button" className={botaoLeve} aria-expanded={manutId === n.id} onClick={() => setManutId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-manutencao"><Wrench size={13} aria-hidden="true" />{manutId === n.id ? "Fechar manutenção" : "Manutenção fiscal"}</button>}
+                            {a.imprimir && <button type="button" className={botaoLeve} onClick={() => baixarDireto(n)} data-testid="btn-baixar-xml"><Download size={13} aria-hidden="true" />Baixar XML</button>}
+                            {a.imprimir && <button type="button" className={botaoLeve} aria-expanded={xmlId === n.id} onClick={() => setXmlId((cur) => (cur === n.id ? null : n.id))} data-testid="btn-ver-xml"><FileCode2 size={13} aria-hidden="true" />{xmlId === n.id ? "Ocultar XML" : "Ver / pesquisar XML"}</button>}
+                            {a.enviar && <button type="button" className={botao} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "enviar")}><Send size={13} aria-hidden="true" />{ocupado === n.id ? "Enviando…" : "Enviar agora"}</button>}
+                            {a.consultar && <button type="button" className={botaoLeve} disabled={ocupado === n.id} onClick={() => acaoRapida(n, "consultar")}><Search size={13} aria-hidden="true" />{ocupado === n.id ? "Consultando…" : "Consultar na SEFAZ"}</button>}
+                            {a.cancelar && !(Number(n.modelo) === 65 && !n.contingenciaNumero && Number(n.tpEmis || 1) === 1 && nfceForaDoPrazo(n)) && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cancelar" })}><XCircle size={13} aria-hidden="true" />Cancelar nota</button>}
                             {a.cancelar && Number(n.modelo) === 65 && !n.contingenciaNumero && Number(n.tpEmis || 1) === 1 && nfceForaDoPrazo(n) && <span className="self-center text-[11px] text-[var(--pp-text-muted)]" data-testid="canc-expirado">Prazo de cancelamento da NFC-e (30 min) encerrado.</span>}
-                            {a.cce && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cce" })}>Carta de correção</button>}
-                            <button type="button" className={botaoLeve} aria-expanded={detalhesId === n.id} onClick={() => setDetalhesId((cur) => (cur === n.id ? null : n.id))}>{detalhesId === n.id ? "Ocultar detalhes" : "Detalhes e histórico"}</button>
+                            {a.cce && <button type="button" className={botaoLeve} onClick={() => setAberto({ id: n.id, acao: "cce" })}><FileEdit size={13} aria-hidden="true" />Carta de correção</button>}
+                            <button type="button" className={botaoLeve} aria-expanded={detalhesId === n.id} onClick={() => setDetalhesId((cur) => (cur === n.id ? null : n.id))}><History size={13} aria-hidden="true" />{detalhesId === n.id ? "Ocultar detalhes" : "Detalhes e histórico"}</button>
                           </div>
                         )}
                         {manutId === n.id && <ManutencaoFiscal nota={n} supabase={supabase} buscar={(corpo) => postarApiFiscal(supabase, corpo)} mensagemEmissao={(r) => mensagemDoResultado("emitir", r)}
