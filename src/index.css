@@ -193,6 +193,19 @@ html { scroll-behavior: smooth; }
 body, #root { -webkit-overflow-scrolling: touch; }
 body.pp-scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
 .pp-overscroll-contain { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+/* Padronização em todo o projeto (análise 27/11): toda área rolável interna
+   (listas de modal, gavetas, painéis) ganha a mesma contenção do
+   .pp-overscroll-contain acima, mesmo sem a classe explícita — dezenas de
+   telas (PDV, tablet, admin, cardápio público) usam overflow-auto/overflow-y-auto
+   do Tailwind sem ela. Sem isso, arrastar até o fim de uma lista interna podia
+   "vazar" o bounce elástico para a tela de trás (mesmo bug descrito acima,
+   só que dentro de um modal/gaveta em vez do #root). Puramente contenção:
+   nunca muda o comportamento normal da rolagem. */
+.overflow-auto, .overflow-y-auto, .overflow-x-auto,
+.overflow-scroll, .overflow-y-scroll, .overflow-x-scroll {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 /* ── Design tokens Pedido Prime (paleta premium) ────────────── */
@@ -1457,6 +1470,23 @@ select {
   cursor: pointer;
 }
 select::-ms-expand { display: none; } /* IE/Edge antigo */
+
+/* ── Sem zoom ao tocar um campo, em qualquer tela (padronização 27/11) ──
+   iOS amplia a página ao focar um campo com letra menor que 16px. O projeto
+   já cobria isso dentro de .pp-admin-module (telas administrativas) e de
+   .pdv-toque (telas de venda do PDV) — mas o cardápio público, as telas de
+   tablet, o login e a landing ficavam de fora, porque usam outras classes
+   (ex.: text-sm do Tailwind, 14px) sem essa rede de segurança. Esta regra
+   cobre o restante do app: no celular, todo campo de texto vira 16px, sem
+   mudar nada no desktop. Não duplica nem conflita com as regras acima —
+   mesmo valor (16px), só fechando o buraco fora delas. */
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
 
 /* ── Notificações (sino) e Configurações (engrenagem) — painéis
    renderizados via createPortal em document.body (NotificationBell.jsx/
