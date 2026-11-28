@@ -7949,7 +7949,7 @@ function AdminView({ fiscalVendaPdv = null, currentUser = null, products, catego
           {ativo === "crm"        && <CrmAdmin clientes={clientes} orders={orders} fidTransacoes={fidTransacoes} fidRecompensas={fidRecompensas} lancarPontos={fidApi?.lancarPontos} configCrm={lojaInfo?.configCrm || {}} salvarConfigCrm={salvarConfigCrm} />}
           {ativo === "fidelidade" && (precisaEmpresa ? avisoEmpresa : <FidelidadeAdmin key={lojaInfo?.id ?? "sem-loja"} supabase={supabase} lojaId={lojaInfo?.id ?? null} regra={fidRegra} recompensas={fidRecompensas} transacoes={fidTransacoes} clientes={clientes} orders={orders} api={fidApi} onVerClientes={() => setAdminSection("crm")} />)}
           {ativo === "products"   && (precisaEmpresa ? avisoEmpresa : <ProductAdmin   products={products} categories={categories} categoriasDb={categoriasDb} adminForm={adminForm} setAdminForm={setAdminForm} addProduct={addProduct} toggleProduct={toggleProduct} editarProduto={editarProduto} removerProduto={removerProduto} lojaId={lojaInfo?.id} opcoesApi={opcoesApi} setores={setores} impressoras={impressoras} fiscalNcm={fiscalNcm} fiscalIcms={fiscalIcms} fiscalCfop={fiscalCfop} fiscalPis={fiscalPis} fiscalCofins={fiscalCofins} fiscalIpi={fiscalIpi} fiscalCest={fiscalCest} lojaFiscalRegras={lojaFiscalRegras} />)}
-          {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} />)}
+          {ativo === "fiscal"     && (precisaEmpresa ? avisoEmpresa : <FiscalAdmin supabase={supabase} ncm={fiscalNcm} icms={fiscalIcms} cfop={fiscalCfop} pis={fiscalPis} cofins={fiscalCofins} ipi={fiscalIpi} cest={fiscalCest} loteLog={fiscalLoteLog} api={fiscalApi} produtos={products} categoriasDb={categoriasDb} lojaInfo={lojaInfo} onIr={(destino) => setAdminSection(destino === "notas" ? "notas-fiscais" : "emissao-fiscal")} />)}
           {ativo === "como-funciona-fiscal" && (
             <main className="space-y-5">
               <PageHeader icone={<CircleHelp className="h-4 w-4" />} titulo="Como funciona" descricao="O caminho da nota fiscal, do cadastro da empresa até a produção, com atalho para cada tela. Não precisa de empresa selecionada: é só um guia." />
@@ -19119,9 +19119,16 @@ function DanfeNfceCupom({ nota, emitente = null, lojaInfo = null, onFechar }) {
 //  Arquitetura por chave estrangeira: Produto → NCM → Regra de ICMS.
 //  Fase 1: NCM + Regras de ICMS. Fases seguintes: CFOP, PIS, COFINS, IPI, CEST.
 // ════════════════════════════════════════════════════════════
-function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ipi = [], cest = [], loteLog = [], api = null, produtos = [], categoriasDb = [], lojaInfo = null }) {
+// Botões da tela Cadastros Fiscais — padrão branco/petróleo do admin (skill admin-acao-petroleo), não o laranja do PrimeButton.
+const FISCAL_BTN = "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[#012E46] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45";
+const FISCAL_BTN_LEVE = "inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] transition hover:border-[#012E46] disabled:cursor-not-allowed disabled:opacity-45";
+function FiscalAdmin({ supabase = null, ncm = [], icms = [], cfop = [], pis = [], cofins = [], ipi = [], cest = [], loteLog = [], api = null, produtos = [], categoriasDb = [], lojaInfo = null, onIr = null }) {
   const [aba, setAba] = useState("ncm");
   const [ajuda, setAjuda] = useState(false);
+  // Status real da SEFAZ (certificado, notas com problema) — nada de "consultar NCM/CFOP na SEFAZ": essa
+  // consulta não existe (NCM é tabela da Receita, CFOP é tabela do CONFAZ). O NCM já é validado ao vivo na
+  // base nacional (CampoFiscalValidado); aqui mostramos a situação real da emissão, com atalho para Emissão.
+  const alertasSefaz = useAlertasFiscais({ supabase, lojaId: lojaInfo?.id ?? null, ativo: !!supabase });
   if (!api) return null;
 
   // Contagens de vínculo (para exibir impacto e valorizar a reutilização)
@@ -19160,7 +19167,9 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#012E46]/30 bg-[rgba(1, 46, 70,0.08)] text-lg font-black text-[#012E46] transition hover:bg-[rgba(1, 46, 70,0.15)]">?</button>}
       />
 
-      {/* Sub-navegação dos cadastros fiscais — contadores sem fundo, texto branco */}
+      <AlertasFiscais alertas={alertasSefaz} onIr={(destino) => onIr?.(destino)} />
+
+      {/* Sub-navegação dos cadastros fiscais */}
       <div className="flex flex-wrap items-center gap-2">
         {abas.map((t) => (
           <button key={t.id} type="button" onClick={() => setAba(t.id)}
@@ -19190,13 +19199,13 @@ function FiscalAdmin({ ncm = [], icms = [], cfop = [], pis = [], cofins = [], ip
 function BulkBar({ n, onAtivar, onInativar, onExcluir = null, onLimpar }) {
   if (n === 0) return null;
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[#012E46]/30 bg-[rgba(1, 46, 70,0.08)] px-4 py-2.5">
-      <span className="text-xs font-black text-[#012E46]">{n} selecionado{n === 1 ? "" : "s"}</span>
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.06)] px-4 py-2.5">
+      <span className="text-[12px] font-bold text-[#012E46]">{n} selecionado{n === 1 ? "" : "s"}</span>
       <div className="ml-auto flex gap-2">
-        <button onClick={onAtivar} className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-black text-emerald-600 transition hover:bg-emerald-500/20">Ativar</button>
-        <button onClick={onInativar} className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-600 transition hover:bg-amber-500/20">Inativar</button>
-        {onExcluir && <button onClick={onExcluir} className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-600 transition hover:bg-red-500/20">Excluir</button>}
-        <button onClick={onLimpar} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-black text-slate-400 transition hover:bg-white/[0.08]">Limpar</button>
+        <button onClick={onAtivar} className="rounded-xl border border-[rgba(47,158,82,0.3)] bg-[rgba(47,158,82,0.08)] px-3 py-1.5 text-[12px] font-bold text-[#1F7A3D] transition hover:bg-[rgba(47,158,82,0.16)]">Ativar</button>
+        <button onClick={onInativar} className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.08)] px-3 py-1.5 text-[12px] font-bold text-[#B45309] transition hover:bg-[rgba(243,133,37,0.16)]">Inativar</button>
+        {onExcluir && <button onClick={onExcluir} className="rounded-xl border border-[rgba(200,30,74,0.3)] bg-[rgba(200,30,74,0.08)] px-3 py-1.5 text-[12px] font-bold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.16)]">Excluir</button>}
+        <button onClick={onLimpar} className="rounded-xl border border-[var(--pp-border)] bg-white px-3 py-1.5 text-[12px] font-bold text-[var(--pp-text-muted)] transition hover:bg-[rgba(1,46,70,0.04)]">Limpar</button>
       </div>
     </div>
   );
@@ -19226,9 +19235,9 @@ function FiltroSituacaoBusca({ f, placeholder }) {
   return (
     <div className="mb-3 space-y-3">
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><IconBusca /></span>
+        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
         <input value={f.busca} onChange={(e) => f.setBusca(e.target.value)} placeholder={placeholder}
-          className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none focus:border-gold-400/60" />
+          className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-3 pl-11 pr-4 text-[13px] text-[var(--pp-text)] outline-none focus:border-[#012E46]" />
       </div>
       <div className="flex flex-wrap gap-2">
         {[["todos", "Todos"], ["ativos", "Ativos"], ["inativos", "Inativos"]].map(([id, rot]) => (
@@ -19290,13 +19299,13 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
   }
 
   return (
-    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+    <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="page-title text-lg font-bold text-white">Cadastro de NCM</h3>
-          <p className="text-xs text-slate-400">Cadastre manualmente ou importe a Tabela TIPI (XLSX). Cada NCM guarda descrição, tipo, CEST e regra de ICMS.</p></div>
+        <div><h3 className="text-[15px] font-bold text-[var(--pp-text)]">Cadastro de NCM</h3>
+          <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">Cadastre manualmente ou importe a Tabela TIPI (XLSX). Cada NCM guarda descrição, tipo, CEST e regra de ICMS.</p></div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setImportar(true)} className="inline-flex items-center gap-2 rounded-xl border border-[rgba(1, 46, 70,0.25)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#012E46] shadow-[0_1px_2px_rgba(1, 46, 70,0.05)] transition hover:bg-[rgba(1, 46, 70,0.05)]">⬆ Importar TIPI (XLSX)</button>
-          <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar NCM</PrimeButton>
+          <button onClick={() => setImportar(true)} className={FISCAL_BTN_LEVE}>⬆ Importar TIPI (XLSX)</button>
+          <button onClick={() => setCriando(true)} className={FISCAL_BTN}><span className="text-lg leading-none">+</span> Cadastrar NCM</button>
         </div>
       </div>
       <FiltroSituacaoBusca f={f} placeholder="Buscar NCM por código ou descrição..." />
@@ -19305,46 +19314,46 @@ function FiscalNcmLista({ ncm, icms, api, produtos = [], produtosPorNcm }) {
       {f.filtrados.length === 0 ? (
         <EmptyState titulo={ncm.length === 0 ? "Nenhum NCM cadastrado" : "Nenhum NCM encontrado"}
           dica={ncm.length === 0 ? "Cadastre o primeiro NCM e vincule uma regra de ICMS. Requer a migration 081 aplicada no Supabase." : "Ajuste a busca ou o filtro de situação."}
-          acao={ncm.length === 0 ? <PrimeButton onClick={() => setCriando(true)}>+ Cadastrar NCM</PrimeButton> : null} />
+          acao={ncm.length === 0 ? <button onClick={() => setCriando(true)} className={FISCAL_BTN}>+ Cadastrar NCM</button> : null} />
       ) : (<>
         <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <label className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+          <label className="flex items-center gap-2 text-[12px] font-semibold text-[var(--pp-text-muted)]">
             <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
           </label>
           {f.filtrados.length > f.visiveis.length && (
-            <button type="button" onClick={() => setSel(todosFiltradosMarcados ? new Set() : new Set(f.filtrados.map((n) => n.id)))} className="text-xs font-black text-[#012E46] underline-offset-2 hover:underline">
+            <button type="button" onClick={() => setSel(todosFiltradosMarcados ? new Set() : new Set(f.filtrados.map((n) => n.id)))} className="text-[12px] font-bold text-[#012E46] underline-offset-2 hover:underline">
               {todosFiltradosMarcados ? "Limpar seleção" : `Selecionar todos os ${f.filtrados.length} do filtro`}
             </button>
           )}
-          {sel.size > 0 && <span className="text-xs font-semibold text-emerald-300">{sel.size} selecionado(s)</span>}
+          {sel.size > 0 && <span className="text-[12px] font-semibold text-[#1F7A3D]">{sel.size} selecionado(s)</span>}
         </div>
         <div className="space-y-2">
           {f.visiveis.map((n) => {
             const uso = produtosPorNcm(n.id); const rIcms = nomeIcms(n.icmsId);
             return (
-              <div key={n.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${n.ativo === false ? "opacity-60" : ""}`}>
+              <div key={n.id} className={`flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--pp-border)] p-4 transition hover:bg-[rgba(1,46,70,0.03)] ${n.ativo === false ? "opacity-60" : ""}`}>
                 <input type="checkbox" checked={sel.has(n.id)} onChange={() => toggleSel(n.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
                 <span className="flex h-11 w-9 shrink-0 items-center justify-center text-[10px] font-semibold uppercase tracking-wide text-[#012E46]">NCM</span>
                 <div className="min-w-[160px] flex-1">
-                  <p className="text-base font-semibold tabular-nums text-white">{n.codigo}{n.exTipi ? <span className="ml-1.5 text-xs font-semibold text-slate-400">EX {n.exTipi}</span> : null}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                  <p className="text-[15px] font-semibold tabular-nums text-[var(--pp-text)]">{n.codigo}{n.exTipi ? <span className="ml-1.5 text-[12px] font-semibold text-[var(--pp-text-muted)]">EX {n.exTipi}</span> : null}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[var(--pp-text-muted)]">
                     {n.descricao && <span className="truncate">{n.descricao}</span>}
-                    {n.tipo && <span className="rounded bg-[rgba(243, 133, 37,0.12)] px-1.5 py-0.5 font-semibold text-[#F38525]">{n.tipo}</span>}
-                    {rIcms ? <span className="rounded-full bg-white/[0.06] px-2 py-0.5">ICMS: {rIcms}</span> : <span className="text-amber-400">sem regra de ICMS</span>}
+                    {n.tipo && <span className="rounded bg-[rgba(243,133,37,0.12)] px-1.5 py-0.5 font-semibold text-[#8A5200]">{n.tipo}</span>}
+                    {rIcms ? <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5">ICMS: {rIcms}</span> : <span className="text-[#B45309]">sem regra de ICMS</span>}
                     {n.cest && <span>CEST {n.cest}</span>}
-                    <span className={uso > 0 ? "text-emerald-300" : "text-slate-500"}>{uso} produto{uso === 1 ? "" : "s"}</span>
+                    <span className={uso > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}>{uso} produto{uso === 1 ? "" : "s"}</span>
                   </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button onClick={() => inativarUm(n)} title={n.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-xs font-black transition ${n.ativo !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{n.ativo !== false ? "Ativo" : "Inativo"}</button>
-                  <button onClick={() => setEditando(n)} title="Editar" className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>
-                  <button onClick={() => excluirUm(n)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
+                  <button onClick={() => inativarUm(n)} title={n.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition ${n.ativo !== false ? "bg-[#1F7A3D] text-white hover:brightness-110" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)] hover:bg-[rgba(1,46,70,0.06)]"}`}>{n.ativo !== false ? "Ativo" : "Inativo"}</button>
+                  <button onClick={() => setEditando(n)} title="Editar" className="rounded-xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#012E46] transition hover:bg-[rgba(1,46,70,0.12)]">✏️</button>
+                  <button onClick={() => excluirUm(n)} title="Excluir" className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-[rgba(200,30,74,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.12)]">🗑️</button>
                 </div>
               </div>
             );
           })}
         </div>
-        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="NCM(s)" />
+        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="NCM(s)" tema="claro" />
       </>)}
 
       {criando && <NcmModal icms={icms} api={api} onFechar={() => setCriando(false)} />}
@@ -19419,11 +19428,11 @@ function FiscalIcmsLista({ icms, api, ncmsPorIcms, produtosPorIcms }) {
   const emLote = async (ativo) => { for (const id of sel) await api.editarIcms(id, { ativo }); setSel(new Set()); };
 
   return (
-    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+    <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="page-title text-lg font-bold text-white">Regras de ICMS</h3>
-          <p className="text-xs text-slate-400">Defina a regra uma vez e vincule a vários NCMs — alterar aqui reflete em todos os produtos afetados.</p></div>
-        <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar regra</PrimeButton>
+        <div><h3 className="text-[15px] font-bold text-[var(--pp-text)]">Regras de ICMS</h3>
+          <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">Defina a regra uma vez e vincule a vários NCMs — alterar aqui reflete em todos os produtos afetados.</p></div>
+        <button onClick={() => setCriando(true)} className={FISCAL_BTN}><span className="text-lg leading-none">+</span> Cadastrar regra</button>
       </div>
       <FiltroSituacaoBusca f={f} placeholder="Buscar regra por nome ou CST/CSOSN..." />
       <BulkBar n={sel.size} onAtivar={() => emLote(true)} onInativar={() => emLote(false)} onLimpar={() => setSel(new Set())} />
@@ -19431,38 +19440,38 @@ function FiscalIcmsLista({ icms, api, ncmsPorIcms, produtosPorIcms }) {
       {f.filtrados.length === 0 ? (
         <EmptyState titulo={icms.length === 0 ? "Nenhuma regra de ICMS cadastrada" : "Nenhuma regra encontrada"}
           dica={icms.length === 0 ? "Cadastre a primeira regra (ex.: “Simples Nacional CSOSN 102”) e vincule-a aos NCMs. Requer a migration 081 aplicada no Supabase." : "Ajuste a busca ou o filtro de situação."}
-          acao={icms.length === 0 ? <PrimeButton onClick={() => setCriando(true)}>+ Cadastrar regra</PrimeButton> : null} />
+          acao={icms.length === 0 ? <button onClick={() => setCriando(true)} className={FISCAL_BTN}>+ Cadastrar regra</button> : null} />
       ) : (<>
-        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
+        <label className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[var(--pp-text-muted)]">
           <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
         </label>
         <div className="space-y-2">
           {f.visiveis.map((r) => {
             const nn = ncmsPorIcms(r.id); const pp = produtosPorIcms(r.id);
             return (
-              <div key={r.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${r.ativo === false ? "opacity-60" : ""}`}>
+              <div key={r.id} className={`flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--pp-border)] p-4 transition hover:bg-[rgba(1,46,70,0.03)] ${r.ativo === false ? "opacity-60" : ""}`}>
                 <input type="checkbox" checked={sel.has(r.id)} onChange={() => toggleSel(r.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(243, 133, 37,0.12)] text-lg text-[#F38525]">⚖</span>
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(243,133,37,0.12)] text-lg text-[#F38525]">⚖</span>
                 <div className="min-w-[160px] flex-1">
-                  <p className="font-black text-white">{r.nome}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
-                    {(r.cst || r.csosn) && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{r.cst ? `CST ${r.cst}` : `CSOSN ${r.csosn}`}</span>}
+                  <p className="font-semibold text-[var(--pp-text)]">{r.nome}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[var(--pp-text-muted)]">
+                    {(r.cst || r.csosn) && <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5">{r.cst ? `CST ${r.cst}` : `CSOSN ${r.csosn}`}</span>}
                     <span>{Number(r.aliquota || 0).toFixed(2)}%</span>
-                    {r.icmsSt && <span className="text-amber-400">ST · MVA {Number(r.mva || 0).toFixed(2)}%</span>}
-                    <span className="text-slate-400">{nn} NCM{nn === 1 ? "" : "s"}</span>
-                    <span className={pp > 0 ? "text-emerald-300" : "text-slate-500"}>{pp} produto{pp === 1 ? "" : "s"}</span>
+                    {r.icmsSt && <span className="text-[#B45309]">ST · MVA {Number(r.mva || 0).toFixed(2)}%</span>}
+                    <span className="text-[var(--pp-text-muted)]">{nn} NCM{nn === 1 ? "" : "s"}</span>
+                    <span className={pp > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}>{pp} produto{pp === 1 ? "" : "s"}</span>
                   </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button onClick={() => api.editarIcms(r.id, { ativo: !(r.ativo !== false) })} title={r.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-xs font-black transition ${r.ativo !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{r.ativo !== false ? "Ativo" : "Inativo"}</button>
-                  <button onClick={() => setEditando(r)} title="Editar" className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>
-                  <button onClick={() => setExcluir(r)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
+                  <button onClick={() => api.editarIcms(r.id, { ativo: !(r.ativo !== false) })} title={r.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition ${r.ativo !== false ? "bg-[#1F7A3D] text-white hover:brightness-110" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)] hover:bg-[rgba(1,46,70,0.06)]"}`}>{r.ativo !== false ? "Ativo" : "Inativo"}</button>
+                  <button onClick={() => setEditando(r)} title="Editar" className="rounded-xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#012E46] transition hover:bg-[rgba(1,46,70,0.12)]">✏️</button>
+                  <button onClick={() => setExcluir(r)} title="Excluir" className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-[rgba(200,30,74,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.12)]">🗑️</button>
                 </div>
               </div>
             );
           })}
         </div>
-        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="regra(s)" />
+        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="regra(s)" tema="claro" />
       </>)}
 
       {criando && <IcmsModal api={api} onFechar={() => setCriando(false)} />}
@@ -19589,10 +19598,10 @@ function FiscalListaSimples({ titulo, subtitulo, itens, api, usoDe, buscaPh, tex
   const emLote = async (ativo) => { for (const id of sel) await api.editar(id, { ativo }); setSel(new Set()); };
 
   return (
-    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+    <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div><h3 className="page-title text-lg font-bold text-white">{titulo}</h3><p className="text-xs text-slate-400">{subtitulo}</p></div>
-        <PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> {novoRotulo}</PrimeButton>
+        <div><h3 className="text-[15px] font-bold text-[var(--pp-text)]">{titulo}</h3><p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">{subtitulo}</p></div>
+        <button onClick={() => setCriando(true)} className={FISCAL_BTN}><span className="text-lg leading-none">+</span> {novoRotulo}</button>
       </div>
       <FiltroSituacaoBusca f={f} placeholder={buscaPh} />
       <BulkBar n={sel.size} onAtivar={() => emLote(true)} onInativar={() => emLote(false)} onLimpar={() => setSel(new Set())} />
@@ -19600,35 +19609,35 @@ function FiscalListaSimples({ titulo, subtitulo, itens, api, usoDe, buscaPh, tex
       {f.filtrados.length === 0 ? (
         <EmptyState titulo={itens.length === 0 ? emptyTitulo : "Nenhum registro encontrado"}
           dica={itens.length === 0 ? emptyDica : "Ajuste a busca ou o filtro de situação."}
-          acao={itens.length === 0 ? <PrimeButton onClick={() => setCriando(true)}>+ {novoRotulo}</PrimeButton> : null} />
+          acao={itens.length === 0 ? <button onClick={() => setCriando(true)} className={FISCAL_BTN}>+ {novoRotulo}</button> : null} />
       ) : (<>
-        <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-400">
+        <label className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-[var(--pp-text-muted)]">
           <input type="checkbox" checked={todosMarcados} onChange={marcarTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar os desta página
         </label>
         <div className="space-y-2">
           {f.visiveis.map((x) => {
             const uso = usoDe(x.id);
             return (
-              <div key={x.id} className={`flex flex-wrap items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:bg-slate-900/60 ${x.ativo === false ? "opacity-60" : ""}`}>
+              <div key={x.id} className={`flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--pp-border)] p-4 transition hover:bg-[rgba(1,46,70,0.03)] ${x.ativo === false ? "opacity-60" : ""}`}>
                 <input type="checkbox" checked={sel.has(x.id)} onChange={() => toggleSel(x.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${tile.cor === "laranja" ? "bg-[rgba(243, 133, 37,0.12)] text-[#F38525]" : "bg-[rgba(1, 46, 70,0.12)] text-[#012E46]"}`}>{tile.txt}</span>
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${tile.cor === "laranja" ? "bg-[rgba(243,133,37,0.12)] text-[#8A5200]" : "bg-[rgba(1,46,70,0.12)] text-[#012E46]"}`}>{tile.txt}</span>
                 <div className="min-w-[160px] flex-1">
-                  <p className="font-black text-white">{nomeDe(x)}</p>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                  <p className="font-semibold text-[var(--pp-text)]">{nomeDe(x)}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[var(--pp-text-muted)]">
                     {renderResumo(x)}
-                    <span className={uso > 0 ? "text-emerald-300" : "text-slate-500"}>{uso} {rotuloUso}{uso === 1 ? "" : "s"}</span>
+                    <span className={uso > 0 ? "text-[#1F7A3D]" : "text-[var(--pp-text-muted)]"}>{uso} {rotuloUso}{uso === 1 ? "" : "s"}</span>
                   </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <button onClick={() => api.editar(x.id, { ativo: !(x.ativo !== false) })} title={x.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-xs font-black transition ${x.ativo !== false ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>{x.ativo !== false ? "Ativo" : "Inativo"}</button>
-                  <button onClick={() => setEditando(x)} title="Editar" className="rounded-xl border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-black text-blue-300 transition hover:bg-blue-500/20">✏️</button>
-                  <button onClick={() => setExcluir(x)} title="Excluir" className="rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-300 transition hover:bg-red-500/20">🗑️</button>
+                  <button onClick={() => api.editar(x.id, { ativo: !(x.ativo !== false) })} title={x.ativo !== false ? "Inativar" : "Ativar"} className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition ${x.ativo !== false ? "bg-[#1F7A3D] text-white hover:brightness-110" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)] hover:bg-[rgba(1,46,70,0.06)]"}`}>{x.ativo !== false ? "Ativo" : "Inativo"}</button>
+                  <button onClick={() => setEditando(x)} title="Editar" className="rounded-xl border border-[rgba(1,46,70,0.2)] bg-[rgba(1,46,70,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#012E46] transition hover:bg-[rgba(1,46,70,0.12)]">✏️</button>
+                  <button onClick={() => setExcluir(x)} title="Excluir" className="rounded-xl border border-[rgba(200,30,74,0.24)] bg-[rgba(200,30,74,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.12)]">🗑️</button>
                 </div>
               </div>
             );
           })}
         </div>
-        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="registro(s)" />
+        <Paginacao pagina={f.pagina} totalPaginas={f.totalPaginas} total={f.filtrados.length} porPagina={f.POR_PAGINA} onMudar={f.setPagina} rotulo="registro(s)" tema="claro" />
       </>)}
 
       {criando && renderModal(null, () => setCriando(false))}
@@ -19653,7 +19662,7 @@ function FiscalCfopLista({ cfop, api, usoDe }) {
       nomeDe={(x) => x.codigo} rotuloUso="produto"
       renderResumo={(x) => (<>
         {x.descricao && <span className="truncate">{x.descricao}</span>}
-        {x.tipo && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">{x.tipo}</span>}
+        {x.tipo && <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5">{x.tipo}</span>}
         {x.operacao && <span>{x.operacao}</span>}
       </>)}
       renderModal={(item, onFechar) => <CfopModal cfop={item} api={capi} onFechar={onFechar} />} />
@@ -19669,7 +19678,7 @@ function FiscalCestLista({ cest, api, usoDe }) {
       novoRotulo="Cadastrar CEST" emptyTitulo="Nenhum CEST cadastrado"
       emptyDica="Cadastre os CESTs dos produtos sujeitos a ST. Requer a migration 082 aplicada no Supabase."
       nomeDe={(x) => x.codigo} rotuloUso="produto"
-      renderResumo={(x) => (x.descricao ? <span className="truncate">{x.descricao}</span> : <span className="text-slate-500">Sem descrição</span>)}
+      renderResumo={(x) => (x.descricao ? <span className="truncate">{x.descricao}</span> : <span className="text-[var(--pp-text-muted)]">Sem descrição</span>)}
       renderModal={(item, onFechar) => <CestModal cest={item} api={capi} onFechar={onFechar} />} />
   );
 }
@@ -19684,10 +19693,10 @@ function FiscalTribLista({ tipo, itens, api, usoDe }) {
       emptyDica={`Cadastre as regras de ${tipo} (CST, tipo de cálculo, alíquota). Requer a migration 082 aplicada no Supabase.`}
       nomeDe={(x) => x.descricao} rotuloUso="produto"
       renderResumo={(x) => (<>
-        {x.cst && <span className="rounded-full bg-white/[0.06] px-2 py-0.5">CST {x.cst}</span>}
+        {x.cst && <span className="rounded-full bg-[var(--pp-bg)] px-2 py-0.5">CST {x.cst}</span>}
         <span>{Number(x.aliquota || 0).toFixed(2)}%</span>
         {x.tipoCalculo && <span>{x.tipoCalculo}</span>}
-        {x.codigo && <span className="text-slate-500">cód. {x.codigo}</span>}
+        {x.codigo && <span className="text-[var(--pp-text-muted)]">cód. {x.codigo}</span>}
       </>)}
       renderModal={(item, onFechar) => <TribModal tipo={tipo} item={item} api={api} onFechar={onFechar} />} />
   );
@@ -19840,69 +19849,69 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
   return (
     <div className="space-y-4">
       {/* 1 — Filtros */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5">
         <div className="mb-3 flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(1, 46, 70,0.12)] text-sm text-[#012E46]">1</span>
-          <div><h3 className="page-title text-base font-bold text-white">Selecione os produtos</h3><p className="text-xs text-slate-400">Combine os filtros para atingir só os produtos desejados.</p></div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(1,46,70,0.12)] text-sm font-bold text-[#012E46]">1</span>
+          <div><h3 className="text-[14px] font-bold text-[var(--pp-text)]">Selecione os produtos</h3><p className="text-[12px] text-[var(--pp-text-muted)]">Combine os filtros para atingir só os produtos desejados.</p></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Categoria</label>
-            <select value={filtros.categoriaId} onChange={(e) => setFil("categoriaId", e.target.value)} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none"><option value="">Todas</option>{categoriasDb.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
-          <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">NCM</label>
-            <select value={filtros.ncmId} onChange={(e) => setFil("ncmId", e.target.value)} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none"><option value="">Todos</option>{ncm.map((n) => <option key={n.id} value={n.id}>{n.codigo}</option>)}</select></div>
-          <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Regra de ICMS</label>
-            <select value={filtros.icmsId} onChange={(e) => setFil("icmsId", e.target.value)} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none"><option value="">Todas</option>{icms.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}</select></div>
-          <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">CFOP</label>
-            <select value={filtros.cfopId} onChange={(e) => setFil("cfopId", e.target.value)} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none"><option value="">Todos</option>{cfop.map((c) => <option key={c.id} value={c.id}>{c.codigo}</option>)}</select></div>
-          <div><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Situação</label>
-            <select value={filtros.situacao} onChange={(e) => setFil("situacao", e.target.value)} className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2.5 text-sm text-white outline-none"><option value="todos">Todos</option><option value="ativos">Ativos</option><option value="inativos">Inativos</option></select></div>
+          <div><label className={PP_LBL}>Categoria</label>
+            <select value={filtros.categoriaId} onChange={(e) => setFil("categoriaId", e.target.value)} className={PP_INP}><option value="">Todas</option>{categoriasDb.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}</select></div>
+          <div><label className={PP_LBL}>NCM</label>
+            <select value={filtros.ncmId} onChange={(e) => setFil("ncmId", e.target.value)} className={PP_INP}><option value="">Todos</option>{ncm.map((n) => <option key={n.id} value={n.id}>{n.codigo}</option>)}</select></div>
+          <div><label className={PP_LBL}>Regra de ICMS</label>
+            <select value={filtros.icmsId} onChange={(e) => setFil("icmsId", e.target.value)} className={PP_INP}><option value="">Todas</option>{icms.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}</select></div>
+          <div><label className={PP_LBL}>CFOP</label>
+            <select value={filtros.cfopId} onChange={(e) => setFil("cfopId", e.target.value)} className={PP_INP}><option value="">Todos</option>{cfop.map((c) => <option key={c.id} value={c.id}>{c.codigo}</option>)}</select></div>
+          <div><label className={PP_LBL}>Situação</label>
+            <select value={filtros.situacao} onChange={(e) => setFil("situacao", e.target.value)} className={PP_INP}><option value="todos">Todos</option><option value="ativos">Ativos</option><option value="inativos">Inativos</option></select></div>
           <div className="flex items-end">
-            <button onClick={() => setFiltros({ categoriaId: "", ncmId: "", cfopId: "", icmsId: "", situacao: "todos" })} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-black text-slate-300 transition hover:bg-white/[0.08]">Limpar filtros</button>
+            <button onClick={() => setFiltros({ categoriaId: "", ncmId: "", cfopId: "", icmsId: "", situacao: "todos" })} className={FISCAL_BTN_LEVE}>Limpar filtros</button>
           </div>
         </div>
-        <p className="mt-3 text-sm font-semibold text-slate-300"><b className="text-white">{filtrados.length}</b> produto(s) no filtro{temFiltro ? "" : " (todos)"} · <b className="text-[#2F9E52]">{alvo.length}</b> marcado(s) para receber a alteração.</p>
+        <p className="mt-3 text-[13px] font-semibold text-[var(--pp-text-body)]"><b className="text-[var(--pp-text)]">{filtrados.length}</b> produto(s) no filtro{temFiltro ? "" : " (todos)"} · <b className="text-[#1F7A3D]">{alvo.length}</b> marcado(s) para receber a alteração.</p>
 
         {/* Lista de seleção — marque todos ou escolha produto a produto */}
         {filtrados.length > 0 && (
-          <div className="mt-3 rounded-2xl border border-white/10 bg-slate-950/30 p-3">
+          <div className="mt-3 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-3">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 text-xs font-black text-slate-200">
+              <label className="flex items-center gap-2 text-[12px] font-bold text-[var(--pp-text-body)]">
                 <input type="checkbox" checked={todosMarcados} onChange={toggleTodos} className="h-4 w-4 accent-[#012E46]" /> Selecionar todos ({filtrados.length})
               </label>
               <div className="relative ml-auto min-w-[180px] flex-1 sm:max-w-xs">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-500"><IconBusca /></span>
-                <input value={buscaProd} onChange={(e) => setBuscaProd(e.target.value)} placeholder="Filtrar por nome nesta lista..." className="w-full rounded-xl border border-white/10 bg-slate-950/70 py-2 pl-8 pr-3 text-xs text-white outline-none" />
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--pp-text-muted)]"><IconBusca /></span>
+                <input value={buscaProd} onChange={(e) => setBuscaProd(e.target.value)} placeholder="Filtrar por nome nesta lista..." className="w-full rounded-xl border border-[var(--pp-border)] bg-white py-2 pl-8 pr-3 text-[12px] text-[var(--pp-text)] outline-none focus:border-[#012E46]" />
               </div>
             </div>
             <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
               {visiveisProd.map((p) => (
-                <label key={p.id} className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition ${excluidos.has(p.id) ? "border-white/5 bg-transparent opacity-60" : "border-white/10 bg-white/[0.04]"}`}>
+                <label key={p.id} className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2 transition ${excluidos.has(p.id) ? "border-[var(--pp-border)] bg-transparent opacity-60" : "border-[var(--pp-border)] bg-white"}`}>
                   <input type="checkbox" checked={!excluidos.has(p.id)} onChange={() => toggleProd(p.id)} className="h-4 w-4 shrink-0 accent-[#012E46]" />
                   <img src={p.imageUrl || fallbackImage} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-white">{p.name} <span className="text-[11px] font-semibold text-slate-500">· {catNome(p.categoriaId)}</span></p>
+                    <p className="truncate text-[13px] font-semibold text-[var(--pp-text)]">{p.name} <span className="text-[11px] font-semibold text-[var(--pp-text-muted)]">· {catNome(p.categoriaId)}</span></p>
                     <div className="flex flex-wrap gap-1">
-                      {chipsFiscais(p).length ? chipsFiscais(p).map((c, i) => <span key={i} className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">{c}</span>) : <span className="text-[10px] text-amber-400">sem vínculos fiscais</span>}
+                      {chipsFiscais(p).length ? chipsFiscais(p).map((c, i) => <span key={i} className="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-[var(--pp-text-muted)]">{c}</span>) : <span className="text-[10px] text-[#B45309]">sem vínculos fiscais</span>}
                     </div>
                   </div>
                 </label>
               ))}
-              {visiveisProd.length === 0 && <p className="py-3 text-center text-xs text-slate-500">Nenhum produto neste filtro/busca.</p>}
+              {visiveisProd.length === 0 && <p className="py-3 text-center text-[12px] text-[var(--pp-text-muted)]">Nenhum produto neste filtro/busca.</p>}
             </div>
           </div>
         )}
       </div>
 
       {/* 2 — Alterações */}
-      <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+      <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5">
         <div className="mb-3 flex items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(243, 133, 37,0.15)] text-sm text-[#F38525]">2</span>
-          <div><h3 className="page-title text-base font-bold text-white">Defina o que alterar</h3><p className="text-xs text-slate-400">Deixe em “Não alterar” os vínculos que devem permanecer como estão.</p></div>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(243,133,37,0.15)] text-sm font-bold text-[#8A5200]">2</span>
+          <div><h3 className="text-[14px] font-bold text-[var(--pp-text)]">Defina o que alterar</h3><p className="text-[12px] text-[var(--pp-text-muted)]">Deixe em “Não alterar” os vínculos que devem permanecer como estão.</p></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {LOTE_CAMPOS.map(({ campo, rot, lista, texto }) => (
-            <div key={campo}><label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-slate-500">{rot}</label>
-              <select value={valorSelect(campo)} onChange={(e) => setAlterCampo(campo, e.target.value)} className={`w-full rounded-xl border px-3 py-2.5 text-sm text-white outline-none ${campo in alter ? "border-[#F38525]/60 bg-[rgba(243, 133, 37,0.08)]" : "border-white/10 bg-slate-950/70"}`}>
+            <div key={campo}><label className={PP_LBL}>{rot}</label>
+              <select value={valorSelect(campo)} onChange={(e) => setAlterCampo(campo, e.target.value)} className={`${PP_INP} ${campo in alter ? "border-[#F38525] bg-[rgba(243,133,37,0.06)]" : ""}`}>
                 <option value="">— Não alterar —</option>
                 <option value="__clear__">Remover vínculo</option>
                 {(listas[lista] || []).filter((x) => x.ativo !== false).map((x) => <option key={x.id} value={x.id}>{texto(x)}</option>)}
@@ -19912,16 +19921,16 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
       </div>
 
       {/* 3 — Impacto e ação */}
-      <div className="rounded-[2rem] border border-[#F38525]/30 bg-[rgba(243, 133, 37,0.06)] p-5">
+      <div className="rounded-2xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(243, 133, 37,0.15)] text-sm text-[#F38525]">3</span>
-          <p className="text-lg font-black text-white">Esta alteração afetará <span className="text-[#F38525]">{afetados.length}</span> produto(s).</p>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(243,133,37,0.15)] text-sm font-bold text-[#8A5200]">3</span>
+          <p className="text-[15px] font-bold text-[var(--pp-text)]">Esta alteração afetará <span className="text-[#8A5200]">{afetados.length}</span> produto(s).</p>
           <div className="ml-auto flex flex-wrap gap-2">
-            <button onClick={() => setSimular((s) => !s)} disabled={chaves.length === 0} className="rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2.5 text-xs font-black text-slate-200 transition hover:bg-white/[0.12] disabled:opacity-40">{simular ? "Ocultar simulação" : "Simular alteração"}</button>
-            <PrimeButton onClick={() => setConfirmar(true)} disabled={chaves.length === 0 || afetados.length === 0}>Confirmar atualização</PrimeButton>
+            <button onClick={() => setSimular((s) => !s)} disabled={chaves.length === 0} className={FISCAL_BTN_LEVE}>{simular ? "Ocultar simulação" : "Simular alteração"}</button>
+            <button onClick={() => setConfirmar(true)} disabled={chaves.length === 0 || afetados.length === 0} className={FISCAL_BTN}>Confirmar atualização</button>
           </div>
         </div>
-        {chaves.length === 0 && <p className="mt-2 text-xs text-slate-400">Escolha ao menos um vínculo para alterar (passo 2).</p>}
+        {chaves.length === 0 && <p className="mt-2 text-[12px] text-[var(--pp-text-muted)]">Escolha ao menos um vínculo para alterar (passo 2).</p>}
 
         {simular && chaves.length > 0 && (() => {
           const POR = 10;
@@ -19930,23 +19939,23 @@ function FiscalLoteView({ produtos = [], categoriasDb = [], ncm = [], icms = [],
           const vis = afetados.slice((pag - 1) * POR, pag * POR);
           return (
             <div className="mt-4 space-y-2">
-              {afetados.length === 0 ? <p className="text-sm text-slate-400">Nenhum produto seria alterado — os selecionados já possuem esses vínculos.</p> : (<>
+              {afetados.length === 0 ? <p className="text-[13px] text-[var(--pp-text-muted)]">Nenhum produto seria alterado — os selecionados já possuem esses vínculos.</p> : (<>
                 {vis.map((p) => (
-                  <div key={p.id} className="rounded-2xl border border-white/10 bg-slate-950/40 p-3">
-                    <p className="text-sm font-bold text-white">{p.name} <span className="text-xs font-semibold text-slate-500">· {catNome(p.categoriaId)}</span></p>
+                  <div key={p.id} className="rounded-2xl border border-[var(--pp-border)] bg-white p-3">
+                    <p className="text-[13px] font-semibold text-[var(--pp-text)]">{p.name} <span className="text-[12px] font-semibold text-[var(--pp-text-muted)]">· {catNome(p.categoriaId)}</span></p>
                     <div className="mt-1 flex flex-wrap gap-2">
                       {LOTE_CAMPOS.filter(({ campo }) => campo in alter && String(p[campo] ?? "") !== String(alter[campo] ?? "")).map(({ campo, rot, lista }) => (
-                        <span key={campo} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-slate-300">
-                          <span className="text-slate-500">{rot}:</span>
-                          <span className="text-red-300 line-through">{p[campo] ? labelDe(lista, p[campo]) : "vazio"}</span>
-                          <span className="text-slate-500">→</span>
-                          <span className="text-emerald-300">{alter[campo] == null ? "vazio" : labelDe(lista, alter[campo])}</span>
+                        <span key={campo} className="inline-flex items-center gap-1.5 rounded-full bg-[var(--pp-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--pp-text-body)]">
+                          <span className="text-[var(--pp-text-muted)]">{rot}:</span>
+                          <span className="text-[#C81E4A] line-through">{p[campo] ? labelDe(lista, p[campo]) : "vazio"}</span>
+                          <span className="text-[var(--pp-text-muted)]">→</span>
+                          <span className="text-[#1F7A3D]">{alter[campo] == null ? "vazio" : labelDe(lista, alter[campo])}</span>
                         </span>
                       ))}
                     </div>
                   </div>
                 ))}
-                <Paginacao pagina={pag} totalPaginas={totalPag} total={afetados.length} porPagina={POR} onMudar={setPagSim} rotulo="produto(s) afetado(s)" />
+                <Paginacao pagina={pag} totalPaginas={totalPag} total={afetados.length} porPagina={POR} onMudar={setPagSim} rotulo="produto(s) afetado(s)" tema="claro" />
               </>)}
             </div>
           );
@@ -20169,9 +20178,9 @@ function FiscalHistoricoView({ loteLog = [], listas = {}, reverter }) {
   const fmtData = (iso) => { try { return new Date(iso).toLocaleString("pt-BR"); } catch { return iso; } };
 
   return (
-    <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
-      <div className="mb-4"><h3 className="page-title text-lg font-bold text-white">Histórico de atualizações em lote</h3>
-        <p className="text-xs text-slate-400">Cada lote registra valor anterior → posterior, com data e usuário. Reverta o lote inteiro ou item a item.</p></div>
+    <div className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5">
+      <div className="mb-4"><h3 className="text-[15px] font-bold text-[var(--pp-text)]">Histórico de atualizações em lote</h3>
+        <p className="mt-0.5 text-[12px] text-[var(--pp-text-muted)]">Cada lote registra valor anterior → posterior, com data e usuário. Reverta o lote inteiro ou item a item.</p></div>
       {grupos.length === 0 ? (
         <EmptyState titulo="Nenhuma atualização em lote registrada" dica="As alterações feitas na aba “Atualização em lote” aparecem aqui. Requer a migration 084 aplicada no Supabase." />
       ) : (<>
@@ -20180,30 +20189,30 @@ function FiscalHistoricoView({ loteLog = [], listas = {}, reverter }) {
             const pend = g.itens.filter((l) => !l.revertido);
             const exp = aberto === g.loteId;
             return (
-              <div key={g.loteId} className="rounded-3xl border border-white/10 bg-slate-950/40 p-4">
+              <div key={g.loteId} className="rounded-2xl border border-[var(--pp-border)] p-4">
                 <div className="flex flex-wrap items-center gap-3">
                   <button onClick={() => setAberto(exp ? null : g.loteId)} className="flex min-w-[160px] flex-1 items-center gap-2 text-left">
-                    <span className="text-slate-400">{exp ? "▾" : "▸"}</span>
+                    <span className="text-[var(--pp-text-muted)]">{exp ? "▾" : "▸"}</span>
                     <div>
-                      <p className="text-sm font-bold text-white">{fmtData(g.criadoEm)} <span className="ml-1 text-xs font-semibold text-slate-500">· {g.usuario}</span></p>
-                      <p className="text-xs text-slate-400">{g.itens.length} alteração(ões) {pend.length === 0 && <span className="text-amber-400">· revertido</span>}</p>
+                      <p className="text-[13px] font-semibold text-[var(--pp-text)]">{fmtData(g.criadoEm)} <span className="ml-1 text-[12px] font-semibold text-[var(--pp-text-muted)]">· {g.usuario}</span></p>
+                      <p className="text-[12px] text-[var(--pp-text-muted)]">{g.itens.length} alteração(ões) {pend.length === 0 && <span className="text-[#B45309]">· revertido</span>}</p>
                     </div>
                   </button>
-                  {pend.length > 0 && reverter && <button onClick={() => reverter(pend)} className="rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-600 transition hover:bg-amber-500/20">↩ Reverter lote</button>}
+                  {pend.length > 0 && reverter && <button onClick={() => reverter(pend)} className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.08)] px-3 py-1.5 text-[12px] font-bold text-[#B45309] transition hover:bg-[rgba(243,133,37,0.16)]">↩ Reverter lote</button>}
                 </div>
                 {exp && (
                   <div className="mt-3 space-y-1.5">
                     {g.itens.map((l) => (
-                      <div key={l.id} className={`flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2 ${l.revertido ? "opacity-60" : ""}`}>
-                        <span className="min-w-[120px] flex-1 truncate text-[13px] font-semibold text-white">{l.produtoNome}</span>
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-300">
-                          <span className="text-slate-500">{CAMPO_ROT[l.campo] || l.campo}:</span>
-                          <span className="text-red-300 line-through">{rotulo(l.campo, l.valorAnterior)}</span>
-                          <span className="text-slate-500">→</span>
-                          <span className="text-emerald-300">{rotulo(l.campo, l.valorPosterior)}</span>
+                      <div key={l.id} className={`flex flex-wrap items-center gap-2 rounded-xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-3 py-2 ${l.revertido ? "opacity-60" : ""}`}>
+                        <span className="min-w-[120px] flex-1 truncate text-[13px] font-semibold text-[var(--pp-text)]">{l.produtoNome}</span>
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[var(--pp-text-body)]">
+                          <span className="text-[var(--pp-text-muted)]">{CAMPO_ROT[l.campo] || l.campo}:</span>
+                          <span className="text-[#C81E4A] line-through">{rotulo(l.campo, l.valorAnterior)}</span>
+                          <span className="text-[var(--pp-text-muted)]">→</span>
+                          <span className="text-[#1F7A3D]">{rotulo(l.campo, l.valorPosterior)}</span>
                         </span>
-                        {l.revertido ? <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-400">revertido</span>
-                          : (reverter && <button onClick={() => reverter([l])} className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-600 transition hover:bg-amber-500/20">↩ reverter</button>)}
+                        {l.revertido ? <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-[var(--pp-text-muted)]">revertido</span>
+                          : (reverter && <button onClick={() => reverter([l])} className="rounded-lg border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.08)] px-2 py-0.5 text-[10px] font-bold text-[#B45309] transition hover:bg-[rgba(243,133,37,0.16)]">↩ reverter</button>)}
                       </div>
                     ))}
                   </div>
@@ -20212,7 +20221,7 @@ function FiscalHistoricoView({ loteLog = [], listas = {}, reverter }) {
             );
           })}
         </div>
-        <Paginacao pagina={pagAtual} totalPaginas={totalPag} total={grupos.length} porPagina={POR} onMudar={setPag} rotulo="lote(s)" />
+        <Paginacao pagina={pagAtual} totalPaginas={totalPag} total={grupos.length} porPagina={POR} onMudar={setPag} rotulo="lote(s)" tema="claro" />
       </>)}
     </div>
   );
