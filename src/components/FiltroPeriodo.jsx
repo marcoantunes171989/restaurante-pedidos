@@ -19,7 +19,12 @@ function Datas({ ini, fim, onIni, onFim }) {
   const idIni = useId();
   const idFim = useId();
   return (
-    <div className="grid grid-cols-2 gap-2">
+    // Uma coluna só no celular: o widget nativo de data (dia/mês/ano + ícone)
+    // tem uma largura mínima própria que não encolhe — dividido em 2 colunas
+    // numa tela estreita ele espremia e vazava da caixa, deixando a folha
+    // "arrastável" de lado. Em telas ≥ sm (inclusive a caixa de 320px do
+    // desktop, que só aparece em lg) sobra espaço de sobra para as 2 colunas.
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       <div className="min-w-0">
         <label htmlFor={idIni} className={ROTULO}>De</label>
         <input id={idIni} type="date" value={ini} max={fim || hoje} onChange={(e) => onIni(e.target.value)} className={CAMPO} />
@@ -82,7 +87,11 @@ export default function FiltroPeriodo({ valor, onMudar, ini = "", fim = "", onIn
       {aberto && (
         <div className="fixed inset-0 z-[130] flex items-end justify-center bg-[#012E46]/45 lg:hidden" onClick={() => setAberto(false)} role="presentation">
           <div role="dialog" aria-modal="true" aria-label="Escolher período" onClick={(e) => e.stopPropagation()}
-            className="pp-folha max-h-[85dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
+            // overflow-x-hidden: trava lateral definitiva — mesmo que algum
+            // widget nativo (ex.: campo de data) tente vazar da caixa, a
+            // folha nunca fica arrastável/rolável para os lados (overflow-y
+            // sozinho deixaria overflow-x como "auto" por padrão do CSS).
+            className="pp-folha max-h-[85dvh] w-full max-w-md overflow-x-hidden overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-base font-semibold text-[#012E46]">Período</p>
               <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E1E7EB] text-[#012E46]"><X className="h-4 w-4" aria-hidden="true" /></button>
