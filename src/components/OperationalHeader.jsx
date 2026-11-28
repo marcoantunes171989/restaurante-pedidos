@@ -57,8 +57,16 @@ export default function OperationalHeader({
             </div>
             <h1 className="text-2xl font-black leading-tight tracking-tight text-[var(--pp-text)] md:text-[28px]">{titulo}</h1>
             {meta ?? (
-              <p className="mt-0.5 truncate text-sm text-[var(--pp-text-body)]">
-                {lojaInfo?.nome || "Operação da loja"} · {usuarioNome || "Operador"}{nivelAcesso ? <> · <span className="font-semibold text-[var(--op-nav-accent)]">{nivelAcesso}</span></> : ""}
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm text-[var(--pp-text-body)]">
+                <span className="max-w-full truncate">{lojaInfo?.nome || "Operação da loja"}</span>
+                <span aria-hidden="true" className="text-[var(--pp-border)]">·</span>
+                <span>{usuarioNome || "Operador"}</span>
+                {nivelAcesso && (
+                  <>
+                    <span aria-hidden="true" className="text-[var(--pp-border)]">·</span>
+                    <span className="font-semibold text-[var(--op-nav-accent)]">{nivelAcesso}</span>
+                  </>
+                )}
               </p>
             )}
           </div>

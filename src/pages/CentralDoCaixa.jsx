@@ -298,10 +298,10 @@ export default function CentralDoCaixa({
             </div>
             {(nfceNaLoja || nfeNaLoja) && <PdvNotaFiscalCampos valor={notaCaixa} onChange={(v) => { setNotaCaixa(v); setErroConfirmacao(""); }} nfceDisponivel={nfceNaLoja} nfeDisponivel={nfeNaLoja} entregaDisponivel={entregaNaLoja} entregaConfig={configFiscalVenda?.entregaNfce}pedidoDeEntrega={/entreg/i.test(confirmacao.o.table || "")} pedidoComEndereco={enderecoDoPedido ? { endereco: enderecoDoPedido, cliente: confirmacao.o.customer } : null} />}
             {enderecoDoPedido && !(entregaNaLoja) && <p className="mt-3 text-xs text-[var(--pp-text-body)]">Entregar em: <b>{enderecoEmLinha(enderecoDoPedido)}</b></p>}
-            {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[#B42318]/30 bg-[#FDECEA] px-3 py-2 text-xs font-semibold text-[#B42318]">{erroConfirmacao}</p>}
+            {erroConfirmacao && <p role="alert" className="mt-3 rounded-xl border border-[var(--pp-danger)]/30 bg-[var(--pp-danger-soft)] px-3 py-2 text-xs font-semibold text-[var(--pp-danger)]">{erroConfirmacao}</p>}
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setConfirmacao(null)} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl border border-[var(--pp-border)] bg-white text-sm font-bold text-[var(--pp-text)] hover:bg-[var(--pp-bg)] disabled:opacity-50">Voltar</button>
-              <button type="button" onClick={confirmarPagamento} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl bg-[#012E46] text-sm font-black text-white hover:bg-[#023b59] disabled:opacity-60">{pagando === confirmacao.o.id ? "Registrando…" : "Confirmar pagamento"}</button>
+              <button type="button" onClick={confirmarPagamento} disabled={pagando === confirmacao.o.id} className="min-h-11 rounded-2xl bg-[var(--pp-info)] text-sm font-black text-white hover:opacity-90 disabled:opacity-60">{pagando === confirmacao.o.id ? "Registrando…" : "Confirmar pagamento"}</button>
             </div>
           </div>
         </div>
