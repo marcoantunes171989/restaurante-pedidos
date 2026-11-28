@@ -13974,6 +13974,10 @@ function LojaAdmin({ lojas, toggleLoja, editarLoja, lojaInfo, criarEmpresa, emit
 // ════════════════════════════════════════════════════════════
 //  Admin — Categorias
 // ════════════════════════════════════════════════════════════
+// Botões e campos da tela Categorias (e dos modais de cadastro/edição) — padrão
+// branco/petróleo e tipografia do admin (mesmos PP_INP/PP_LBL dos demais cadastros).
+const CAT_BTN = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-[#012E46] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45";
+const CAT_BTN_LEVE = "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[var(--pp-border)] bg-white px-4 py-2.5 text-[13px] font-semibold text-[var(--pp-text-body)] transition hover:border-[#012E46] disabled:cursor-not-allowed disabled:opacity-45";
 function CategoriaAdmin({ categoriasDb, produtos, setores = [], impressoras = [], addCategoria, toggleCategoria, removerCategoria, renomearCategoria, editarCategoriaCampos = async () => {} }) {
   const [excluir, setExcluir]   = useState(null);
   const [criando, setCriando]   = useState(false);
@@ -14018,53 +14022,53 @@ function CategoriaAdmin({ categoriasDb, produtos, setores = [], impressoras = []
           { valor: categoriasDb.filter((c) => c.active === false).length, rotulo: "inativas" },
           { valor: produtos.length, rotulo: "produtos vinculados", tom: "gold" },
         ]}
-        acao={<PrimeButton onClick={() => setCriando(true)}><span className="text-lg leading-none">+</span> Cadastrar categoria</PrimeButton>}
+        acao={<button onClick={() => setCriando(true)} className={CAT_BTN}><span className="text-lg leading-none">+</span> Cadastrar categoria</button>}
       />
 
       {/* Busca + lista */}
-      <section className="rounded-[1.75rem] border border-[#012E46]/10 bg-white p-4 shadow-sm sm:p-5" aria-label="Lista de categorias">
+      <section className="rounded-2xl border border-[var(--pp-border)] bg-white p-4 sm:p-5" aria-label="Lista de categorias">
         <div className="relative mb-4">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#012E46]/55"><IconBusca /></span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--pp-text-muted)]"><IconBusca /></span>
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar categoria..."
             aria-label="Buscar por categoria, impressora, setor ou status"
-            className="w-full rounded-2xl border border-[#012E46]/15 bg-[#F7FAFC] py-3 pl-11 pr-4 text-sm text-[#012E46] outline-none transition placeholder:text-slate-400 focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10" />
-          {busca && <button type="button" onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-bold text-[#012E46]/60 hover:bg-[#012E46]/5">Limpar</button>}
+            className="w-full rounded-2xl border border-[var(--pp-border)] bg-white py-3 pl-11 pr-4 text-[13px] text-[var(--pp-text)] outline-none transition placeholder:text-[var(--pp-text-muted)] focus:border-[#012E46]" />
+          {busca && <button type="button" onClick={() => setBusca("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-[12px] font-bold text-[var(--pp-text-muted)] hover:bg-[rgba(1,46,70,0.05)]">Limpar</button>}
         </div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-          <p className="text-xs font-semibold text-slate-500">{filtradas.length} {filtradas.length === 1 ? "categoria encontrada" : "categorias encontradas"}</p>
-          <p className="text-xs text-slate-500"><span className="font-bold text-[#012E46]">Fluxo:</span> categoria → setor → impressora</p>
+          <p className="text-[12px] font-semibold text-[var(--pp-text-muted)]">{filtradas.length} {filtradas.length === 1 ? "categoria encontrada" : "categorias encontradas"}</p>
+          <p className="text-[12px] text-[var(--pp-text-muted)]"><span className="font-semibold text-[#012E46]">Fluxo:</span> categoria → setor → impressora</p>
         </div>
         <div className="space-y-2">
           {categoriasDb.length === 0 && (
             <div className="py-10 text-center">
-              <p className="text-sm text-slate-500">Nenhuma categoria cadastrada.</p>
-              <button onClick={() => setCriando(true)} className="mt-3 rounded-2xl bg-[#F38525] px-4 py-2 text-xs font-black text-white hover:bg-[#df741b]">+ Cadastrar categoria</button>
+              <p className="text-[13px] text-[var(--pp-text-muted)]">Nenhuma categoria cadastrada.</p>
+              <button onClick={() => setCriando(true)} className={`mt-3 ${CAT_BTN}`}>+ Cadastrar categoria</button>
             </div>
           )}
-          {categoriasDb.length > 0 && filtradas.length === 0 && <p className="py-6 text-center text-sm text-slate-500">Nenhuma categoria encontrada.</p>}
+          {categoriasDb.length > 0 && filtradas.length === 0 && <p className="py-6 text-center text-[13px] text-[var(--pp-text-muted)]">Nenhuma categoria encontrada.</p>}
           {filtradas.map((c) => {
             const usos = contagem(c);
             return (
               <div key={c.id}
                 onClick={() => setEditando(c)}
-                className="group flex cursor-pointer flex-wrap items-center gap-3 rounded-2xl border border-[#012E46]/10 bg-white p-3 transition hover:border-[#F38525]/50 hover:shadow-md sm:flex-nowrap">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#012E46]/7 text-[#F38525] transition group-hover:bg-[#F38525]/10"><IconCategorias /></span>
+                className="group flex cursor-pointer flex-wrap items-center gap-3 rounded-2xl border border-[var(--pp-border)] bg-white p-3 transition hover:border-[#012E46]/40 hover:bg-[rgba(1,46,70,0.03)] sm:flex-nowrap">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[rgba(1,46,70,0.08)] text-[#012E46] transition group-hover:bg-[rgba(1,46,70,0.14)]"><IconCategorias /></span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-black text-[#012E46]">{c.nome}</p>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-                    <span><b className="text-[#012E46]">{usos}</b> produto(s)</span>
+                  <p className="truncate text-[14px] font-semibold text-[var(--pp-text)]">{c.nome}</p>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-[var(--pp-text-muted)]">
+                    <span><b className="text-[var(--pp-text)]">{usos}</b> produto(s)</span>
                     <span>{c.setorId ? `Setor: ${nomeSetor(c.setorId) || c.setorId}` : "Sem setor definido"}</span>
-                    <span className={!c.impressoraId ? "font-semibold text-amber-700" : ""}>{c.impressoraId ? `Impressora: ${nomeImp(c.impressoraId) || c.impressoraId}` : "Sem impressora"}</span>
+                    <span className={!c.impressoraId ? "font-semibold text-[#B45309]" : ""}>{c.impressoraId ? `Impressora: ${nomeImp(c.impressoraId) || c.impressoraId}` : "Sem impressora"}</span>
                   </div>
                 </div>
-                <span className="shrink-0 text-xs font-bold text-[#012E46]/65 transition group-hover:text-[#F38525]">Editar</span>
+                <span className="shrink-0 text-[12px] font-semibold text-[#012E46]/70 transition group-hover:text-[#012E46]">Editar</span>
                 <button onClick={(e) => { e.stopPropagation(); toggleCategoria(c.id); }}
                   aria-label={`${c.active !== false ? "Inativar" : "Ativar"} categoria ${c.nome}`}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-black ${c.active !== false ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-600"}`}>
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold transition ${c.active !== false ? "bg-[#1F7A3D] text-white hover:brightness-110" : "bg-[var(--pp-bg)] text-[var(--pp-text-muted)] hover:bg-[rgba(1,46,70,0.06)]"}`}>
                   {c.active !== false ? "Ativa" : "Inativa"}
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); setExcluir(c); }}
-                  title="Excluir" aria-label={`Excluir categoria ${c.nome}`} className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-black text-red-600 transition hover:bg-red-100">
+                  title="Excluir" aria-label={`Excluir categoria ${c.nome}`} className="shrink-0 rounded-xl border border-[rgba(200,30,74,0.24)] bg-[rgba(200,30,74,0.06)] px-3 py-1.5 text-[12px] font-bold text-[#C81E4A] transition hover:bg-[rgba(200,30,74,0.12)]">
                   🗑️
                 </button>
               </div>
@@ -14089,15 +14093,15 @@ function CategoriaAdmin({ categoriasDb, produtos, setores = [], impressoras = []
           (o banco também recusa via FK "on delete restrict" — isto é só a
           mensagem amigável antes de sequer tentar). Sem produtos: confirmação normal. */}
       {excluir && contagem(excluir) > 0 && (
-        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 backdrop-blur-sm p-4" onClick={() => setExcluir(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-[2rem] border border-[#012E46]/10 bg-white p-6 text-center shadow-2xl">
-            <span className="text-4xl">🚫</span>
-            <h2 className="mt-3 text-lg font-black text-[#012E46]">Não é possível excluir</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              A categoria <b className="text-[#012E46]">"{excluir.nome}"</b> tem <b className="text-amber-700">{contagem(excluir)} produto(s)</b> vinculado(s).
-              Mude a categoria desses produtos ou apenas <b className="text-[#012E46]">inative</b> a categoria em vez de excluir.
+        <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setExcluir(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-[var(--pp-border)] bg-white p-6 text-center shadow-2xl">
+            <span className="flex h-12 w-12 items-center justify-center mx-auto rounded-2xl bg-[rgba(200,30,74,0.1)] text-2xl text-[#C81E4A]">🚫</span>
+            <h2 className="mt-3 text-[16px] font-bold text-[var(--pp-text)]">Não é possível excluir</h2>
+            <p className="mt-2 text-[13px] text-[var(--pp-text-body)]">
+              A categoria <b className="text-[var(--pp-text)]">"{excluir.nome}"</b> tem <b className="text-[#B45309]">{contagem(excluir)} produto(s)</b> vinculado(s).
+              Mude a categoria desses produtos ou apenas <b className="text-[var(--pp-text)]">inative</b> a categoria em vez de excluir.
             </p>
-            <button onClick={() => setExcluir(null)} className="mt-6 w-full rounded-2xl bg-[#012E46] py-3 text-sm font-black text-white hover:bg-[#064b6e]">Entendi</button>
+            <button onClick={() => setExcluir(null)} className={`mt-6 w-full justify-center ${CAT_BTN}`}>Entendi</button>
           </div>
         </div>
       )}
@@ -14117,8 +14121,6 @@ function CategoriaEditModal({ categoria, produtos, setores = [], impressoras = [
   const [nome, setNome] = useState(categoria.nome);
   const [setorId, setSetorId] = useState(categoria.setorId ?? "");
   const [impressoraId, setImpressoraId] = useState(categoria.impressoraId ?? "");
-  const inp = "w-full rounded-2xl border border-[#012E46]/15 bg-[#F7FAFC] px-4 py-3 text-[#012E46] outline-none transition focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10 placeholder:text-slate-400";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#012E46]/60";
   const valido = nome.trim().length > 0 && impressoraId !== "" && impressoraId != null;
   const ativa = categoria.active !== false;
   const setoresAtivos = setores.filter((s) => s.ativo !== false);
@@ -14128,80 +14130,80 @@ function CategoriaEditModal({ categoria, produtos, setores = [], impressoras = [
     && String(impressoraId || "") === String(categoria.impressoraId || "");
 
   return (
-    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 p-3 backdrop-blur-sm sm:p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl sm:max-h-[90dvh]">
+    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl sm:max-h-[90dvh]">
 
-        <div className="flex items-center justify-between border-b border-[#012E46]/10 px-5 py-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#012E46]/8 text-[#F38525]"><IconCategorias /></span>
-            <div><h2 className="text-lg font-black text-[#012E46]">Editar categoria</h2><p className="text-xs text-slate-500">Defina o destino operacional dos produtos</p></div>
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(1,46,70,0.1)] text-lg text-[#012E46]"><IconCategorias /></span>
+            <div><h2 className="text-[16px] font-bold text-[var(--pp-text)]">Editar categoria</h2><p className="text-[12px] text-[var(--pp-text-muted)]">Defina o destino operacional dos produtos</p></div>
           </div>
-          <button onClick={onFechar} aria-label="Fechar edição" className="rounded-xl border border-[#012E46]/10 bg-[#F7FAFC] px-3 py-2 text-sm font-black text-[#012E46] hover:bg-slate-100">✕</button>
+          <button onClick={onFechar} aria-label="Fechar edição" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1,46,70,0.04)]">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           <div>
-            <span className={lbl}>Nome da categoria *</span>
+            <label className={PP_LBL}>Nome da categoria *</label>
             <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId, impressoraId }); }}
-              placeholder="Ex.: Entradas, Bebidas..." className={inp} />
+              placeholder="Ex.: Entradas, Bebidas..." className={PP_INP} />
           </div>
 
           <div>
-            <span className={lbl}>Impressora *</span>
+            <label className={PP_LBL}>Impressora *</label>
             {impressorasAtivas.length === 0 ? (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+              <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#8A5200]">
                 Cadastre impressoras em <b className="text-[#012E46]">Operação → Setor Impressoras</b> antes de vincular.
               </p>
             ) : (
-              <select value={impressoraId} onChange={(e) => setImpressoraId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+              <select value={impressoraId} onChange={(e) => setImpressoraId(e.target.value ? Number(e.target.value) : "")} className={PP_INP}>
                 <option value="">Selecione a impressora...</option>
                 {impressorasAtivas.map((i) => (
                   <option key={i.id} value={i.id}>{i.nome}{i.destino ? ` · ${i.destino}` : ""}</option>
                 ))}
               </select>
             )}
-            <p className="mt-1 text-[11px] text-slate-500">Obrigatória. Os produtos usam esta impressora como destino padrão, salvo configuração específica no produto.</p>
+            <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Obrigatória. Os produtos usam esta impressora como destino padrão, salvo configuração específica no produto.</p>
           </div>
 
           <div>
-            <span className={lbl}>Setor de produção (cozinha)</span>
-            <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+            <label className={PP_LBL}>Setor de produção (cozinha)</label>
+            <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={PP_INP}>
               <option value="">Sem setor (usa o do produto)</option>
               {setoresAtivos.map((s) => (
                 <option key={s.id} value={s.id}>{s.nome}</option>
               ))}
             </select>
-            <p className="mt-1 text-[11px] text-slate-500">Separa a comanda no painel da cozinha. Produto tem prioridade sobre a categoria.</p>
+            <p className="mt-1 text-[11px] text-[var(--pp-text-muted)]">Separa a comanda no painel da cozinha. Produto tem prioridade sobre a categoria.</p>
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#012E46]/10 bg-[#F7FAFC] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-3">
             <div>
-              <p className="text-sm font-black text-[#012E46]">Status da categoria</p>
-              <p className="text-xs text-slate-400">{ativa ? "Visível no cardápio e no cadastro de produtos" : "Oculta do cardápio e do cadastro de produtos"}</p>
+              <p className="text-[13px] font-semibold text-[var(--pp-text)]">Status da categoria</p>
+              <p className="text-[12px] text-[var(--pp-text-muted)]">{ativa ? "Visível no cardápio e no cadastro de produtos" : "Oculta do cardápio e do cadastro de produtos"}</p>
             </div>
             <button onClick={onToggle}
-              className={`shrink-0 rounded-full px-4 py-2 text-sm font-black transition ${ativa ? "bg-emerald-500 text-white hover:bg-emerald-400" : "bg-slate-700 text-slate-200 hover:bg-slate-600"}`}>
-              {ativa ? "✅ Ativa" : "⏸ Inativa"}
+              className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-bold transition ${ativa ? "bg-[#1F7A3D] text-white hover:brightness-110" : "bg-white text-[var(--pp-text-muted)] border border-[var(--pp-border)] hover:bg-[rgba(1,46,70,0.04)]"}`}>
+              {ativa ? "Ativa" : "Inativa"}
             </button>
           </div>
 
           <div>
-            <p className={lbl}>Produtos vinculados ({produtos.length})</p>
+            <p className={PP_LBL}>Produtos vinculados ({produtos.length})</p>
             {produtos.length === 0 ? (
-              <div className="rounded-2xl border border-[#012E46]/10 bg-[#F7FAFC] px-4 py-6 text-center">
-                <p className="text-sm text-slate-500">Nenhum produto nesta categoria.</p>
+              <div className="rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] px-4 py-6 text-center">
+                <p className="text-[13px] text-[var(--pp-text-muted)]">Nenhum produto nesta categoria.</p>
               </div>
             ) : (
-              <div className="space-y-1.5 rounded-2xl border border-[#012E46]/10 bg-[#F7FAFC] p-2">
+              <div className="space-y-1.5 rounded-2xl border border-[var(--pp-border)] bg-[var(--pp-bg)] p-2">
                 {produtos.map((p) => (
                   <div key={p.id} className="flex items-center gap-3 rounded-xl bg-white px-3 py-2">
                     <img src={p.imageUrl} alt={p.name}
                       className="h-9 w-9 shrink-0 rounded-xl object-cover"
                       onError={(e) => { e.target.style.display="none"; }} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-black text-[#012E46]">{p.name}</p>
-                      <p className="text-xs text-slate-500">{p.active ? "✅ Ativo" : "⏸ Inativo"} · {formatCurrency(p.price)}</p>
+                      <p className="truncate text-[13px] font-semibold text-[var(--pp-text)]">{p.name}</p>
+                      <p className="text-[12px] text-[var(--pp-text-muted)]">{p.active ? "Ativo" : "Inativo"} · {formatCurrency(p.price)}</p>
                     </div>
                   </div>
                 ))}
@@ -14210,14 +14212,14 @@ function CategoriaEditModal({ categoria, produtos, setores = [], impressoras = [
           </div>
         </div>
 
-        <div className="flex shrink-0 gap-3 border-t border-[#012E46]/10 bg-white px-5 py-4 sm:px-6">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-[#012E46]/15 bg-white py-3.5 text-sm font-black text-[#012E46] hover:bg-slate-50">Cancelar</button>
+        <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] bg-white px-5 py-4 sm:px-6">
+          <button onClick={onFechar} className={`flex-1 justify-center ${CAT_BTN_LEVE}`}>Cancelar</button>
           <button
             onClick={() => onSalvar({ nome, setorId, impressoraId })}
             disabled={!valido || semMudanca}
-            className="flex-[2] rounded-2xl bg-[#F38525] py-3.5 text-sm font-black text-white transition hover:bg-[#df741b] active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+            className={`flex-[2] justify-center ${CAT_BTN}`}
           >
-            💾 Salvar alterações
+            Salvar alterações
           </button>
         </div>
       </div>
@@ -14230,36 +14232,34 @@ function CategoriaCadastroModal({ setores = [], impressoras = [], onSalvar, onFe
   const [nome, setNome] = useState("");
   const [setorId, setSetorId] = useState("");
   const [impressoraId, setImpressoraId] = useState("");
-  const inp = "w-full rounded-2xl border border-[#012E46]/15 bg-[#F7FAFC] px-4 py-3 text-[#012E46] outline-none transition focus:border-[#F38525] focus:bg-white focus:ring-4 focus:ring-[#F38525]/10 placeholder:text-slate-400";
-  const lbl = "mb-1.5 block text-xs font-bold uppercase tracking-widest text-[#012E46]/60";
   const valido = nome.trim().length > 0 && impressoraId !== "" && impressoraId != null;
   const setoresAtivos = setores.filter((s) => s.ativo !== false);
   const impressorasAtivas = impressoras.filter((i) => i.ativo !== false);
   return (
-    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-[#012E46]/75 p-3 backdrop-blur-sm sm:p-4" onClick={onFechar}>
-      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-[1.75rem] border border-[#012E46]/10 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#012E46]/10 px-5 py-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#012E46]/8 text-[#F38525]"><IconCategorias /></span>
-            <div><h2 className="text-lg font-black text-[#012E46]">Nova categoria</h2><p className="text-xs text-slate-500">Organize produtos e produção</p></div>
+    <div className="fixed inset-0 z-[180] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4" onClick={onFechar}>
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-[var(--pp-border)] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--pp-border)] px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(1,46,70,0.1)] text-lg text-[#012E46]"><IconCategorias /></span>
+            <div><h2 className="text-[16px] font-bold text-[var(--pp-text)]">Nova categoria</h2><p className="text-[12px] text-[var(--pp-text-muted)]">Organize produtos e produção</p></div>
           </div>
-          <button onClick={onFechar} aria-label="Fechar cadastro" className="rounded-xl border border-[#012E46]/10 bg-[#F7FAFC] px-3 py-2 text-sm font-black text-[#012E46] hover:bg-slate-100">✕</button>
+          <button onClick={onFechar} aria-label="Fechar cadastro" className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--pp-border)] bg-white text-lg text-[var(--pp-text-muted)] transition hover:bg-[rgba(1,46,70,0.04)]">✕</button>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 sm:px-6">
           <div>
-            <span className={lbl}>Nome da categoria *</span>
+            <label className={PP_LBL}>Nome da categoria *</label>
             <input autoFocus value={nome} onChange={(e) => setNome(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && valido) onSalvar({ nome, setorId, impressoraId }); }}
-              placeholder="Ex.: Massas, Porções, Vinhos..." className={inp} />
+              placeholder="Ex.: Massas, Porções, Vinhos..." className={PP_INP} />
           </div>
           <div>
-            <span className={lbl}>Impressora *</span>
+            <label className={PP_LBL}>Impressora *</label>
             {impressorasAtivas.length === 0 ? (
-              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+              <p className="rounded-xl border border-[rgba(243,133,37,0.3)] bg-[rgba(243,133,37,0.06)] px-3 py-2 text-[12px] font-semibold text-[#8A5200]">
                 Nenhuma impressora ativa. Cadastre em <b className="text-[#012E46]">Operação → Setor Impressoras</b>.
               </p>
             ) : (
-              <select value={impressoraId} onChange={(e) => setImpressoraId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+              <select value={impressoraId} onChange={(e) => setImpressoraId(e.target.value ? Number(e.target.value) : "")} className={PP_INP}>
                 <option value="">Selecione a impressora...</option>
                 {impressorasAtivas.map((i) => (
                   <option key={i.id} value={i.id}>{i.nome}{i.destino ? ` · ${i.destino}` : ""}</option>
@@ -14268,20 +14268,20 @@ function CategoriaCadastroModal({ setores = [], impressoras = [], onSalvar, onFe
             )}
           </div>
           <div>
-            <span className={lbl}>Setor de produção</span>
-            <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={inp}>
+            <label className={PP_LBL}>Setor de produção</label>
+            <select value={setorId} onChange={(e) => setSetorId(e.target.value ? Number(e.target.value) : "")} className={PP_INP}>
               <option value="">Sem setor (definir depois)</option>
               {setoresAtivos.map((s) => (
                 <option key={s.id} value={s.id}>{s.nome}</option>
               ))}
             </select>
           </div>
-          <div className="rounded-2xl border border-[#012E46]/10 bg-[#012E46]/[0.04] p-3 text-xs leading-5 text-slate-600"><b className="text-[#012E46]">Como funciona:</b> a impressora direciona a comanda para o ponto certo; o setor organiza a fila no painel da cozinha.</div>
+          <div className="rounded-2xl border border-[var(--pp-border)] bg-[rgba(1,46,70,0.04)] p-3 text-[12px] leading-5 text-[var(--pp-text-body)]"><b className="text-[#012E46]">Como funciona:</b> a impressora direciona a comanda para o ponto certo; o setor organiza a fila no painel da cozinha.</div>
         </div>
-        <div className="flex shrink-0 gap-3 border-t border-[#012E46]/10 bg-white px-5 py-4 sm:px-6">
-          <button onClick={onFechar} className="flex-1 rounded-2xl border border-[#012E46]/15 bg-white py-3.5 text-sm font-black text-[#012E46] hover:bg-slate-50">Cancelar</button>
+        <div className="flex shrink-0 gap-3 border-t border-[var(--pp-border)] bg-white px-5 py-4 sm:px-6">
+          <button onClick={onFechar} className={`flex-1 justify-center ${CAT_BTN_LEVE}`}>Cancelar</button>
           <button onClick={() => onSalvar({ nome, setorId, impressoraId })} disabled={!valido}
-            className="flex-[2] rounded-2xl bg-[#F38525] py-3.5 text-sm font-black text-white transition hover:bg-[#df741b] active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500">
+            className={`flex-[2] justify-center ${CAT_BTN}`}>
             + Cadastrar categoria
           </button>
         </div>
