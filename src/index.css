@@ -1471,16 +1471,20 @@ select {
 }
 select::-ms-expand { display: none; } /* IE/Edge antigo */
 
-/* ── Sem zoom ao tocar um campo, em qualquer tela (padronização 27/11) ──
-   iOS amplia a página ao focar um campo com letra menor que 16px. O projeto
-   já cobria isso dentro de .pp-admin-module (telas administrativas) e de
-   .pdv-toque (telas de venda do PDV) — mas o cardápio público, as telas de
+/* ── Sem zoom ao tocar um campo, em qualquer tela (padronização 27/11,
+   estendida a tablet em 27/11) ──
+   iOS amplia a página ao focar um campo com letra menor que 16px — no
+   Safari isso vale tanto para iPhone quanto para iPad (a largura, sozinha,
+   não livra o tablet do zoom). O projeto já cobria isso dentro de
+   .pp-admin-module e de .pdv-toque — mas o cardápio público, as telas de
    tablet, o login e a landing ficavam de fora, porque usam outras classes
    (ex.: text-sm do Tailwind, 14px) sem essa rede de segurança. Esta regra
-   cobre o restante do app: no celular, todo campo de texto vira 16px, sem
-   mudar nada no desktop. Não duplica nem conflita com as regras acima —
-   mesmo valor (16px), só fechando o buraco fora delas. */
-@media (max-width: 640px) {
+   cobre o restante do app: até 768px (celular e tablet em retrato), todo
+   campo de texto vira 16px, sem mudar nada no desktop. Não duplica nem
+   conflita com as regras acima — mesmo valor (16px), só fechando o buraco
+   fora delas. A mesma extensão (640px → 768px) foi aplicada à regra irmã
+   de .pp-admin-module logo abaixo, para as duas ficarem no mesmo limite. */
+@media (max-width: 768px) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
   select,
   textarea {
@@ -2048,8 +2052,11 @@ a[class~="bg-[#012E46]"] > *,
   min-height: var(--pp-ctrl-altura-compacta);
   font-size: 0.75rem;
 }
-/* No celular, campo com 16px: o navegador não dá zoom ao tocar. */
-@media (max-width: 640px) {
+/* No celular e no tablet (até 768px), campo com 16px: o navegador não dá
+   zoom ao tocar — limite estendido de 640px para 768px em 27/11, igual à
+   regra irmã em src/index.css (ver "Sem zoom ao tocar um campo"), para o
+   iPad em retrato ficar coberto também. */
+@media (max-width: 768px) {
   .pp-admin-module .pp-admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.pp-controle-livre),
   .pp-admin-module .pp-admin-content select:not(.pp-controle-livre),
   .pp-admin-module .pp-admin-content textarea:not(.pp-controle-livre) { font-size: 1rem; }
