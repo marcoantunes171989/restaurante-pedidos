@@ -24,8 +24,9 @@ import { LogoPP } from "./components/BrandLogo";
 import { normalizarFuncionamento, avaliarDisponibilidadeCanal, MOTIVO } from "./lib/horarioFuncionamentoService";
 import { criarUrlPedidoWhatsApp, numeroWhatsAppValido } from "./lib/whatsappPedido";
 import CardapioBoasVindas from "./pages/cardapio/CardapioBoasVindas.jsx";
+import CardapioProdutoCard from "./pages/cardapio/CardapioProdutoCard.jsx";
 import {
-  CkIconCheck, CkIconCoracao, CkIconTag, CkIconEstrela, CkIconCalendario, CkIconAlerta, CkIconLixeira,
+  CkIconCheck, CkIconTag, CkIconEstrela, CkIconCalendario, CkIconAlerta, CkIconLixeira,
   CkIconRelogio, CkIconLoja, CkIconMoto, CkIconGarfo, CkIconCartao, CkIconPix, CkIconDinheiro, CkIconSpinner,
   CkIconRecibo, CkIconCarteira, CkIconChevron, CkIconWifiOff, CkIconPanela, CkIconCaixaEntrada, CkIconSino,
   CkIconSacola, CkIconCarrinho, CkIconMesa, CkIconAjuda, CkIconLimpeza,
@@ -885,7 +886,6 @@ export default function CardapioPublico() {
     catch { return new Set(); }
   }, [loja?.id, detalhe]);
   const renderProduto = (item) => {
-    const indisponivel = item.disponivel === false;
     const promo = promoDoProduto(item);
     const favorito = favSet.has(item.id);
     // lojaId garante que a chave de favoritos do ProdutoModal case com a lida
@@ -894,84 +894,7 @@ export default function CardapioPublico() {
     const abrir = () => setDetalhe(promo
       ? { ...item, lojaId: item.lojaId ?? loja?.id, price: promo.preco, precoOriginal: promo.original, economiaUnit: promo.original - promo.preco }
       : { ...item, lojaId: item.lojaId ?? loja?.id });
-    const destaque = promo || (item.isFeatured && !indisponivel);
-    return (
-      <article key={item.id} className={`flex h-full gap-2.5 !rounded-none border-x-0 border-t-0 border-b !bg-transparent px-0 py-2.5 !shadow-none ${destaque ? "border-[var(--client-offer-border)]" : "border-[var(--client-border)]"}`}>
-        {/* Imagem — alvo de toque que abre a personalização. */}
-        <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
-          aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
-          className="relative shrink-0 transition active:scale-[0.98] disabled:cursor-not-allowed">
-          <span
-            className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[var(--client-surface-secondary)]"
-            style={{
-              backgroundImage: `url(${JSON.stringify(String(item.imageUrl || fallbackImage))})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <img
-              src={item.imageUrl || fallbackImage}
-              alt={item.name}
-              loading="lazy"
-              decoding="async"
-              width={72}
-              height={72}
-              onError={(e) => {
-                if (e.currentTarget.src !== fallbackImage) {
-                  e.currentTarget.src = fallbackImage;
-                  const box = e.currentTarget.parentElement;
-                  if (box) {
-                    box.style.backgroundImage = `url(${JSON.stringify(fallbackImage)})`;
-                  }
-                }
-              }}
-              className={`pp-img-fill block h-full w-full object-cover ${indisponivel ? "grayscale opacity-50" : ""}`}
-              style={{ maxWidth: "none" }}
-            />
-          </span>
-          {promo && !indisponivel && <span className="absolute right-1.5 top-1.5 rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white shadow-[var(--client-shadow-sm)]">{promo.label}</span>}
-          {indisponivel && <span className="absolute left-1/2 top-1/2 w-max -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--client-border)] bg-white/90 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[var(--client-text-secondary)]">Indisponível</span>}
-          {favorito && !indisponivel && (
-            <span aria-label="Favorito" title="Favorito" className="absolute bottom-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--client-surface)] text-[var(--client-primary-hover)] shadow-[var(--client-shadow-sm)]">
-              <CkIconCoracao width={13} height={13} />
-            </span>
-          )}
-        </button>
-
-        {/* Conteúdo — nome/descrição/tempo e, embaixo, preço + "+". */}
-        <div className="relative flex min-w-0 flex-1 flex-col pr-8">
-          <button type="button" onClick={() => !indisponivel && abrir()} disabled={indisponivel}
-            aria-label={indisponivel ? `${item.name} — indisponível` : `Ver ${item.name}`}
-            className="text-left transition disabled:cursor-not-allowed">
-            {item.isFeatured && !indisponivel && (
-              <span className="mb-1 inline-flex items-center gap-1 rounded-full bg-[var(--client-primary-soft)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[var(--client-primary-hover)]">
-                <CkIconEstrela width={10} height={10} /> {item.featuredLabel || "Mais vendido"}
-              </span>
-            )}
-            <h3 className="line-clamp-2 text-[14px] font-black leading-[1.15] text-[var(--client-info)]">{item.name}</h3>
-            {item.description && <p className="mt-0.5 line-clamp-1 text-[10.5px] leading-4 text-[var(--client-text-secondary)]">{item.description}</p>}
-            {item.time && (
-              <p className="mt-0.5 inline-flex items-center gap-1 text-[9.5px] font-semibold leading-3 text-[var(--client-text-muted)]">
-                <CkIconRelogio width={11} height={11} /> {item.time}
-              </p>
-            )}
-          </button>
-
-          <div className="mt-0 flex items-center gap-2 leading-none">
-            {promo
-              ? <span className="flex flex-col gap-0.5 leading-none">
-                  <span className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(promo.original)}</span>
-                  <span className="text-[14px] font-black text-[var(--client-offer-hover)]">{formatCurrency(promo.preco)}</span>
-                  <span className="mt-0.5 inline-flex w-max items-center rounded-md bg-[var(--client-offer-soft)] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-[var(--client-offer-hover)]">Economize {formatCurrency(promo.original - promo.preco)}</span>
-                </span>
-              : <span className="text-[13px] font-black leading-4 text-[var(--client-info)]">{formatCurrency(item.price)}</span>}
-          </div>
-          {indisponivel
-            ? <span className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center text-sm text-[var(--client-text-muted)]">✕</span>
-            : <button onClick={abrir} aria-label={`Adicionar ${item.name}`} className="absolute right-0 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center border-0 bg-transparent text-base font-black text-[var(--client-primary)] transition active:scale-90 hover:text-[var(--client-info)]">+</button>}
-        </div>
-      </article>
-    );
+    return <CardapioProdutoCard key={item.id} item={item} promo={promo} favorito={favorito} onAbrir={abrir} />;
   };
   // "Ver QR": gera o QR do link deste cardápio (para o cliente compartilhar a mesa).
   const abrirQr = async () => {
@@ -1433,7 +1356,7 @@ export default function CardapioPublico() {
 
   // ── Estados de carregamento/erro ───────────────────────────
   if (loja === undefined) return <CardapioSkeleton />;
-  if (loja === null) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-[var(--client-text-primary)]">Empresa não encontrada</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Verifique o link/QR do cardápio.</p></Centro>;
+  if (loja === null) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-semibold text-[var(--client-text-primary)]">Empresa não encontrada</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Verifique o link/QR do cardápio.</p></Centro>;
 
   // ── Consulta read-only por comanda (QR do relatório) ───────────
   // Mostra os pedidos/itens vinculados à comanda escaneada. Independe do canal
@@ -1470,7 +1393,7 @@ export default function CardapioPublico() {
           <div className="mx-auto flex max-w-md items-center gap-3">
             {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-11 w-11 shrink-0 rounded-2xl object-cover" /> : <LogoPP size={44} />}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-black text-[var(--client-text-primary)]">{loja.nome}</p>
+              <p className="truncate text-base font-semibold text-[var(--client-text-primary)]">{loja.nome}</p>
               <p className="truncate text-xs text-[var(--client-text-secondary)]">Consulta da comanda</p>
             </div>
           </div>
@@ -1481,7 +1404,7 @@ export default function CardapioPublico() {
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-4 py-3">
             <div className="flex items-center gap-2 text-[var(--client-primary-hover)]">
               <CkIconRecibo width={18} height={18} />
-              <span className="font-mono text-lg font-black tracking-wide">{comanda}</span>
+              <span className="font-mono text-lg font-semibold tracking-wide">{comanda}</span>
             </div>
             {pedidosC.length > 0 && <span className="shrink-0 text-xs font-bold text-[var(--client-primary-hover)]">{pedidosC.length} pedido{pedidosC.length > 1 ? "s" : ""} · {itensC} {itensC === 1 ? "item" : "itens"}</span>}
           </div>
@@ -1491,7 +1414,7 @@ export default function CardapioPublico() {
               {pedidosSync ? (
                 <>
                   <span className="text-5xl">🧾</span>
-                  <p className="mt-3 font-black text-[var(--client-text-primary)]">Nenhum pedido nesta comanda ainda</p>
+                  <p className="mt-3 font-semibold text-[var(--client-text-primary)]">Nenhum pedido nesta comanda ainda</p>
                   <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Assim que um pedido for lançado na comanda <b>{comanda}</b>, ele aparece aqui automaticamente.</p>
                   <p className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-1.5 text-xs font-bold text-[var(--client-text-secondary)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--client-success)]" aria-hidden="true" /> Atualizando ao vivo</p>
                 </>
@@ -1510,12 +1433,12 @@ export default function CardapioPublico() {
                   <div key={dia.key} className="space-y-2.5">
                     {/* Cabeçalho do dia */}
                     <div className="flex items-center justify-between gap-2 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2">
-                      <span className="flex items-center gap-2 text-[13px] font-black text-[var(--client-primary-hover)]">
+                      <span className="flex items-center gap-2 text-[13px] font-semibold text-[var(--client-primary-hover)]">
                         <CkIconRecibo width={14} height={14} />
                         {rotuloDiaConsulta(dia.iso)}
                         <span className="rounded-full bg-[var(--client-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--client-text-secondary)]">{dia.pedidos.length} pedido{dia.pedidos.length > 1 ? "s" : ""}</span>
                       </span>
-                      <span className="shrink-0 text-[13px] font-black text-[var(--client-primary-hover)]">{formatCurrency(resumoDosPedidos(dia.pedidos, taxaPct).total)}</span>
+                      <span className="shrink-0 text-[13px] font-semibold text-[var(--client-primary-hover)]">{formatCurrency(resumoDosPedidos(dia.pedidos, taxaPct).total)}</span>
                     </div>
                     {dia.pedidos.map((o) => {
                       const s = estiloStatusCliente(o.status);
@@ -1525,10 +1448,10 @@ export default function CardapioPublico() {
                         <div key={o.id} className="rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] p-3.5 shadow-[var(--client-shadow-sm)]">
                           <div className="flex items-center justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-sm font-black text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
+                              <p className="text-sm font-semibold text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
                               {o.createdAt && <p className="text-[11px] text-[var(--client-text-secondary)]">Realizado às {o.createdAt}</p>}
                             </div>
-                            <span className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
+                            <span className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${s.chip}`}>
                               <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
                             </span>
                           </div>
@@ -1551,7 +1474,7 @@ export default function CardapioPublico() {
               {/* Status financeiro */}
               <div className={`mt-3 flex items-center gap-3 rounded-2xl border p-3.5 ${statusConta.cls}`}>
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ${statusConta.ic}`}><CkIconCarteira width={17} height={17} /></span>
-                <p className="text-sm font-black">{statusConta.t}</p>
+                <p className="text-sm font-semibold">{statusConta.t}</p>
               </div>
 
               {/* Totais */}
@@ -1560,7 +1483,7 @@ export default function CardapioPublico() {
                 {taxaC > 0 && <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço ({textoDoPercentual(taxaPct)}%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(taxaC)}</span></div>}
                 <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2">
                   <span className={`text-sm font-bold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{pagaC ? "Total pago" : "Total"}</span>
-                  <span className={`text-xl font-black ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
+                  <span className={`text-xl font-semibold ${pagaC ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalC)}</span>
                 </div>
                 {valorPorPontoPub > 0 && pontosPor(pagaC ? totalC : totalAbertoC, valorPorPontoPub) > 0 && (
                   <div className="flex items-center justify-between border-t border-[var(--client-border)] pt-2 text-xs font-bold text-[var(--client-primary-hover)]">
@@ -1578,15 +1501,15 @@ export default function CardapioPublico() {
     );
   }
   if (!canalPermitido) return mesaURL
-    ? <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-[var(--client-text-primary)]">QR por mesa indisponível</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">O QR Code por mesa está disponível nos modos Interno ou Ambos.</p></Centro>
-    : <Centro><span className="text-5xl">📵</span><p className="mt-3 font-black text-[var(--client-text-primary)]">Cardápio externo indisponível</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
-  if (mesaURL && !mesaValida) return <Centro><span className="text-5xl">🚫</span><p className="mt-3 font-black text-[var(--client-text-primary)]">QR Code inválido</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Esta mesa não foi encontrada ou está inativa. Fale com a equipe do estabelecimento.</p></Centro>;
+    ? <Centro><span className="text-5xl">📵</span><p className="mt-3 font-semibold text-[var(--client-text-primary)]">QR por mesa indisponível</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">O QR Code por mesa está disponível nos modos Interno ou Ambos.</p></Centro>
+    : <Centro><span className="text-5xl">📵</span><p className="mt-3 font-semibold text-[var(--client-text-primary)]">Cardápio externo indisponível</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Esta empresa não habilitou o cardápio digital para o cliente.</p></Centro>;
+  if (mesaURL && !mesaValida) return <Centro><span className="text-5xl">🚫</span><p className="mt-3 font-semibold text-[var(--client-text-primary)]">QR Code inválido</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Esta mesa não foi encontrada ou está inativa. Fale com a equipe do estabelecimento.</p></Centro>;
   // Nunca libera o cardápio antes de saber se a mesa está ocupada — evita
   // qualquer flash do cardápio antes do modal de confirmação aparecer.
   if (mesaURL && podeMesa && statusMesa === null) return <Centro><Spinner /><p className="mt-3 text-sm text-[var(--client-text-secondary)]">Verificando a mesa…</p></Centro>;
   // Cliente recusou a confirmação de mesa ocupada — bloqueia e orienta a
   // escanear o QR certo (não deixa seguir para o cardápio).
-  if (mesaURL && ocupacaoRecusada) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-black text-[var(--client-text-primary)]">Confira o QR Code</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Escaneie o QR Code afixado na sua mesa para continuar.</p></Centro>;
+  if (mesaURL && ocupacaoRecusada) return <Centro><span className="text-5xl">🔍</span><p className="mt-3 font-semibold text-[var(--client-text-primary)]">Confira o QR Code</p><p className="mt-1 text-sm text-[var(--client-text-secondary)]">Escaneie o QR Code afixado na sua mesa para continuar.</p></Centro>;
   // Confirmação OBRIGATÓRIA de mesa ocupada — status vem sempre do backend
   // (pub_status_mesa, migration 067), nunca de cache. Só aparece quando
   // realmente ocupada (nunca para mesa disponível) e bloqueia o cardápio até
@@ -1597,16 +1520,16 @@ export default function CardapioPublico() {
       <div data-theme="light" className="tema-claro-area fixed inset-0 z-[130] flex min-h-screen w-full max-w-full items-center justify-center overflow-x-hidden bg-black/60 p-6 backdrop-blur-sm" style={{ minHeight: "100dvh" }}>
         <div role="alertdialog" aria-modal="true" aria-labelledby="msg-mesa-ocupada" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]">
           <p className="text-3xl">🍽️</p>
-          <p id="msg-mesa-ocupada" className="mt-2 text-base font-black text-[var(--client-text-primary)]">Esta mesa já está ocupada.</p>
+          <p id="msg-mesa-ocupada" className="mt-2 text-base font-semibold text-[var(--client-text-primary)]">Esta mesa já está ocupada.</p>
           <p className="mt-1 text-sm text-[var(--client-text-secondary)]">
             Você está realmente na <b className="text-[var(--client-text-primary)]">Mesa {numeroFmt}{statusMesa.nome ? ` — ${statusMesa.nome}` : ""}</b>?
           </p>
           <p className="mt-2 text-xs text-[var(--client-text-muted)]">Ao continuar, seu pedido será adicionado aos pedidos já existentes desta mesa.</p>
           <div className="mt-4 flex flex-col gap-2">
-            <button onClick={() => setOcupacaoConfirmada(true)} type="button" className="min-h-[44px] w-full rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3 text-sm font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)]">
+            <button onClick={() => setOcupacaoConfirmada(true)} type="button" className="min-h-[44px] w-full rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3 text-sm font-semibold text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)]">
               Sim, estou na Mesa {numeroFmt}
             </button>
-            <button onClick={() => setOcupacaoRecusada(true)} type="button" className="min-h-[44px] w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] transition active:scale-95 hover:bg-[var(--client-surface-secondary)]">
+            <button onClick={() => setOcupacaoRecusada(true)} type="button" className="min-h-[44px] w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-semibold text-[var(--client-text-secondary)] transition active:scale-95 hover:bg-[var(--client-surface-secondary)]">
               Não, cancelar
             </button>
           </div>
@@ -1687,7 +1610,7 @@ export default function CardapioPublico() {
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           {loja.logoUrl ? <img src={loja.logoUrl} alt="" className="h-9 w-9 shrink-0 rounded-xl object-cover" /> : <LogoPP size={36} />}
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black leading-tight text-[var(--client-info)] sm:text-base">{loja.nome}</p>
+            <p className="truncate text-sm font-semibold leading-tight text-[var(--client-info)] sm:text-base">{loja.nome}</p>
             <p className="truncate text-[11px] leading-4 text-[var(--client-text-secondary)] sm:text-xs">{currentTable ? `${currentTable}${comanda ? " · " + comanda : ""}` : "Cardápio digital"}</p>
           </div>
           {!modoExterno && mesa && (
@@ -1745,7 +1668,7 @@ export default function CardapioPublico() {
         {/* Ofertas vigentes */}
         {promosVigentes.length > 0 && (
           <div className="mb-4">
-            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-[var(--client-offer-hover)]"><CkIconTag width={13} height={13} /> Ofertas de hoje</p>
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-[var(--client-offer-hover)]"><CkIconTag width={13} height={13} /> Ofertas de hoje</p>
             <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1">
               {promosVigentes.map((p) => {
                 const ehCombo = p.tipo === "combo";
@@ -1755,8 +1678,8 @@ export default function CardapioPublico() {
                     className="group flex min-w-[200px] shrink-0 items-center gap-3 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3.5 py-3 text-left shadow-[var(--client-shadow-sm)] transition active:scale-[0.97]">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--client-offer-hover)]">{(() => { const Icone = iconeOferta(p); return <Icone width={17} height={17} />; })()}</span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-black text-[var(--client-text-primary)]">{p.nome}</p>
-                      <p className="truncate text-xs font-black text-[var(--client-offer-hover)]">{promoResumoDesconto(p)}{ehCombo ? " · combo" : ""}</p>
+                      <p className="truncate text-sm font-semibold text-[var(--client-text-primary)]">{p.nome}</p>
+                      <p className="truncate text-xs font-semibold text-[var(--client-offer-hover)]">{promoResumoDesconto(p)}{ehCombo ? " · combo" : ""}</p>
                       {val && <p className="flex items-center gap-1 truncate text-[10px] font-bold text-[var(--client-text-secondary)]"><CkIconCalendario width={11} height={11} className="shrink-0" /> {val}</p>}
                     </div>
                     <span className="shrink-0 text-[var(--client-text-muted)] transition group-hover:translate-x-0.5">›</span>
@@ -1774,16 +1697,16 @@ export default function CardapioPublico() {
               <div key={c.promo.id} className="rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-text-primary)]"><CkIconSacola width={15} height={15} className="shrink-0 text-[var(--client-offer-hover)]" /> {c.promo.nome} <span className="rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-black text-white">COMBO</span></p>
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--client-text-primary)]"><CkIconSacola width={15} height={15} className="shrink-0 text-[var(--client-offer-hover)]" /> {c.promo.nome} <span className="rounded-full bg-[var(--client-offer-hover)] px-1.5 py-0.5 text-[9px] font-semibold text-white">COMBO</span></p>
                     {c.promo.descricao && <p className="mt-0.5 text-[11px] text-[var(--client-text-secondary)]">{c.promo.descricao}</p>}
                     <p className="mt-1 text-[11px] text-[var(--client-text-secondary)]">{c.itens.map((i) => i.name).join(" + ")}</p>
                   </div>
                   <div className="shrink-0 text-right">
                     {c.precoCombo < c.somaOriginal && <p className="text-[11px] font-bold text-[var(--client-text-muted)] line-through">{formatCurrency(c.somaOriginal)}</p>}
-                    <p className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(c.precoCombo)}</p>
+                    <p className="text-lg font-semibold text-[var(--client-text-primary)]">{formatCurrency(c.precoCombo)}</p>
                   </div>
                 </div>
-                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full min-h-[44px] rounded-xl bg-[var(--client-offer-hover)] py-2.5 text-sm font-black text-white transition active:scale-95 hover:bg-[var(--client-offer)]">+ Adicionar combo</button>
+                <button onClick={() => adicionarCombo(c)} className="mt-2.5 w-full min-h-[44px] rounded-xl bg-[var(--client-offer-hover)] py-2.5 text-sm font-semibold text-white transition active:scale-95 hover:bg-[var(--client-offer)]">+ Adicionar combo</button>
               </div>
             ))}
           </div>
@@ -1795,9 +1718,9 @@ export default function CardapioPublico() {
           {grupos.length === 0 && <p className="py-10 text-center text-sm text-[var(--client-text-secondary)]">Nenhum produto disponível.</p>}
           {grupos.map((g) => (
             <section key={g.id} ref={(el) => (secRefs.current[g.id] = el)} id={`cat-${g.id}`} data-cat-id={g.id} style={{ scrollMarginTop: headerH + catBarH + 8 }}>
-              <div className="sticky z-10 -mx-3 mb-2 mt-0.5 flex items-center gap-1.5 bg-[#FFFFFF]/95 px-3 py-1 backdrop-blur" style={{ top: headerH + catBarH }}>
+              <div className="sticky z-10 -mx-3 mb-2 mt-0.5 flex items-center gap-1.5 bg-[var(--client-surface)]/95 px-3 py-1 backdrop-blur" style={{ top: headerH + catBarH }}>
                 <span className="h-3.5 w-1 rounded-full bg-[var(--client-primary-hover)]" />
-                <h2 className="text-xs font-black uppercase tracking-wide text-[var(--client-info)]">{g.nome}</h2>
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--client-info)]">{g.nome}</h2>
                 <span className="text-[10px] font-bold text-[var(--client-text-muted)]">{g.produtos.length} {g.produtos.length === 1 ? "item" : "itens"}</span>
               </div>
               <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 sm:gap-x-4">
@@ -1839,17 +1762,17 @@ export default function CardapioPublico() {
               className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left disabled:cursor-default">
               <span className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${cart.length > 0 ? "bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]" : "bg-[var(--client-surface-secondary)] text-[var(--client-text-muted)]"}`}>
                 <CkIconCarrinho width={18} height={18} />
-                {qtdCart > 0 && <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--client-primary-hover)] px-1 text-[10px] font-black text-[#012E46]">{qtdCart}</span>}
+                {qtdCart > 0 && <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--client-primary-hover)] px-1 text-[10px] font-semibold text-[#012E46]">{qtdCart}</span>}
               </span>
               <span className="min-w-0">
                 {cart.length > 0 ? (
-                  <><span className="block text-[13px] font-black leading-4 text-[var(--client-text-primary)]">Ver carrinho</span><span className="block truncate text-[11px] leading-4 text-[var(--client-text-secondary)]">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></>
+                  <><span className="block text-[13px] font-semibold leading-4 text-[var(--client-text-primary)]">Ver carrinho</span><span className="block truncate text-[11px] leading-4 text-[var(--client-text-secondary)]">{qtdCart} {qtdCart === 1 ? "item" : "itens"} · {formatCurrency(totalCart)}</span></>
                 ) : meusPedidos.length > 0 ? (
                   // Com pedido ativo, o acompanhamento divide a barra: mensagem
                   // concisa (1 linha) p/ caber sem cortar nem espremer o texto.
-                  <span className="block truncate text-sm font-black text-[var(--client-text-secondary)]">Carrinho vazio</span>
+                  <span className="block truncate text-sm font-semibold text-[var(--client-text-secondary)]">Carrinho vazio</span>
                 ) : (
-                  <><span className="block text-[13px] font-black leading-4 text-[var(--client-text-secondary)]">Seu carrinho está vazio</span><span className="block truncate text-[11px] leading-4 text-[var(--client-text-muted)]">Toque num produto para começar</span></>
+                  <><span className="block text-[13px] font-semibold leading-4 text-[var(--client-text-secondary)]">Seu carrinho está vazio</span><span className="block truncate text-[11px] leading-4 text-[var(--client-text-muted)]">Toque num produto para começar</span></>
                 )}
               </span>
             </button>
@@ -1880,17 +1803,17 @@ export default function CardapioPublico() {
                         <span aria-hidden="true" className="flex shrink-0 gap-0.5">
                           {[0, 1, 2, 3].map((i) => <span key={i} className={`h-1 w-2.5 rounded-full bg-current ${i <= stepIdx ? "" : "opacity-25"}`} />)}
                         </span>
-                        <span className="whitespace-nowrap text-xs font-black">{CURTO[stepIdx]}</span>
+                        <span className="whitespace-nowrap text-xs font-semibold">{CURTO[stepIdx]}</span>
                       </span>
                     </span>
                   )}
-                  <span className={`absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-black text-white ${DOT_CLS[tom]}`}>{meusPedidos.length}</span>
+                  <span className={`absolute -right-1.5 -top-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-semibold text-white ${DOT_CLS[tom]}`}>{meusPedidos.length}</span>
                 </button>
               );
             })()}
             {cart.length > 0 && (
               <button onClick={() => setAba("carrinho")}
-                className="flex h-11 shrink-0 items-center gap-1 rounded-xl btn-laranja bg-[var(--client-primary-hover)] px-3.5 text-[11px] font-black text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>
+                className="flex h-11 shrink-0 items-center gap-1 rounded-xl btn-laranja bg-[var(--client-primary-hover)] px-3.5 text-[11px] font-semibold text-[#012E46] transition active:scale-95 hover:bg-[var(--client-primary)]">Finalizar&nbsp;›</button>
             )}
         </div>
       </div>
@@ -1913,11 +1836,11 @@ export default function CardapioPublico() {
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm" onClick={() => setItemRemover(null)}>
           <div role="alertdialog" aria-modal="true" aria-labelledby="msg-remover-item" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
             <p className="text-3xl">🗑️</p>
-            <p id="msg-remover-item" className="mt-2 text-base font-black text-[var(--client-text-primary)]">Remover item?</p>
+            <p id="msg-remover-item" className="mt-2 text-base font-semibold text-[var(--client-text-primary)]">Remover item?</p>
             <p className="mt-1 text-sm text-[var(--client-text-secondary)]"><b className="text-[var(--client-text-primary)]">{itemRemover.quantity}× {itemRemover.name}</b> será removido do seu pedido.</p>
             <div className="mt-4 flex gap-2">
-              <button onClick={() => setItemRemover(null)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter item</button>
-              <button onClick={() => { removerItem(itemRemover._uid); setItemRemover(null); }} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-black text-white hover:bg-[var(--client-error-hover)]">Remover</button>
+              <button onClick={() => setItemRemover(null)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-semibold text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter item</button>
+              <button onClick={() => { removerItem(itemRemover._uid); setItemRemover(null); }} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-semibold text-white hover:bg-[var(--client-error-hover)]">Remover</button>
             </div>
           </div>
         </div>
@@ -1928,11 +1851,11 @@ export default function CardapioPublico() {
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm" onClick={() => setComboRemover(null)}>
           <div className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
             <p className="text-3xl">🍔</p>
-            <p className="mt-2 text-base font-black text-[var(--client-text-primary)]">Sair do combo?</p>
+            <p className="mt-2 text-base font-semibold text-[var(--client-text-primary)]">Sair do combo?</p>
             <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Ao remover <b className="text-[var(--client-text-primary)]">{comboRemover.name}</b>, o combo <b className="text-[var(--client-offer-hover)]">{comboRemover.comboNome}</b> será desfeito. Os demais itens deixam a regra do combo e <b className="text-[var(--client-text-primary)]">voltam ao preço normal</b>.</p>
             <div className="mt-4 flex gap-2">
-              <button onClick={() => setComboRemover(null)} className="flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter combo</button>
-              <button onClick={() => desfazerCombo(comboRemover)} className="flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-black text-white hover:bg-[var(--client-error-hover)]">Remover assim mesmo</button>
+              <button onClick={() => setComboRemover(null)} className="flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-semibold text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter combo</button>
+              <button onClick={() => desfazerCombo(comboRemover)} className="flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-semibold text-white hover:bg-[var(--client-error-hover)]">Remover assim mesmo</button>
             </div>
           </div>
         </div>
@@ -1943,11 +1866,11 @@ export default function CardapioPublico() {
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm" onClick={() => setConfirmarLimpar(false)}>
           <div role="alertdialog" aria-modal="true" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
             <p className="text-3xl">🗑️</p>
-            <p className="mt-2 text-base font-black text-[var(--client-text-primary)]">Limpar o carrinho?</p>
+            <p className="mt-2 text-base font-semibold text-[var(--client-text-primary)]">Limpar o carrinho?</p>
             <p className="mt-1 text-sm text-[var(--client-text-secondary)]">Todos os {qtdCart} {qtdCart === 1 ? "item" : "itens"} do seu pedido serão removidos.</p>
             <div className="mt-4 flex gap-2">
-              <button onClick={() => setConfirmarLimpar(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter itens</button>
-              <button onClick={limparCarrinho} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-black text-white hover:bg-[var(--client-error-hover)]">Limpar tudo</button>
+              <button onClick={() => setConfirmarLimpar(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-semibold text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Manter itens</button>
+              <button onClick={limparCarrinho} type="button" className="min-h-[44px] flex-1 rounded-2xl bg-[var(--client-error)] py-3 text-sm font-semibold text-white hover:bg-[var(--client-error-hover)]">Limpar tudo</button>
             </div>
           </div>
         </div>
@@ -1960,13 +1883,13 @@ export default function CardapioPublico() {
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm" onClick={() => setConfirmarFechamento(false)}>
           <div role="alertdialog" aria-modal="true" aria-labelledby="msg-fechar-conta" className="w-full max-w-sm rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
             <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--client-primary-soft)] text-[var(--client-primary-hover)]"><CkIconRecibo width={22} height={22} /></span>
-            <p id="msg-fechar-conta" className="mt-3 text-base font-black text-[var(--client-text-primary)]">{contaSolicitada ? "Reenviar solicitação ao caixa?" : "Solicitar fechamento da conta?"}</p>
+            <p id="msg-fechar-conta" className="mt-3 text-base font-semibold text-[var(--client-text-primary)]">{contaSolicitada ? "Reenviar solicitação ao caixa?" : "Solicitar fechamento da conta?"}</p>
             <p className="mt-1 text-sm text-[var(--client-text-secondary)]">{contaSolicitada ? "Confirme para avisar novamente o caixa sobre o fechamento da sua conta." : "Confirme para avisar o caixa que você deseja finalizar o atendimento."}</p>
-            <p className="mt-3 rounded-2xl bg-[var(--client-surface-secondary)] py-2.5 text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(totalMesa)}</p>
+            <p className="mt-3 rounded-2xl bg-[var(--client-surface-secondary)] py-2.5 text-lg font-semibold text-[var(--client-text-primary)]">{formatCurrency(totalMesa)}</p>
             {usarPontos && saldoPontos > 0 && <p className="mt-2 rounded-2xl border border-[var(--client-primary)] bg-[var(--client-primary-soft)] px-3 py-2 text-xs font-bold text-[var(--client-primary-hover)]">⭐ Pagar com pontos — o caixa aplica o desconto dos seus {saldoPontos.toLocaleString("pt-BR")} pontos.</p>}
             <div className="mt-4 flex gap-2">
-              <button onClick={() => setConfirmarFechamento(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Continuar consumindo</button>
-              <button onClick={confirmarSolicitarConta} type="button" className="min-h-[44px] flex-1 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3 text-sm font-black text-[#012E46] hover:bg-[var(--client-primary)]">{contaSolicitada ? "Reenviar" : "Solicitar fechamento"}</button>
+              <button onClick={() => setConfirmarFechamento(false)} type="button" className="min-h-[44px] flex-1 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-3 text-sm font-semibold text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Continuar consumindo</button>
+              <button onClick={confirmarSolicitarConta} type="button" className="min-h-[44px] flex-1 rounded-2xl btn-laranja bg-[var(--client-primary-hover)] py-3 text-sm font-semibold text-[#012E46] hover:bg-[var(--client-primary)]">{contaSolicitada ? "Reenviar" : "Solicitar fechamento"}</button>
             </div>
           </div>
         </div>
@@ -1976,10 +1899,10 @@ export default function CardapioPublico() {
       {qrModal && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm" onClick={() => setQrModal(null)}>
           <div className="w-full max-w-xs rounded-3xl border border-[var(--client-border)] bg-[var(--client-surface)] p-5 text-center shadow-[var(--client-shadow-floating)]" onClick={(e) => e.stopPropagation()}>
-            <p className="mb-3 text-sm font-black text-[var(--client-text-primary)]">{currentTable || loja.nome}</p>
+            <p className="mb-3 text-sm font-semibold text-[var(--client-text-primary)]">{currentTable || loja.nome}</p>
             <img src={qrModal} alt="QR do cardápio" className="mx-auto w-full rounded-2xl bg-white p-2" />
             <p className="mt-3 text-xs text-[var(--client-text-secondary)]">Aponte a câmera para abrir este cardápio</p>
-            <button onClick={() => setQrModal(null)} className="mt-4 w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-2.5 text-sm font-black text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Fechar</button>
+            <button onClick={() => setQrModal(null)} className="mt-4 w-full rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] py-2.5 text-sm font-semibold text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]">Fechar</button>
           </div>
         </div>
       )}
@@ -1995,7 +1918,7 @@ export default function CardapioPublico() {
                 </p>
               )}
               <button onClick={enviar} disabled={!podeEnviar || enviando} type="button"
-                className={`mx-auto flex h-10 w-[96%] items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-black transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
+                className={`mx-auto flex h-10 w-[96%] items-center justify-center gap-1.5 rounded-lg px-3 text-[11px] font-semibold transition active:scale-95 ${(!podeEnviar || enviando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"}`}>
                 {enviando && <CkIconSpinner />}
                 {enviando ? "Enviando…" : bloqueioHorario ? "Pedido indisponível no momento" : usarPedidoWhatsapp ? "Confirmar e continuar no WhatsApp" : "Confirmar e enviar pedido"}
               </button>
@@ -2019,7 +1942,7 @@ export default function CardapioPublico() {
           {cart.length === 0 ? (
             <div className="py-10 text-center">
               <p className="text-sm text-[var(--client-text-secondary)]">Seu carrinho está vazio.</p>
-              <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-2.5 text-sm font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">Voltar ao cardápio</button>
+              <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-2.5 text-sm font-semibold text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">Voltar ao cardápio</button>
             </div>
           ) : (
             <>
@@ -2028,7 +1951,7 @@ export default function CardapioPublico() {
               {/* Itens do pedido */}
               <div className="mt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Seu pedido</h3>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--client-text-secondary)]">Seu pedido</h3>
                   <button onClick={() => setConfirmarLimpar(true)} type="button" className="min-h-8 rounded-lg px-2 text-xs font-bold text-[var(--client-text-muted)] transition hover:bg-[var(--client-error-soft)] hover:text-[var(--client-error)]">Limpar carrinho</button>
                 </div>
                 <div>
@@ -2039,7 +1962,7 @@ export default function CardapioPublico() {
               {/* Forma de recebimento (externo) / mesa+comanda (interno) */}
               {modoExterno ? (
                 <div className="mt-4 space-y-2.5">
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--client-text-secondary)]">Como deseja receber?</h3>
+                  <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--client-text-secondary)]">Como deseja receber?</h3>
                   {!aceitaExterno ? (
                     <div className="rounded-2xl border border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] px-4 py-3 text-sm font-bold text-[var(--client-warning)]">Esta empresa não está aceitando pedidos pelo cardápio no momento.</div>
                   ) : opcoesEntrega.length === 0 ? (
@@ -2054,7 +1977,7 @@ export default function CardapioPublico() {
                             className={`flex w-full items-start gap-2.5 rounded-xl border bg-white p-3 text-left transition ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border)] hover:border-[var(--client-border-strong)]"}`}>
                             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border bg-white ${sel ? "border-[var(--client-primary)] text-[var(--client-primary-hover)]" : "border-[var(--client-border)] text-[var(--client-text-secondary)]"}`}><Icone width={16} height={16} /></span>
                             <span className="min-w-0 flex-1">
-                              <span className="block text-[11px] font-black text-[#012E46]">{o.label}</span>
+                              <span className="block text-[11px] font-semibold text-[#012E46]">{o.label}</span>
                               <span className="mt-0.5 block text-[11px] text-[var(--client-text-secondary)]">{DESC_ENTREGA[o.id]}</span>
                             </span>
                             <span className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${sel ? "border-[var(--client-primary)]" : "border-[var(--client-border-strong)]"}`}>{sel && <span className="h-2 w-2 rounded-full bg-[var(--client-primary-hover)]" />}</span>
@@ -2084,7 +2007,7 @@ export default function CardapioPublico() {
                 </div>
               ) : (
                 <div className="mt-5 space-y-3">
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Confirme sua mesa</h3>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-widest text-[var(--client-text-secondary)]">Confirme sua mesa</h3>
                   {mesaURL ? (
                     <>
                       {/* Mesa confirmada pelo QR — selo elegante em vez de campo desabilitado */}
@@ -2092,14 +2015,14 @@ export default function CardapioPublico() {
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--client-primary-hover)] text-[#012E46]"><CkIconMesa width={18} height={18} /></span>
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--client-text-secondary)]">Sua mesa</p>
-                          <p className="text-base font-black leading-tight text-[var(--client-text-primary)]">Mesa {mesa}</p>
+                          <p className="text-base font-semibold leading-tight text-[var(--client-text-primary)]">Mesa {mesa}</p>
                         </div>
-                        <span className="flex items-center gap-1 rounded-full bg-[var(--client-surface)] px-2.5 py-1 text-[11px] font-black text-[var(--client-primary-active)]"><CkIconCheck width={12} height={12} /> Confirmada</span>
+                        <span className="flex items-center gap-1 rounded-full bg-[var(--client-surface)] px-2.5 py-1 text-[11px] font-semibold text-[var(--client-primary-active)]"><CkIconCheck width={12} height={12} /> Confirmada</span>
                       </div>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Telefone (WhatsApp) <span className="font-normal text-[var(--client-text-muted)]">— para acumular pontos</span></span>
                           <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
-                            className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
+                            className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
                         <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
                           <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
                       </div>
@@ -2112,20 +2035,20 @@ export default function CardapioPublico() {
                     <div className="grid grid-cols-2 gap-3">
                       <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Mesa <span className="text-[var(--client-error)]">*</span></span>
                         <input type="tel" inputMode="numeric" value={mesa} onChange={(e) => setMesa(e.target.value.replace(/\D/g, "").slice(0, 2))} placeholder="Nº"
-                          className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)]" /></label>
+                          className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)]" /></label>
                       <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Seu nome (opcional)</span>
                         <input value={cliente} onChange={(e) => setCliente(capitalizarNome(e.target.value))} placeholder="Nome" className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:text-[var(--client-text-muted)]" /></label>
                     </div>
                     <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Telefone (WhatsApp) <span className="font-normal text-[var(--client-text-muted)]">— para acumular pontos</span></span>
                       <input type="tel" inputMode="numeric" autoComplete="tel" value={mascararTelefone(telefone)} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, "").slice(0, 11))} placeholder="(11) 98765-4321" maxLength={16}
-                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
+                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
                     </>
                   )}
                   {!comURL && (
                     <div><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Comanda <span className="text-[var(--client-error)]">*</span></span>
                       <input value={comanda} onChange={(e) => setComanda(e.target.value.toUpperCase())} placeholder={`Ex.: ${loja.prefixo}-000001`}
                         autoComplete="off" autoCorrect="off" autoCapitalize="characters" spellCheck={false} inputMode="text" enterKeyHint="done" name="comanda"
-                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 font-mono text-sm font-black tracking-widest text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--client-text-muted)]" />
+                        className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 font-mono text-sm font-semibold tracking-widest text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-sans placeholder:font-normal placeholder:text-[var(--client-text-muted)]" />
                       <p className="mt-1 text-[11px] text-[var(--client-text-secondary)]">Escaneie o QR Code da mesa ou digite a comanda.</p></div>
                   )}
                 </div>
@@ -2135,13 +2058,13 @@ export default function CardapioPublico() {
                   pagamento é no caixa, então a tela não pede forma alguma. */}
               {modoExterno && (tipoPedido === "local" || formasPagto.length > 0) && (
               <div className="mt-5">
-                <h3 className="mb-2 text-[11px] font-black uppercase tracking-widest text-[var(--client-text-secondary)]">Pagamento</h3>
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-[var(--client-text-secondary)]">Pagamento</h3>
                 {!exigePagamentoAgora ? (
                   <div className="rounded-2xl border border-[var(--client-info-border)] bg-[var(--client-info-soft)] p-4">
                     <div className="flex items-start gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-info)] text-white"><CkIconRelogio width={17} height={17} /></span>
                       <div className="min-w-0">
-                        <p className="text-sm font-black text-[var(--client-text-primary)]">Pagamento após o consumo</p>
+                        <p className="text-sm font-semibold text-[var(--client-text-primary)]">Pagamento após o consumo</p>
                         <p className="mt-1 text-xs leading-5 text-[var(--client-text-secondary)]">Seu pedido será enviado agora. A forma de pagamento será escolhida no fechamento da conta.</p>
                       </div>
                     </div>
@@ -2156,7 +2079,7 @@ export default function CardapioPublico() {
                           const sel = formaPagto === f.id;
                           return (
                             <button key={f.id} type="button" role="radio" aria-checked={sel} onClick={() => escolherFormaPagto(f.id)}
-                              className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-xs font-black transition ${sel ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
+                              className={`flex min-h-11 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 text-xs font-semibold transition ${sel ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>
                               <Icone width={18} height={18} />
                               {f.label}
                             </button>
@@ -2175,7 +2098,7 @@ export default function CardapioPublico() {
                             return (
                               <button key={id} type="button" role="radio" aria-checked={sel}
                                 onClick={() => { setTrocoResposta(id); if (id === "nao") setTrocoValor(""); }}
-                                className={`min-h-11 flex-1 rounded-xl border text-sm font-black transition ${sel ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>{l}</button>
+                                className={`min-h-11 flex-1 rounded-xl border text-sm font-semibold transition ${sel ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)] text-[var(--client-primary-active)]" : "border-[var(--client-border)] bg-[var(--client-surface)] text-[var(--client-text-secondary)] hover:bg-[var(--client-surface-secondary)]"}`}>{l}</button>
                             );
                           })}
                         </div>
@@ -2183,7 +2106,7 @@ export default function CardapioPublico() {
                           <div className="mt-3">
                             <label className="block"><span className="mb-1.5 block text-xs font-bold text-[var(--client-text-secondary)]">Vai pagar com quanto?</span>
                               <input type="text" inputMode="decimal" value={trocoValor} onChange={(e) => setTrocoValor(e.target.value.replace(/[^\d.,]/g, ""))} placeholder={formatCurrency(totalCart)}
-                                className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-black text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
+                                className="w-full min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-3 py-2.5 text-sm font-semibold text-[var(--client-text-primary)] outline-none transition focus:border-[var(--client-primary)] focus:ring-[3px] focus:ring-[var(--client-focus-primary)] placeholder:font-normal placeholder:text-[var(--client-text-muted)]" /></label>
                             {trocoValor && parseMoedaBR(trocoValor) > 0 && parseMoedaBR(trocoValor) < totalCart && (
                               <p className="mt-1.5 text-xs font-bold text-[var(--client-error)]">O valor deve ser de pelo menos {formatCurrency(totalCart)} (total do pedido).</p>
                             )}
@@ -2200,7 +2123,7 @@ export default function CardapioPublico() {
               )}
 
               {economiaCart > 0 && (
-                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3 py-2 text-sm font-black text-[var(--client-offer-hover)]">
+                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--client-offer-border)] bg-[var(--client-offer-soft)] px-3 py-2 text-sm font-semibold text-[var(--client-offer-hover)]">
                   <CkIconCheck width={16} height={16} /> Você economizou {formatCurrency(economiaCart)} nesta compra!
                 </div>
               )}
@@ -2213,7 +2136,7 @@ export default function CardapioPublico() {
                     <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Desconto</span><span className="font-bold text-[var(--client-offer-hover)]">-{formatCurrency(economiaCart)}</span></div>
                   </>
                 )}
-                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[var(--client-text-secondary)]">Total do pedido</span><span className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(totalCart)}</span></div>
+                <div className="flex items-center justify-between"><span className="text-xs font-bold text-[var(--client-text-secondary)]">Total do pedido</span><span className="text-lg font-semibold text-[var(--client-text-primary)]">{formatCurrency(totalCart)}</span></div>
                 {modoExterno && tipoPedido === "local" && <p className="text-[11px] text-[var(--client-text-secondary)]">Pagamento realizado no fechamento da conta.</p>}
               </div>
 
@@ -2252,7 +2175,7 @@ export default function CardapioPublico() {
                   <p className="mt-1 text-xs text-[var(--client-text-muted)]">Seus pedidos aparecerão aqui assim que forem enviados.</p>
                 </>
               )}
-              <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-2.5 text-sm font-black text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">Voltar ao cardápio</button>
+              <button onClick={() => setAba(null)} type="button" className="mt-4 min-h-11 rounded-2xl border border-[var(--client-border)] bg-[var(--client-surface)] px-5 py-2.5 text-sm font-semibold text-[var(--client-text-secondary)] transition hover:bg-[var(--client-surface-secondary)]">Voltar ao cardápio</button>
             </div>
           ) : (
             <>
@@ -2262,12 +2185,12 @@ export default function CardapioPublico() {
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--client-info-soft)] text-[var(--client-info)]"><CkIconRecibo width={17} height={17} /></span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[var(--client-text-primary)]">{!modoExterno && currentTable ? currentTable : "Seu pedido"}</p>
+                      <p className="truncate text-sm font-semibold text-[var(--client-text-primary)]">{!modoExterno && currentTable ? currentTable : "Seu pedido"}</p>
                       {!modoExterno && comanda && <p className="truncate text-[11px] text-[var(--client-text-secondary)]">Comanda {comanda}</p>}
                     </div>
                   </div>
                   {statusGeralConta && (
-                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-black ${
+                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
                       tomStatusGeral === "success" ? "border-[var(--client-success-border)] bg-[var(--client-success-soft)] text-[var(--client-success)]"
                         : tomStatusGeral === "warning" ? "border-[var(--client-warning-border)] bg-[var(--client-warning-soft)] text-[var(--client-warning)]"
                         : "border-[var(--client-info-border)] bg-[var(--client-info-soft)] text-[var(--client-info)]"
@@ -2275,9 +2198,9 @@ export default function CardapioPublico() {
                   )}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[var(--client-border)] pt-3">
-                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Pedidos</p><p className="text-sm font-black text-[var(--client-text-primary)]">{meusPedidos.length}</p></div>
-                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Aberta às</p><p className="text-sm font-black text-[var(--client-text-primary)]">{contaAbertaEm || "—"}</p></div>
-                  <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Valor atual da conta</p><p className="text-lg font-black text-[var(--client-text-primary)]">{formatCurrency(totalMesa)}</p></div>
+                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Pedidos</p><p className="text-sm font-semibold text-[var(--client-text-primary)]">{meusPedidos.length}</p></div>
+                  <div><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Aberta às</p><p className="text-sm font-semibold text-[var(--client-text-primary)]">{contaAbertaEm || "—"}</p></div>
+                  <div className="col-span-2"><p className="text-[10px] font-bold uppercase tracking-widest text-[var(--client-text-muted)]">Valor atual da conta</p><p className="text-lg font-semibold text-[var(--client-text-primary)]">{formatCurrency(totalMesa)}</p></div>
                 </div>
                 {pagamentoPosteriorConta && (
                   <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-[var(--client-info-soft)] px-3 py-2 text-[11px] font-bold text-[var(--client-info)]"><CkIconRelogio width={13} height={13} /> Pagamento após o consumo</p>
@@ -2286,7 +2209,7 @@ export default function CardapioPublico() {
                     item adicionado/cancelado. Incentiva identificar-se e voltar. */}
                 {fidRegraPub && pontosGanharConta > 0 && (
                   <div className="mt-3 rounded-xl border border-[var(--client-primary-border)] bg-[var(--client-primary-soft)] px-3 py-2.5">
-                    <p className="flex items-center gap-1.5 text-sm font-black text-[var(--client-primary-hover)]"><CkIconEstrela width={15} height={15} className="shrink-0" /> {clienteIdentificado ? "Você ganhará" : "Esta conta gera"} {pontosGanharConta.toLocaleString("pt-BR")} pontos</p>
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--client-primary-hover)]"><CkIconEstrela width={15} height={15} className="shrink-0" /> {clienteIdentificado ? "Você ganhará" : "Esta conta gera"} {pontosGanharConta.toLocaleString("pt-BR")} pontos</p>
                     {clienteIdentificado
                       ? (saldoPontos > 0 && <p className="mt-0.5 text-[11px] font-bold text-[var(--client-text-secondary)]">Saldo atual: {saldoPontos.toLocaleString("pt-BR")} pts → passará a {(saldoPontos + pontosGanharConta).toLocaleString("pt-BR")} pts no fechamento.</p>)
                       : <p className="mt-0.5 text-[11px] font-bold text-[var(--client-text-secondary)]">Informe seu telefone ao pedir para acumular estes pontos.</p>}
@@ -2306,11 +2229,11 @@ export default function CardapioPublico() {
                         onClick={() => setPedidoRecolhido((p) => ({ ...p, [o.id]: !p[o.id] }))}
                         className="flex w-full items-center justify-between gap-2 text-left disabled:cursor-default">
                         <div className="min-w-0">
-                          <p className="text-sm font-black text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
+                          <p className="text-sm font-semibold text-[var(--client-text-primary)]">Pedido nº {String(o.id || "").replace(/\D/g, "").slice(-4)}</p>
                           <p className="text-[11px] text-[var(--client-text-secondary)]">Realizado às {o.createdAt}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
-                          <span role="status" aria-live="polite" className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${s.chip}`}>
+                          <span role="status" aria-live="polite" className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${s.chip}`}>
                             <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden="true" />{statusClienteLabel(o, modoPedido)}
                           </span>
                           {meusPedidos.length > 1 && <CkIconChevron width={16} height={16} className={`shrink-0 text-[var(--client-text-muted)] transition-transform motion-reduce:transition-none ${recolhido ? "" : "rotate-180"}`} />}
@@ -2344,7 +2267,7 @@ export default function CardapioPublico() {
                   contaSolicitada ? "bg-[var(--client-warning)]" : contaPaga ? "bg-[var(--client-success)]" : "bg-[var(--client-info)]"
                 }`}><CkIconCarteira width={17} height={17} /></span>
                 <div className="min-w-0">
-                  <p className={`text-sm font-black ${contaSolicitada ? "text-[var(--client-warning)]" : contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>
+                  <p className={`text-sm font-semibold ${contaSolicitada ? "text-[var(--client-warning)]" : contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>
                     {contaSolicitada ? "Fechamento solicitado" : contaPaga ? "Pagamento confirmado" : podeFechar ? "Fechamento disponível" : "Conta em aberto"}
                   </p>
                   <p className="mt-0.5 text-xs leading-5 text-[var(--client-text-secondary)]">
@@ -2363,7 +2286,7 @@ export default function CardapioPublico() {
                 {resumoMesa.taxa > 0 && <div className="flex items-center justify-between text-sm"><span className="text-[var(--client-text-secondary)]">Taxa de serviço ({textoDoPercentual(taxaPct)}%)</span><span className="text-[var(--client-text-secondary)]">{formatCurrency(resumoMesa.taxa)}</span></div>}
                 <div className="flex items-center justify-between pt-1">
                   <span className={`text-sm font-bold ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-secondary)]"}`}>{contaPaga ? "Total pago" : "Total em aberto"}</span>
-                  <span className={`text-xl font-black ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalMesa)}</span>
+                  <span className={`text-xl font-semibold ${contaPaga ? "text-[var(--client-success)]" : "text-[var(--client-text-primary)]"}`}>{formatCurrency(totalMesa)}</span>
                 </div>
               </div>
 
@@ -2372,7 +2295,7 @@ export default function CardapioPublico() {
                 <label className={`mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border p-3.5 transition ${usarPontos ? "border-[var(--client-primary)] bg-[var(--client-primary-soft)]" : "border-[var(--client-border)] bg-[var(--client-surface)]"}`}>
                   <input type="checkbox" checked={usarPontos} onChange={(e) => setUsarPontos(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[var(--client-primary)]" />
                   <span className="min-w-0">
-                    <span className="block text-sm font-black text-[var(--client-text-primary)]">⭐ Usar meus pontos nesta conta</span>
+                    <span className="block text-sm font-semibold text-[var(--client-text-primary)]">⭐ Usar meus pontos nesta conta</span>
                     <span className="mt-0.5 block text-xs text-[var(--client-text-secondary)]">Você tem <b className="text-[var(--client-text-primary)]">{saldoPontos.toLocaleString("pt-BR")} pontos</b>. Ao solicitar o fechamento, o caixa aplica o desconto em pontos.</span>
                   </span>
                 </label>
@@ -2382,7 +2305,7 @@ export default function CardapioPublico() {
               {!contaPaga && (
                 <>
                   <button onClick={() => setConfirmarFechamento(true)} disabled={!podeFechar || solicitando} aria-disabled={!podeFechar || solicitando} aria-busy={solicitando} type="button"
-                    className={`mt-4 flex min-h-[50px] w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-black transition active:scale-95 ${
+                    className={`mt-4 flex min-h-[50px] w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition active:scale-95 ${
                       (!podeFechar || solicitando) ? "bg-[var(--client-disabled-background)] text-[var(--client-disabled-text)]" : "btn-laranja bg-[var(--client-primary-hover)] text-[#012E46] hover:bg-[var(--client-primary)]"
                     }`}>
                     {solicitando && <CkIconSpinner />}
@@ -2526,7 +2449,7 @@ function EtapaProgresso({ etapas, atualIdx }) {
             {/* Concluído = VERDE (sucesso/confirmação, igual à timeline de
                 acompanhamento) · Atual = laranja (ação/foco) · Pendente = cinza.
                 Cada estado em uma cor no seu papel (não laranja para os dois). */}
-            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-black transition-colors ${
+            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${
               feita ? "bg-[var(--client-success)] text-white" : atual ? "border-2 border-[var(--client-primary)] text-[var(--client-primary-hover)]" : "border border-[var(--client-border)] text-[var(--client-text-muted)]"
             }`} aria-current={atual ? "step" : undefined}>
               {feita ? <CkIconCheck width={12} height={12} strokeWidth={3} /> : i + 1}
@@ -2548,7 +2471,7 @@ function CardItemCarrinho({ item, onRemover }) {
   return (
     <div className="flex items-start justify-between gap-3 border-b border-[var(--client-border)] bg-white py-2.5">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-snug text-[var(--client-text-primary)]">
+        <p className="text-sm font-semibold leading-snug text-[var(--client-text-primary)]">
           <span className="text-[var(--client-text-secondary)]">{item.quantity}×</span> {item.name}
         </p>
         {item.comboId && <p className="mt-0.5 truncate text-[11px] font-bold text-[var(--client-offer-hover)]">Combo: {item.comboNome}</p>}
@@ -2598,7 +2521,7 @@ function Gaveta({ titulo, subtitulo, onFechar, children, rodape, fecharLabel = "
       <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-3xl flex-col overflow-hidden border-x border-[var(--client-border)] bg-white sm:rounded-t-[20px] sm:border-t" style={{ height: sheetHeight, maxHeight: sheetHeight, paddingBottom: rodape ? undefined : "env(safe-area-inset-bottom)" }}>
         <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-3 border-b border-[var(--client-border)] bg-white px-4 pb-3 sm:rounded-t-[20px]" style={{ paddingTop: "max(0.75rem, calc(env(safe-area-inset-top) + 0.4rem))" }}>
           <div className="min-w-0">
-            <h2 className="text-base font-black text-[#012E46]">{titulo}</h2>
+            <h2 className="text-base font-semibold text-[#012E46]">{titulo}</h2>
             {subtitulo && <p className="mt-0.5 text-[11px] text-[var(--client-text-secondary)]">{subtitulo}</p>}
           </div>
           <button onClick={onFechar} aria-label={fecharLabel} title={fecharLabel} type="button"
