@@ -213,7 +213,7 @@ export const XNOME_DEST_HOMOLOGACAO = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO -
  * @param {object} d
  * @param {string} d.chave   44 posições (o Id é "NFe"+chave)
  * @param {object} d.ide     { cUF, cNF, natOp, mod, serie, nNF, dhEmi, tpAmb, cMunFG, cDV, tpEmis?, fuso?, indPres?, idDest?, indFinal?, finNFe?, verProc? }
- * @param {object} d.emit    { CNPJ|CPF, xNome, xFant?, IE, CRT, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
+ * @param {object} d.emit    { CNPJ|CPF, xNome, xFant?, IE, CNAE?, CRT, ender:{ xLgr, nro, xCpl?, xBairro, cMun, xMun, UF, CEP, fone? } }
  * @param {object} [d.dest]  { CPF|CNPJ, xNome?, ender?{xLgr,nro,xCpl,xBairro,cMun,xMun,UF,CEP,fone}, indIEDest?, IE? }
  * @param {object[]} d.itens [{ cProd, cEAN?, xProd, NCM, CEST?, CFOP, uCom, qCom, vUnCom, vProd, vDesc?, vOutro?, icms, pis, cofins, ibscbs? }]
  * @param {object} [d.transp]  { modFrete?, transporta?:{ CNPJ|CPF, xNome, IE?, xEnder?, xMun?, UF? } } — sem ele, modFrete 9
@@ -268,7 +268,7 @@ export function montarXmlNFe(d = {}) {
     g("enderEmit", t("xLgr", en.xLgr, { texto: true, max: 60 }) + t("nro", en.nro, { texto: true, max: 60 }) + t("xCpl", en.xCpl, { texto: true, max: 60 }) +
       t("xBairro", en.xBairro, { texto: true, max: 60 }) + t("cMun", en.cMun) + t("xMun", en.xMun, { texto: true, max: 60 }) + t("UF", en.UF) +
       t("CEP", somenteDig(en.CEP)) + t("cPais", "1058") + t("xPais", "Brasil") + t("fone", en.fone ? somenteDig(en.fone) : "")) +
-    t("IE", e.IE) + t("CRT", e.CRT));
+    t("IE", e.IE) + t("CNAE", e.CNAE) + t("CRT", e.CRT));
 
   // Destinatário (opcional na NFC-e)
   let destXml = "";

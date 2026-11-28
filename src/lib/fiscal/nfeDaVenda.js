@@ -364,7 +364,9 @@ export function dadosNFeDaVenda({ venda, emitente, documento, modelo, serie, num
       // Entrega a domicílio: venda não presencial (4); indIntermed 1 quando veio de marketplace.
       ...(emEntrega ? { indPres: "4", indIntermed: intermed ? "1" : "0" } : { indPres: "1" }), indFinal: "1" },
     emit: {
-      CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: normalizarInscricaoEstadual(e.inscricaoEstadual), CRT: crt,
+      CNPJ: normalizarDocumentoFiscal(documento), xNome: e.razaoSocial, xFant: e.nomeFantasia, IE: normalizarInscricaoEstadual(e.inscricaoEstadual),
+      // CNAE: não bloqueia a emissão (opcional no leiaute), mas sai na nota quando cadastrado.
+      CNAE: e.cnaePrincipal ? apenasDigitos(e.cnaePrincipal) : undefined, CRT: crt,
       ender: { xLgr: e.logradouro, nro: e.numero, xCpl: e.complemento, xBairro: e.bairro, cMun: apenasDigitos(e.codigoMunicipioIbge), xMun: e.municipio, UF: e.uf, CEP: apenasDigitos(e.cep), fone: apenasDigitos(e.telefoneFiscal) },
     },
     dest: dest.dest,
