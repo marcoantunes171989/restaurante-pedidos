@@ -1,4 +1,4 @@
-import { StrictMode, Component, Suspense, lazy, useState, useEffect, useCallback, useRef } from 'react'
+import { StrictMode, Component, Suspense, lazy, useState, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import PwaExperienceProvider from './components/PwaExperienceProvider.jsx'
@@ -59,74 +59,32 @@ async function registrarBgSync(reg) {
   } catch {}
 }
 
-async function iniciarSW(onAtivado) {
+async function iniciarSW() {
   if (!('serviceWorker' in navigator)) return
   try {
     swReg = await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
 
-    // updatefound: novo SW sendo instalado → ao ficar "installed" (com um
-    // controlador já existente = atualização real), mostra o banner no app.
-    // ATUALIZAÇÃO MANUAL: apenas marca que há versão nova e MOSTRA o banner —
-    // NUNCA recarrega sozinho. O reload só acontece quando o usuário confirma
-    // "Atualizar agora" (o banner envia SKIP_WAITING → controllerchange abaixo).
-    const marcarAtualizacao = () => {
-      onAtivado() // banner de opção manual (o próprio banner decide onde exibir)
-    }
+    const verificarAtualizacao = async () => { await checkUpdate(swReg) }
 
-    const instalacoesObservadas = new WeakSet()
-    const observarInstalacao = (sw) => {
-      if (!sw) return
-      if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-        marcarAtualizacao()
-        return
-      }
-      if (instalacoesObservadas.has(sw)) return
-      instalacoesObservadas.add(sw)
-      sw.addEventListener('statechange', () => {
-        if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-          marcarAtualizacao()
-        }
-      })
-    }
-
-    swReg.addEventListener('updatefound', () => {
-      observarInstalacao(swReg.installing)
-    })
-    observarInstalacao(swReg.installing)
-    // Se já havia um SW aguardando ao abrir (deploy ocorreu com o app fechado)
-    if (swReg.waiting && navigator.serviceWorker.controller) marcarAtualizacao()
-
-    const verificarAtualizacao = async () => {
-      await checkUpdate(swReg)
-      if (swReg?.waiting && navigator.serviceWorker.controller) marcarAtualizacao()
-      else observarInstalacao(swReg?.installing)
-    }
-
-    // controllerchange: o novo SW assumiu o controle. Isso SÓ acontece depois
-    // que o usuário confirma "Atualizar agora" (banner → SKIP_WAITING). Aqui
-    // apenas finalizamos, recarregando o app já com a versão nova.
+    // controllerchange: outro SW assumiu o controle (ciclo de vida padrão do
+    // navegador — acontece sozinho quando todas as abas da versão antiga
+    // fecham). Sem aviso/confirmação manual: só recarrega para já servir a
+    // versão nova.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (recarregando) return
       recarregando = true
       window.location.reload()
     })
 
-    // Mensagens do SW (SW_ATIVADO / SW_UPDATED compat.)
+    // Clique numa notificação push: abre a tela certa sem recarregar o app.
     navigator.serviceWorker.addEventListener('message', (e) => {
       if (!e.data) return
-      if (e.data.type === 'SW_ATIVADO' || e.data.type === 'SW_UPDATED') {
-        marcarAtualizacao()
-      }
-      // Clique numa notificação push: abre a tela certa sem recarregar o app.
       if (e.data.type === 'NOTIFICACAO_CLICADA' && typeof e.data.rota === 'string' && e.data.rota.startsWith('/')) {
         const noSistema = /^\/(login|app|sistema|admin|operacional)(\/|$)/.test(window.location.pathname)
         if (noSistema) solicitarNavegacaoInterna(e.data.rota)
         else window.location.assign(e.data.rota)
       }
     })
-
-    // Não recarrega ao voltar/focar — a atualização é SEMPRE manual. O
-    // re-exibir do banner ao voltar ao app é tratado no próprio PwaUpdateBanner.
 
     await verificarAtualizacao()
     setInterval(verificarAtualizacao, CHECK_INTERVAL_MS)
@@ -149,7 +107,7 @@ async function iniciarSW(onAtivado) {
   } catch {
     if (retryCount < MAX_RETRIES) {
       retryCount++; clearTimeout(retryTimer)
-      retryTimer = setTimeout(() => iniciarSW(onAtivado), RETRY_INTERVAL_MS)
+      retryTimer = setTimeout(() => iniciarSW(), RETRY_INTERVAL_MS)
     }
   }
 }
@@ -157,8 +115,6 @@ async function iniciarSW(onAtivado) {
 // ── Root ─────────────────────────────────────────────────────
 function Root() {
   const [path, setPath]         = useState(window.location.pathname)
-  const [swAtivado, setSwAtivado] = useState(false)
-  const notifiedRef             = useRef(false)
   const ehSistema               = /^\/(login|app|sistema|admin|operacional)(\/|$)/.test(path)
   const ehCardapio              = /^\/cardapio(\/|$)/.test(path)
   // Usuário autenticado nunca cai na landing pelo "voltar": qualquer rota
@@ -195,11 +151,7 @@ function Root() {
       }
       return
     }
-    iniciarSW(() => {
-      if (notifiedRef.current) return
-      notifiedRef.current = true
-      setSwAtivado(true)
-    })
+    iniciarSW()
   }, [])
 
   // ── Campo focado sempre visível acima do teclado (todo o projeto) ───────────
@@ -287,7 +239,7 @@ function Root() {
       <Suspense fallback={<Abrindo />}>
         {(ehSistema || sessaoAtiva) ? <App /> : <LandingPage navigate={navigate} />}
       </Suspense>
-      <PwaExperienceProvider swAtivado={swAtivado} />
+      <PwaExperienceProvider />
     </>
   )
 }
