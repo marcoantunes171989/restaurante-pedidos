@@ -2,29 +2,44 @@
  * Filtro de período único do sistema: botões lado a lado em telas largas e,
  * no celular, um botão que abre as opções em uma folha na parte de baixo.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { CalendarDays, Check, ChevronDown, X } from "lucide-react";
 import { PERIODOS, hojeISO, rotuloPeriodoSelecionado } from "../lib/periodos.js";
+import { useBodyScrollLock } from "../lib/useBodyScrollLock.js";
 
-const CAMPO = "pdv-toque mt-1 min-h-10 w-full min-w-0 rounded-xl border border-[#D8E0E5] bg-white px-3 text-sm font-semibold text-[#012E46] outline-none focus:border-[#012E46]";
-const ROTULO = "min-w-0 text-[11px] font-semibold uppercase tracking-wide text-[#667085]";
+const CAMPO = "pdv-toque mt-1 block min-h-10 w-full min-w-0 rounded-xl border border-[#D8E0E5] bg-white px-3 text-sm font-semibold text-[#012E46] outline-none focus:border-[#012E46]";
+const ROTULO = "block min-w-0 text-[11px] font-semibold uppercase tracking-wide text-[#667085]";
 
+// Rótulo e campo como irmãos (mesmo padrão dos formulários do admin, ex.:
+// LojaCadastroModal), não um dentro do outro — evita que o campo de data
+// herde layout de texto em linha e "desconfigure" ao abrir o seletor nativo
+// no celular.
 function Datas({ ini, fim, onIni, onFim }) {
   const hoje = hojeISO();
+  const idIni = useId();
+  const idFim = useId();
   return (
     <div className="grid grid-cols-2 gap-2">
-      <label className={ROTULO}>De
-        <input type="date" value={ini} max={fim || hoje} onChange={(e) => onIni(e.target.value)} className={CAMPO} />
-      </label>
-      <label className={ROTULO}>Até
-        <input type="date" value={fim} min={ini || undefined} max={hoje} onChange={(e) => onFim(e.target.value)} className={CAMPO} />
-      </label>
+      <div className="min-w-0">
+        <label htmlFor={idIni} className={ROTULO}>De</label>
+        <input id={idIni} type="date" value={ini} max={fim || hoje} onChange={(e) => onIni(e.target.value)} className={CAMPO} />
+      </div>
+      <div className="min-w-0">
+        <label htmlFor={idFim} className={ROTULO}>Até</label>
+        <input id={idFim} type="date" value={fim} min={ini || undefined} max={hoje} onChange={(e) => onFim(e.target.value)} className={CAMPO} />
+      </div>
     </div>
   );
 }
 
 export default function FiltroPeriodo({ valor, onMudar, ini = "", fim = "", onIni = () => {}, onFim = () => {}, semDatas = false, className = "" }) {
   const [aberto, setAberto] = useState(false);
+
+  // Trava a rolagem do fundo enquanto a folha está aberta no celular (mesmo
+  // padrão de OrderActionsMenu/NotificationBell) — sem isso, o fundo podia
+  // rolar por baixo da folha ao tocar no campo de data, "desconfigurando"
+  // a tela (o dado nativo de data disputa espaço com um fundo que ainda rola).
+  useBodyScrollLock(aberto);
 
   useEffect(() => {
     if (!aberto) return undefined;
@@ -67,7 +82,7 @@ export default function FiltroPeriodo({ valor, onMudar, ini = "", fim = "", onIn
       {aberto && (
         <div className="fixed inset-0 z-[130] flex items-end justify-center bg-[#012E46]/45 lg:hidden" onClick={() => setAberto(false)} role="presentation">
           <div role="dialog" aria-modal="true" aria-label="Escolher período" onClick={(e) => e.stopPropagation()}
-            className="pp-folha w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
+            className="pp-folha max-h-[85dvh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-base font-semibold text-[#012E46]">Período</p>
               <button type="button" onClick={() => setAberto(false)} aria-label="Fechar" className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#E1E7EB] text-[#012E46]"><X className="h-4 w-4" aria-hidden="true" /></button>
