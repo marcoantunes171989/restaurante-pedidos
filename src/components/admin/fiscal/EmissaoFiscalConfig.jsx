@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FileSignature, KeyRound, ListOrdered, CreditCard } from "lucide-react";
 import {
   buscarEmitenteFiscal, resumoCredenciaisFiscais, listarSeriesFiscais, salvarSerieFiscal,
   buscarConfigFiscalVenda, salvarConfigFiscalVenda, enviarCredencialFiscal, arquivoParaBase64, testarConexaoSefaz,
@@ -259,7 +260,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
       <ProntidaoProducao resultado={prontidao} />
 
       <section className={cartao} aria-labelledby="emissao-cert">
-        <h3 id="emissao-cert" className="text-[15px] font-bold text-[var(--pp-text)]">Certificado digital A1</h3>
+        <h3 id="emissao-cert" className="flex items-center gap-2 text-[15px] font-bold text-[var(--pp-text)]"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06] text-[#012E46]" aria-hidden="true"><FileSignature size={16} /></span>Certificado digital A1</h3>
         <p className={`mt-1 text-[13px] font-semibold ${TOM[sc.estado]}`}>{sc.texto}</p>
         {cert && <p className="text-[12px] text-[var(--pp-text-muted)]">{cert.titular}</p>}
         <form onSubmit={enviarCertificado} className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -294,7 +295,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
       </section>
 
       <section className={cartao} aria-labelledby="emissao-csc">
-        <h3 id="emissao-csc" className="text-[15px] font-bold text-[var(--pp-text)]">CSC da NFC-e (código de segurança da SEFAZ)</h3>
+        <h3 id="emissao-csc" className="flex items-center gap-2 text-[15px] font-bold text-[var(--pp-text)]"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06] text-[#012E46]" aria-hidden="true"><KeyRound size={16} /></span>CSC da NFC-e (código de segurança da SEFAZ)</h3>
         <ul className="mt-1 text-[13px] text-[var(--pp-text-body)]">
           {AMBIENTES.map(([v, r]) => {
             const c = cscDe(v);
@@ -323,7 +324,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
       </section>
 
       <section className={cartao} aria-labelledby="emissao-series">
-        <h3 id="emissao-series" className="text-[15px] font-bold text-[var(--pp-text)]">Séries e numeração</h3>
+        <h3 id="emissao-series" className="flex items-center gap-2 text-[15px] font-bold text-[var(--pp-text)]"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06] text-[#012E46]" aria-hidden="true"><ListOrdered size={16} /></span>Séries e numeração</h3>
         {series.length === 0
           ? <p className="mt-1 text-[13px] text-[var(--pp-text-muted)]">Nenhuma série cadastrada.</p>
           : (
@@ -372,7 +373,7 @@ export default function EmissaoFiscalConfig({ supabase, lojaInfo, formasPagament
       </section>
 
       <section className={cartao} aria-labelledby="emissao-pag">
-        <h3 id="emissao-pag" className="text-[15px] font-bold text-[var(--pp-text)]">Pagamentos e taxa de serviço na nota</h3>
+        <h3 id="emissao-pag" className="flex items-center gap-2 text-[15px] font-bold text-[var(--pp-text)]"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#012E46]/[0.06] text-[#012E46]" aria-hidden="true"><CreditCard size={16} /></span>Pagamentos e taxa de serviço na nota</h3>
         <p className="mt-1 text-[12px] text-[var(--pp-text-muted)]">Código de 2 dígitos da tabela oficial de meios de pagamento (Informe Técnico ENCAT). Confirme com o contador.</p>
         <form onSubmit={salvarPagamentos} className="mt-3 space-y-3">
           {formas.length === 0 && <p className="text-[13px] text-[var(--pp-text-muted)]">Nenhuma forma de pagamento ativa.</p>}
